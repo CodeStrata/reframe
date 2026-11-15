@@ -645,7 +645,17 @@ def next_step(project):
     if stage == 'PACKAGED': return 'Inspect the generated package and its deferred work boundaries.'
     if stage == 'SPECIFICATIONS_APPROVED': return 'reframe package'
     if stage == 'AWAITING_SPECIFICATIONS_APPROVAL': return 'Review the HTML, then reframe approve specifications'
-    if stage == 'VALIDATION_APPROVED': return 'reframe review-site'
+    if stage == 'VALIDATION_APPROVED':
+        saved = project.get('decisions') or {}
+        placeholder = next((app.instructional_placeholder(record.get('answer'))
+                            for record in saved.values() if isinstance(record, dict)), None)
+        if not placeholder:
+            placeholder = app.instructional_placeholder(((project.get('approvals') or {}).get('validation') or {}).get('note'))
+        if placeholder:
+            return ('Decision or approval text still contains ' + placeholder + '. '
+                    'reframe decide --placeholders --amend --confirm --by NAME --answer RATIONALE --disposition deferred. '
+                    'That keeps the previous answers and clears validation approval. Then approve validation with a real note.')
+        return 'reframe review-site'
     if stage == 'AWAITING_VALIDATION_APPROVAL':
         recorded = project.get('framework_commit')
         if isinstance(recorded, str) and recorded != app.git(app.FRAMEWORK, 'rev-parse', 'HEAD'):

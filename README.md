@@ -178,6 +178,19 @@ reframe --workspace /path/to/private-poc review-site
 
 The upgrade keeps the specification, its review hash, the checkpoints, the assessment approval, the saved decisions, and the call count. It records the revision only when the preparation prompts are unchanged. A checkout that changes those prompts is refused, including with `--adopt-prompts`, because the reviewed specification stays bound to the saved prompt hash. Use the matching checkout or start a new workspace. `decide --open` records only questions that have no decision. Do not `resume`, and do not amend saved rationales unless you pass `--amend --confirm`. `review-site` is the wireframe provider call and runs only after validation approval.
 
+`YOUR_REASON`, `YOUR_APPROVAL_RATIONALE`, `YOUR_NAME`, and `YOUR_NOTE` are rejected. A saved run that already used those tokens replaces them explicitly:
+
+```bash
+reframe --workspace /path/to/private-poc decide --placeholders --amend --confirm --by NAME --answer RATIONALE --disposition deferred
+reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc approve validation --by NAME --note RATIONALE
+reframe --workspace /path/to/private-poc review-site
+```
+
+The saved wireframe counter is not lowered just because `screens.json` is absent. An empty `previews/business-1` does not prove the provider was skipped. `recover-ui-call --confirm --note WHY` releases only a reservation the controller recorded before dispatch, with no provider receipt and no spending change. A failed reply, invalid reply, or dispatched call without a receipt stays counted and needs reconciliation. Receipts, the spending ledger, and earlier audit events stay in place. `review-site` keeps that unexplained count and numbers the next provider call after it.
+
+The amendment keeps every previous answer, the batch history, and the superseded validation approval, then returns the run to `AWAITING_VALIDATION_APPROVAL`. `upgrade-framework` can record this controller revision in that state when the preparation prompts are unchanged. It still refuses a prompt change. `review-site` checks the context budget before it reserves a call or creates an output directory. A request that does not fit is split into explicit stages. References across those stages are kept, conflicting ids are rejected, and the merged screen and API model is checked against the complete specification. A restart uses a saved provider receipt instead of calling again. Do not `resume` into preparation, and do not start an assessment.
+
 A saved correction that does not match the edit contract is rejected before any edit is applied. The same `reframe resume`, and menu 1, continue through that rejection and through one synthesis rework when a retry and the call budget remain. Progress is shown during that invocation. The run stops for a human approval, an exhausted allowance, an evidence failure, or a provider failure. It stops after three invalid candidates and prints the latest error. Another attempt is only:
 
 ```bash

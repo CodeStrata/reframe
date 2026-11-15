@@ -1801,7 +1801,15 @@ class CheckpointTests(unittest.TestCase):
             screen['rule_ids'] = ['R-KEEP']
         for api in screens['apis']:
             api['rule_ids'] = ['R-KEEP']
-        app.review_site(self.work, saved, self.args('review-site'), lambda *_args: screens)
+        sent = {'count': 0}
+
+        def staged_screens(*_args):
+            sent['count'] += 1
+            if sent['count'] > 1:
+                return {'journeys': [], 'screens': [], 'apis': []}
+            return screens
+
+        app.review_site(self.work, saved, self.args('review-site'), staged_screens)
         app.approve(self.work, saved, self.args('approve', 'specifications', '--by', 'Fixture owner', '--note', 'Fixture review'))
         packaged = app.package(self.work, saved)
         with zipfile.ZipFile(packaged['archive']) as archive:
@@ -2337,6 +2345,9 @@ class CheckpointTests(unittest.TestCase):
         project['pipeline'].pop('reason', None)
         project.pop('specification', None)
         project.pop('preparation_report', None)
+        project.pop('pending_action', None)
+        # The saved decisions and review-site action belong to the later approval. This replay stops at the correction.
+        project['decisions'] = {}
         project['stage'] = 'RUNNING_EXECUTOR'
         current = subprocess.run(['git', '-C', str(app.FRAMEWORK), 'rev-parse', 'HEAD'],
                                  capture_output=True, text=True, check=True).stdout.strip()

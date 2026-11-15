@@ -1107,6 +1107,7 @@ def approve(work, project, args):
     require_stage_contract(work, 'approval')
     verify_source(project)
     require(args.by.strip() and args.note.strip(), 'Named human owner and approval rationale required')
+    reject_instructional_placeholder(args.note, 'Approval note')
     if args.phase == 'assessment':
         require(args.label in project['assessments'], 'Select an assessment label')
         require(not project.get('pipeline'), 'Assessment already selected for validation; use a fresh workspace to change baseline')
@@ -1172,7 +1173,14 @@ def selected_question_ids(args, spec, decisions=None):
     if getattr(args, 'questions', None):
         named.extend(part.strip() for part in str(args.questions).split(',') if part.strip())
     use_open = bool(getattr(args, 'open', False))
+    use_placeholders = bool(getattr(args, 'placeholders', False))
     require(not (use_open and named), 'Name question ids or use --open, not both')
+    require(not (use_placeholders and (named or use_open)), 'Use --placeholders by itself when amending instructional rationales')
+    if use_placeholders:
+        saved = decisions or {}
+        named = [item for item, record in saved.items()
+                 if isinstance(record, dict) and instructional_placeholder(record.get('answer'))]
+        return named
     if use_open:
         saved = decisions or {}
         named = [question['id'] for question in spec.get('questions') or []
@@ -1192,15 +1200,17 @@ def decision(work, project, args):
     rationale = str(getattr(args, 'answer', '') or '')
     disposition = getattr(args, 'disposition', None)
     require(owner.strip() and rationale.strip(), 'Decision owner and answer required')
+    reject_instructional_placeholder(rationale, 'Decision rationale')
     require(disposition in {'resolved', 'deferred'}, 'Disposition must be resolved or deferred')
     unknown = [item for item in selected if item not in known]
     require(not unknown, 'Unknown SME question: ' + ', '.join(unknown))
     require(project.get('specification', {}).get('sha256'), 'Complete independent validation first')
     amend = bool(getattr(args, 'amend', False))
+    if getattr(args, 'placeholders', False):
+        require(amend, 'Placeholder decisions are replaced only with --amend --confirm. Existing answers stay unchanged.')
     confirmed = bool(getattr(args, 'confirm', False)) or len(selected) == 1 and not amend
     existing = [item for item in selected if item in project.get('decisions', {})]
     if amend:
-        require(confirmed, 'Confirm a reviewed amendment with --confirm. Existing decisions stay unchanged.')
         missing = [item for item in selected if item not in project.get('decisions', {})]
         require(not missing, 'Amendment names a question with no saved decision')
         targets = list(selected)
@@ -1232,10 +1242,15 @@ def decision(work, project, args):
                           'specification_sha256': project['specification']['sha256'], 'amend': amend})
     batches = project.setdefault('decision_batches', [])
     if any(isinstance(batch, dict) and batch.get('batch_id') == fingerprint for batch in batches):
-        counts = question_counts(work, project)
+        repaired = False
+        if confirmed and not preparation_report_current(work, project):
+            preparation_report(work, project)
+            persist(work, project)
+            repaired = True
+            counts = question_counts(work, project)
         return {'status': project['stage'], 'recorded': 0, 'remaining': counts['remaining'],
                 'skipped': len(selected), 'selected': len(selected), 'scope': scope, 'deferral': note,
-                'unchanged': True}
+                'unchanged': not repaired, 'repaired_report': repaired}
     stamp = time.time()
     snapshot = {
         'decisions': copy.deepcopy(project.get('decisions') or {}),
@@ -1260,8 +1275,14 @@ def decision(work, project, args):
         batches.append({'batch_id': fingerprint, 'question_ids': list(targets), 'disposition': disposition,
                         'by': owner, 'rationale': rationale, 'at': stamp, 'amend': amend,
                         'specification_sha256': project['specification']['sha256']})
-        project['approvals'].pop('validation', None)
-        project['approvals'].pop('specifications', None)
+        for phase in ('validation', 'specifications'):
+            superseded = project['approvals'].get(phase)
+            if isinstance(superseded, dict):
+                project.setdefault('approval_history', []).append({
+                    'phase': phase, 'at': stamp, 'reason': 'decision_amendment',
+                    'approval': copy.deepcopy(superseded),
+                })
+            project['approvals'].pop(phase, None)
         project.pop('site', None)
         require_anchored_export(work, project)
         project['stage'] = 'AWAITING_VALIDATION_APPROVAL'
@@ -2090,6 +2111,266 @@ def site_fingerprint(work, project):
     return digest(site)
 
 
+INSTRUCTIONAL_PLACEHOLDERS = ('YOUR_REASON', 'YOUR_APPROVAL_RATIONALE', 'YOUR_NAME', 'YOUR_NOTE')
+WIREFRAME_CONTEXT_CEILING = 600000
+
+
+def instructional_placeholder(text):
+    """Return the instructional token in a rationale, or nothing when the text is a real answer."""
+    if not isinstance(text, str):
+        return None
+    for token in INSTRUCTIONAL_PLACEHOLDERS:
+        if re.search(r'(?<![A-Z0-9_])' + token + r'(?![A-Z0-9_])', text):
+            return token
+    return None
+
+
+def reject_instructional_placeholder(text, kind):
+    """Stop before a template rationale is stored or sent to a provider."""
+    token = instructional_placeholder(text)
+    if not token:
+        return
+    error = Blocked(kind + ' contains the instructional placeholder ' + token + '.')
+    error.hint = ('Replace ' + token + ' with the rationale you intend to record. '
+                  'Saved placeholder decisions: reframe decide --placeholders --amend --confirm '
+                  '--by NAME --answer RATIONALE --disposition deferred. '
+                  'Then approve validation with a real note.')
+    raise error
+
+
+def reject_saved_placeholders(project):
+    """Stop wireframe generation while a saved rationale is still an instructional placeholder."""
+    for record in (project.get('decisions') or {}).values():
+        if isinstance(record, dict):
+            reject_instructional_placeholder(record.get('answer'), 'Decision rationale')
+    note = ((project.get('approvals') or {}).get('validation') or {}).get('note')
+    reject_instructional_placeholder(note, 'Approval note')
+
+
+def wireframe_limit(project):
+    """The configured context budget, never raised to a larger fixed ceiling."""
+    configured = (project.get('settings') or {}).get('max_context_bytes') or WIREFRAME_CONTEXT_CEILING
+    require(isinstance(configured, int) and not isinstance(configured, bool) and configured > 0,
+            'Context budget is invalid')
+    return min(configured, WIREFRAME_CONTEXT_CEILING)
+
+
+def _wireframe_keep(record, fields):
+    """Copy the fields a wireframe needs and drop empty audit material."""
+    kept = {}
+    for field in fields:
+        value = record.get(field)
+        if value not in (None, '', []):
+            kept[field] = value
+    return kept
+
+
+def wireframe_catalog(spec, decisions):
+    """Behavior, questions, decision status, and evidence links for wireframe generation."""
+    rules, questions, evidence, sections, coverage = [], [], [], [], []
+    for index, rule in enumerate(spec.get('rules') or []):
+        if not isinstance(rule, dict):
+            continue
+        item = _wireframe_keep(rule, ('id', 'statement', 'evidence_status', 'source_path', 'source_anchor'))
+        item['id'] = item.get('id') or ('rule-' + str(index))
+        rules.append(item)
+    for index, question in enumerate(spec.get('questions') or []):
+        if not isinstance(question, dict):
+            continue
+        ident = question.get('id') if isinstance(question.get('id'), str) else 'question-' + str(index)
+        decision = decisions.get(ident) if isinstance(decisions.get(ident), dict) else {}
+        item = _wireframe_keep(question, ('question', 'impact', 'blocks'))
+        item['id'] = ident
+        item['disposition'] = decision.get('disposition') or 'undecided'
+        if isinstance(decision.get('answer'), str) and decision.get('answer').strip():
+            item['answer'] = decision['answer']
+        questions.append(item)
+    for index, record in enumerate(spec.get('assessment_evidence') or []):
+        if not isinstance(record, dict):
+            continue
+        item = _wireframe_keep(record, ('id', 'statement', 'evidence_status', 'source_path', 'source_anchor',
+                                        'assessment_path', 'assessment_anchor'))
+        item['id'] = item.get('id') or ('evidence-' + str(index))
+        evidence.append(item)
+    for key, value in (spec.get('sections') or {}).items():
+        if isinstance(value, dict) and isinstance(value.get('specification'), str) and value['specification'].strip():
+            sections.append({'id': key, 'specification': value['specification']})
+    for index, row in enumerate(spec.get('coverage') or []):
+        if not isinstance(row, dict):
+            continue
+        item = _wireframe_keep(row, ('id', 'kind', 'disposition', 'gaps', 'source_path', 'source_anchor',
+                                     'assessment_path', 'assessment_anchor'))
+        item['id'] = item.get('id') or ('coverage-' + str(index))
+        coverage.append(item)
+    return {'rules': rules, 'questions': questions, 'evidence': evidence, 'sections': sections, 'coverage': coverage}
+
+
+def wireframe_message(spec, stage, count, protocol):
+    """One provider request. Audit timestamps, batch ids, tests, and implementation prompts stay local."""
+    catalog = stage['catalog']
+    sections = {item['id']: {'specification': item['specification']}
+                for item in catalog['sections'] if item['id'] in stage['sections']}
+    return {'protocol': protocol, 'stage': {'index': stage['index'] + 1, 'count': count,
+            'instruction': 'Return journeys, screens, and apis for this stage only. Keep the rule ids named here. Do not answer a deferred decision.'},
+            'decisions': [{'id': item['id'], 'disposition': item['disposition']} for item in catalog['questions']],
+            'specification': {
+                'scope': spec.get('scope'), 'excluded_scope': spec.get('excluded_scope'),
+                'sections': sections,
+                'rules': [item for item in catalog['rules'] if item['id'] in stage['rules']],
+                'questions': [item for item in catalog['questions'] if item['id'] in stage['questions']],
+                'assessment_evidence': [item for item in catalog['evidence'] if item['id'] in stage['evidence']],
+                'coverage': [item for item in catalog['coverage'] if item['id'] in stage['coverage']]}}
+
+
+def wireframe_stages(spec, decisions, limit, protocol=None):
+    """Split a wireframe request into stages that each fit the context budget."""
+    protocol = protocol if protocol is not None else (FRAMEWORK / 'prompts/pipeline/wireframes.md').read_text()
+    catalog = wireframe_catalog(spec, decisions)
+    groups = [('sections', item['id']) for item in catalog['sections']]
+    groups += [('rules', item['id']) for item in catalog['rules']]
+    groups += [('questions', item['id']) for item in catalog['questions']]
+    groups += [('evidence', item['id']) for item in catalog['evidence']]
+    groups += [('coverage', item['id']) for item in catalog['coverage']]
+    stages, current = [], {'index': 0, 'sections': [], 'rules': [], 'questions': [], 'evidence': [], 'coverage': [], 'catalog': catalog}
+
+    def packed(stage, count):
+        return len(json.dumps(wireframe_message(spec, stage, count, protocol)).encode())
+
+    for kind, ident in groups:
+        trial = {key: list(value) if isinstance(value, list) else value for key, value in current.items()}
+        trial[kind] = list(trial[kind]) + [ident]
+        if packed(trial, 99) <= limit:
+            current = trial
+            continue
+        if any(current[key] for key in ('sections', 'rules', 'questions', 'evidence', 'coverage')):
+            current.pop('catalog', None)
+            stages.append(current)
+            current = {'index': len(stages), 'sections': [], 'rules': [], 'questions': [], 'evidence': [],
+                       'coverage': [], 'catalog': catalog, kind: [ident]}
+        else:
+            current = trial
+        if packed(current, 99) > limit:
+            size = packed(current, max(len(stages) + 1, 1))
+            raise Blocked('Wireframe input for ' + str(ident) + ' is ' + str(size)
+                          + ' bytes and the limit is ' + str(limit) + ' bytes. It was not truncated.')
+    if any(current[key] for key in ('sections', 'rules', 'questions', 'evidence', 'coverage')):
+        current.pop('catalog', None)
+        stages.append(current)
+    require(stages, 'Wireframe input has no behavior, questions, or evidence to stage')
+    for stage in stages:
+        require(packed({**stage, 'catalog': catalog}, len(stages)) <= limit,
+                'Wireframe stage does not fit the context budget. It was not truncated.')
+        stage['status'] = 'pending'
+        stage['catalog'] = catalog
+    return stages
+
+
+def merge_wireframe_responses(parts):
+    """Combine stage responses. A repeated screen, API, or journey id is rejected."""
+    merged = {'journeys': [], 'screens': [], 'apis': []}
+    seen = {'journeys': set(), 'screens': set(), 'apis': set()}
+    for part in parts:
+        require(isinstance(part, dict), 'Wireframe stage returned an unexpected response')
+        for key in ('journeys', 'screens', 'apis'):
+            value = part.get(key) or []
+            require(isinstance(value, list), 'Wireframe stage returned an unexpected ' + key)
+            for item in value:
+                require(isinstance(item, dict) and isinstance(item.get('id'), str), 'Wireframe stage item needs an id')
+                require(item['id'] not in seen[key], 'Wireframe stages repeated ' + key + ' id ' + item['id'])
+                seen[key].add(item['id'])
+                merged[key].append(item)
+    return merged
+
+
+def wireframe_stage_files(work, index):
+    """Receipt of a provider reply, and the separate receipt of a provider failure."""
+    root = Path(work) / 'previews' / 'wireframe-stages'
+    return root / ('stage-' + str(index) + '.json'), root / ('stage-' + str(index) + '-failure.json')
+
+
+def reservation_is_pre_dispatch(work, project, stage):
+    """A reservation can be released only when the provider was not invoked and nothing was spent."""
+    if not isinstance(stage, dict) or stage.get('status') != 'reserved' or stage.get('provider_invoked'):
+        return False
+    if not isinstance(stage.get('call'), int) or not isinstance(stage.get('index'), int):
+        return False
+    response, failure = wireframe_stage_files(work, stage['index'])
+    if response.is_file() or failure.is_file():
+        return False
+    spent = (project.get('settings') or {}).get('model_dollars_spent', 0)
+    return stage.get('spent_before') == spent
+
+
+def allocate_wireframe_directory(work, number):
+    """Create the call directory after the request is known to fit. An empty leftover directory can be reused."""
+    root = Path(work) / 'previews'
+    root.mkdir(exist_ok=True, mode=0o700)
+    path = root / ('business-' + str(number))
+    if path.exists():
+        require(path.is_dir() and not any(path.iterdir()), 'Wireframe output directory already has files: ' + path.name)
+    else:
+        path.mkdir(mode=0o700)
+    return path
+
+
+def wireframe_calls_available(project, provider, new_calls, uncharged_calls=0):
+    """Refuse before dispatch when the call cap or dollar cap cannot cover the remaining stages."""
+    cap = kw.call_limit(project['settings'])
+    used = project.get('ui_calls') or 0
+    if cap is not None and used + new_calls > cap:
+        raise Blocked('Wireframe generation needs ' + str(new_calls) + ' provider calls and the call cap has '
+                      + str(max(cap - used, 0)) + ' remaining. No new call was counted.')
+    if provider == 'claude':
+        from reframe_models import claude_uses_api_key
+        if not claude_uses_api_key():
+            return
+    rates = (project.get('settings') or {}).get('model_rates') or {}
+    price = rates.get('wireframes', 0.02)
+    require(isinstance(price, (int, float)) and not isinstance(price, bool) and price > 0, 'Model rate missing for wireframes')
+    spent = (project.get('settings') or {}).get('model_dollars_spent', 0)
+    dollar_cap = (project.get('settings') or {}).get('max_model_dollars', 0)
+    billed = new_calls + uncharged_calls
+    if spent + (price * billed) > dollar_cap:
+        raise Blocked('Wireframe generation needs ' + str(billed) + ' billed calls and the API dollar cap cannot cover them. No new call was counted.')
+
+
+def recover_ui_call(work, project, args):
+    """Release a recorded pre-dispatch reservation. Every other wireframe count stays."""
+    require(bool(getattr(args, 'confirm', False)) and str(getattr(args, 'note', '') or '').strip(),
+            'Confirm the wireframe counter recovery with --confirm and a note')
+    require(not project.get('site'), 'A generated review site records real wireframe usage. The counter was not changed.')
+    stages = (project.get('wireframe_plan') or {}).get('stages') or []
+    reserved = [stage for stage in stages if isinstance(stage, dict) and stage.get('status') == 'reserved']
+    recoverable = [stage for stage in reserved if reservation_is_pre_dispatch(work, project, stage)]
+    if not recoverable or len(recoverable) != len(reserved):
+        raise Blocked('No demonstrable pre-dispatch wireframe reservation is recorded. '
+                      'Missing screens.json does not release a call. Failed, invalid, and uncertain dispatches stay counted. '
+                      'The counter was not changed.')
+    used = project.get('ui_calls') or 0
+    reservation_calls = {stage['call'] for stage in recoverable}
+    highest_kept = 0
+    for call in range(1, used + 1):
+        if call not in reservation_calls:
+            highest_kept = call
+    releasable = [stage for stage in recoverable if stage['call'] > highest_kept]
+    if not releasable:
+        raise Blocked('The recorded reservation is not the last wireframe count. The counter was not changed.')
+    released_calls = sorted(stage['call'] for stage in releasable)
+    for stage in releasable:
+        stage['status'] = 'pending'
+        stage.pop('call', None)
+        stage.pop('provider_invoked', None)
+        stage.pop('spent_before', None)
+    project['ui_calls'] = highest_kept
+    project.setdefault('events', []).append({
+        'event': 'wireframe_counter_recovered', 'at': time.time(), 'from': used, 'to': highest_kept,
+        'reservations': released_calls, 'reason': args.note.strip(),
+    })
+    persist(work, project)
+    return {'status': project['stage'], 'ui_calls': highest_kept, 'released': used - highest_kept,
+            'next_step': 'The pre-dispatch reservation was released. Receipts, spending, and earlier events stay in place.'}
+
+
 def review_site(work, project, args, runtime=None):
     """Ask the wireframe provider for screens and write the inert review HTML."""
     runtime = model_call if runtime is None else runtime
@@ -2101,24 +2382,98 @@ def review_site(work, project, args, runtime=None):
     if project.get('site'):
         site_fingerprint(work, project)
         return {'status': project['stage'], 'html': str(work / project['site']['directory'] / 'index.html')}
+    reject_saved_placeholders(project)
     provider = args.provider or project['providers']['wireframes']
     require(provider in {'claude', 'codex'}, 'Review site provider must be claude or codex')
-    project['ui_calls'] = project.get('ui_calls', 0) + 1
-    require(kw.call_limit(project['settings']) is None or project['ui_calls'] <= kw.call_limit(project['settings']), 'UI invocation budget exhausted')
-    persist(work, project)
-    directory = work / 'previews' / ('business-' + str(project['ui_calls']))
-    directory.parent.mkdir(exist_ok=True, mode=0o700)
-    directory.mkdir(mode=0o700)
-    message = json.dumps({'protocol': (FRAMEWORK / 'prompts/pipeline/wireframes.md').read_text(),
-                          'specification': spec, 'decisions': project['decisions']})
-    require(len(message.encode()) <= max(project['settings']['max_context_bytes'], 600000), 'UI context exceeds budget')
+    protocol = (FRAMEWORK / 'prompts/pipeline/wireframes.md').read_text()
+    limit = wireframe_limit(project)
+    fingerprint = digest({'specification': project['specification']['sha256'], 'decisions': project['decisions'], 'limit': limit})
+    plan = project.get('wireframe_plan') if isinstance(project.get('wireframe_plan'), dict) else None
+    if not plan or plan.get('fingerprint') != fingerprint:
+        require(not plan or all(stage.get('status') == 'pending' for stage in plan.get('stages') or []),
+                'A wireframe plan is already in progress for different inputs. Finish or recover that plan before replacing it.')
+        stages = wireframe_stages(spec, project['decisions'], limit, protocol)
+        for stage in stages:
+            stage.pop('catalog', None)
+        plan = {'fingerprint': fingerprint, 'limit': limit, 'stages': stages}
+        project['wireframe_plan'] = plan
+        persist(work, project)
+    stages = plan['stages']
+    catalog = wireframe_catalog(spec, project['decisions'])
     require_stage_contract(work, 'task')
-    require_dollar_cap(project, 'wireframes', provider)
-    persist(work, project)
-    run = {'settings': project['settings'], 'model_calls': project['ui_calls']}
-    screens = runtime(provider, run, directory, 'wireframes', message)
-    verify_source(project)
-    validate_screens(screens, spec)
+    new_calls = sum(1 for stage in stages if stage.get('status') == 'pending')
+    uncharged = sum(1 for stage in stages if reservation_is_pre_dispatch(work, project, stage))
+    wireframe_calls_available(project, provider, new_calls, uncharged)
+    stage_dir = Path(work) / 'previews' / 'wireframe-stages'
+    for stage in stages:
+        response_path, failure_path = wireframe_stage_files(work, stage.get('index'))
+        status = stage.get('status')
+        if status == 'validated':
+            continue
+        if status == 'failed' or failure_path.is_file():
+            saved_error = read(failure_path).get('error') if failure_path.is_file() else stage.get('error')
+            raise Blocked('Wireframe call ' + str(stage.get('call')) + ' failed and stays counted. ' + str(saved_error or ''))
+        if status == 'invalid':
+            raise Blocked('Wireframe call ' + str(stage.get('call')) + ' returned invalid output and stays counted.')
+        if status == 'dispatched' and not response_path.is_file():
+            raise Blocked('Wireframe call ' + str(stage.get('call'))
+                          + ' was dispatched and has no provider receipt. The counter stays. '
+                          + 'Reconcile this call before generation continues.')
+        if status in {'received', 'complete'} or response_path.is_file():
+            stage['status'] = 'received'
+            stage['provider_invoked'] = True
+            persist(work, project)
+            continue
+        stage['catalog'] = catalog
+        message = json.dumps(wireframe_message(spec, stage, len(stages), protocol))
+        stage.pop('catalog', None)
+        require(len(message.encode()) <= limit, 'Wireframe stage does not fit the context budget. It was not truncated.')
+        if status == 'pending':
+            project['ui_calls'] = (project.get('ui_calls') or 0) + 1
+            stage.update(status='reserved', call=project['ui_calls'], provider_invoked=False,
+                         spent_before=(project.get('settings') or {}).get('model_dollars_spent', 0))
+            persist(work, project)
+            status = 'reserved'
+        if status == 'reserved':
+            if not reservation_is_pre_dispatch(work, project, stage):
+                raise Blocked('Wireframe call ' + str(stage.get('call'))
+                              + ' is no longer a pre-dispatch reservation. The counter stays.')
+            require_dollar_cap(project, 'wireframes', provider)
+            stage['status'] = 'dispatched'
+            persist(work, project)
+            allocate_wireframe_directory(work, stage['call'])
+        stage_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        call_dir = Path(work) / 'previews' / ('business-' + str(stage['call']))
+        run = {'settings': project['settings'], 'model_calls': stage['call']}
+        try:
+            screens = runtime(provider, run, call_dir, 'wireframes', message)
+        except Exception as error:
+            write(failure_path, {'error': str(error), 'type': type(error).__name__})
+            stage.update(status='failed', provider_invoked=True, error=str(error))
+            persist(work, project)
+            raise
+        if not isinstance(screens, dict):
+            write(response_path, {'raw': str(screens)})
+            stage.update(status='invalid', provider_invoked=True)
+            persist(work, project)
+            raise Blocked('Wireframe call ' + str(stage['call']) + ' returned invalid output and stays counted.')
+        write(response_path, screens)
+        stage.update(status='received', provider_invoked=True)
+        persist(work, project)
+    parts = []
+    for stage in stages:
+        response_path, _failure_path = wireframe_stage_files(work, stage.get('index'))
+        require(stage.get('status') != 'invalid' and response_path.is_file(),
+                'Wireframe call ' + str(stage.get('call')) + ' has no usable receipt. The counter stays.')
+        parts.append(read(response_path))
+    try:
+        screens = merge_wireframe_responses(parts)
+        verify_source(project)
+        validate_screens(screens, spec)
+    except Blocked:
+        persist(work, project)
+        raise
+    directory = Path(work) / 'previews' / ('business-' + str(stages[-1]['call']))
     write(directory / 'screens.json', screens)
     write(directory / 'api-contracts.json', screens['apis'])
     from reframe_artifacts import openapi_document, provider_usage, render_api_page, render_usage_page
@@ -2131,9 +2486,12 @@ def review_site(work, project, args, runtime=None):
     project['site'] = {'directory': str(directory.relative_to(work)), 'specification': project['specification']['sha256'],
                        'decisions': digest(project['decisions']), 'provider': provider,
                        'files': {p: sha(directory / p) for p in ('screens.json', 'index.html', 'api-contracts.json', 'openapi.json', 'api.html', 'usage.html')}}
+    for stage in stages:
+        stage['status'] = 'validated'
     project['stage'] = 'AWAITING_SPECIFICATIONS_APPROVAL'
     persist(work, project)
-    return {'status': project['stage'], 'html': str(directory / 'index.html')}
+    return {'status': project['stage'], 'html': str(directory / 'index.html'), 'wireframe_stages': len(stages),
+            'ui_calls': project.get('ui_calls') or 0}
 
 
 def feedback(work, project, args):
@@ -2528,6 +2886,7 @@ def parser():
     d.add_argument('--question', help='One SME question id')
     d.add_argument('--questions', help='Comma-separated SME question ids')
     d.add_argument('--open', action='store_true', help='Select every SME question that has no saved decision')
+    d.add_argument('--placeholders', action='store_true', help='Amend saved decisions whose rationale is an instructional placeholder')
     d.add_argument('--confirm', action='store_true', help='Write the batch after the count and scope have been reviewed')
     d.add_argument('--amend', action='store_true', help='Replace saved decisions and keep the previous answers in history')
     d.add_argument('--by', required=True)
@@ -2535,6 +2894,9 @@ def parser():
     d.add_argument('--disposition', choices=['resolved', 'deferred'], required=True)
     u = commands.add_parser('review-site')
     u.add_argument('--provider', choices=['claude', 'codex'])
+    recover_counter = commands.add_parser('recover-ui-call', help='Release a recorded pre-dispatch wireframe reservation')
+    recover_counter.add_argument('--confirm', action='store_true')
+    recover_counter.add_argument('--note', required=True)
     f = commands.add_parser('feedback')
     f.add_argument('--unit', help='Blocked evidence unit to revise; passed units remain sealed')
     f.add_argument('--authorize-correction', action='store_true',
@@ -2702,6 +3064,7 @@ def main(argv=None, reporter=None):
                     elif args.command == 'validate': result = pipeline(work, project, args)
                     elif args.command == 'decide': result = decision(work, project, args)
                     elif args.command == 'review-site': result = review_site(work, project, args)
+                    elif args.command == 'recover-ui-call': result = recover_ui_call(work, project, args)
                     elif args.command == 'feedback': result = feedback(work, project, args)
                     elif args.command == 'package': result = package(work, project)
                     elif args.command == 'context':

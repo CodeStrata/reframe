@@ -366,7 +366,7 @@ class Terminal:
             path=Path(self.ask('Existing private workspace path')).expanduser().resolve()
             require((path/'project.json').is_file(),'No saved project at that path')
             select_workspace(path);self.dashboard();return True
-        if cmd not in {'init','assess','resume','compare','approve','preview', 'relocate','prepare-plan','model-budget','validate','review-site','package','decide','feedback','upgrade-framework','context','design-export','package-export','register-project'}:
+        if cmd not in {'init','assess','resume','compare','approve','preview', 'relocate','prepare-plan','model-budget','validate','review-site','package','decide','feedback','upgrade-framework','recover-ui-call','context','design-export','package-export','register-project'}:
             self.say('Unknown command. Type /help or choose a menu number.','yellow');return True
         if cmd=='compare' and not args:
             args=['--left',self.ask('First assessment label'),'--right',self.ask('Second assessment label')]

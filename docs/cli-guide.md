@@ -454,6 +454,19 @@ reframe --workspace /path/to/private-poc review-site
 
 `decide --open` records only questions without decisions. Do not `resume` this run, and do not amend a saved rationale unless the command includes `--amend --confirm`. `review-site` calls the wireframe provider and runs only after the explicit validation approval. It does not restart a checkpoint or create an assessment.
 
+`YOUR_REASON`, `YOUR_APPROVAL_RATIONALE`, `YOUR_NAME`, and `YOUR_NOTE` are rejected in a decision rationale or an approval note. When those tokens are already saved, replace them and then approve validation again:
+
+```bash
+reframe --workspace /path/to/private-poc decide --placeholders --amend --confirm --by NAME --answer RATIONALE --disposition deferred
+reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc approve validation --by NAME --note RATIONALE
+reframe --workspace /path/to/private-poc review-site
+```
+
+Do not lower `ui_calls` because `screens.json` is missing. The saved empty `previews/business-1` directory is ambiguous: it does not show whether a provider call was attempted. `recover-ui-call --confirm --note WHY` releases only a controller reservation whose status is still `reserved`, whose provider was not invoked, and whose spending total is unchanged. It appends `wireframe_counter_recovered` and leaves receipts, the spending ledger, and older events in place. A failed provider reply, an invalid reply, and a dispatch with no receipt stay counted. Those states need reconciliation; the command refuses them. `review-site` keeps an unexplained count and assigns the next call after it.
+
+The amendment stores the previous answers, the batch, and the superseded validation approval, and it clears that approval. The run returns to `AWAITING_VALIDATION_APPROVAL`, so `upgrade-framework` can record a controller revision whose preparation prompts are unchanged. A prompt change is still refused. `review-site` checks each stage against the context budget before reserving its call. Stages keep screen and API references that point at other stages. A repeated screen, API, or journey id is rejected. The merged model is validated against the complete specification. A saved provider receipt is reused on restart, without a second call and without reducing the counter. Do not `resume` into preparation, and do not start an assessment.
+
 ```bash
 reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix" --adopt-prompts
 reframe --workspace /path/to/private-poc status
