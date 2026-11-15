@@ -160,18 +160,37 @@ class Terminal:
             return
         from reframe import budget_summary
         summary = budget_summary(project, root)
-        lines = ['State  ' + str(project.get('stage', 'UNKNOWN')).replace('_', ' ')]
+        phase = str(project.get('stage', 'UNKNOWN'))
+        lines = ['Phase  ' + phase.replace('_', ' ')]
         call_cap = 'no call cap' if summary['preparation_cap'] is None else 'cap ' + str(summary['preparation_cap'])
         lines.append('Preparation calls  ' + str(summary['preparation_calls']) + ' with ' + call_cap)
         lines.append('Completed units  ' + str(summary.get('completed_units', 0)) + '  Remaining units  ' + str(summary.get('remaining_units', 0)))
         lines.append('Wireframe calls  ' + str(summary['wireframe_calls']) + ' with ' + ('no call cap' if summary['wireframe_cap'] is None else 'cap ' + str(summary['wireframe_cap'])))
         lines.append('Skip-draft calls  ' + str(summary['skip_draft_calls'])
                      + '  Failed attempts  ' + str(summary.get('skip_failures', 0)) + ' of limit ' + str(summary.get('skip_failure_limit', 3)))
-        lines.append('Measured model dollars  ' + str(summary['dollars_measured']) + ' of cap ' + str(summary['dollar_cap']))
+        lines.append(reframe.spend_text(summary))
         if summary.get('next_call_estimate') is not None:
-            lines.append('Estimated next billed call  ' + str(summary['next_call_estimate']))
+            lines.append('Estimated next billed call  ' + str(summary['next_call_estimate']) + '. This estimate is not measured spend.')
         label = progress.get('active_assessment') or 'none'
-        lines.append('Assessment  ' + str(label) + '  ' + str(progress.get('saved_status') or 'not started'))
+        service = str(progress.get('saved_status') or 'not started')
+        lines.append('Saved assessment service state  ' + str(label) + '  ' + service)
+        approved = 'recorded' if (project.get('approvals') or {}).get('assessment') else 'not recorded'
+        lines.append('Assessment approval  ' + approved)
+        if approved == 'recorded' and phase != 'AWAITING_ASSESSMENT_APPROVAL' and service == 'AWAITING_ASSESSMENT_APPROVAL':
+            lines.append('Historical service record. It is not the current blocker.')
+        try:
+            from reframe import question_counts
+            counts = question_counts(root, project) if project.get('specification') else None
+        except (Blocked, OSError, ValueError, KeyError):
+            counts = None
+        if counts:
+            lines.append('Questions  total ' + str(counts['total']) + '  answered ' + str(counts['answered'])
+                         + '  deferred ' + str(counts['deferred']) + '  remaining ' + str(counts['remaining']))
+        from reframe_setup import next_step
+        lines.append('Required action  ' + next_step(project))
+        last = getattr(self, 'last_action', None)
+        if last:
+            lines.append('Last action  ' + str(last))
         lines.append('Watcher  already staying with this job' if owned else 'Watcher  not running')
         steps = progress.get('steps') or []
         if steps:
@@ -210,6 +229,11 @@ class Terminal:
 
     def report(self, result):
         """Print a command result. Paths stay hidden while privacy is on."""
+        if result.get('status') == 'CANCELLED':
+            self.last_report = dict(result)
+            self.last_action = 'Last action cancelled; saved progress retained'
+            self.say(self.last_action)
+            return
         state=clean(result.get('status','RESULT'))
         failed=state in {'BLOCKED','REWORK_LIMIT','ASSESSMENT_FAILED','NEEDS_RECONCILIATION','SETUP_INCOMPLETE','CANCELLED'}
         table=Table.grid(padding=(0,2));table.add_column(style='bold');table.add_column(overflow='fold')
@@ -272,8 +296,30 @@ class Terminal:
         if self.private:
             self.say('Artifact paths are hidden. Use /privacy if you want to reveal them locally.','yellow');return
         root=workspace()
-        allowed=['reports/index.html','runs/*/assessment-review.html','previews/*/handoff/index.html','previews/*/index.html','packages/**/*.zip','preparation/candidate-*.json','preparation/review-*.json','review-site-*/index.html','package-*.zip','comparison-*.json']
-        paths=sorted({str(p.relative_to(root)) for pattern in allowed for p in root.glob(pattern) if p.is_file() and not p.is_symlink()})
+        allowed=['reports/index.html','runs/*/assessment-review.html','previews/*/handoff/index.html','previews/*/index.html','packages/**/*.zip','preparation/candidate-*.json','preparation/review-*.json','preparation/checkpoint-candidate-*.json','preparation/checkpoint-review-*.json','review-site-*/index.html','package-*.zip','comparison-*.json']
+        paths=set()
+        for pattern in allowed:
+            for path in root.glob(pattern):
+                if path.is_file() and not path.is_symlink():
+                    paths.add(str(path.relative_to(root)))
+        try:
+            from reframe import read
+            project = read(root / 'project.json')
+        except (OSError, ValueError, KeyError):
+            project = {}
+        recorded = []
+        specification = project.get('specification') or {}
+        recorded.extend(specification.get(key) for key in ('path', 'review_path'))
+        for unit in ((project.get('checkpoints') or {}).get('units') or {}).values():
+            if isinstance(unit, dict):
+                recorded.extend(unit.get(key) for key in ('candidate_path', 'review_path'))
+        for relative in recorded:
+            if not isinstance(relative, str) or not relative:
+                continue
+            path = root / relative
+            if path.is_file() and not path.is_symlink():
+                paths.add(str(path.relative_to(root)))
+        paths=sorted(paths)
         for path in paths:self.say(path)
         if not paths:self.say('No preparation or review outputs yet.')
 
@@ -291,7 +337,9 @@ class Terminal:
             return True
         if cmd=='privacy':
             self.private=not self.private
-            if self.last_report:
+            if self.last_report and self.last_report.get('status') == 'CANCELLED':
+                self.say('Last action cancelled; saved progress retained')
+            elif self.last_report:
                 self.report(self.last_report)
             self.show_status()
             return True

@@ -646,7 +646,10 @@ def next_step(project):
     if stage == 'SPECIFICATIONS_APPROVED': return 'reframe package'
     if stage == 'AWAITING_SPECIFICATIONS_APPROVAL': return 'Review the HTML, then reframe approve specifications'
     if stage == 'VALIDATION_APPROVED': return 'reframe review-site'
-    if stage == 'AWAITING_VALIDATION_APPROVAL': return 'Record SME decisions, then reframe approve validation'
+    if stage == 'AWAITING_VALIDATION_APPROVAL':
+        return ('Record SME decisions, then reframe approve validation. '
+                'Menu 1 can defer every open question in one confirmed batch. '
+                'A deferral is not an answer. Affected implementation remains blocked.')
     if stage == 'REWORK_LIMIT':
         checkpoints = project.get('checkpoints') or {}
         state = project.get('pipeline') or {}
@@ -678,8 +681,13 @@ def prepare_command(args, work, project):
         if not args.label:
             review_stages = {'ASSESSMENT_APPROVED', 'PREPARATION_PLANNED', 'REVISION_PENDING',
                              'RUNNING_EXECUTOR', 'RUNNING_REVIEWER', 'REWORK_LIMIT', 'WAITING_FOR_RUNTIME'}
+            human_gates = {'AWAITING_ASSESSMENT_APPROVAL', 'AWAITING_VALIDATION_APPROVAL',
+                           'AWAITING_SPECIFICATIONS_APPROVAL', 'VALIDATION_APPROVED', 'SPECIFICATIONS_APPROVED',
+                           'PACKAGED', 'PROVIDER_REVIEW_REQUIRED', 'BLOCKED'}
             continuing_review = args.command == 'resume' and project.get('pipeline') and project.get('stage') in review_stages
-            if args.command == 'resume' and not continuing_review:
+            if args.command == 'resume' and project.get('stage') in human_gates:
+                args.label = project.get('active_assessment')
+            elif args.command == 'resume' and not continuing_review:
                 require(project.get('active_assessment'), 'No active assessment to resume; use reframe assess')
                 args.label = project['active_assessment']
             elif args.command == 'resume':

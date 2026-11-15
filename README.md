@@ -151,29 +151,33 @@ reframe status
 git checkout main
 git pull origin main
 uv tool install --force --reinstall --managed-python --python 3.12 --editable .
-reframe upgrade-framework --note "Record the reviewed controller fix"
-reframe status
-reframe resume
+reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc status
+reframe --workspace /path/to/private-poc resume
 ```
 
-`upgrade-framework` records this checkout. A prompt migration recorded for an earlier revision does not authorize this one. When the preparation prompts also changed, the upgrade writes nothing and `resume` reports `Run pin changed: prompt_hash`. Adopt the prompts explicitly, then resume:
+`upgrade-framework` records this checkout. A prompt migration recorded for an earlier revision does not authorize this one. Run the upgrade command without `--adopt-prompts`. If its response is `Preparation prompts changed. The upgrade was not recorded.`, repeat that same command with `--adopt-prompts` and the same note. Do not add `--adopt-prompts` for any other response. This release does not change the preparation prompts.
 
 ```bash
-reframe upgrade-framework --note "Adopt the preparation prompt changes for this saved review" --adopt-prompts
-reframe status
-reframe resume
+reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix" --adopt-prompts
+reframe --workspace /path/to/private-poc status
+reframe --workspace /path/to/private-poc resume
 ```
 
-That records the old and new prompt hashes for the calls and passed units already saved, then lets the saved review continue. It does not restart the assessment or the passed units.
+That records the old and new prompt hashes for the calls and passed units already saved, then lets the saved review continue. It does not restart the assessment or the passed units. `upgrade-framework` refuses once a specification or a downstream approval exists. For a run already waiting on validation, use `--workspace` with `status`, then `decide --open --confirm` for questions that have no decision, then an explicit `approve validation`. Do not `resume` into a provider call, and do not amend saved rationales unless you pass `--amend --confirm`.
 
-A saved correction that does not match the edit contract is rejected before any edit is applied. The same `reframe resume` sends the validation result and the exact JSON contract when a retry and call budget remain. It stops after three invalid candidates and prints the latest error. Another attempt is only:
+A saved correction that does not match the edit contract is rejected before any edit is applied. The same `reframe resume`, and menu 1, continue through that rejection and through one synthesis rework when a retry and the call budget remain. Progress is shown during that invocation. The run stops for a human approval, an exhausted allowance, an evidence failure, or a provider failure. It stops after three invalid candidates and prints the latest error. Another attempt is only:
 
 ```bash
-reframe feedback --authorize-correction --by NAME --note WHY
-reframe resume
+reframe --workspace /path/to/private-poc feedback --authorize-correction --by NAME --note WHY
+reframe --workspace /path/to/private-poc resume
 ```
 
-Plain `resume` does not reset that count. Passed units stay sealed, and no assessment job is created. This controller change does not change the preparation prompts. Use `--adopt-prompts` only when `resume` reports `Run pin changed: prompt_hash`.
+Plain `resume` does not reset that count. Passed units stay sealed, and no assessment job is created. This controller change does not change the preparation prompts. Add `--adopt-prompts` only when `upgrade-framework` responds `Preparation prompts changed. The upgrade was not recorded.`
+
+`reframe status` separates the project phase, the saved assessment service state, whether assessment approval is recorded, the last local action, and the required human action. A historical `AWAITING_ASSESSMENT_APPROVAL` service record is not the current blocker after assessment approval, while validation is still pending. Question counts are total, answered, deferred, and remaining. Deferral is not an answer, and the affected implementation stays blocked. Menu 1 records every still-open question in one confirmed batch and leaves saved decisions unchanged. A reviewed change to a saved decision uses `reframe decide --amend --confirm` and keeps the previous answer.
+
+Tracked API spend is the local ledger for billed API calls. An API dollar cap of 0 is a real budget and blocks the next billed API call. Subscription and other provider usage are unmeasured, and that absence is not a zero-dollar charge.
 
 Inside the workspace folder:
 

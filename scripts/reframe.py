@@ -52,7 +52,7 @@ def saved_progress(work):
     """Read the saved assessment plan without taking the workspace lock."""
     work = Path(work)
     project = read(work / 'project.json')
-    label = project.get('active_assessment')
+    label = project.get('active_assessment') or project.get('selected')
     record = (project.get('assessments') or {}).get(label) if label else None
     progress = {'active_assessment': label, 'saved_status': None, 'reason': None, 'steps': []}
     if not record:
@@ -484,7 +484,10 @@ def prompt_phase(project):
 
 def prompt_migration_command():
     """The only command that may replace a saved preparation prompt hash."""
-    return ('reframe upgrade-framework --note "WHY" --adopt-prompts, then reframe resume. '
+    return ('reframe --workspace WORKSPACE upgrade-framework --note "WHY". '
+            'Add --adopt-prompts only when that command responds: '
+            'Preparation prompts changed. The upgrade was not recorded. '
+            'Then reframe --workspace WORKSPACE resume. '
             'Completed calls and passed units keep the earlier prompt hash. '
             'Other pins stay in place, and no assessment is started.')
 
@@ -559,10 +562,35 @@ def budget_summary(project, work=None):
         'dollars_spent': settings.get('model_dollars_spent', 0),
         'dollar_cap': settings.get('max_model_dollars', 0),
         'dollars_measured': settings.get('model_dollars_spent', 0),
+        'api_budget': settings.get('max_model_dollars', 0),
+        'subscription_usage_measured': False,
         'next_call_estimate': (project.get('pipeline') or {}).get('next_call_price'),
         'completed_units': sum(1 for item in ((project.get('checkpoints') or {}).get('units') or {}).values() if item.get('status') == 'PASS'),
         'remaining_units': sum(1 for item in ((project.get('checkpoints') or {}).get('units') or {}).values() if item.get('status') != 'PASS'),
     }
+
+
+def spend_text(summary):
+    """Separate billed API accounting from usage this ledger does not measure."""
+    measured = summary.get('dollars_measured', 0)
+    cap = summary.get('api_budget', summary.get('dollar_cap', 0))
+    return ('Tracked API spend ' + str(measured) + '. API dollar cap ' + str(cap)
+            + '. A cap of 0 is a real API budget and blocks the next billed API call. '
+            + 'Subscription and other provider usage are unmeasured and are not a zero-dollar charge.')
+
+
+def preparation_report_current(work, project):
+    """True when the saved HTML still matches this specification and these decisions."""
+    record = project.get('preparation_report')
+    if not isinstance(record, dict) or not project.get('specification'):
+        return False
+    path = Path(work) / str(record.get('path') or '')
+    try:
+        return (path.is_file() and sha(path) == record.get('sha256')
+                and record.get('specification') == project['specification']['sha256']
+                and record.get('decisions') == digest(project.get('decisions') or {}))
+    except (OSError, TypeError):
+        return False
 
 
 def require_clear_for_final(work, action):
@@ -1087,21 +1115,155 @@ def approve(work, project, args):
     return {'status': project['stage'], 'approved_sha256': fingerprint}
 
 
-def decision(work, project, args):
-    """Record an answer to one SME question and clear the validation approval that depended on it."""
+def question_counts(work, project):
+    """Count SME questions without copying their text, owners, or rationale."""
+    record = project.get('specification') or {}
+    if not record.get('path') or not (Path(work) / record['path']).is_file():
+        return {'total': 0, 'answered': 0, 'deferred': 0, 'remaining': 0}
     spec = read(spec_path(work, project))
-    require(args.question in {x['id'] for x in spec['questions']}, 'Unknown SME question')
-    require(args.by.strip() and args.answer.strip(), 'Decision owner and answer required')
-    project['decisions'][args.question] = {'by': args.by, 'answer': args.answer, 'disposition': args.disposition,
-                                        'specification_sha256': project['specification']['sha256'], 'at': time.time()}
-    project['approvals'].pop('validation', None)
-    project['approvals'].pop('specifications', None)
-    project.pop('site', None)
-    require_anchored_export(work, project)
-    project['stage'] = 'AWAITING_VALIDATION_APPROVAL'
+    decisions = project.get('decisions') or {}
+    answered = deferred = remaining = 0
+    for question in spec.get('questions') or []:
+        if not isinstance(question, dict) or not isinstance(question.get('id'), str):
+            continue
+        decision = decisions.get(question['id'])
+        if not isinstance(decision, dict):
+            remaining += 1
+        elif decision.get('disposition') == 'deferred':
+            deferred += 1
+        else:
+            answered += 1
+    return {'total': answered + deferred + remaining, 'answered': answered, 'deferred': deferred, 'remaining': remaining}
+
+
+def selected_question_ids(args, spec, decisions=None):
+    """The question ids named by one decide command. Open means every question without a decision."""
+    named = []
+    if getattr(args, 'question', None):
+        named.append(args.question)
+    if getattr(args, 'questions', None):
+        named.extend(part.strip() for part in str(args.questions).split(',') if part.strip())
+    use_open = bool(getattr(args, 'open', False))
+    require(not (use_open and named), 'Name question ids or use --open, not both')
+    if use_open:
+        saved = decisions or {}
+        named = [question['id'] for question in spec.get('questions') or []
+                 if isinstance(question, dict) and isinstance(question.get('id'), str) and question['id'] not in saved]
+    else:
+        require(named, 'Name one question, a list of questions, or --open')
+    require(len(named) == len(set(named)), 'Question ids must be unique')
+    return named
+
+
+def decision(work, project, args):
+    """Record SME decisions through one validation path. Existing answers stay unless amended."""
+    spec = read(spec_path(work, project))
+    known = {question['id'] for question in spec.get('questions') or [] if isinstance(question, dict) and isinstance(question.get('id'), str)}
+    selected = selected_question_ids(args, spec, project.get('decisions') or {})
+    owner = str(getattr(args, 'by', '') or '')
+    rationale = str(getattr(args, 'answer', '') or '')
+    disposition = getattr(args, 'disposition', None)
+    require(owner.strip() and rationale.strip(), 'Decision owner and answer required')
+    require(disposition in {'resolved', 'deferred'}, 'Disposition must be resolved or deferred')
+    unknown = [item for item in selected if item not in known]
+    require(not unknown, 'Unknown SME question: ' + ', '.join(unknown))
+    require(project.get('specification', {}).get('sha256'), 'Complete independent validation first')
+    amend = bool(getattr(args, 'amend', False))
+    confirmed = bool(getattr(args, 'confirm', False)) or len(selected) == 1 and not amend
+    existing = [item for item in selected if item in project.get('decisions', {})]
+    if amend:
+        require(confirmed, 'Confirm a reviewed amendment with --confirm. Existing decisions stay unchanged.')
+        missing = [item for item in selected if item not in project.get('decisions', {})]
+        require(not missing, 'Amendment names a question with no saved decision')
+        targets = list(selected)
+        skipped = []
+    else:
+        targets = [item for item in selected if item not in project.get('decisions', {})]
+        skipped = existing
+    counts = question_counts(work, project)
+    scope = str(len(selected)) + ' selected SME questions'
+    note = None
+    if disposition == 'deferred':
+        note = 'A deferral is not an answer. Affected implementation remains blocked.'
+    if not confirmed:
+        return {'status': 'DECISION_CONFIRMATION', 'recorded': 0, 'remaining': counts['remaining'],
+                'skipped': len(skipped), 'pending': len(targets), 'selected': len(selected), 'scope': scope,
+                'deferral': note,
+                'next_step': 'Repeat the command with --confirm after reviewing the count and scope.'}
+    if not targets:
+        repaired = False
+        if confirmed and not preparation_report_current(work, project):
+            preparation_report(work, project)
+            persist(work, project)
+            repaired = True
+            counts = question_counts(work, project)
+        return {'status': project['stage'], 'recorded': 0, 'remaining': counts['remaining'],
+                'skipped': len(skipped), 'selected': len(selected), 'scope': scope, 'deferral': note,
+                'unchanged': not repaired, 'repaired_report': repaired}
+    fingerprint = digest({'questions': sorted(targets), 'disposition': disposition,
+                          'specification_sha256': project['specification']['sha256'], 'amend': amend})
+    batches = project.setdefault('decision_batches', [])
+    if any(isinstance(batch, dict) and batch.get('batch_id') == fingerprint for batch in batches):
+        counts = question_counts(work, project)
+        return {'status': project['stage'], 'recorded': 0, 'remaining': counts['remaining'],
+                'skipped': len(selected), 'selected': len(selected), 'scope': scope, 'deferral': note,
+                'unchanged': True}
+    stamp = time.time()
+    snapshot = {
+        'decisions': copy.deepcopy(project.get('decisions') or {}),
+        'approvals': copy.deepcopy(project.get('approvals') or {}),
+        'batches': copy.deepcopy(project.get('decision_batches') or []),
+        'history': copy.deepcopy(project.get('decision_history') or []),
+        'stage': project.get('stage'),
+        'site': copy.deepcopy(project.get('site')),
+        'report': copy.deepcopy(project.get('preparation_report')),
+        'last': copy.deepcopy(project.get('last_local_action')),
+    }
+    try:
+        if amend:
+            project.setdefault('decision_history', []).append({
+                'batch_id': fingerprint, 'at': stamp,
+                'previous': {item: copy.deepcopy(project['decisions'][item]) for item in targets},
+            })
+        for item in targets:
+            project['decisions'][item] = {'by': owner, 'answer': rationale, 'disposition': disposition,
+                                          'specification_sha256': project['specification']['sha256'],
+                                          'at': stamp, 'batch_id': fingerprint}
+        batches.append({'batch_id': fingerprint, 'question_ids': list(targets), 'disposition': disposition,
+                        'by': owner, 'rationale': rationale, 'at': stamp, 'amend': amend,
+                        'specification_sha256': project['specification']['sha256']})
+        project['approvals'].pop('validation', None)
+        project['approvals'].pop('specifications', None)
+        project.pop('site', None)
+        require_anchored_export(work, project)
+        project['stage'] = 'AWAITING_VALIDATION_APPROVAL'
+        project['last_local_action'] = {'kind': 'decision_amendment' if amend else 'decisions_recorded', 'at': stamp,
+                                        'count': len(targets)}
+        persist(work, project)
+    except Exception:
+        project['decisions'] = snapshot['decisions']
+        project['approvals'] = snapshot['approvals']
+        project['decision_batches'] = snapshot['batches']
+        project['decision_history'] = snapshot['history']
+        project['stage'] = snapshot['stage']
+        if snapshot['site'] is None:
+            project.pop('site', None)
+        else:
+            project['site'] = snapshot['site']
+        if snapshot['report'] is None:
+            project.pop('preparation_report', None)
+        else:
+            project['preparation_report'] = snapshot['report']
+        if snapshot['last'] is None:
+            project.pop('last_local_action', None)
+        else:
+            project['last_local_action'] = snapshot['last']
+        raise
     preparation_report(work, project)
     persist(work, project)
-    return {'status': project['stage']}
+    counts = question_counts(work, project)
+    return {'status': project['stage'], 'recorded': len(targets), 'remaining': counts['remaining'],
+            'skipped': len(skipped), 'selected': len(selected), 'scope': scope, 'deferral': note}
 
 
 def recover_provider_request(work, project, args):
@@ -1601,6 +1763,8 @@ def legacy_pipeline(work, project, args, runtime=model_call):
 
     previous_signature, repeated_results = None, 0
     budget_stop = False
+    continued_rework = False
+    progress = []
     while kw.within_call_limit(project['settings'], state['calls']):
         role, number = state['role'], state['round']
         if capsules and role == 'executor':
@@ -1629,6 +1793,8 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                                 'limit_corrections': state.get('limit_corrections'),
                                 'next_step': step}
                     persist(work, project)
+                    progress.append('Rejected correction kept. Continuing while a retry and call budget remain. Calls '
+                                    + str(state['calls']) + '.')
                     continue
                 continue
         key = f'{number}:{role}'
@@ -1788,6 +1954,8 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                     budget_stop = state['invalid_candidates'] < 3
                     break
                 persist(work, project)
+                progress.append('Rejected correction kept. Continuing while a retry and call budget remain. Calls '
+                                + str(state['calls']) + '.')
                 continue
         elif role == 'executor' and reply.get('kind') == 'candidate':
             require(state['reads'].get(key) or checkpoint_paths, 'Executor must inspect source')
@@ -1810,6 +1978,8 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                     project['stage']='BLOCKED'
                     break
                 persist(work, project)
+                progress.append('Rejected candidate kept. Continuing while invalid-candidate retries remain. Calls '
+                                + str(state['calls']) + '.')
                 continue
             state['invalid_candidates'] = 0
             read_paths = {chunk['path'] for entry in history for chunk in entry['response'] if chunk['area'] == 'source'} | checkpoint_paths
@@ -1839,6 +2009,20 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                 preparation_report(work, project)
                 break
             if reply['decision'] == 'BLOCKED' or number >= project['settings']['max_rounds']:
+                used = state.get('limit_corrections') or (1 if state.get('limit_corrected') else 0)
+                if (reply['decision'] == 'REWORK' and capsules and not continued_rework
+                        and kw.within_call_limit(project['settings'], state['calls'])
+                        and state.get('candidate_sha256') and used < 2 and not project.get('specification')):
+                    continued_rework = True
+                    state['previous_review'] = reply
+                    state.update(status='RUNNING', role='executor', round=number + 1, limit_corrections=used + 1)
+                    state.pop('reason', None)
+                    state.pop('limit_corrected', None)
+                    project['stage'] = 'RUNNING_EXECUTOR'
+                    progress.append('Synthesis review returned REWORK. Continuing with one bounded correction. Calls '
+                                    + str(state['calls']) + '.')
+                    persist(work, project)
+                    continue
                 state['status'] = 'BLOCKED' if reply['decision'] == 'BLOCKED' else 'REWORK_LIMIT'
                 project['stage'] = state['status']
                 if state['status'] == 'REWORK_LIMIT' and capsules:
@@ -1854,6 +2038,8 @@ def legacy_pipeline(work, project, args, runtime=model_call):
         state['reason'] = 'Total model call budget exhausted'
     persist(work, project)
     result = {'status': project['stage'], 'calls': state['calls'], 'reason': state.get('reason')}
+    if progress:
+        result['progress'] = progress
     if correction_retries_exhausted(state):
         result['invalid_candidates'] = state['invalid_candidates']
         result['limit_corrections'] = state.get('limit_corrections')
@@ -2309,8 +2495,12 @@ def parser():
     a.add_argument('--confirm-source-match', action='store_true')
     v = commands.add_parser('validate')
     v.add_argument('--reviewer', choices=['claude-code'], default='claude-code')
-    d = commands.add_parser('decide')
-    d.add_argument('--question', required=True)
+    d = commands.add_parser('decide', help='Record one SME decision or one confirmed batch. A deferral is not an answer.')
+    d.add_argument('--question', help='One SME question id')
+    d.add_argument('--questions', help='Comma-separated SME question ids')
+    d.add_argument('--open', action='store_true', help='Select every SME question that has no saved decision')
+    d.add_argument('--confirm', action='store_true', help='Write the batch after the count and scope have been reviewed')
+    d.add_argument('--amend', action='store_true', help='Replace saved decisions and keep the previous answers in history')
     d.add_argument('--by', required=True)
     d.add_argument('--answer', required=True)
     d.add_argument('--disposition', choices=['resolved', 'deferred'], required=True)
@@ -2399,10 +2589,21 @@ def main(argv=None, reporter=None):
                 select_workspace(work)
         elif args.command == 'status':
             project = read(work / 'project.json')
-            result = {'status': project['stage'], 'source_commit': project['source']['commit'],
+            service = saved_progress(work)
+            result = {'status': project['stage'], 'phase': project['stage'], 'source_commit': project['source']['commit'],
                       'assessments': {k: read(Path(v['directory']) / 'run.json')['status'] for k, v in project['assessments'].items()},
-                      'progress': saved_progress(work),
-                      'approvals': list(project['approvals']), 'package': project.get('package'), 'next_step': next_step(project)}
+                      'progress': service,
+                      'service_state': service.get('saved_status'),
+                      'assessment_approval': 'recorded' if project.get('approvals', {}).get('assessment') else 'not recorded',
+                      'approvals': list(project['approvals']), 'package': project.get('package'), 'next_step': next_step(project),
+                      'required_action': next_step(project),
+                      'questions': question_counts(work, project) if project.get('specification') else {'total': 0, 'answered': 0, 'deferred': 0, 'remaining': 0}}
+            action = project.get('last_local_action') or {}
+            if isinstance(action, dict) and action.get('kind'):
+                result['last_local_action'] = action['kind']
+            if (result['assessment_approval'] == 'recorded' and project['stage'] != 'AWAITING_ASSESSMENT_APPROVAL'
+                    and result.get('service_state') == 'AWAITING_ASSESSMENT_APPROVAL'):
+                result['service_state_note'] = 'Historical service record. It is not the current blocker.'
             reason = displayed_synthesis_reason(work, project)
             if reason:
                 result['reason'] = reason
@@ -2536,6 +2737,7 @@ def main(argv=None, reporter=None):
         return 2 if result.get('status') in {'BLOCKED', 'REWORK_LIMIT', 'CONTEXT_LIMIT', 'CORRECTION_INVALID', 'ASSESSMENT_FAILED', 'NEEDS_RECONCILIATION'} else 0
     except KeyboardInterrupt:
         result = {'status': 'CANCELLED', 'reason': 'Cancelled by user. Saved work is retained.',
+                  'last_action': 'Last action cancelled; saved progress retained',
                   'next_step': 'reframe init' if args.command == 'init' else 'reframe status'}
         if args.command in {'assess', 'resume'}:
             result['reason'] += ' An existing AWS job may continue; check status before resuming.'
