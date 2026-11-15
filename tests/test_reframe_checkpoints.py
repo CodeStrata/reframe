@@ -2338,6 +2338,11 @@ class CheckpointTests(unittest.TestCase):
         project.pop('specification', None)
         project.pop('preparation_report', None)
         project['stage'] = 'RUNNING_EXECUTOR'
+        current = subprocess.run(['git', '-C', str(app.FRAMEWORK), 'rev-parse', 'HEAD'],
+                                 capture_output=True, text=True, check=True).stdout.strip()
+        project['framework_commit'] = current
+        if isinstance(project.get('pins'), dict):
+            project['pins']['framework_commit'] = current
         app.write(work / 'project.json', project)
         seen = {}
 
@@ -2345,7 +2350,10 @@ class CheckpointTests(unittest.TestCase):
             root = Path(saved['source']['root'])
             app.require(app.git(root, 'rev-parse', 'HEAD') == saved['source']['commit'], 'Pinned source commit changed')
             app.require(not app.git(root, 'status', '--porcelain'), 'Source checkout is not clean')
-            app.require(app.git(app.FRAMEWORK, 'rev-parse', 'HEAD') == saved['framework_commit'], 'Framework revision changed')
+            # The copied project is pinned to this checkout. The live run file stays on its recorded revision.
+            if 'pins' in saved:
+                app.require(app.git(app.FRAMEWORK, 'rev-parse', 'HEAD') == saved['framework_commit'],
+                            'Framework revision changed')
             return root
 
         def runtime(provider, run, directory, role, message):

@@ -624,7 +624,7 @@ def next_step(project):
     """Return the command a person should run for the current stage."""
     import reframe as app
     if app.prompts_differ(project):
-        return app.prompt_migration_command()
+        return app.prompt_migration_command(project)
     if project['stage'] == 'PROVIDER_REVIEW_REQUIRED':
         return 'Review the private provider refusal and request content; automatic model retries are stopped.'
     stage = project['stage']
@@ -647,6 +647,12 @@ def next_step(project):
     if stage == 'AWAITING_SPECIFICATIONS_APPROVAL': return 'Review the HTML, then reframe approve specifications'
     if stage == 'VALIDATION_APPROVED': return 'reframe review-site'
     if stage == 'AWAITING_VALIDATION_APPROVAL':
+        recorded = project.get('framework_commit')
+        if isinstance(recorded, str) and recorded != app.git(app.FRAMEWORK, 'rev-parse', 'HEAD'):
+            return ('reframe --workspace WORKSPACE upgrade-framework --note "WHY". '
+                    'This records the controller revision and keeps the reviewed specification, review, checkpoints, '
+                    'assessment approval, decisions, and call counts. Then status, decide --open --confirm for questions '
+                    'without decisions, and approve validation. Do not resume.')
         return ('Record SME decisions, then reframe approve validation. '
                 'Menu 1 can defer every open question in one confirmed batch. '
                 'A deferral is not an answer. Affected implementation remains blocked.')

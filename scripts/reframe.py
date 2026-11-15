@@ -482,8 +482,15 @@ def prompt_phase(project):
     return 'assessment'
 
 
-def prompt_migration_command():
+def prompt_migration_command(project=None):
     """The only command that may replace a saved preparation prompt hash."""
+    if (project and project.get('specification')
+            and project.get('stage') == 'AWAITING_VALIDATION_APPROVAL'):
+        return ('The reviewed specification stays bound to the saved preparation prompts. '
+                'reframe --workspace WORKSPACE upgrade-framework --note "WHY" records a controller update '
+                'only when those prompts are unchanged. A checkout that changes the prompts is refused. '
+                'Do not pass --adopt-prompts. Use the checkout that matches the saved prompt hash, '
+                'or start a new workspace. The specification, review, checkpoints, decisions, and call counts stay in place.')
     return ('reframe --workspace WORKSPACE upgrade-framework --note "WHY". '
             'Add --adopt-prompts only when that command responds: '
             'Preparation prompts changed. The upgrade was not recorded. '
@@ -501,7 +508,7 @@ def require_run_pins(project, job_id=None):
     require(recorded.get('reviewer_model') == project['settings'].get('reviewer_model'), 'Run pin changed: reviewer_model')
     if recorded.get('prompt_hash') != preparation_protocol_hash():
         error = Blocked('Run pin changed: prompt_hash')
-        error.hint = prompt_migration_command()
+        error.hint = prompt_migration_command(project)
         raise error
     pinned_job = recorded.get('aws_job_id')
     label = project.get('active_assessment')
@@ -615,8 +622,19 @@ def prompt_framework_origin(project, recorded_commit, current):
 
 def upgrade_framework(work, project, args):
     """Record a reviewed controller fix without replacing source, jobs or evidence."""
-    require(not (set(project.get('approvals', {})) - {'assessment'}) and not project.get('specification'),
-            'Framework upgrades require no specification or downstream approvals')
+    approvals = set(project.get('approvals') or {})
+    reviewed = project.get('specification')
+    if reviewed:
+        require(approvals <= {'assessment'},
+                'A reviewed specification can record a controller update only before validation approval. '
+                'Validation or specification approval is already recorded. The upgrade was not recorded.')
+        require(project.get('stage') == 'AWAITING_VALIDATION_APPROVAL',
+                'A reviewed specification can record a controller update only while awaiting validation approval. '
+                'The upgrade was not recorded.')
+        spec_path(work, project)
+    else:
+        require(not (approvals - {'assessment'}),
+                'Framework upgrades require no specification or downstream approvals')
     if project.get('approvals', {}).get('assessment'):
         require(project.get('selected') in project['assessments'], 'Approved assessment identity is missing')
         verified_assessment(project, project['selected'])
@@ -627,6 +645,11 @@ def upgrade_framework(work, project, args):
     saved_hash = pins.get('prompt_hash') if isinstance(pins, dict) else None
     prompts_changed = isinstance(saved_hash, str) and saved_hash != current_hash
     adopt = bool(getattr(args, 'adopt_prompts', False))
+    if reviewed and prompts_changed:
+        error = Blocked('Reviewed specification stays bound to the saved preparation prompts. '
+                        'This checkout changes those prompts. The upgrade was not recorded.')
+        error.hint = prompt_migration_command(project)
+        raise error
     if prompts_changed and not adopt:
         error = Blocked('Preparation prompts changed. The upgrade was not recorded.')
         error.hint = prompt_migration_command()
@@ -678,6 +701,11 @@ def upgrade_framework(work, project, args):
             pins['prompt_hash'] = current_hash
     persist(work, project)
     result = {'status':'FRAMEWORK_UPDATED', 'revision':current, 'next_step':'reframe resume'}
+    if reviewed:
+        result['preserved'] = 'reviewed_specification'
+        result['next_step'] = ('reframe --workspace WORKSPACE status. '
+                               'Then decide --open --confirm for questions without decisions, '
+                               'then approve validation. Do not resume.')
     if prompts_changed:
         result['prompt_migration'] = 'adopted'
         result['phase'] = phase
@@ -2062,8 +2090,9 @@ def site_fingerprint(work, project):
     return digest(site)
 
 
-def review_site(work, project, args, runtime=model_call):
+def review_site(work, project, args, runtime=None):
     """Ask the wireframe provider for screens and write the inert review HTML."""
+    runtime = model_call if runtime is None else runtime
     verify_source(project)
     spec = read(spec_path(work, project))
     approved(project, 'validation', digest({'specification': project['specification']['sha256'], 'decisions': project['decisions']}))

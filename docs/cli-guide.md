@@ -440,7 +440,19 @@ reframe --workspace /path/to/private-poc status
 reframe --workspace /path/to/private-poc resume
 ```
 
-A prompt migration recorded for an earlier revision does not authorize this framework commit. `upgrade-framework` records the checkout you just installed. Run it without `--adopt-prompts`. If the response is `Preparation prompts changed. The upgrade was not recorded.`, repeat the same command with `--adopt-prompts`. Do not add that flag for any other response. The command refuses once a specification or a downstream approval exists. A run waiting on validation uses `status`, `decide --open --confirm` for questions without decisions, and an explicit `approve validation`, each with `--workspace`. Do not `resume` that run into a provider call.
+A prompt migration recorded for an earlier revision does not authorize this framework commit. `upgrade-framework` records the checkout you just installed. Run it without `--adopt-prompts`. If the response is `Preparation prompts changed. The upgrade was not recorded.`, repeat the same command with `--adopt-prompts`. Do not add that flag for any other response.
+
+`approve validation` checks the framework revision. A run at `AWAITING_VALIDATION_APPROVAL` with a reviewed specification and no validation approval records a controller-only update when the preparation prompts are unchanged. The specification, review hash, checkpoints, assessment approval, decisions, and call count stay in place. A checkout that changes the preparation prompts is refused, including with `--adopt-prompts`. The reviewed specification stays bound to the saved prompt hash. Use the matching checkout or start a new workspace.
+
+```bash
+reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc status
+reframe --workspace /path/to/private-poc decide --open --by NAME --answer WHY --disposition deferred --confirm
+reframe --workspace /path/to/private-poc approve validation --by NAME --note WHY
+reframe --workspace /path/to/private-poc review-site
+```
+
+`decide --open` records only questions without decisions. Do not `resume` this run, and do not amend a saved rationale unless the command includes `--amend --confirm`. `review-site` calls the wireframe provider and runs only after the explicit validation approval. It does not restart a checkpoint or create an assessment.
 
 ```bash
 reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix" --adopt-prompts
@@ -482,7 +494,7 @@ new assessment.
 
 This validates source integrity and records the old and new framework revisions in
 both project and run history. It preserves job identity, evidence and mutation
-receipts. It refuses the upgrade after the specification is saved on the project, after a downstream approval, or while job creation is uncertain. A saved synthesis candidate that has not passed review can still record the new revision. An existing assessment approval is retained only after verifying its exact evidence fingerprint and original files.
+receipts. While validation approval is still open, a reviewed specification can record a controller revision when the preparation prompts are unchanged. The command refuses a prompt change, a validation or specification approval, a specification or checkpoint hash mismatch, or uncertain job creation. A saved synthesis candidate that has not passed review can still record the new revision. An existing assessment approval is retained only after verifying its exact evidence fingerprint and original files.
 It does not change the assessment scope or approve findings. A run with such an
 upgrade must disclose that it used multiple controller revisions.
 

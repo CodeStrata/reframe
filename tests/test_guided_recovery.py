@@ -234,5 +234,158 @@ class BulkAndStatusTests(unittest.TestCase):
         self.assertIn('zero-dollar', listed)
 
 
+class ReviewedSpecificationUpgradeTests(BulkAndStatusTests):
+    def install_paused_review(self):
+        inner = self.inner
+        inner.validated()
+        path = inner.work / inner.project['specification']['path']
+        spec = app.read(path)
+        spec['questions'] = [{'id': f'Q{index:04d}', 'question': 'fixture', 'impact': 'fixture',
+                              'owner': 'SME', 'blocks': 'Implementation'} for index in range(58)]
+        app.write(path, spec)
+        inner.project['specification']['sha256'] = sha(path)
+        for index in range(54):
+            inner.project['decisions'][f'Q{index:04d}'] = {
+                'by': 'saved', 'answer': 'None', 'disposition': 'deferred',
+                'specification_sha256': inner.project['specification']['sha256'], 'at': 1}
+        area = inner.work / 'preparation'
+        label = inner.project['selected']
+        plan = {'source_commit': inner.project['source']['commit'], 'scope': inner.project['scope'],
+                'assessment': inner.project['assessments'][label]['sha256'], 'units': []}
+        units = {}
+        for number in range(1, 113):
+            ident = f'U{number:04d}'
+            plan['units'].append({'id': ident, 'focus': 'rule.cbl', 'segments': [{'id': 'segment', 'text': 'fixture'}]})
+            candidate = {'kind': 'checkpoint', 'summary': 'passed', 'findings': [], 'questions': [], 'coverage': []}
+            review = {'kind': 'review', 'decision': 'PASS', 'report': 'passed', 'findings': []}
+            candidate_path = area / ('saved-' + ident + '-candidate.json')
+            review_path = area / ('saved-' + ident + '-review.json')
+            app.write(candidate_path, candidate)
+            app.write(review_path, review)
+            units[ident] = {'status': 'PASS', 'candidate_path': str(candidate_path.relative_to(inner.work)),
+                            'candidate_sha256': sha(candidate_path),
+                            'review_path': str(review_path.relative_to(inner.work)), 'review_sha256': sha(review_path)}
+        plan_path = area / 'plan.json'
+        app.write(plan_path, plan)
+        inner.project['checkpoints'] = {'plan_path': 'preparation/plan.json', 'plan_sha256': sha(plan_path),
+                                        'status': 'READY_FOR_SYNTHESIS', 'units': units}
+        import reframe_checkpoints as checkpoints
+        _plan, capsules = checkpoints.verified_capsules(inner.work, inner.project, app)
+        inner.project['specification']['checkpoints_sha256'] = app.digest(capsules)
+        inner.project['pipeline']['calls'] = 306
+        inner.project['pipeline']['status'] = 'PASS'
+        inner.project['stage'] = 'AWAITING_VALIDATION_APPROVAL'
+        inner.project['framework_commit'] = 'b' * 40
+        inner.project['pins']['framework_commit'] = 'b' * 40
+        directory = Path(inner.project['assessments'][label]['directory'])
+        run = app.read(directory / 'run.json')
+        run['framework_commit'] = 'b' * 40
+        run['status'] = 'AWAITING_ASSESSMENT_APPROVAL'
+        app.write(directory / 'run.json', run)
+        app.persist(inner.work, inner.project)
+        return inner
+
+    def test_changed_prompts_are_refused_without_rewriting_the_review(self):
+        inner = self.install_paused_review()
+        before = app.read(inner.work / 'project.json')
+        reports = []
+        with patch.object(app, 'preparation_protocol_hash', return_value='e' * 64):
+            code = app.main(['--workspace', str(inner.work), 'upgrade-framework', '--note', 'Controller only',
+                             '--adopt-prompts'], reporter=reports.append)
+        self.assertEqual(code, 2)
+        self.assertIn('stays bound to the saved preparation prompts', reports[-1]['reason'])
+        self.assertIn('Do not pass --adopt-prompts', reports[-1]['hint'])
+        self.assertEqual(app.read(inner.work / 'project.json'), before)
+
+    def test_validation_sequence_records_the_controller_and_keeps_the_review(self):
+        inner = self.install_paused_review()
+        spec = dict(inner.project['specification'])
+        approvals = json.loads(json.dumps(inner.project['approvals']))
+        units = json.loads(json.dumps(inner.project['checkpoints']['units']))
+        saved = {key: dict(value) for key, value in list(inner.project['decisions'].items())[:54]}
+        refused = []
+        code = app.main(['--workspace', str(inner.work), 'approve', 'validation', '--by', 'Owner', '--note', 'Reviewed'],
+                        reporter=refused.append)
+        self.assertEqual(code, 2)
+        self.assertIn('Framework revision changed', refused[-1]['reason'])
+        self.assertNotIn('validation', app.read(inner.work / 'project.json')['approvals'])
+        reports = []
+        code = app.main(['--workspace', str(inner.work), 'status'], reporter=reports.append)
+        self.assertEqual(code, 0)
+        self.assertIn('upgrade-framework', reports[-1]['next_step'])
+        self.assertIn('Do not resume', reports[-1]['next_step'])
+        with patch.object(app, 'model_call', side_effect=AssertionError('provider')), \
+             patch.object(app, 'assessment', side_effect=AssertionError('aws')):
+            code = app.main(['--workspace', str(inner.work), 'upgrade-framework', '--note', 'Record the controller update'],
+                            reporter=reports.append)
+        self.assertEqual(code, 0)
+        self.assertEqual(reports[-1]['preserved'], 'reviewed_specification')
+        self.assertIn('Do not resume', reports[-1]['next_step'])
+        saved_project = app.read(inner.work / 'project.json')
+        self.assertEqual(saved_project['framework_commit'], 'a' * 40)
+        self.assertEqual(saved_project['pins']['framework_commit'], 'a' * 40)
+        self.assertEqual(saved_project['pins']['prompt_hash'], inner.project['pins']['prompt_hash'])
+        self.assertEqual(saved_project['specification'], spec)
+        self.assertEqual(saved_project['approvals'], approvals)
+        self.assertEqual(saved_project['pipeline']['calls'], 306)
+        self.assertEqual(saved_project['checkpoints']['units'], units)
+        self.assertEqual(sum(unit['status'] == 'PASS' for unit in units.values()), 112)
+        for key, value in saved.items():
+            self.assertEqual(saved_project['decisions'][key]['answer'], 'None')
+            self.assertEqual(saved_project['decisions'][key], value)
+        code = app.main(['--workspace', str(inner.work), 'status'], reporter=reports.append)
+        self.assertEqual(code, 0)
+        self.assertIn('approve validation', reports[-1]['next_step'])
+        self.assertNotIn('upgrade-framework', reports[-1]['next_step'])
+        with patch.object(app, 'model_call', side_effect=AssertionError('provider')), \
+             patch.object(app, 'assessment', side_effect=AssertionError('aws')), \
+             patch.object(app, 'pipeline', side_effect=AssertionError('checkpoint restart')):
+            code = app.main(['--workspace', str(inner.work), 'decide', '--open', '--by', 'Owner',
+                             '--answer', 'Deferred for review', '--disposition', 'deferred', '--confirm'],
+                            reporter=reports.append)
+        self.assertEqual(code, 0)
+        self.assertEqual(reports[-1]['recorded'], 4)
+        self.assertEqual(reports[-1]['skipped'], 0)
+        decided = app.read(inner.work / 'project.json')
+        self.assertEqual(len(decided['decision_batches']), 1)
+        self.assertEqual(len(decided['decision_batches'][0]['question_ids']), 4)
+        for key, value in saved.items():
+            self.assertEqual(decided['decisions'][key]['answer'], 'None')
+            self.assertEqual(decided['decisions'][key]['by'], value['by'])
+        self.assertEqual(decided['specification'], spec)
+        self.assertEqual(decided['pipeline']['calls'], 306)
+        with patch.object(app, 'model_call', side_effect=AssertionError('provider')), \
+             patch.object(app, 'assessment', side_effect=AssertionError('aws')):
+            code = app.main(['--workspace', str(inner.work), 'approve', 'validation', '--by', 'Owner',
+                             '--note', 'Questions without decisions were deferred'], reporter=reports.append)
+        self.assertEqual(code, 0)
+        self.assertEqual(reports[-1]['status'], 'VALIDATION_APPROVED')
+        approved = app.read(inner.work / 'project.json')
+        self.assertEqual(approved['specification'], spec)
+        self.assertEqual(approved['pipeline']['calls'], 306)
+        self.assertEqual(approved['checkpoints']['units'], units)
+        self.assertEqual(approved['approvals']['assessment'], approvals['assessment'])
+        calls = []
+
+        def wireframes(provider, run, directory, role, message):
+            calls.append(role)
+            return inner.screens()
+
+        with patch.object(app, 'model_call', side_effect=wireframes), \
+             patch.object(app, 'assessment', side_effect=AssertionError('aws')), \
+             patch.object(app, 'pipeline', side_effect=AssertionError('checkpoint restart')):
+            code = app.main(['--workspace', str(inner.work), 'review-site'], reporter=reports.append)
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, ['wireframes'])
+        self.assertEqual(reports[-1]['status'], 'AWAITING_SPECIFICATIONS_APPROVAL')
+        finished = app.read(inner.work / 'project.json')
+        self.assertEqual(finished['pipeline']['calls'], 306)
+        self.assertEqual(finished['specification']['sha256'], spec['sha256'])
+        self.assertEqual(finished['specification']['review_sha256'], spec['review_sha256'])
+        self.assertEqual(finished['checkpoints']['units'], units)
+        self.assertEqual(list(finished['assessments']), list(approvals and inner.project['assessments']))
+        self.assertEqual(len(finished['assessments']), 1)
+
+
 if __name__ == '__main__':
     unittest.main()

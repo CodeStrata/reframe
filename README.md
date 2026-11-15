@@ -164,7 +164,19 @@ reframe --workspace /path/to/private-poc status
 reframe --workspace /path/to/private-poc resume
 ```
 
-That records the old and new prompt hashes for the calls and passed units already saved, then lets the saved review continue. It does not restart the assessment or the passed units. `upgrade-framework` refuses once a specification or a downstream approval exists. For a run already waiting on validation, use `--workspace` with `status`, then `decide --open --confirm` for questions that have no decision, then an explicit `approve validation`. Do not `resume` into a provider call, and do not amend saved rationales unless you pass `--amend --confirm`.
+That records the old and new prompt hashes for the calls and passed units already saved, then lets the saved review continue. It does not restart the assessment or the passed units.
+
+A run waiting at `AWAITING_VALIDATION_APPROVAL` with a reviewed specification and no validation approval can record this controller revision. `approve validation` checks the framework revision, so record the update before approval:
+
+```bash
+reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc status
+reframe --workspace /path/to/private-poc decide --open --by NAME --answer WHY --disposition deferred --confirm
+reframe --workspace /path/to/private-poc approve validation --by NAME --note WHY
+reframe --workspace /path/to/private-poc review-site
+```
+
+The upgrade keeps the specification, its review hash, the checkpoints, the assessment approval, the saved decisions, and the call count. It records the revision only when the preparation prompts are unchanged. A checkout that changes those prompts is refused, including with `--adopt-prompts`, because the reviewed specification stays bound to the saved prompt hash. Use the matching checkout or start a new workspace. `decide --open` records only questions that have no decision. Do not `resume`, and do not amend saved rationales unless you pass `--amend --confirm`. `review-site` is the wireframe provider call and runs only after validation approval.
 
 A saved correction that does not match the edit contract is rejected before any edit is applied. The same `reframe resume`, and menu 1, continue through that rejection and through one synthesis rework when a retry and the call budget remain. Progress is shown during that invocation. The run stops for a human approval, an exhausted allowance, an evidence failure, or a provider failure. It stops after three invalid candidates and prints the latest error. Another attempt is only:
 
