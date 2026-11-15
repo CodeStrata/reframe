@@ -444,19 +444,97 @@ def inspected_source_paths(spec):
     return paths
 
 
-SYNTHESIS_CORRECTION = (
-    'Return {"kind":"correction","edits":[...]} . Do not return the saved specification. '
-    'The controller keeps that specification and applies only these edits. '
-    'set_rule_ids targets a section or work_item and lists known source rule ids. '
-    'replace_text targets a section specification or implementation_prompt. '
-    'Do not infer a mapping from prose, titles, or similar rule names. '
-    'A rule omitted from rule_ids stays an honest gap. '
-    'Do not change questions, rules, tests, or assessment evidence. '
-    'When cited evidence disagrees, keep the conflict open and do not choose an authoritative layout. '
-    'Named review ids are included in full. evidence_index lists every other saved finding and question id. '
-    'Request one of those ids with {"kind":"correction_read","ids":["ID"]} rather than guessing its text. '
-    'Echo base_sha256 from this request. A different hash is rejected and the saved specification stays unchanged.'
-)
+ACCEPTED_EDIT_FIELDS = {
+    'set_rule_ids': frozenset({'op', 'target', 'id', 'rule_ids'}),
+    'replace_text': frozenset({'op', 'target', 'id', 'field', 'text'}),
+}
+
+
+def correction_examples():
+    """The only edit objects validation accepts. Request text uses these same objects."""
+    return {
+        'set_rule_ids': {'op': 'set_rule_ids', 'target': 'work_item', 'id': 'WORK_ITEM', 'rule_ids': ['RULE']},
+        'replace_text': {
+            'op': 'replace_text', 'target': 'section', 'id': 'SECTION',
+            'field': 'specification', 'text': 'Complete replacement for the named field.',
+        },
+    }
+
+
+def correction_reply_example():
+    """One complete correction reply. base_sha256 is echoed from the request."""
+    examples = correction_examples()
+    return {
+        'kind': 'correction',
+        'base_sha256': 'BASE_SHA256',
+        'edits': [examples['set_rule_ids'], examples['replace_text']],
+    }
+
+
+def correction_contract_text():
+    """Schema shared by the correction request and the edit validator."""
+    examples = correction_examples()
+    return (
+        'Return {"kind":"correction","edits":[...]} . Do not return the saved specification. '
+        'The controller keeps that specification and applies only these edits. '
+        'Exact reply: ' + json.dumps(correction_reply_example(), sort_keys=True) + '. '
+        'set_rule_ids example: ' + json.dumps(examples['set_rule_ids'], sort_keys=True) + '. '
+        'replace_text example: ' + json.dumps(examples['replace_text'], sort_keys=True) + '. '
+        'A section uses the same set_rule_ids keys with target section. '
+        'set_rule_ids lists known source rule ids. '
+        'replace_text replaces the entire named field. The field is specification or implementation_prompt. '
+        'old/new and find/replace are unsupported. '
+        'target is the string section or work_item. '
+        'Do not infer a mapping from prose, titles, or similar rule names. '
+        'A rule omitted from rule_ids stays an honest gap. '
+        'Do not change questions, rules, tests, or assessment evidence. '
+        'When cited evidence disagrees, keep the conflict open and do not choose an authoritative layout. '
+        'Named review ids are included in full. evidence_index lists every other saved finding and question id. '
+        'Request one of those ids with {"kind":"correction_read","ids":["ID"]} rather than guessing its text. '
+        'Echo base_sha256 from this request. A different hash is rejected and the saved specification stays unchanged.'
+    )
+
+
+SYNTHESIS_CORRECTION = correction_contract_text()
+
+
+def correction_edit_problem(index, edit):
+    """Name the edit, the operation, and every missing or unexpected field."""
+    accepted_reply = json.dumps(correction_reply_example(), sort_keys=True)
+    if not isinstance(edit, dict):
+        return 'edits[' + str(index) + '] must be an object. Accepted reply: ' + accepted_reply
+    op = edit.get('op')
+    if not isinstance(op, str) or op not in ACCEPTED_EDIT_FIELDS:
+        return ('edits[' + str(index) + '] unsupported operation. Unsupported correction edit. '
+                'Accepted operations are set_rule_ids and replace_text. Accepted reply: ' + accepted_reply)
+    expected = ACCEPTED_EDIT_FIELDS[op]
+    missing = sorted(expected - set(edit))
+    unexpected = sorted(set(edit) - expected)
+    target_problem = None
+    if 'target' not in edit:
+        target_problem = None
+    elif edit.get('target') is None:
+        target_problem = 'target is null'
+    elif not isinstance(edit.get('target'), str):
+        target_problem = 'target must be the string section or work_item; received ' + type(edit.get('target')).__name__
+    elif edit.get('target') not in {'section', 'work_item'}:
+        target_problem = 'Unsupported correction target'
+    elif op == 'replace_text' and edit.get('target') != 'section':
+        target_problem = 'Only a section text edit is supported'
+    if not missing and not unexpected and target_problem is None:
+        return None
+    parts = ['edits[' + str(index) + '] ' + op]
+    if unexpected:
+        parts.append('unexpected fields ' + ', '.join(unexpected))
+        parts.append('unauthorized field')
+    if missing:
+        parts.append('missing ' + ', '.join(missing))
+    if target_problem:
+        parts.append(target_problem)
+    if op == 'replace_text':
+        parts.append('replace_text replaces the entire named field. old/new and find/replace are unsupported')
+    parts.append('Accepted shape: ' + json.dumps(correction_examples()[op], sort_keys=True))
+    return '. '.join(parts)
 
 
 def _tokens(text, known):
@@ -551,45 +629,39 @@ def apply_synthesis_edits(spec, edits):
     before = {key: copy.deepcopy(spec.get(key)) for key in ('questions', 'rules', 'tests', 'assessment_evidence')}
     prepared = []
     seen = set()
-    for edit in edits:
-        require(isinstance(edit, dict), 'Correction edit must be an object')
+    for index, edit in enumerate(edits):
+        problem = correction_edit_problem(index, edit)
+        require(problem is None, problem or '')
         op = edit.get('op')
-        require(isinstance(op, str) and op in {'set_rule_ids', 'replace_text'}, 'Unsupported correction edit')
-        if 'target' not in edit:
-            raise Blocked('Correction target is missing')
         target = edit.get('target')
-        if target is None:
-            raise Blocked('Correction target is null')
-        if not isinstance(target, str):
-            raise Blocked('Correction target must be the string section or work_item; received ' + type(target).__name__)
-        require(target in {'section', 'work_item'}, 'Unsupported correction target')
         ident = edit.get('id')
-        require(isinstance(ident, str) and ident.strip(), 'Correction edit needs an id')
+        where = 'edits[' + str(index) + '] ' + op
+        require(isinstance(ident, str) and ident.strip(), where + ' needs an id')
         if op == 'set_rule_ids':
-            require(set(edit) == {'op', 'target', 'id', 'rule_ids'}, 'Correction edit changes an unauthorized field')
+            require(set(edit) == ACCEPTED_EDIT_FIELDS['set_rule_ids'], where + ' changes an unauthorized field')
             values = edit.get('rule_ids')
             require(isinstance(values, list) and all(isinstance(item, str) and item.strip() for item in values),
-                    'Correction rule_ids must list known rule ids')
-            require(set(values) <= rules, 'Correction rule_ids must name saved source rules')
+                    where + ' rule_ids must list known rule ids')
+            require(set(values) <= rules, where + ' rule_ids must name saved source rules')
             if target == 'section':
-                require(isinstance(sections.get(ident), dict), 'Correction names an unknown section')
+                require(isinstance(sections.get(ident), dict), where + ' names an unknown section')
             else:
                 require(any(isinstance(row, dict) and row.get('id') == ident for row in spec.get('work_items') or []),
-                        'Correction names an unknown work item')
+                        where + ' names an unknown work item')
             key = ('set_rule_ids', target, ident)
-            require(key not in seen, 'Correction edits conflict')
+            require(key not in seen, where + ' edits conflict')
             seen.add(key)
             prepared.append((op, target, ident, list(values), None))
             continue
-        require(set(edit) == {'op', 'target', 'id', 'field', 'text'}, 'Correction edit changes an unauthorized field')
-        require(target == 'section', 'Only a section text edit is supported')
+        require(set(edit) == ACCEPTED_EDIT_FIELDS['replace_text'], where + ' changes an unauthorized field')
+        require(target == 'section', where + ' supports only a section text edit')
         field = edit.get('field')
         text = edit.get('text')
-        require(field in {'specification', 'implementation_prompt'}, 'Unsupported section field')
-        require(isinstance(text, str) and text.strip() and len(text.encode()) <= 8000, 'Section text edit is missing or too large')
-        require(isinstance(sections.get(ident), dict), 'Correction names an unknown section')
+        require(field in {'specification', 'implementation_prompt'}, where + ' uses an unsupported section field')
+        require(isinstance(text, str) and text.strip() and len(text.encode()) <= 8000, where + ' text is missing or too large')
+        require(isinstance(sections.get(ident), dict), where + ' names an unknown section')
         key = ('replace_text', ident, field)
-        require(key not in seen, 'Correction edits conflict')
+        require(key not in seen, where + ' edits conflict')
         seen.add(key)
         prepared.append((op, target, ident, field, text))
     for op, target, ident, first, second in prepared:

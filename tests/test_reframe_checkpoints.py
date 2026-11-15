@@ -2047,46 +2047,25 @@ class CheckpointTests(unittest.TestCase):
         passed = copy.deepcopy(units)
         approvals = copy.deepcopy(self.project['approvals'])
 
-        def provider(*_args):
-            raise AssertionError('provider')
-
-        reports = []
-        with patch.object(app, 'model_call', provider), patch.object(app, 'assessment', side_effect=AssertionError('assessment job')):
-            code = app.main(['--workspace', str(self.work), 'resume'], reporter=reports.append)
-        self.assertEqual(code, 2)
-        self.assertEqual(reports[-1]['status'], 'CORRECTION_INVALID')
-        self.assertIn('received dict', reports[-1]['reason'])
-        self.assertIn('reframe resume', reports[-1]['next_step'])
-        self.assertIn('No assessment job is created.', reports[-1]['next_step'])
-        saved = app.read(self.work / 'project.json')
-        self.assertEqual(saved['pipeline']['calls'], 301)
-        self.assertEqual(saved['pipeline']['limit_corrections'], 1)
-        self.assertEqual(saved['pipeline']['invalid_candidates'], 2)
-        self.assertEqual(saved['pipeline']['role'], 'executor')
-        self.assertEqual(saved['pipeline']['round'], 3)
-        self.assertEqual(saved['stage'], 'RUNNING_EXECUTOR')
-        self.assertNotIn('specification', saved)
-        self.assertEqual(saved['approvals'], approvals)
-        self.assertEqual(saved['checkpoints']['units'], passed)
-        self.assertEqual(json.dumps(app.read(area / 'reply-301.json'), sort_keys=True), original_reply)
-        self.assertEqual(sha(area / 'checkpoint-candidate-2.json'), digest)
-        self.assertFalse((area / 'checkpoint-candidate-3.json').exists())
-        self.assertFalse((area / 'reply-302.json').exists())
-        self.assertEqual(app.read(area / 'checkpoint-candidate-2.json'), saved_spec)
-
         def corrected(provider, run, directory, role, message):
             context = json.loads(message)
             if role == 'executor':
                 self.assertIn('received dict', context['candidate_correction']['error'])
-                self.assertIn('base_sha256', context['candidate_correction']['instruction'])
+                self.assertIn('Exact reply:', context['candidate_correction']['instruction'])
+                self.assertIn('old/new and find/replace are unsupported', context['candidate_correction']['instruction'])
+                self.assertIn('"base_sha256": "BASE_SHA256"', context['candidate_correction']['instruction'])
+                self.assertIn('"text": "Complete replacement for the named field."', context['candidate_correction']['instruction'])
                 return {'kind': 'correction', 'base_sha256': context['candidate_correction']['base_sha256'], 'edits': [{
                     'op': 'replace_text', 'target': 'section', 'id': 'data', 'field': 'specification',
                     'text': 'The data section stays descriptive.'}]}
             return {'kind': 'review', 'decision': 'PASS', 'report': 'Corrected after the malformed edit was rejected', 'findings': []}
 
+        reports = []
         with patch.object(app, 'model_call', corrected), patch.object(app, 'assessment', side_effect=AssertionError('assessment job')):
             code = app.main(['--workspace', str(self.work), 'resume'], reporter=reports.append)
         self.assertEqual(code, 0, reports[-1] if reports else '')
+        self.assertEqual(json.dumps(app.read(area / 'reply-301.json'), sort_keys=True), original_reply)
+        self.assertEqual(app.read(area / 'checkpoint-candidate-2.json'), saved_spec)
         saved = app.read(self.work / 'project.json')
         self.assertEqual(saved['pipeline']['calls'], 303)
         self.assertEqual(saved['pipeline']['limit_corrections'], 1)
@@ -2120,6 +2099,164 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(saved['pipeline']['limit_corrections'], 1)
         self.assertEqual(saved['checkpoints']['units'], units)
         self.assertIn('The data section stays descriptive.', json.dumps(app.read(area / 'checkpoint-candidate-3.json')))
+
+    def _sanitized_saved_reply(self, name):
+        live = Path('/Users/satish_byndr/Documents/workspace-intraedge/aws-mainframe-modernization-carddemo_assessment/preparation') / name
+        if not live.is_file():
+            self.skipTest('saved reply is not on this machine')
+        payload = json.loads(live.read_text())
+        tokens = {'correction', 'set_rule_ids', 'replace_text', 'section', 'work_item', 'specification', 'implementation_prompt'}
+
+        def scrub(value):
+            if isinstance(value, dict):
+                return {key: scrub(item) for key, item in value.items()}
+            if isinstance(value, list):
+                return [scrub(item) for item in value]
+            if isinstance(value, str):
+                return value if value in tokens else 'x'
+            return value
+
+        return scrub(payload)
+
+    def test_sanitized_replies_continue_once_then_stop_without_a_retry_reset(self):
+        scrubbed_first = self._sanitized_saved_reply('reply-301.json')
+        scrubbed_second = self._sanitized_saved_reply('reply-302.json')
+        self.assertIsInstance(scrubbed_first['edits'][0]['target'], dict)
+        self.assertEqual(sorted(scrubbed_second['edits'][8]), ['field', 'id', 'new', 'old', 'op', 'target'])
+        self.assertNotIn('text', scrubbed_second['edits'][8])
+
+        def adapt(name, rule):
+            payload = json.loads((Path('/Users/satish_byndr/Documents/workspace-intraedge/aws-mainframe-modernization-carddemo_assessment/preparation') / name).read_text())
+            section_names = list(artifacts.SECTIONS)
+            section_map, work_map = {}, {}
+            edits = []
+            for edit in payload['edits']:
+                item = {}
+                target = edit.get('target')
+                original = edit.get('id')
+                for key, value in edit.items():
+                    if key == 'op' and isinstance(value, str):
+                        item[key] = value
+                    elif key == 'target' and isinstance(value, str):
+                        item[key] = value
+                    elif key == 'field' and value in {'specification', 'implementation_prompt'}:
+                        item[key] = value
+                    elif key == 'rule_ids' and isinstance(value, list):
+                        item[key] = [rule]
+                    elif key == 'id' and isinstance(target, str):
+                        if target == 'work_item':
+                            work_map.setdefault(original, 'W' + str(len(work_map) + 1))
+                            item[key] = work_map[original]
+                        else:
+                            section_map.setdefault(original, section_names[len(section_map)])
+                            item[key] = section_map[original]
+                    elif isinstance(value, dict):
+                        item[key] = {'type': 'x', 'id': 'x'}
+                    elif isinstance(value, str):
+                        item[key] = 'x'
+                    else:
+                        item[key] = value
+                edits.append(item)
+            return {**payload, 'edits': edits}, list(work_map.values())
+
+        first, _ignored = adapt('reply-301.json', 'R1')
+        second, work_ids = adapt('reply-302.json', 'U0001-F1')
+        spec = self.spec()
+        original = copy.deepcopy(spec)
+        with self.assertRaisesRegex(Blocked, r'edits\[0\].*received dict'):
+            cp.apply_synthesis_edits(spec, first['edits'])
+        self.assertEqual(spec, original)
+        problem = cp.correction_edit_problem(8, second['edits'][8])
+        self.assertRegex(problem, r'edits\[8\] replace_text.*unexpected fields new, old.*missing text')
+        self.assertIn('replaces the entire named field', problem)
+        mixed = [{'op': 'set_rule_ids', 'target': 'section', 'id': 'data', 'rule_ids': ['R1']}, second['edits'][8]]
+        with self.assertRaisesRegex(Blocked, r'edits\[1\] replace_text.*unexpected fields new, old'):
+            cp.apply_synthesis_edits(spec, mixed)
+        self.assertEqual(spec, original)
+        self.assertIn('Exact reply:', cp.SYNTHESIS_CORRECTION)
+        self.assertIn(json.dumps(cp.correction_reply_example(), sort_keys=True), cp.SYNTHESIS_CORRECTION)
+        self.assertEqual(set(cp.correction_examples()['replace_text']), cp.ACCEPTED_EDIT_FIELDS['replace_text'])
+
+        area, units, saved_spec = self._synthesis_recovery_project(first)
+        for ident in work_ids:
+            if not any(item.get('id') == ident for item in saved_spec['work_items']):
+                saved_spec['work_items'].append({'id': ident, 'title': 'Fixture task', 'depends_on': [], 'acceptance': 'Fixture acceptance'})
+        app.write(area / 'checkpoint-candidate-2.json', saved_spec)
+        app.write(area / 'reply-298.json', {'kind': 'candidate', 'specification': saved_spec})
+        digest = sha(area / 'checkpoint-candidate-2.json')
+        first['base_sha256'] = digest
+        second['base_sha256'] = digest
+        original_first = json.dumps(first, sort_keys=True)
+        app.write(area / 'reply-301.json', first)
+        self.project['pipeline']['candidate_sha256'] = digest
+        app.persist(self.work, self.project)
+        passed = copy.deepcopy(units)
+        approvals = copy.deepcopy(self.project['approvals'])
+        seen = []
+
+        def provider(provider_name, run, directory, role, message):
+            seen.append(role)
+            context = json.loads(message)
+            self.assertEqual(role, 'executor')
+            self.assertIn('edits[0]', context['candidate_correction']['error'])
+            self.assertIn('received dict', context['candidate_correction']['error'])
+            self.assertIn(json.dumps(cp.correction_examples()['replace_text'], sort_keys=True),
+                          context['candidate_correction']['instruction'])
+            return second
+
+        reports = []
+        with patch.object(app, 'model_call', provider), patch.object(app, 'assessment', side_effect=AssertionError('assessment job')):
+            code = app.main(['--workspace', str(self.work), 'resume'], reporter=reports.append)
+        self.assertEqual(code, 2, reports[-1] if reports else '')
+        self.assertEqual(seen, ['executor'])
+        self.assertIn('edits[8]', reports[-1]['reason'])
+        self.assertIn('unexpected fields new, old', reports[-1]['reason'])
+        self.assertIn('missing text', reports[-1]['reason'])
+        self.assertIn('authorize-correction', reports[-1]['next_step'])
+        saved = app.read(self.work / 'project.json')
+        self.assertEqual(saved['pipeline']['calls'], 302)
+        self.assertEqual(saved['pipeline']['invalid_candidates'], 3)
+        self.assertEqual(saved['pipeline']['limit_corrections'], 1)
+        self.assertEqual(saved['stage'], 'BLOCKED')
+        self.assertNotIn('specification', saved)
+        self.assertEqual(saved['approvals'], approvals)
+        self.assertEqual(saved['checkpoints']['units'], passed)
+        self.assertEqual(json.dumps(app.read(area / 'reply-301.json'), sort_keys=True), original_first)
+        self.assertEqual(app.read(area / 'reply-302.json'), second)
+        self.assertEqual(app.read(area / 'checkpoint-candidate-2.json'), saved_spec)
+        self.assertFalse((area / 'checkpoint-candidate-3.json').exists())
+        rejected = [event for event in saved['events'] if event.get('event') == 'candidate_validation_failed' and event.get('call') == 302]
+        self.assertEqual(len(rejected), 1)
+
+        def denied(*_args):
+            raise AssertionError('provider')
+
+        with patch.object(app, 'model_call', denied), patch.object(app, 'assessment', side_effect=AssertionError('assessment job')):
+            again = app.main(['--workspace', str(self.work), 'resume'], reporter=reports.append)
+        self.assertEqual(again, 2)
+        saved = app.read(self.work / 'project.json')
+        self.assertEqual(saved['pipeline']['calls'], 302)
+        self.assertEqual(saved['pipeline']['invalid_candidates'], 3)
+        self.assertEqual(len([event for event in saved['events']
+                              if event.get('event') == 'candidate_validation_failed' and event.get('call') == 302]), 1)
+        self.assertEqual(saved['checkpoints']['units'], passed)
+        self.assertEqual(app.read(area / 'reply-302.json'), second)
+
+        with patch.object(app, 'model_call', denied), patch.object(app, 'assessment', side_effect=AssertionError('assessment job')):
+            authorized = app.main(['--workspace', str(self.work), 'feedback', '--authorize-correction',
+                                   '--by', 'Fixture owner', '--note', 'The edit contract is now explicit'],
+                                  reporter=reports.append)
+        self.assertEqual(authorized, 0, reports[-1] if reports else '')
+        saved = app.read(self.work / 'project.json')
+        self.assertEqual(saved['pipeline']['calls'], 302)
+        self.assertEqual(saved['pipeline']['invalid_candidates'], 0)
+        self.assertEqual(saved['pipeline']['invalid_candidate_authorizations'], 1)
+        self.assertEqual(saved['pipeline']['limit_corrections'], 1)
+        self.assertEqual(saved['stage'], 'RUNNING_EXECUTOR')
+        self.assertEqual(saved['checkpoints']['units'], passed)
+        self.assertEqual(len([event for event in saved['events']
+                              if event.get('event') == 'candidate_validation_failed' and event.get('call') == 302]), 1)
+        self.assertEqual(app.read(area / 'reply-302.json'), second)
 
     def test_sanitized_carddemo_recovery_builds_exact_requests(self):
         live = Path('/Users/satish_byndr/Documents/workspace-intraedge/aws-mainframe-modernization-carddemo_assessment')
@@ -2200,6 +2337,10 @@ class CheckpointTests(unittest.TestCase):
             record['review_sha256'] = sha(work / record['review_path'])
         project['pipeline']['candidate_sha256'] = sha(work / 'preparation' / 'checkpoint-candidate-2.json')
         project['pipeline']['previous_review'] = sanitize(project['pipeline'].get('previous_review'))
+        project['pipeline'].update(calls=299, status='RUNNING', role='executor', round=3, limit_corrections=1, invalid_candidates=0)
+        project['pipeline'].pop('correction_error', None)
+        project['pipeline'].pop('reason', None)
+        project['stage'] = 'RUNNING_EXECUTOR'
         app.write(work / 'project.json', project)
         seen = {}
 

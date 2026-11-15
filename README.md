@@ -166,7 +166,14 @@ reframe resume
 
 That records the old and new prompt hashes for the calls and passed units already saved, then lets the saved review continue. It does not restart the assessment or the passed units.
 
-A saved correction whose edit target is not the string `section` or `work_item` is checked by the next `reframe resume` without a model call. The saved reply, candidate, call count, and correction allowance stay in place, and the command prints the validation result. Run `reframe resume` once more to send that result under the existing invalid-candidate limit. This controller change does not change the preparation prompts. Use `--adopt-prompts` only when `resume` reports `Run pin changed: prompt_hash`.
+A saved correction that does not match the edit contract is rejected before any edit is applied. The same `reframe resume` sends the validation result and the exact JSON contract when a retry and call budget remain. It stops after three invalid candidates and prints the latest error. Another attempt is only:
+
+```bash
+reframe feedback --authorize-correction --by NAME --note WHY
+reframe resume
+```
+
+Plain `resume` does not reset that count. Passed units stay sealed, and no assessment job is created. This controller change does not change the preparation prompts. Use `--adopt-prompts` only when `resume` reports `Run pin changed: prompt_hash`.
 
 Inside the workspace folder:
 

@@ -630,10 +630,12 @@ def next_step(project):
     stage = project['stage']
     if stage == 'RUNNING_EXECUTOR':
         error = (project.get('pipeline') or {}).get('correction_error')
-        if isinstance(error, dict) and error.get('reason'):
+        if isinstance(error, dict) and error.get('reason') and (project.get('pipeline') or {}).get('invalid_candidates', 0) < 3:
             return ('reframe resume. The saved correction was rejected before any edit was applied. '
-                    'The next resume sends that validation result to one correction. '
+                    'Resume sends that validation result while a retry remains. '
                     'Passed units stay sealed. No assessment job is created.')
+    if stage == 'BLOCKED' and app.correction_retries_exhausted(project.get('pipeline') or {}):
+        return app.CORRECTION_AUTHORIZE
     if stage == 'PREPARATION_PLANNED':
         state = project.get('pipeline') or {}
         if state.get('reason') == 'Insufficient call budget for remaining checkpoint plan':
