@@ -624,7 +624,7 @@ def next_step(project):
     """Return the command a person should run for the current stage."""
     import reframe as app
     if app.prompts_differ(project):
-        return app.prompt_migration_command()
+        return app.prompt_migration_command(project)
     if project['stage'] == 'PROVIDER_REVIEW_REQUIRED':
         return 'Review the private provider refusal and request content; automatic model retries are stopped.'
     stage = project['stage']
@@ -646,7 +646,16 @@ def next_step(project):
     if stage == 'SPECIFICATIONS_APPROVED': return 'reframe package'
     if stage == 'AWAITING_SPECIFICATIONS_APPROVAL': return 'Review the HTML, then reframe approve specifications'
     if stage == 'VALIDATION_APPROVED': return 'reframe review-site'
-    if stage == 'AWAITING_VALIDATION_APPROVAL': return 'Record SME decisions, then reframe approve validation'
+    if stage == 'AWAITING_VALIDATION_APPROVAL':
+        recorded = project.get('framework_commit')
+        if isinstance(recorded, str) and recorded != app.git(app.FRAMEWORK, 'rev-parse', 'HEAD'):
+            return ('reframe --workspace WORKSPACE upgrade-framework --note "WHY". '
+                    'This records the controller revision and keeps the reviewed specification, review, checkpoints, '
+                    'assessment approval, decisions, and call counts. Then status, decide --open --confirm for questions '
+                    'without decisions, and approve validation. Do not resume.')
+        return ('Record SME decisions, then reframe approve validation. '
+                'Menu 1 can defer every open question in one confirmed batch. '
+                'A deferral is not an answer. Affected implementation remains blocked.')
     if stage == 'REWORK_LIMIT':
         checkpoints = project.get('checkpoints') or {}
         state = project.get('pipeline') or {}
@@ -678,8 +687,13 @@ def prepare_command(args, work, project):
         if not args.label:
             review_stages = {'ASSESSMENT_APPROVED', 'PREPARATION_PLANNED', 'REVISION_PENDING',
                              'RUNNING_EXECUTOR', 'RUNNING_REVIEWER', 'REWORK_LIMIT', 'WAITING_FOR_RUNTIME'}
+            human_gates = {'AWAITING_ASSESSMENT_APPROVAL', 'AWAITING_VALIDATION_APPROVAL',
+                           'AWAITING_SPECIFICATIONS_APPROVAL', 'VALIDATION_APPROVED', 'SPECIFICATIONS_APPROVED',
+                           'PACKAGED', 'PROVIDER_REVIEW_REQUIRED', 'BLOCKED'}
             continuing_review = args.command == 'resume' and project.get('pipeline') and project.get('stage') in review_stages
-            if args.command == 'resume' and not continuing_review:
+            if args.command == 'resume' and project.get('stage') in human_gates:
+                args.label = project.get('active_assessment')
+            elif args.command == 'resume' and not continuing_review:
                 require(project.get('active_assessment'), 'No active assessment to resume; use reframe assess')
                 args.label = project['active_assessment']
             elif args.command == 'resume':

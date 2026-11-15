@@ -149,20 +149,23 @@ def open_question_ids(project):
 
 
 def defer_open_questions(ui, project):
-    """Record an explicit deferral for every open SME question before validation approval."""
+    """Record one confirmed deferral batch for every open SME question."""
     pending = open_question_ids(project)
     if not pending:
         return True
-    ui.say(str(len(pending)) + ' SME questions are still open. A deferral is recorded; it is not an answer.')
-    if not ui.yes('Defer the ' + str(len(pending)) + ' open SME questions so the package can be written for review?'):
+    ui.say(str(len(pending)) + ' SME questions are still open. A deferral is not an answer. Affected implementation remains blocked.')
+    ui.say('Scope: ' + str(len(pending)) + ' open questions. Saved decisions stay unchanged.')
+    if not ui.yes('Defer the ' + str(len(pending)) + ' open SME questions in one batch so the package can be written for review?'):
         ui.say('Paused. Record each SME answer with reframe decide, then return with /flow. No approval was recorded.')
         return False
     owner = ui.ask('Accountable owner for these deferred questions')
     note = ui.ask('Reason for deferring the open questions')
-    for question in pending:
-        if ui.invoke(['decide', '--question', question, '--by', owner, '--answer', note, '--disposition', 'deferred']) != 0:
-            ui.say('A deferral was not recorded. /flow retries the remaining questions. No approval was recorded.')
-            return False
+    if ui.invoke(['decide', '--open', '--by', owner, '--answer', note, '--disposition', 'deferred', '--confirm']) != 0:
+        ui.say('A deferral was not recorded. /flow retries the open questions in one batch. No approval was recorded.')
+        return False
+    report = getattr(ui, 'last_report', None) or {}
+    ui.say('Recorded ' + str(report.get('recorded', len(pending))) + '. Remaining ' + str(report.get('remaining', 0))
+           + '. Skipped ' + str(report.get('skipped', 0)) + '.')
     return True
 
 
@@ -316,7 +319,8 @@ def finish_guided_design(ui, project):
     ui.say('Wireframe model calls used ' + str(summary['wireframe_calls']) + ' with ' + cap_text(summary['wireframe_cap']) + '.')
     ui.say('Skip-draft model calls used ' + str(summary['skip_draft_calls'])
            + '. Failed attempts ' + str(summary.get('skip_failures', 0)) + ' of limit ' + str(summary.get('skip_failure_limit', 3)) + '.')
-    ui.say('Measured model dollars ' + str(summary['dollars_measured']) + ' of cap ' + str(summary['dollar_cap']) + '.')
+    from reframe import spend_text
+    ui.say(spend_text(summary))
     if summary.get('next_call_estimate') is not None:
         ui.say('Estimated next billed call ' + str(summary['next_call_estimate']) + '. This estimate is not measured spend.')
     mode = ui.ask('Design mode (functional-parity/reimagine)', 'functional-parity')
@@ -536,7 +540,18 @@ def run(ui):
                 # A short allowance returns a blocked status. Calls already spent still reach the question below.
                 if code != 0 and state.get('correction_error'):
                     report = getattr(ui, 'last_report', None) or {}
+                    for line in report.get('progress') or []:
+                        ui.say(str(line))
                     ui.say(str(report.get('reason') or 'The saved correction was rejected before any edit was applied.'))
+                    from reframe import correction_retries_exhausted
+                    cap = settings.get('max_model_calls')
+                    recoverable = (not correction_retries_exhausted(state) and (state.get('invalid_candidates') or 0) < 3
+                                   and (cap is None or spent < cap))
+                    if recoverable:
+                        ui.say('Continuing the saved review. A retry and call budget remain.')
+                        code = ui.invoke(['resume'])
+                        updated = ui.project() or {}
+                        continue
                     ui.say(str(report.get('next_step') or 'reframe resume'))
                     ui.say('Passed units stay sealed. No new assessment job is created.')
                     return

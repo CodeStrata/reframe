@@ -300,19 +300,21 @@ infrastructure, security, migration, tests, operations, delivery, reusable build
 prompts and a dependency-ordered implementation backlog. Microservices are evaluated
 against alternatives, not assumed. Structural checks cannot guarantee completeness.
 
-Record each SME answer or explicit deferral:
+Record one SME answer, or one confirmed batch:
 
 ```bash
 ./reframe --workspace /path/to/private-poc decide --question <question-id> \
   --by "Business SME" --answer "Decision and rationale" --disposition resolved
+./reframe --workspace /path/to/private-poc decide --open \
+  --by "Business SME" --answer "Reason the open questions stay deferred" \
+  --disposition deferred --confirm
 ./reframe --workspace /path/to/private-poc approve validation \
   --by "Accountable architect" --note "Reviewed evidence, decisions and excluded scope"
 ```
 
-`--disposition deferred` retains the question's blocked downstream work. Deferral
-is not permission to implement that work. Decisions are overlays tied to the exact
-candidate; if an answer changes a specification, use feedback and rerun validation
-so the change is incorporated before approval.
+The batch command checks every selected id, the specification hash, the disposition, the owner, and the rationale before it writes. It asks for `--confirm` after showing the count and scope. Saved decisions stay in place. `--amend --confirm` is the reviewed path that replaces a saved decision and keeps the previous answer. One batch writes once and regenerates the preparation report once. Repeating it does not add a second audit record.
+
+`--disposition deferred` retains the question's blocked downstream work. A deferral is not an answer, and affected implementation remains blocked. Decisions are overlays tied to the exact candidate; if an answer changes a specification, use feedback and rerun validation so the change is incorporated before approval.
 
 ## 5. Business review and revision
 
@@ -433,27 +435,52 @@ Stop the local watcher before updating Reframe; the AWS job remains intact. Menu
 git checkout main
 git pull origin main
 uv tool install --force --reinstall --managed-python --python 3.12 --editable .
-reframe upgrade-framework --note "Record the reviewed controller fix"
-reframe status
-reframe resume
+reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc status
+reframe --workspace /path/to/private-poc resume
 ```
 
-A prompt migration recorded for an earlier revision does not authorize this framework commit. `upgrade-framework` records the checkout you just installed. When that release also changes the preparation prompts, `upgrade-framework` stops before it writes anything and `resume` still reports `Run pin changed: prompt_hash`. Adopt the prompts explicitly, then resume:
+A prompt migration recorded for an earlier revision does not authorize this framework commit. `upgrade-framework` records the checkout you just installed. Run it without `--adopt-prompts`. If the response is `Preparation prompts changed. The upgrade was not recorded.`, repeat the same command with `--adopt-prompts`. Do not add that flag for any other response.
+
+`approve validation` checks the framework revision. A run at `AWAITING_VALIDATION_APPROVAL` with a reviewed specification and no validation approval records a controller-only update when the preparation prompts are unchanged. The specification, review hash, checkpoints, assessment approval, decisions, and call count stay in place. A checkout that changes the preparation prompts is refused, including with `--adopt-prompts`. The reviewed specification stays bound to the saved prompt hash. Use the matching checkout or start a new workspace.
 
 ```bash
-reframe upgrade-framework --note "Adopt the preparation prompt changes for this saved review" --adopt-prompts
-reframe status
-reframe resume
+reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc status
+reframe --workspace /path/to/private-poc decide --open --by NAME --answer WHY --disposition deferred --confirm
+reframe --workspace /path/to/private-poc approve validation --by NAME --note WHY
+reframe --workspace /path/to/private-poc review-site
 ```
 
-A saved correction is checked against one edit contract before any edit is applied. `replace_text` replaces the entire named field; `old`/`new` and `find`/`replace` are rejected. When a retry and call budget remain, that same `reframe resume` sends the validation error and the exact JSON examples. It does not wait for a second resume. After three invalid candidates it stops with the latest error. Plain `resume` does not reset the count or call the provider again. Authorize one more bounded series explicitly, then resume:
+`decide --open` records only questions without decisions. Do not `resume` this run, and do not amend a saved rationale unless the command includes `--amend --confirm`. `review-site` calls the wireframe provider and runs only after the explicit validation approval. It does not restart a checkpoint or create an assessment.
 
 ```bash
-reframe feedback --authorize-correction --by NAME --note WHY
-reframe resume
+reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix" --adopt-prompts
+reframe --workspace /path/to/private-poc status
+reframe --workspace /path/to/private-poc resume
 ```
 
-The rejected reply files stay in place. Passed units stay sealed, and no assessment job is created. This change does not alter the preparation prompts, so `--adopt-prompts` is required only when `resume` reports `Run pin changed: prompt_hash`.
+A saved correction is checked against one edit contract before any edit is applied. `replace_text` replaces the entire named field; `old`/`new` and `find`/`replace` are rejected. When a retry and call budget remain, that same `reframe resume` and menu 1 send the validation error and continue into the correction and independent review. A synthesis rework with a remaining correction allowance does the same in that invocation. Progress is printed without another manual resume. After three invalid candidates, or when the correction allowance is exhausted, it stops with the latest error. Plain `resume` does not reset the count or call the provider again. Authorize one more bounded series explicitly, then resume:
+
+```bash
+reframe --workspace /path/to/private-poc feedback --authorize-correction --by NAME --note WHY
+reframe --workspace /path/to/private-poc resume
+```
+
+The rejected reply files stay in place. Passed units stay sealed, and no assessment job is created. This change does not alter the preparation prompts. Add `--adopt-prompts` only when `upgrade-framework` responds `Preparation prompts changed. The upgrade was not recorded.`
+
+When status shows phase `AWAITING_VALIDATION_APPROVAL`, assessment approval recorded, and open SME questions, menu 1 asks once and records only the questions that have no decision. Saved deferrals stay as they are, including a rationale of `None`. To replace one of those saved deferrals, name its id:
+
+```bash
+reframe --workspace /path/to/private-poc decide --question QUESTION --by NAME --answer WHY --disposition deferred --amend --confirm
+```
+
+That keeps the previous answer and clears validation approval. Do not treat a deferral as an answer. Approve validation only after the open questions are decided or explicitly deferred:
+
+```bash
+reframe --workspace /path/to/private-poc decide --open --by NAME --answer WHY --disposition deferred --confirm
+reframe --workspace /path/to/private-poc approve validation --by NAME --note WHY
+```
 
 `--adopt-prompts` records the old and new prompt hashes, the framework revisions,
 the rationale, and the affected phase. Calls already completed and units that
@@ -467,7 +494,7 @@ new assessment.
 
 This validates source integrity and records the old and new framework revisions in
 both project and run history. It preserves job identity, evidence and mutation
-receipts. It refuses the upgrade after the specification is saved on the project, after a downstream approval, or while job creation is uncertain. A saved synthesis candidate that has not passed review can still record the new revision. An existing assessment approval is retained only after verifying its exact evidence fingerprint and original files.
+receipts. While validation approval is still open, a reviewed specification can record a controller revision when the preparation prompts are unchanged. The command refuses a prompt change, a validation or specification approval, a specification or checkpoint hash mismatch, or uncertain job creation. A saved synthesis candidate that has not passed review can still record the new revision. An existing assessment approval is retained only after verifying its exact evidence fingerprint and original files.
 It does not change the assessment scope or approve findings. A run with such an
 upgrade must disclose that it used multiple controller revisions.
 
@@ -543,7 +570,9 @@ reframe model-budget --max-dollars 50 --by "Run owner" --note "Approved model sp
 reframe resume
 ```
 
-A new project has no model-call cap. `max_model_calls` is null until you set one. A saved run keeps its recorded cap, its calls, and its dollar cap. The guide asks before raising a cap or removing it with `reframe model-budget --clear-call-cap`. Removing the cap does not restart the assessment or discard completed work. A call cap is enforced only when it is set. Measured model dollars and an estimated next call are shown separately. A billed API key stops at the saved dollar cap until you raise it. A logged-in Claude subscription is not charged to that ledger. Repeated identical results, a provider failure, and a lack of progress pause with the completed work saved.
+A new project has no model-call cap. `max_model_calls` is null until you set one. A saved run keeps its recorded cap, its calls, and its dollar cap. The guide asks before raising a cap or removing it with `reframe model-budget --clear-call-cap`. Removing the cap does not restart the assessment or discard completed work. A call cap is enforced only when it is set. Tracked API spend and the API dollar cap are shown separately from an estimated next call. A cap of 0 is a real API budget and blocks the next billed API call. Subscription and other provider usage are unmeasured, and that absence is not a zero-dollar charge. A billed API key stops at the saved dollar cap until you raise it. A logged-in Claude subscription is not charged to that ledger. Repeated identical results, a provider failure, and a lack of progress pause with the completed work saved.
+
+`reframe status` reports the project phase, the saved assessment service state, assessment approval, the last local action, and the current required action. The service record can still say `AWAITING_ASSESSMENT_APPROVAL` after that approval exists. That historical state is not the current blocker when validation is pending. Question totals, answered, deferred, and remaining counts do not include question text or rationale.
 
 This sets the total allowance, not an extra increment on top of it. There is no maximum call count. Consumed calls remain counted,
 and the change records the owner, rationale, old cap and new cap. It does not change

@@ -83,18 +83,27 @@ class GuidedFlowTests(unittest.TestCase):
                                 'correction_error': {'call': 301, 'reason': 'Correction target must be the string section or work_item; received dict'}},
                    'checkpoints': {'status': 'READY_FOR_SYNTHESIS', 'units': {'U0001': {'status': 'PASS'}}}}
         ui = self.ui(project, ['continue'])
-        ui.invoke.return_value = 2
+        calls = []
+
+        def invoke(args):
+            calls.append(args)
+            if len(calls) == 1:
+                return 2
+            ui.project.return_value = {'stage': 'AWAITING_VALIDATION_APPROVAL', 'approvals': {'assessment': True},
+                                      'pipeline': {}, 'settings': {}}
+            return 0
+
+        ui.invoke.side_effect = invoke
+        ui.yes.return_value = False
         ui.last_report = {'status': 'CORRECTION_INVALID',
                           'reason': project['pipeline']['correction_error']['reason'],
                           'next_step': 'reframe resume. The saved correction was rejected before any edit was applied.'}
         run(ui)
-        commands = [call.args[0] for call in ui.invoke.call_args_list]
-        self.assertEqual(commands, [['resume']])
+        self.assertEqual(calls, [['resume'], ['resume']])
         said = ' '.join(str(call.args[0]) for call in ui.say.call_args_list)
         self.assertIn('received dict', said)
-        self.assertIn('reframe resume', said)
-        self.assertIn('No new assessment job is created.', said)
-        self.assertNotIn('assess', str(commands))
+        self.assertIn('Continuing the saved review', said)
+        self.assertNotIn('approve', str(calls))
 
     def test_running_assessment_resumes_without_new_job(self):
         ui = self.ui({'stage':'ASSESSING','active_assessment':'run-1'}, ['continue'])
@@ -259,16 +268,20 @@ class GuidedFlowTests(unittest.TestCase):
         approved = {'stage':'VALIDATION_APPROVED', 'approvals':{'assessment':True, 'validation':True}}
         ui = self.ui(waiting, ['continue', 'Satish', 'Deferred for package review'])
         ui.yes.side_effect = [True, True]
-        ui.project.side_effect = [waiting, waiting, approved]
-        ui.invoke.side_effect = [0, 0, 0, 2]
+
+        def invoke(args):
+            if args[0] == 'approve':
+                ui.project.return_value = approved
+            return 0 if args[0] != 'review-site' else 2
+
+        ui.invoke.side_effect = invoke
         with patch('reframe_flow.open_question_ids', return_value=['Q1', 'Q2']):
             run(ui)
         calls = [c.args[0] for c in ui.invoke.call_args_list]
-        self.assertEqual(calls[0], ['decide', '--question', 'Q1', '--by', 'Satish',
-                                    '--answer', 'Deferred for package review', '--disposition', 'deferred'])
-        self.assertEqual(calls[1], ['decide', '--question', 'Q2', '--by', 'Satish',
-                                    '--answer', 'Deferred for package review', '--disposition', 'deferred'])
-        self.assertEqual(calls[2], ['approve', 'validation'])
+        self.assertEqual(calls[0], ['decide', '--open', '--by', 'Satish', '--answer', 'Deferred for package review',
+                                    '--disposition', 'deferred', '--confirm'])
+        self.assertEqual(calls[1], ['approve', 'validation'])
+        self.assertEqual(len([call for call in calls if call[0] == 'decide']), 1)
 
     def test_declining_deferral_records_no_approval(self):
         waiting = {'stage':'AWAITING_VALIDATION_APPROVAL', 'approvals':{'assessment':True}, 'decisions':{}}

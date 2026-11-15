@@ -107,19 +107,12 @@ class CheckpointTests(unittest.TestCase):
                 self.assertEqual(context['previous_review']['report'], 'The screen count contradicts the inventory')
                 return {'kind':'review', 'decision':'PASS', 'report':'The corrected specification matches the inventory', 'findings':[]}
             return self.runtime(provider, run, directory, role, message)
-        first = app.pipeline(self.work, self.project, self.args('validate'), runtime)
-        self.assertEqual(first['status'], 'REWORK_LIMIT')
-        self.assertIn('Synthesis review returned REWORK', first['reason'])
-        self.assertIn('RV', first['reason'])
-        from reframe_setup import next_step
-        self.assertIn('reframe resume', next_step(self.project))
-        self.assertNotIn('feedback --unit', next_step(self.project))
-        self.assertEqual(reviews['n'], 2)
-        self.project = app.read(self.work / 'project.json')
-        second = app.pipeline(self.work, self.project, self.args('resume'), runtime)
-        self.assertEqual(second['status'], 'AWAITING_VALIDATION_APPROVAL')
+        result = app.pipeline(self.work, self.project, self.args('validate'), runtime)
+        self.assertEqual(result['status'], 'AWAITING_VALIDATION_APPROVAL')
         self.assertEqual(self.project['pipeline'].get('limit_corrections'), 1)
         self.assertEqual(reviews['n'], 3)
+        self.assertTrue(any('bounded correction' in line for line in result.get('progress') or []))
+        self.assertNotIn('validation', self.project['approvals'])
 
     def test_a_second_synthesis_contradiction_stays_stopped(self):
         def runtime(provider, run, directory, role, message):
@@ -128,11 +121,13 @@ class CheckpointTests(unittest.TestCase):
                 return {'kind':'review', 'decision':'REWORK', 'report':'The screen count still contradicts the inventory',
                         'findings':[{'id':'RV', 'issue':'screen count'}]}
             return self.runtime(provider, run, directory, role, message)
-        self.assertEqual(app.pipeline(self.work, self.project, self.args('validate'), runtime)['status'], 'REWORK_LIMIT')
+        first = app.pipeline(self.work, self.project, self.args('validate'), runtime)
+        self.assertEqual(first['status'], 'REWORK_LIMIT')
+        self.assertEqual(self.project['pipeline'].get('limit_corrections'), 1)
         self.project = app.read(self.work / 'project.json')
-        self.assertEqual(app.pipeline(self.work, self.project, self.args('resume'), runtime)['status'], 'REWORK_LIMIT')
-        self.project = app.read(self.work / 'project.json')
-        self.assertEqual(app.pipeline(self.work, self.project, self.args('resume'), runtime)['status'], 'REWORK_LIMIT')
+        second = app.pipeline(self.work, self.project, self.args('resume'), runtime)
+        self.assertEqual(second['status'], 'REWORK_LIMIT')
+        self.assertEqual(self.project['pipeline'].get('limit_corrections'), 2)
         self.project = app.read(self.work / 'project.json')
         with self.assertRaisesRegex(Blocked, 'Resolve missing evidence via feedback before retrying'):
             app.pipeline(self.work, self.project, self.args('resume'), runtime)
@@ -2340,7 +2335,14 @@ class CheckpointTests(unittest.TestCase):
         project['pipeline'].update(calls=299, status='RUNNING', role='executor', round=3, limit_corrections=1, invalid_candidates=0)
         project['pipeline'].pop('correction_error', None)
         project['pipeline'].pop('reason', None)
+        project.pop('specification', None)
+        project.pop('preparation_report', None)
         project['stage'] = 'RUNNING_EXECUTOR'
+        current = subprocess.run(['git', '-C', str(app.FRAMEWORK), 'rev-parse', 'HEAD'],
+                                 capture_output=True, text=True, check=True).stdout.strip()
+        project['framework_commit'] = current
+        if isinstance(project.get('pins'), dict):
+            project['pins']['framework_commit'] = current
         app.write(work / 'project.json', project)
         seen = {}
 
@@ -2348,7 +2350,10 @@ class CheckpointTests(unittest.TestCase):
             root = Path(saved['source']['root'])
             app.require(app.git(root, 'rev-parse', 'HEAD') == saved['source']['commit'], 'Pinned source commit changed')
             app.require(not app.git(root, 'status', '--porcelain'), 'Source checkout is not clean')
-            app.require(app.git(app.FRAMEWORK, 'rev-parse', 'HEAD') == saved['framework_commit'], 'Framework revision changed')
+            # The copied project is pinned to this checkout. The live run file stays on its recorded revision.
+            if 'pins' in saved:
+                app.require(app.git(app.FRAMEWORK, 'rev-parse', 'HEAD') == saved['framework_commit'],
+                            'Framework revision changed')
             return root
 
         def runtime(provider, run, directory, role, message):
@@ -2358,9 +2363,11 @@ class CheckpointTests(unittest.TestCase):
             if role == 'executor':
                 self.assertNotIn('reviewed_evidence_units', context)
                 self.assertNotIn('rejected_specification', context['candidate_correction'])
-                section = context['candidate_correction']['focus']['sections']['data']
+                sections = context['candidate_correction']['focus']['sections']
+                section_id, section = next((key, value) for key, value in sections.items()
+                                           if isinstance(value, dict) and isinstance(value.get('specification'), str))
                 return {'kind': 'correction', 'base_sha256': context['candidate_correction']['base_sha256'], 'edits': [{
-                    'op': 'replace_text', 'target': 'section', 'id': 'data', 'field': 'specification',
+                    'op': 'replace_text', 'target': 'section', 'id': section_id, 'field': 'specification',
                     'text': section['specification']}]}
             plan_now, capsules = cp.verified_capsules(work, app.read(work / 'project.json'), app)
             cp.validate_synthesis(context['candidate'], capsules, plan_now)
