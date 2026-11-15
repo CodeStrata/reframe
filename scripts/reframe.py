@@ -1373,10 +1373,15 @@ def pause_unsent_correction(state, error):
     state['reason'] = str(error)
 
 
-CORRECTION_RESUME = (
-    'reframe resume. The saved correction was rejected before any edit was applied. '
-    'The next resume sends that validation result to one correction. '
-    'Passed units stay sealed. No assessment job is created.')
+CORRECTION_AUTHORIZE = (
+    'reframe feedback --authorize-correction --by NAME --note WHY, then reframe resume. '
+    'The latest rejection stays recorded. Passed units stay sealed. No assessment job is created.')
+
+
+def correction_retries_exhausted(state):
+    """True when three rejected corrections are already recorded."""
+    error = state.get('correction_error')
+    return (state.get('invalid_candidates') or 0) >= 3 and isinstance(error, dict) and bool(error.get('reason'))
 
 
 def saved_correction_reply(area, state):
@@ -1501,6 +1506,15 @@ def legacy_pipeline(work, project, args, runtime=model_call):
         persist(work, project)
         return {'status':'BLOCKED', 'reason':state['reason'], 'calls':state['calls'],
                 'remaining_calls':state['remaining_calls'], 'minimum_additional_calls':2}
+    if correction_retries_exhausted(state):
+        reason = state['correction_error']['reason']
+        state.update(status='BLOCKED', reason=reason)
+        project['stage'] = 'BLOCKED'
+        persist(work, project)
+        return {'status': 'BLOCKED', 'reason': reason, 'calls': state['calls'],
+                'invalid_candidates': state['invalid_candidates'],
+                'limit_corrections': state.get('limit_corrections'),
+                'next_step': CORRECTION_AUTHORIZE}
     if (state.get('reason') in {'Insufficient call budget for remaining checkpoint plan',
                                 'Three invalid synthesis candidates; inspect validation feedback'}
             and kw.within_call_limit(project['settings'], state['calls']) and not project.get('specification')):
@@ -1586,6 +1600,7 @@ def legacy_pipeline(work, project, args, runtime=model_call):
         persist(work, project)
 
     previous_signature, repeated_results = None, 0
+    budget_stop = False
     while kw.within_call_limit(project['settings'], state['calls']):
         role, number = state['role'], state['round']
         if capsules and role == 'executor':
@@ -1602,20 +1617,19 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                     finish_correction(pending)
                 except Blocked as error:
                     note_invalid_correction(project, state, error)
-                    if state['invalid_candidates'] >= 3:
-                        state.update(status='BLOCKED', reason='Three invalid synthesis candidates; inspect validation feedback')
+                    if state['invalid_candidates'] >= 3 or not kw.within_call_limit(project['settings'], state['calls']):
+                        state.update(status='BLOCKED', reason=str(error))
                         project['stage'] = 'BLOCKED'
                         persist(work, project)
-                        return {'status': 'BLOCKED', 'reason': state['reason'], 'calls': state['calls'],
+                        step = CORRECTION_AUTHORIZE if state['invalid_candidates'] >= 3 else (
+                            'Record an explicitly approved model-budget change before another correction. '
+                            'Passed units stay sealed. No assessment job is created.')
+                        return {'status': 'BLOCKED', 'reason': str(error), 'calls': state['calls'],
                                 'invalid_candidates': state['invalid_candidates'],
                                 'limit_corrections': state.get('limit_corrections'),
-                                'next_step': 'Inspect validation feedback before another correction. Passed units stay sealed. No assessment job is created.'}
+                                'next_step': step}
                     persist(work, project)
-                    return {'status': 'CORRECTION_INVALID', 'reason': str(error), 'calls': state['calls'],
-                            'invalid_candidates': state['invalid_candidates'],
-                            'limit_corrections': state.get('limit_corrections'),
-                            'round': state.get('round'), 'role': state.get('role'),
-                            'next_step': CORRECTION_RESUME}
+                    continue
                 continue
         key = f'{number}:{role}'
         history = state['contexts'].setdefault(key, [])
@@ -1689,11 +1703,7 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                         details = {}
                         context['candidate_correction'] = details
                     details['error'] = rejected
-                    details['instruction'] = (
-                        'The previous correction was rejected before any edit was applied. '
-                        'Return {"kind":"correction","edits":[...]} and echo base_sha256. '
-                        'Each edit target must be the string section or work_item, and each id must be a string. '
-                        + cp.SYNTHESIS_CORRECTION)
+                    details['instruction'] = cp.SYNTHESIS_CORRECTION
         if role == 'reviewer':
             candidate_path = area / f'{artifact_prefix}candidate-{number}.json'
             require(sha(candidate_path) == state['candidate_sha256'], 'Candidate changed after handoff')
@@ -1772,9 +1782,10 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                 finish_correction(reply)
             except Blocked as error:
                 note_invalid_correction(project, state, error)
-                if state['invalid_candidates'] >= 3:
-                    state.update(status='BLOCKED', reason='Three invalid synthesis candidates; inspect validation feedback')
+                if state['invalid_candidates'] >= 3 or not kw.within_call_limit(project['settings'], state['calls']):
+                    state.update(status='BLOCKED', reason=str(error))
                     project['stage'] = 'BLOCKED'
+                    budget_stop = state['invalid_candidates'] < 3
                     break
                 persist(work, project)
                 continue
@@ -1842,7 +1853,17 @@ def legacy_pipeline(work, project, args, runtime=model_call):
         state['status'], project['stage'] = 'BLOCKED', 'BLOCKED'
         state['reason'] = 'Total model call budget exhausted'
     persist(work, project)
-    return {'status': project['stage'], 'calls': state['calls'], 'reason': state.get('reason')}
+    result = {'status': project['stage'], 'calls': state['calls'], 'reason': state.get('reason')}
+    if correction_retries_exhausted(state):
+        result['invalid_candidates'] = state['invalid_candidates']
+        result['limit_corrections'] = state.get('limit_corrections')
+        result['next_step'] = CORRECTION_AUTHORIZE
+    elif budget_stop:
+        result['invalid_candidates'] = state.get('invalid_candidates')
+        result['limit_corrections'] = state.get('limit_corrections')
+        result['next_step'] = ('Record an explicitly approved model-budget change before another correction. '
+                               'Passed units stay sealed. No assessment job is created.')
+    return result
 
 
 def site_fingerprint(work, project):
@@ -1940,6 +1961,29 @@ def feedback(work, project, args):
         state.update(status='RUNNING', role='executor'); state.pop('reason', None)
         project['stage']='RUNNING_EXECUTOR'; persist(work, project)
         return {'status':project['stage'], 'unit':unit_id, 'calls_consumed':state['calls']}
+
+    if ((project.get('checkpoints') or {}).get('status') == 'READY_FOR_SYNTHESIS'
+            and getattr(args, 'authorize_correction', False)):
+        require(not project.get('specification'), 'The saved specification is already approved')
+        require(correction_retries_exhausted(state),
+                'A bounded correction is still available; resume uses it before authorizing another')
+        passed = {key: copy.deepcopy(other) for key, other in project['checkpoints']['units'].items() if other.get('status') == 'PASS'}
+        state['invalid_candidate_authorizations'] = int(state.get('invalid_candidate_authorizations') or 0) + 1
+        state.setdefault('invalid_candidate_authorizations_log', []).append({
+            'by': args.by, 'note': args.note, 'at': time.time(), 'calls_consumed': state['calls'],
+            'rejected_call': state['correction_error'].get('call'),
+        })
+        state['invalid_candidates'] = 0
+        state.update(status='RUNNING', role='executor')
+        state.pop('reason', None)
+        project['stage'] = 'RUNNING_EXECUTOR'
+        require(all(project['checkpoints']['units'][key] == value for key, value in passed.items()),
+                'Passed units stay sealed')
+        persist(work, project)
+        return {'status': project['stage'], 'calls': state['calls'],
+                'invalid_candidates': 0,
+                'correction_authorizations': state['invalid_candidate_authorizations'],
+                'next_step': 'reframe resume'}
 
     project.setdefault('feedback', []).append({'by': args.by, 'note': args.note, 'at': time.time()})
     require(state['round'] < project['settings']['max_rounds'], 'Revision limit exhausted; start a new workspace')

@@ -446,7 +446,14 @@ reframe status
 reframe resume
 ```
 
-A saved correction that names a dictionary, list, null, missing, or other unsupported target is rejected before any edit is applied. The first `reframe resume` after this update performs that check locally: it does not call the provider, does not spend another call, and does not consume another correction allowance. It leaves the malformed reply and the saved candidate in place and prints the validation result. The next `reframe resume` sends that result to one correction and still stops after three invalid candidates. Passed units stay sealed, and no assessment job is created. This change does not alter the preparation prompts, so `--adopt-prompts` is required only when `resume` reports `Run pin changed: prompt_hash`.
+A saved correction is checked against one edit contract before any edit is applied. `replace_text` replaces the entire named field; `old`/`new` and `find`/`replace` are rejected. When a retry and call budget remain, that same `reframe resume` sends the validation error and the exact JSON examples. It does not wait for a second resume. After three invalid candidates it stops with the latest error. Plain `resume` does not reset the count or call the provider again. Authorize one more bounded series explicitly, then resume:
+
+```bash
+reframe feedback --authorize-correction --by NAME --note WHY
+reframe resume
+```
+
+The rejected reply files stay in place. Passed units stay sealed, and no assessment job is created. This change does not alter the preparation prompts, so `--adopt-prompts` is required only when `resume` reports `Run pin changed: prompt_hash`.
 
 `--adopt-prompts` records the old and new prompt hashes, the framework revisions,
 the rationale, and the affected phase. Calls already completed and units that
