@@ -11,7 +11,7 @@ Read this first if work on `feature/agreed-workflow` resumes in a new session.
 - Acceptance harness: `acceptance/harness.py` (run it from a clean candidate checkout).
 - Never commit from a shell that sourced the isolated env.sh: it sets a test Git identity.
 - The isolated `TMPDIR` sits inside another repository's working tree. A test must never run a Git write command in a fixture folder; stub `pilot.git` instead. (One test did once; the two staged paths were unstaged and nothing else changed.)
-- Round two (`351d34c`) failed; its defects N1–N9 and the D12–D14 leftovers are fixed on the branch except N9 (see docs/validation/acceptance-defects.md). Round three (`fd0e4c8`) failed narrowly with R3-1 to R3-10, all fixed on the branch. Round four (`6e3aed4`) failed narrowly on R4-1 and M1–M5, all fixed on the branch. Next: freeze a new candidate and run acceptance round five.
+- Round two (`351d34c`) failed; its defects N1–N9 and the D12–D14 leftovers are fixed on the branch except N9 (see docs/validation/acceptance-defects.md). Round three (`fd0e4c8`) failed narrowly with R3-1 to R3-10, all fixed on the branch. Round four (`6e3aed4`) failed narrowly on R4-1 and M1–M5, all fixed on the branch. Round five (`b523e41`) failed narrowly on R5-1 to R5-3, all fixed on the branch. Next: freeze a new candidate and run acceptance round six.
 
 ## How to run
 

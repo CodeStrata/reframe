@@ -692,6 +692,10 @@ def next_step(project):
             return ('Synthesis correction limit reached. Inspect the saved review before another correction. '
                     'Passed units stay sealed. No assessment job is created.')
         return 'Authorize one targeted correction with reframe feedback --unit UNIT --authorize-correction --by NAME --note REASON'
+    if stage == 'ASSESSMENT_APPROVED' and not project.get('pipeline') and not project.get('specification') \
+            and project.get('design_plan'):
+        # Review asks for the design plan only after validation, so a plan here means skip was chosen.
+        return 'Generate the skip draft: /flow, or reframe preview --skip-validation --by OWNER --note WHY --name DRAFT'
     if stage == 'ASSESSMENT_APPROVED' and not project.get('pipeline') and not project.get('specification'):
         # No route is chosen yet, so neither command is presumed.
         return ('Choose a route with /flow: skip writes a draft (reframe preview --skip-validation --by OWNER --note WHY), '

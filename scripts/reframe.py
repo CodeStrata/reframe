@@ -801,12 +801,17 @@ def upgrade_framework(work, project, args):
     recorded_commit = project.get('framework_commit')
     prompt_origin = prompt_framework_origin(project, recorded_commit, current) if prompts_changed else None
     phase = prompt_phase(project) if prompts_changed else None
+    by = str(getattr(args, 'by', None) or '').strip()
+    if by:
+        reject_instructional_placeholder(by, 'Name of the person recording the update')
+    person = {**({'by': by} if by else {}), **actor_provenance()}
+
     def update(record):
         """Record the framework commit change on one saved run."""
         previous = record['framework_commit']
         if previous != current:
             record.setdefault('events', []).append({'event':'framework_upgraded', 'at':time.time(),
-                'from':previous, 'to':current, 'reason':args.note})
+                'from':previous, 'to':current, 'reason':args.note, **person})
             record['framework_commit'] = current
     for path, run in records:
         before = copy.deepcopy(run)
@@ -821,9 +826,9 @@ def upgrade_framework(work, project, args):
             if isinstance(approval, dict):
                 approval.setdefault('framework_audits', []).append({
                     'from': recorded_commit, 'to': current, 'at': stamp, 'note': args.note,
-                    'compatibility': 'controller-only; preparation and wireframe prompts unchanged'})
+                    'compatibility': 'controller-only; preparation and wireframe prompts unchanged', **person})
         project.setdefault('events', []).append({'event': 'framework_audit', 'at': stamp, 'from': recorded_commit,
-                                                 'to': current, 'approvals_preserved': sorted(downstream)})
+                                                 'to': current, 'approvals_preserved': sorted(downstream), **person})
     if isinstance(pins, dict):
         pins['framework_commit'] = current
         if prompts_changed:
@@ -3036,7 +3041,10 @@ def refuse_packaged_secrets(destination):
         for kind, pattern in SECRET_PATTERNS:
             if pattern.search(data):
                 shutil.rmtree(destination)
-                raise Blocked('Refusing package; ' + path.name + ' matches ' + kind)
+                error = Blocked('Refusing package; ' + path.name + ' matches ' + kind)
+                error.hint = ('Use /flow. It offers to reject accepted context that carries the value and, when a completed '
+                              'design version already carries it, a design change that starts the next version.')
+                raise error
 
 
 def require_skip_acceptance(project):
@@ -3576,6 +3584,7 @@ def parser():
     report.add_argument('--label')
     upgrade = commands.add_parser('upgrade-framework', help='Record a controller update before candidate handoff; preserve approved evidence')
     upgrade.add_argument('--note', required=True)
+    upgrade.add_argument('--by', help='Person recording the update; recorded on the update and audit events')
     upgrade.add_argument('--adopt-prompts', action='store_true',
                          help='Authorize the saved run to adopt changed preparation prompts. Completed calls and passed units keep the earlier prompt hash.')
     scope = commands.add_parser('scope', help='Record explicit scope for an existing uploaded assessment')

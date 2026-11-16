@@ -15,7 +15,7 @@ def record_framework_update(ui, project):
         return True
     ui.say('Reframe was updated after this run was saved. Record that update before approval. The findings stay unchanged.')
     note = ui.ask('Note for this Reframe update')
-    if ui.invoke(['upgrade-framework', '--note', note]) != 0:
+    if ui.invoke(['upgrade-framework', '--note', note, '--by', reviewer(ui)]) != 0:
         report = getattr(ui, 'last_report', None) or {}
         ui.say(str(report.get('hint') or report.get('reason') or 'The update was not recorded. /flow retries it before approval, skip, or review.'))
         return False
@@ -735,10 +735,28 @@ def offer_open_conflicts(ui, work):
     return False
 
 
+def flagged_design_outputs(work, project):
+    """Folders of the current design version or skip draft whose files look like a credential, by folder name only."""
+    import reframe
+    folders = []
+    plan = project.get('design_plan') or {}
+    if plan.get('version'):
+        folders.append(Path(work) / 'previews' / str(plan['version']))
+    if project.get('skip_bundle'):
+        folders.append(Path(work) / project['skip_bundle'])
+    flagged = []
+    for folder in folders:
+        if folder.is_dir() and any(path.is_file() and any(pattern.search(path.read_bytes()) for _kind, pattern in reframe.SECRET_PATTERNS)
+                                   for path in folder.rglob('*')):
+            flagged.append(folder.name)
+    return flagged
+
+
 def offer_withdraw_flagged_context(ui):
     """After a package refusal, offer to reject accepted context whose stored text looks like a credential.
 
-    The value itself is never printed. Rejecting keeps the submission on record; it only stops it reaching the package.
+    The value itself is never printed. Rejecting keeps the submission on record; it only stops it reaching new outputs.
+    A completed design version that already carries the value cannot change, so a design change starts the next one.
     """
     reason = str((getattr(ui, 'last_report', None) or {}).get('reason') or '')
     work = workspace_path()
@@ -752,10 +770,9 @@ def offer_withdraw_flagged_context(ui):
         if item.get('disposition') == 'accepted' and stored.is_file() and any(
                 pattern.search(stored.read_bytes()) for _kind, pattern in reframe.SECRET_PATTERNS):
             flagged.append(item['id'])
-    if not flagged:
-        return
-    ui.say('Accepted context ' + ', '.join(flagged) + ' contains text that looks like a credential or identifier, '
-           'so it cannot be packaged. Rejecting it keeps the record and leaves it out of the package.')
+    if flagged:
+        ui.say('Accepted context ' + ', '.join(flagged) + ' contains text that looks like a credential or identifier, '
+               'so it cannot be packaged. Rejecting it keeps the record and leaves it out of new design versions.')
     for submission in flagged:
         if not ui.yes('Reject context ' + submission + ' now?'):
             ui.say('Nothing was changed. The package stays blocked until that context is rejected or superseded.')
@@ -764,7 +781,21 @@ def offer_withdraw_flagged_context(ui):
         note = ui.ask('Why it is rejected', 'Contains a credential-shaped value')
         if ui.invoke(['context', 'decide', '--id', submission, '--disposition', 'rejected', '--by', by, '--note', note]) != 0:
             return
-    ui.say('Rejected. /flow builds the package again.')
+    outputs = flagged_design_outputs(work, ui.project() or {})
+    if not outputs:
+        if flagged:
+            ui.say('Rejected. /flow builds the package again.')
+        return
+    ui.say('The design outputs ' + ', '.join(outputs) + ' already carry that text and cannot change; a completed version '
+           'is immutable. A design change starts the next version from accepted context only. It needs a new counted '
+           'model call, and the design is reviewed again before the package is built.')
+    if not ui.yes('Start a design change now?'):
+        ui.say('Nothing was changed. The package stays blocked; /flow offers the design change again.')
+        return
+    by = approver(ui, 'requests this design change')
+    note = ui.ask('Why the design changes', 'Leave out rejected context that looks like a credential')
+    if ui.invoke(['feedback', '--scope', 'design', '--by', by, '--note', note]) == 0:
+        ui.say('Design change recorded. /flow generates the next version and returns to the design gate.')
 
 
 def offer_wireframe_retry(ui):

@@ -4,7 +4,7 @@ The independent acceptance agent's first report on `d65d86f` was **FAIL**: one b
 
 Every defect below was fixed in `ccd9777` or `351d34c` and has a regression test. No test expectation was weakened. Where a journey script changed, the change reflects the corrected behavior, and the test now asserts that behavior.
 
-The re-test on candidate `351d34c` is in `acceptance-report-351d34c.md`, the round-three re-test on `fd0e4c8` is in `acceptance-report-fd0e4c8.md`, and the round-four re-test on `6e3aed4` is in `acceptance-report-6e3aed4.md`. Their defects are in the tables below.
+The re-test on candidate `351d34c` is in `acceptance-report-351d34c.md`, the round-three re-test on `fd0e4c8` is in `acceptance-report-fd0e4c8.md`, the round-four re-test on `6e3aed4` is in `acceptance-report-6e3aed4.md`, and the round-five re-test on `b523e41` is in `acceptance-report-b523e41.md`. Their defects are in the tables below.
 
 | # | Severity | Defect | Fix | Regression test |
 | --- | --- | --- | --- | --- |
@@ -91,5 +91,17 @@ The re-test was **FAIL, narrowly**: no blockers, one major defect, four minor on
 | M3 | minor | An unknown delta id was refused only after the approver and rationale | The id is checked against the recorded proposals first and asked again | `test_guided_flow::test_an_unknown_delta_id_is_refused_before_the_approver_is_asked` |
 | M4 | minor | The CLI skip refusal pointed at project.json | It points to menu 1, which passes the recorded decision | the R3-2 journey |
 | M5 | minor | `recovery-plan` reported a migration as fine while `upgrade-framework` refused it | Both use one check, `upgrade_refusal`, and the plan reports its result | the R4-1 test |
+
+N9 stays a known limitation.
+
+## Round five: candidate `b523e41`
+
+The re-test was **FAIL, narrowly**: no blockers, one major defect, two minor ones. Every round-four fix was confirmed, including the framework update on a legacy skip-route run, and the regression runs A2, B, C, D, and F found no regression.
+
+| # | Severity | Defect | Fix | Regression test |
+| --- | --- | --- | --- | --- |
+| R5-1 | major | After the flagged notes were rejected, the package was still refused: the completed design version kept a proposal built from a rejected note | After rejection, the flow checks the current design version and skip draft. If they still carry the value, it explains that a completed version cannot change and offers a design change, which starts the next version from accepted context only and needs a counted model call. The completed version stays unchanged. The package refusal carries the same recovery as a hint. | `test_guided_flow::test_a_design_version_that_carries_rejected_context_is_replaced_by_a_design_change` |
+| R5-2 | minor | Framework update and audit events recorded no person and no `simulated` label | `upgrade-framework --by` records the person; the menu always passes it; the label is carried | `test_reframe_preview::test_a_skip_route_with_a_design_approval_can_record_a_controller_update`; `test_guided_flow::test_framework_update_is_recorded_before_approval` |
+| R5-3 | minor | After skip was chosen, the design-plan box still said "Choose a route" | A design plan before validation means skip was chosen, so the next step is the skip draft | `test_guided_flow::test_before_a_route_is_chosen_the_next_step_presumes_neither` |
 
 N9 stays a known limitation.

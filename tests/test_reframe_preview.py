@@ -209,12 +209,20 @@ class PreviewTests(unittest.TestCase):
 
     def test_a_skip_route_with_a_design_approval_can_record_a_controller_update(self):
         import argparse
+        import os
         preview.run(self.work, self.project, self.arguments, app, self.runtime)
         self.project['approvals']['design'] = {'by': 'Architect', 'note': 'Reviewed the draft'}
         self.assertIsNone(app.upgrade_refusal(self.work, self.project), 'the draft prompt is unchanged')
-        result = app.upgrade_framework(self.work, self.project, argparse.Namespace(note='Controller fix only', adopt_prompts=False))
+        self.project['framework_commit'] = 'b' * 40
+        with patch.dict(os.environ, {'REFRAME_SIMULATED_ACTOR': '1'}):
+            result = app.upgrade_framework(self.work, self.project, argparse.Namespace(
+                note='Controller fix only', adopt_prompts=False, by='Architect'))
         self.assertEqual(result['status'], 'FRAMEWORK_UPDATED')
         self.assertIn('design', self.project['approvals'], 'the design approval is kept')
+        events = {event['event']: event for event in self.project['events'] if event['event'].startswith('framework_')}
+        for name in ('framework_upgraded', 'framework_audit'):
+            self.assertEqual((events[name]['by'], events[name]['simulated']), ('Architect', True), name)
+        self.assertEqual(self.project['approvals']['design']['framework_audits'][-1]['by'], 'Architect')
         state_path = self.work / 'previews' / 'transform-direct' / 'preview-state.json'
         state = app.read(state_path)
         app.write(state_path, {**state, 'prompt_sha256': '0' * 64})

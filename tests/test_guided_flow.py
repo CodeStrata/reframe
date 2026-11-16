@@ -354,7 +354,8 @@ class GuidedFlowTests(unittest.TestCase):
         with patch('reframe.git', return_value='new'):
             run(ui)
         self.assertEqual(self.routed(ui)[0],
-                         ['upgrade-framework', '--note', 'Record the controller update'])
+                         ['upgrade-framework', '--note', 'Record the controller update', '--by', 'Reviewer'],
+                         'the update names the person who recorded it')
         self.assertEqual(ui.invoke.call_args_list[1].args[0], ['assessment-report'])
 
     def said(self, ui):
@@ -528,6 +529,29 @@ class GuidedFlowTests(unittest.TestCase):
                 self.assertNotIn('validate', next_step({**base, **extra}))
             self.assertIn('approve design', next_step({**base, 'skip_bundle': 'previews/d'}))
 
+    def test_a_design_version_that_carries_rejected_context_is_replaced_by_a_design_change(self):
+        from reframe_flow import offer_withdraw_flagged_context
+        with tempfile.TemporaryDirectory() as root:
+            folder = Path(root)
+            (folder / 'project.json').write_text('{"stage":"DESIGN_APPROVED","settings":{}}')
+            future = folder / 'previews' / 'v2' / 'future-state'
+            future.mkdir(parents=True)
+            (future / 'deltas.json').write_text('{"proposals": [{"after": "token AKIAIOSFODNN7EXAMPLE"}]}')
+            project = {'stage': 'DESIGN_APPROVED', 'design_plan': {'version': 'v2', 'mode': 'reimagine'}}
+            ui = self.ui(project, ['Dana', 'Leave out rejected context that looks like a credential'], gates=False)
+            ui.reviewer_name = 'Ari'
+            ui.yes.return_value = True
+            ui.last_report = {'reason': 'Refusing package; deltas.json matches cloud access key'}
+            lines = self.said(ui)
+            with patch('reframe_setup.workspace', return_value=folder):
+                offer_withdraw_flagged_context(ui)
+        text = '\n'.join(lines)
+        self.assertIn('v2 already carry that text and cannot change', text)
+        self.assertIn('new counted model call', text)
+        self.assertNotIn('AKIAIOSFODNN7EXAMPLE', text)
+        self.assertEqual(ui.invoke.call_args.args[0], ['feedback', '--scope', 'design', '--by', 'Dana', '--note',
+                                                       'Leave out rejected context that looks like a credential'])
+
     def test_menu_8_offers_the_same_recovery_when_context_blocks_the_package(self):
         ui = Terminal(console=Console(file=io.StringIO()), demo=False)
         with patch.object(ui, 'invoke', return_value=2), \
@@ -548,9 +572,12 @@ class GuidedFlowTests(unittest.TestCase):
     def test_before_a_route_is_chosen_the_next_step_presumes_neither(self):
         from reframe_setup import next_step
         with patch('reframe.prompts_differ', return_value=False):
-            text = next_step({'stage': 'ASSESSMENT_APPROVED', 'design_plan': {'mode': 'reimagine'}, 'settings': {}})
+            text = next_step({'stage': 'ASSESSMENT_APPROVED', 'settings': {}})
+            planned = next_step({'stage': 'ASSESSMENT_APPROVED', 'design_plan': {'mode': 'reimagine'}, 'settings': {}})
         self.assertTrue(text.startswith('Choose a route with /flow'), text)
         self.assertIn('preview --skip-validation', text)
+        self.assertTrue(planned.startswith('Generate the skip draft'), 'a plan before validation means skip was chosen')
+        self.assertNotIn('validate', planned)
 
     def test_specifications_review_names_the_wireframes_and_json(self):
         ui = self.ui({'stage':'AWAITING_SPECIFICATIONS_APPROVAL', 'approvals':{'assessment':True, 'validation':True},
