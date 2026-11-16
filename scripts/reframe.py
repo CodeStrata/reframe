@@ -1892,6 +1892,8 @@ def attach_admitted_inputs(work, project, spec):
                           for item in inputs['human_context']],
         'note': 'Recorded by the controller. Requirements are producer claims and human context is admitted input; '
                 'neither is source verification.'}
+    import reframe_coverage
+    reframe_coverage.annotate(spec, [item['id'] for item in inputs['requirements']])
     return spec['admitted_inputs']
 
 
@@ -3399,6 +3401,10 @@ def parser():
     reconcile_parser.add_argument('--keep-stage', required=True, type=int)
     reconcile_parser.add_argument('--by', required=True)
     reconcile_parser.add_argument('--note', required=True)
+    questions_parser = commands.add_parser('questions', help='List SME questions by owner, state, rule, function, or blocked work')
+    for flag in ('owner', 'state', 'rule', 'function', 'blocks', 'severity'):
+        questions_parser.add_argument('--' + flag)
+    questions_parser.add_argument('--groups', action='store_true', help='Show suggested groups; nothing is merged')
     commands.add_parser('package-review', help='Show the package inventory, exact hash, approval basis, gaps, and readiness')
     accept_package = commands.add_parser('accept-package', help='Accept one exact package by its SHA-256; recorded outside the archive')
     accept_package.add_argument('--sha256', required=True)
@@ -3519,6 +3525,17 @@ def main(argv=None, reporter=None):
                     raise Blocked('Another command is initializing this workspace') from error
                 result = initialize(args, work)
                 select_workspace(work)
+        elif args.command == 'questions':
+            import reframe_coverage
+            project = read(work / 'project.json')
+            spec = read(spec_path(work, project)) if project.get('specification') else {}
+            rows = reframe_coverage.question_rows(spec, project.get('decisions') or {})
+            selected = reframe_coverage.filter_questions(rows, args.owner, args.state, args.rule, args.function,
+                                                         args.blocks, args.severity)
+            result = {'status': project['stage'], 'summary': reframe_coverage.summary(rows), 'selected': len(selected),
+                      'questions': selected[:200], 'truncated_listing': max(len(selected) - 200, 0)}
+            if args.groups:
+                result['suggested_groups'] = reframe_coverage.suggested_groups(selected)
         elif args.command == 'recovery-plan':
             import reframe_recovery
             project = read(work / 'project.json')

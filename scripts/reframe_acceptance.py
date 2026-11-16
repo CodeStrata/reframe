@@ -63,6 +63,12 @@ def readiness(work, project, app):
     for row in spec.get('coverage') or []:
         if isinstance(row, dict) and row.get('gaps') and row.get('disposition') != 'excluded':
             blockers.append({'kind': 'coverage', 'id': row.get('id'), 'state': 'gap', 'gaps': row['gaps']})
+    for row in spec.get('requirement_coverage') or []:
+        if isinstance(row, dict) and row.get('disposition') == 'gap':
+            blockers.append({'kind': 'coverage', 'id': row.get('id'), 'state': 'gap', 'gaps': row.get('gaps')})
+    for row in spec.get('test_templates') or []:
+        if isinstance(row, dict) and row.get('state') == 'PLACEHOLDER':
+            blockers.append({'kind': 'test_template', 'id': row.get('id'), 'state': 'PLACEHOLDER', 'missing': row.get('missing')})
     for row in (project.get('design_coverage') or {}).get('rows') or []:
         if row.get('state') == 'gap':
             blockers.append({'kind': 'coverage', 'id': row.get('id'), 'state': 'gap'})
