@@ -4,7 +4,7 @@ The independent acceptance agent's first report on `d65d86f` was **FAIL**: one b
 
 Every defect below was fixed in `ccd9777` or `351d34c` and has a regression test. No test expectation was weakened. Where a journey script changed, the change reflects the corrected behavior, and the test now asserts that behavior.
 
-The re-test on candidate `351d34c` is in `acceptance-report-351d34c.md`, the round-three re-test on `fd0e4c8` is in `acceptance-report-fd0e4c8.md`, the round-four re-test on `6e3aed4` is in `acceptance-report-6e3aed4.md`, and the round-five re-test on `b523e41` is in `acceptance-report-b523e41.md`. Their defects are in the tables below.
+The re-test on candidate `351d34c` is in `acceptance-report-351d34c.md`, the round-three re-test on `fd0e4c8` is in `acceptance-report-fd0e4c8.md`, the round-four re-test on `6e3aed4` is in `acceptance-report-6e3aed4.md`, the round-five re-test on `b523e41` is in `acceptance-report-b523e41.md`, and the round-six re-test on `05e219e` is in `acceptance-report-05e219e.md`. Their defects are in the tables below.
 
 | # | Severity | Defect | Fix | Regression test |
 | --- | --- | --- | --- | --- |
@@ -105,3 +105,26 @@ The re-test was **FAIL, narrowly**: no blockers, one major defect, two minor one
 | R5-3 | minor | After skip was chosen, the design-plan box still said "Choose a route" | A design plan before validation means skip was chosen, so the next step is the skip draft | `test_guided_flow::test_before_a_route_is_chosen_the_next_step_presumes_neither` |
 
 N9 stays a known limitation.
+
+## Round six: candidate `05e219e`
+
+The re-test was **PASS WITH DEFECTS** for offline (L2) acceptance: no blockers, no major defects. R5-1, R5-2, and R5-3 were confirmed. On a fresh copy of legacy state written by `fd0e4c8`, the journey ran through the menus: framework update attributed, flagged notes rejected, design change to a new version without the value, re-review, package, explicit acceptance. All 134 earlier completed files stayed byte-identical. The regression runs A2, B, and D reached explicit acceptance.
+
+## Test expectations changed by a fix
+
+No expectation was weakened. These four changed because the fix changed correct behavior:
+
+| Test | Before | After | Fix |
+| --- | --- | --- | --- |
+| `test_terminal::…test_privacy_keeps_counts_states_and_file_names_but_hides_names_and_text` | "1 items" | "1 item"; a record is "1 record" | N8 |
+| `test_reframe_optional::test_malformed_context_and_unknown_enum_stay_local` | A credential-shaped note imported, refused at package export | Refused at import with nothing stored; package-time scans stay covered by `test_package_safeguards` and `test_reframe::test_package_refuses_secret_and_writes_no_zip` | R3-3 |
+| `test_guided_flow::test_each_approval_asks_who_approves_and_a_yes_is_not_a_name` | One "y" for the session name was refused at once | It is asked again; three refusals still stop | R3-5 |
+| `test_guided_flow::test_framework_update_is_recorded_before_approval` | `upgrade-framework --note …` | Adds `--by` with the session name | R5-2 |
+
+## Remaining defects (not fixed on the accepted candidate)
+
+| # | Severity | Defect |
+| --- | --- | --- |
+| R6-1 | minor | On the skip route, the "DESIGN FEEDBACK RECORDED" result says it kept "specification, validation approval, decisions"; a skip-route run has neither of the first two. The framework update is attributed to the session name without a per-update "who" prompt; the record is labeled and audited. |
+| N9 | minor | Skip-route traceability: specification sections cite `R1` while the catalog uses `AWS-…`; AWS-assumed findings carry `source_path: rules.json`; the synthetic Reimagine journey is named `recorded`. |
+| — | observation | After a design change, menu 1 asks the route (skip/pause) and the draft name again; the defaults are correct. `upgrade-framework` on a run waiting at assessment approval suggests `resume` as its next step. |

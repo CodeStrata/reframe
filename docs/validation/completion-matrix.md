@@ -1,6 +1,6 @@
 # Requirement completion matrix
 
-**Branch:** `feature/agreed-workflow`. **Acceptance candidate:** `d65d86f2fe24942cc5b3865a2f129cec1000425a`, tree `80ba549a043ef65a223c87b268392f3737b742ce`.
+**Branch:** `feature/agreed-workflow`. **Accepted candidate:** `05e219e4fac681225a4eb5141244947b86b0a15e`, tree `a73840fb447825124e5a17ec8fe3db98871f3cf6` (offline acceptance PASS WITH DEFECTS, round six). Earlier candidates and their defects are listed in `docs/validation/acceptance-defects.md`.
 **Specification:** `docs/specifications/Reframe-Complete-Workflow-Specification.md` with `Reframe-Specification-Amendments.md` (SA-1 to SA-3).
 
 Evidence levels follow spec §8.2:
@@ -9,7 +9,7 @@ Evidence levels follow spec §8.2:
 - **L2:** offline connected journeys through the real CLI, with only the AWS transport and model replies mocked. Simulated actors are labeled.
 - **L3:** a live, separately authorized pilot. No L3 work was done.
 
-A test name below is the executed scenario. A citation is not evidence that a test passed. Every test listed passed in the full run on this branch (see `docs/progress/agreed-workflow-progress.md` for counts and skips). The independent acceptance agent's L2 results are in `docs/validation/acceptance-report.md`.
+A test name below is the executed scenario. A citation is not evidence that a test passed. Every test listed passed in the full run on this branch (see `docs/progress/agreed-workflow-progress.md` for counts and skips). The independent acceptance agent's L2 results are in `docs/validation/acceptance-report-<candidate>.md`, one per round; the last is `acceptance-report-05e219e.md`. The full suite on the accepted candidate ran 576 tests, all passing, with 11 opt-in skips.
 
 **Status values:**
 
@@ -50,16 +50,26 @@ A test name below is the executed scenario. A citation is not evidence that a te
 
 ## Acceptance matrix AC-01 to AC-35
 
-**L2 scenario** refers to the independent acceptance agent's runs (`A` to `E`) in `docs/validation/acceptance-report.md`.
+**L2 scenario** refers to the independent acceptance agent's runs. The letters keep their meaning across rounds:
+
+- **A:** review route on a rule export without source lines (stops before any call); **A2:** review route on plain findings to acceptance.
+- **B:** skip + Reimagine with context to acceptance.
+- **C:** review route with context, conflicts, and feedback loops.
+- **D:** skip parity with a requirements import.
+- **E:** interruptions and wireframe retry.
+- **F:** skip design change, credential-shaped note, paused gate.
+- **G:** legacy state written by an earlier candidate: framework update, flagged-context recovery, design change, acceptance.
+
+The last round that ran each: A2, B, D, G in round six (`05e219e`); C and F in round five (`b523e41`); A and E in round four (`6e3aed4`). Changes after a scenario's last run are covered by L1 tests and by the later rounds' regression runs.
 
 | AC | L1/L2 tests | L2 scenario |
 | --- | --- | --- |
 | AC-01 | `test_release_acceptance::test_fresh_start_from_an_empty_config` (clean snapshot) | A |
-| AC-02 | `test_menu_journeys::test_skip_route_reaches_design_review_package_review_and_explicit_acceptance` | B, D |
+| AC-02 | `test_menu_journeys::test_skip_route_reaches_design_review_package_review_and_explicit_acceptance`, `test_skip_route_reimagine_package_carries_its_reference_pages_and_proposals`, `test_a_skip_route_design_change_keeps_the_skip_decision_and_a_paused_gate_resumes_there` | B, D, F, G |
 | AC-03 | `test_requirements::test_without_discovery_generation_is_unavailable_and_nothing_is_generated`, `test_a_plan_without_generate_requirements_is_a_capability_stop` | D |
 | AC-04 | `test_requirements::test_fixture_generation_selects_from_the_schema_and_preserves_originals` (mocked) | D (import path) |
-| AC-05 | `test_guided_journey::test_revision_pin_keeps_the_baseline_and_multiple_matches_are_chosen`, `test_repository_recognition_refuses_bad_infrastructure_and_counts_jobs`, canonical fork check | — |
-| AC-06 | `test_guided_cli::test_resume_never_creates_assessment`, `test_kiro_workflow::test_aws_job_wait_and_resume_reuses_job`, `test_reframe_optional::test_registry_does_not_create_an_aws_job_or_edit_the_project` | E |
+| AC-05 | `test_guided_journey::test_revision_pin_keeps_the_baseline_and_multiple_matches_are_chosen`, `test_repository_recognition_refuses_bad_infrastructure_and_counts_jobs`, canonical fork check | Partly (recognition in round three); reuse stops at the disabled live infrastructure probe |
+| AC-06 | `test_guided_cli::test_resume_never_creates_assessment`, `test_kiro_workflow::test_aws_job_wait_and_resume_reuses_job`, `test_reframe_optional::test_registry_does_not_create_an_aws_job_or_edit_the_project` | E (resume only). Reuse of real infrastructure is live-only. |
 | AC-07 | `test_kiro_workflow::test_uncertain_new_creation_is_not_repeated`, `test_reframe::test_uncertain_resource_creation_is_not_retried` | — |
 | AC-08 | `test_context_validation::test_no_context_is_recorded_explicitly_without_a_contributor` | A, D |
 | AC-09 | `test_context_validation::test_admitted_markdown_reaches_validation_and_the_specification_with_provenance` | B, C |
@@ -79,7 +89,7 @@ A test name below is the executed scenario. A citation is not evidence that a te
 | AC-23 | `test_m1_contracts` operation-ledger tests, `test_wireframe_context::test_restart_after_provider_completion_does_not_recall_or_reduce_the_counter` | E |
 | AC-24 | `test_design::test_a_changed_plan_regenerates_and_never_returns_the_stale_design`, `test_reframe_optional::test_changed_stack_reuse_allocates_the_next_revision`, `test_changed_baseline_reuse_allocates_the_next_revision` | — |
 | AC-25 | `test_m1_contracts::test_a_changed_artifact_is_an_integrity_failure_without_overwrite`, `test_acceptance::test_a_changed_archive_cannot_be_reviewed_or_accepted`, `test_requirements::test_a_changed_stored_requirement_file_is_an_integrity_failure` | — |
-| AC-26 | `test_m1_contracts::test_controller_update_after_validation_approval_keeps_the_approval_with_an_audit`, `test_prompt_change_after_validation_approval_is_refused_before_mutation`, `test_a_partial_upgrade_is_visible_and_the_same_command_finishes_it` | — |
+| AC-26 | `test_m1_contracts::test_controller_update_after_validation_approval_keeps_the_approval_with_an_audit`, `test_prompt_change_after_validation_approval_is_refused_before_mutation`, `test_a_partial_upgrade_is_visible_and_the_same_command_finishes_it`, `test_reframe_preview::test_a_skip_route_with_a_design_approval_can_record_a_controller_update` | G; post-merge migration from `b534f85` with the installed candidate |
 | AC-27 | `test_menu_journeys::test_review_route_with_context_feedback_loops_and_exact_acceptance` | C |
 | AC-28 | `test_acceptance::test_generation_awaits_acceptance_and_never_claims_it` | A–D |
 | AC-29 | `test_menu_journeys::test_review_route_with_context_feedback_loops_and_exact_acceptance` | C |

@@ -4,14 +4,14 @@ Read this first if work on `feature/agreed-workflow` resumes in a new session.
 
 ## State
 
-- Branch `feature/agreed-workflow`, created from `origin/develop` at `b534f85`. Acceptance candidate `d65d86f` (frozen checkout `../candidate-d65d86f`).
+- Branch `feature/agreed-workflow`, created from `origin/develop` at `b534f85`. Accepted candidate `05e219e` (frozen checkout `../candidate-05e219e`); later commits change only docs.
 - Implemented and tested offline: every M1–M5 story in the completion matrix (docs/validation/completion-matrix.md). Live work is not done: #169, #173, #197, #26, #41, #42 stay open.
-- Review package: docs/validation/review-package.md. Independent acceptance report: docs/validation/acceptance-report.md.
+- Review package: docs/validation/review-package.md. Independent acceptance reports: docs/validation/acceptance-report-<candidate>.md.
 - Explicit checks: `REFRAME_WHEEL_CHECK=1 REFRAME_UV=<uv>` runs tests/test_installed_wheel.py; the clean snapshot runs the fresh-start journey (`test_clean_snapshot_passes_and_a_dirty_tree_is_refused`).
 - Acceptance harness: `acceptance/harness.py` (run it from a clean candidate checkout).
 - Never commit from a shell that sourced the isolated env.sh: it sets a test Git identity.
 - The isolated `TMPDIR` sits inside another repository's working tree. A test must never run a Git write command in a fixture folder; stub `pilot.git` instead. (One test did once; the two staged paths were unstaged and nothing else changed.)
-- Round two (`351d34c`) failed; its defects N1–N9 and the D12–D14 leftovers are fixed on the branch except N9 (see docs/validation/acceptance-defects.md). Round three (`fd0e4c8`) failed narrowly with R3-1 to R3-10, all fixed on the branch. Round four (`6e3aed4`) failed narrowly on R4-1 and M1–M5, all fixed on the branch. Round five (`b523e41`) failed narrowly on R5-1 to R5-3, all fixed on the branch. Next: freeze a new candidate and run acceptance round six.
+- Round two (`351d34c`) failed; its defects N1–N9 and the D12–D14 leftovers are fixed on the branch except N9 (see docs/validation/acceptance-defects.md). Round three (`fd0e4c8`) failed narrowly with R3-1 to R3-10, all fixed on the branch. Round four (`6e3aed4`) failed narrowly on R4-1 and M1–M5, all fixed on the branch. Round five (`b523e41`) failed narrowly on R5-1 to R5-3, all fixed on the branch. Round six (`05e219e`) passed with defects (R6-1, N9 remain). The review package is docs/validation/review-package.md. Next: owner review of PR #198; live work (#26, #41, #42, #169, #173, #197) needs separate authorization.
 
 ## How to run
 
