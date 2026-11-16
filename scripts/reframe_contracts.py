@@ -6,10 +6,10 @@ replace those templates with a second schema.
 import json
 from pathlib import Path
 
-from pilot import Blocked, require
+from pilot import Blocked, framework_root, require
 
 
-FRAMEWORK = Path(__file__).resolve().parent.parent
+FRAMEWORK = framework_root(__file__)
 CONTRACTS = {
     'task': 'task-contract.yaml',
     'review': 'review-record.yaml',

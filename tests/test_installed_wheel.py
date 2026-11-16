@@ -95,8 +95,18 @@ PROBE = textwrap.dedent('''
         'ok': not notice_path.is_file(), 'detail': 'checkout-style LICENSE beside module: ' + str(notice_path.is_file())}
     try:
         commit = reframe.git(reframe.FRAMEWORK, 'rev-parse', 'HEAD')
-        top = reframe.git(reframe.FRAMEWORK, 'rev-parse', '--show-toplevel')
-        report['framework_pin'] = {'ok': outside(top), 'detail': 'commit %s from %s' % (commit, top)}
+        clean = reframe.git(reframe.FRAMEWORK, 'status', '--porcelain') == ''
+        marker = Path(reframe.FRAMEWORK) / 'reframe-install.json'
+        prompt = Path(reframe.FRAMEWORK) / 'prompts' / 'pipeline' / 'executor.md'
+        original = prompt.read_bytes()
+        prompt.write_bytes(original + b'\\n')
+        changed = reframe.git(reframe.FRAMEWORK, 'rev-parse', 'HEAD')
+        prompt.write_bytes(original)
+        restored = reframe.git(reframe.FRAMEWORK, 'rev-parse', 'HEAD')
+        ok = (outside(reframe.FRAMEWORK) and marker.is_file() and commit.startswith('installed-') and clean
+              and changed != commit and restored == commit)
+        report['framework_pin'] = {'ok': ok, 'detail': 'revision %s at %s; an edit changes it: %s' % (
+            commit, reframe.FRAMEWORK, changed != commit)}
     except BaseException as error:
         report['framework_pin'] = {'ok': False, 'detail': type(error).__name__ + ': ' + str(error)[:300]}
     print(json.dumps(report))

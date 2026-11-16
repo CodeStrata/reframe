@@ -916,7 +916,14 @@ def _mode_package_files(work, project, version, mode, current_html, conflicts):
     files['screens.json'] = (current_dir / 'screens.json').read_bytes()
     # The packaged current-state page is current-state.html, so companion links point there.
     for name in ('api.html', 'usage.html'):
-        files[name] = (current_dir / name).read_bytes().replace(b'href="index.html', b'href="current-state.html')
+        page = current_dir / name
+        if page.is_file():
+            data = page.read_bytes()
+        else:
+            # A design exported before usage pages were written still gets one, so its links resolve.
+            from reframe_artifacts import render_usage_page
+            data = render_usage_page([], project.get('settings') or {}).encode()
+        files[name] = data.replace(b'href="index.html', b'href="current-state.html')
     openapi = current_dir / 'openapi.json'
     files['openapi.json'] = openapi.read_bytes() if openapi.is_file() else (json.dumps(openapi_document(
         screens.get('apis') or [], title='Draft review APIs',

@@ -17,7 +17,8 @@ class ProviderSafetyRefusal(Blocked):
 
 def preparation_protocol_hash():
     """Hash the executor and reviewer prompts so a changed protocol is visible."""
-    root = Path(__file__).resolve().parent.parent / 'prompts/pipeline'
+    from pilot import framework_root
+    root = framework_root(__file__) / 'prompts/pipeline'
     return hashlib.sha256(b'\0'.join((root/name).read_bytes() for name in ('executor.md','reviewer.md'))).hexdigest()
 
 

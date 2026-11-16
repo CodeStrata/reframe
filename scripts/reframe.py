@@ -18,13 +18,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import kiro_workflow as kw
-from pilot import Blocked, git, require, sha
+from pilot import Blocked, framework_root, git, require, sha
 from reframe_artifacts import digest, validate_spec, validate_screens, render_site, render_assessment_facts, SECTIONS
 from reframe_models import call as model_call, ProviderSafetyRefusal, check_provider_refusals, preparation_protocol_hash
 from reframe_contracts import require_stage_contract
 import reframe_handoff as handoff
 
-FRAMEWORK = Path(__file__).resolve().parent.parent
+FRAMEWORK = framework_root(__file__)
 
 
 def read(path):

@@ -17,3 +17,13 @@ reframe = "reframe:main"
 [tool.setuptools]
 py-modules = ["reframe_flow", "reframe_states", "reframe_versions", "reframe_operations", "reframe_recovery", "reframe_requirements", "reframe_acceptance", "reframe_workspace", "reframe_checkpoints", "reframe_preview", "reframe_terminal", "reframe", "reframe_setup", "reframe_models", "reframe_artifacts", "reframe_source", "reframe_contracts", "reframe_optional", "reframe_handoff", "reframe_projects", "kiro_workflow", "pilot", "reframe_links", "reframe_offline"]
 package-dir = {"" = "scripts"}
+
+[tool.setuptools.data-files]
+"share/reframe" = ["packaging/reframe-install.json", "LICENSE"]
+"share/reframe/prompts" = ["prompts/*.md"]
+"share/reframe/prompts/pipeline" = ["prompts/pipeline/*.md"]
+"share/reframe/prompts/automated" = ["prompts/automated/*.md"]
+"share/reframe/prompts/checkpoints" = ["prompts/checkpoints/*.md"]
+"share/reframe/contracts" = ["contracts/*.yaml", "contracts/README.md"]
+"share/reframe/docs" = ["docs/*.md"]
+"share/reframe/infrastructure" = ["infrastructure/*.tf", "infrastructure/deny-check.sh", "infrastructure/README.md"]

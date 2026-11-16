@@ -17,9 +17,9 @@ import uuid
 import zipfile
 from pathlib import Path
 
-from pilot import Blocked, git, require, save, sha, tracked_file
+from pilot import Blocked, framework_root, git, require, save, sha, tracked_file
 
-FRAMEWORK = Path(__file__).resolve().parent.parent
+FRAMEWORK = framework_root(__file__)
 DEFAULTS = {
     'kiro_command': ['kiro-cli'], 'executor_model': None, 'reviewer_model': None, 'wireframes_model': None,
     'max_model_calls': None, 'max_rounds': 2, 'call_timeout_seconds': 600,
