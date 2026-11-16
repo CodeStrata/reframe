@@ -5,8 +5,10 @@ Read this first if work on `feature/agreed-workflow` resumes in a new session.
 ## State
 
 - Branch `feature/agreed-workflow`, created from `origin/develop` at `b534f85`.
-- Completed: #160 baseline documents.
-- In progress: milestone M1 (#161 version manifest, #162 typed stops, #163 operation lifecycle, #34 approval supersession, #164 migration).
+- Completed: #160, M1 (#161–#166, #34), requirements boundary offline (#169–#173), context and validation inputs (#174–#177), links (#181), acceptance and readiness (#187, #188, #190), isolation and installed wheel (#195). See agreed-workflow-progress.md.
+- Next: design plan and inventory (#182, #183), reconciliation (#184), API completeness (#185), Reimagine deltas (#186), feedback routing (#189), route manifest (#191), skip parity (#178), coverage and questions (#179, #180), guided journey (#192), docs (#116, #115), fixtures and acceptance (#44, #194, #196), verification of the 17 Awaiting-verification items.
+- Explicit checks: `REFRAME_WHEEL_CHECK=1 REFRAME_UV=<uv>` runs tests/test_installed_wheel.py (builds, installs, probes outside the repo).
+- Never commit from a shell that sourced the isolated env.sh: it sets a test Git identity.
 
 ## How to run
 
