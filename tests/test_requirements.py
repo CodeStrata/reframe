@@ -148,6 +148,29 @@ class RequirementsTests(unittest.TestCase):
         self.assertEqual(status['status'], 'REQUIREMENTS_GENERATION_UNAVAILABLE')
         self.assertEqual(status['missing'], ['connector'])
 
+    def test_discovery_follows_a_referenced_resource_enum(self):
+        # The live server declares `resource` as a $ref into $defs, sometimes inside anyOf. Synthetic schema of that form.
+        client = FakeTransform()
+        referenced = {'type': 'object', 'required': ['resource'],
+                      '$defs': {'ResourceType': {'type': 'string', 'enum': ['jobs', 'connectors', 'artifacts']}},
+                      'properties': {'workspaceId': {}, 'resource': {'anyOf': [{'$ref': '#/$defs/ResourceType'}, {'type': 'null'}]}}}
+        client.tools = lambda: [{'name': name, 'inputSchema': referenced if name == 'list_resources' else schema}
+                                for name, schema in SCHEMAS.items()]
+        self.discover(client)
+        self.assertIn(('list_resources', {'workspaceId': 'ws-fixture', 'resource': 'connectors'}), client.calls_seen)
+        self.assertNotIn('connector', self.command('status').get('missing') or [])
+
+    def test_a_schema_without_a_connector_kind_says_why_nothing_was_listed(self):
+        client = FakeTransform()
+        plain = dict(SCHEMAS, list_resources={'type': 'object', 'properties': {'workspaceId': {}, 'resource': {'enum': ['jobs']}}})
+        client.tools = lambda: [{'name': name, 'inputSchema': schema} for name, schema in plain.items()]
+        result = self.discover(client)
+        self.assertFalse([call for call in client.calls_seen if call[0] == 'list_resources'])
+        connector = requirements.capability(self.work)['items']['connector']
+        self.assertEqual(connector['observed']['reason'], 'list_resources declares no connector resource kind')
+        self.assertFalse(connector['account_verified'])
+        self.assertEqual(result['status'], 'REQUIREMENTS_GENERATION_UNAVAILABLE')
+
     def test_fixture_generation_selects_from_the_schema_and_preserves_originals(self):
         client = FakeTransform()
         discovered = self.discover(client)

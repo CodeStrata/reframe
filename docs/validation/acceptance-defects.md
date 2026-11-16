@@ -128,3 +128,19 @@ No expectation was weakened. These four changed because the fix changed correct 
 | R6-1 | minor | On the skip route, the "DESIGN FEEDBACK RECORDED" result says it kept "specification, validation approval, decisions"; a skip-route run has neither of the first two. The framework update is attributed to the session name without a per-update "who" prompt; the record is labeled and audited. |
 | N9 | minor | Skip-route traceability: specification sections cite `R1` while the catalog uses `AWS-…`; AWS-assumed findings carry `source_path: rules.json`; the synthetic Reimagine journey is named `recorded`. |
 | — | observation | After a design change, menu 1 asks the route (skip/pause) and the draft name again; the defaults are correct. `upgrade-framework` on a run waiting at assessment approval suggests `resume` as its next step. |
+
+## Live discovery on the saved CardDemo workspace (2026-11-16)
+
+The first live read-only discovery (#169), run under the confirmed envelope (#197), reported "connector not observed" without asking the server for connectors.
+
+**L-1, major.** The live AWS Transform MCP server declares the `list_resources` `resource` argument as a `$ref` into `$defs`. `_enum_values` read only an inline `enum`, so it found no connector kind and skipped the connector listing. The offline fixture used an inline enum, so only a live run could show this.
+
+**Fix.** `_enum_values` follows local `$defs` references and `anyOf`/`oneOf` branches. When `list_resources` exists but no connector listing is possible, the capability record now says why.
+
+**Regression tests.** Both new tests fail on `d0e6e5b`:
+- `test_requirements::test_discovery_follows_a_referenced_resource_enum`
+- `test_requirements::test_a_schema_without_a_connector_kind_says_why_nothing_was_listed`
+
+**Result of the repeat discovery with the fix.**
+- The workspace lists one connector, of type `mainframe_modernization|s3|2`.
+- No Reimagine (Neptune) connector is present, so the status remains `REQUIREMENTS_GENERATION_UNAVAILABLE`, now based on observed evidence.

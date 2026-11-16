@@ -125,9 +125,24 @@ def _tool_catalog(client):
 
 
 def _enum_values(schema, name):
-    """Enum values of one property in a tool input schema, or an empty list."""
-    prop = (schema.get('properties') or {}).get(name) or {}
-    return [str(value) for value in prop.get('enum') or []]
+    """Enum values of one property in a tool input schema, or an empty list.
+
+    Follows local `#/$defs/...` references and `anyOf`/`oneOf` branches, the form the live AWS Transform server uses."""
+    defs = schema.get('$defs') or schema.get('definitions') or {}
+
+    def values(node, seen):
+        if not isinstance(node, dict):
+            return []
+        ref = node.get('$ref')
+        if isinstance(ref, str) and ref.startswith('#/') and ref not in seen:
+            target = defs.get(ref.rsplit('/', 1)[-1]) if ref.split('/')[1] in ('$defs', 'definitions') else None
+            return values(target, seen | {ref})
+        found = [str(value) for value in node.get('enum') or []]
+        for branch in (node.get('anyOf') or []) + (node.get('oneOf') or []):
+            found += [value for value in values(branch, seen) if value not in found]
+        return found
+
+    return values((schema.get('properties') or {}).get(name) or {}, frozenset())
 
 
 def discover(work, project, client, by, note):
@@ -162,6 +177,10 @@ def discover(work, project, client, by, note):
             _observe(record, 'connector', observed, fixture)
         else:
             record['items']['connector']['observed'] = observed
+    elif 'list_resources' in catalog:
+        reason = ('No Transform workspace is recorded for this project' if connector_kind
+                  else 'list_resources declares no connector resource kind')
+        record['items']['connector']['observed'] = {'resource_kind': connector_kind, 'connectors_listed': False, 'reason': reason}
     record['discoveries'].append({'at': time.time(), 'by': by, 'note': note, 'evidence': 'offline-fixture' if fixture else 'live',
                                   'read_only': True})
     _save(root(work) / 'capability.json', record)
