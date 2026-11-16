@@ -265,13 +265,16 @@ def validate_references(screens, spec, requirement_ids=()):
             target = (action.get('screen_id') or action.get('opens')) if isinstance(action, dict) else None
             if target and target not in screen_ids:
                 problems.append('screen ' + str(screen.get('id')) + ' action -> unknown screen ' + str(target))
-        for ident in screen.get('rule_ids') or []:
-            if ident not in known:
-                problems.append('screen ' + str(screen.get('id')) + ' -> unknown rule or requirement ' + str(ident))
-    for api in screens.get('apis') or []:
-        for ident in (api.get('rule_ids') or []) + (api.get('requirement_ids') or []):
-            if ident not in known:
-                problems.append('API ' + str(api.get('id')) + ' -> unknown rule or requirement ' + str(ident))
+    # One contract for screens and APIs: rule_ids name a rule, finding, or requirement; requirement_ids name a requirement
+    # in the active set.
+    for kind, items in (('screen', screens.get('screens') or []), ('API', screens.get('apis') or [])):
+        for item in items:
+            for ident in item.get('rule_ids') or []:
+                if ident not in known:
+                    problems.append(kind + ' ' + str(item.get('id')) + ' -> unknown rule or requirement ' + str(ident))
+            for ident in item.get('requirement_ids') or []:
+                if ident not in set(requirement_ids):
+                    problems.append(kind + ' ' + str(item.get('id')) + ' -> unknown requirement ' + str(ident))
     require(not problems, 'Merged design has unresolved references: ' + '; '.join(problems[:10]))
     return True
 
