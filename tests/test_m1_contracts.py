@@ -325,5 +325,45 @@ class RecoveryPlanTests(MigrationTests):
         self.assertTrue(validation['needs_renewal'])
 
 
+class CallPolicyTests(unittest.TestCase):
+    def project(self, cap, prep, ui):
+        return {'settings': {'max_model_calls': cap, 'model_dollars_spent': 0, 'max_model_dollars': 0,
+                             'model_rates': {'wireframes': 0.02}},
+                'pipeline': {'calls': prep}, 'ui_calls': ui}
+
+    def test_an_uncapped_run_allows_more_than_256_calls(self):
+        project = self.project(None, 300, 280)
+        with patch('reframe_models.claude_uses_api_key', return_value=False):
+            app.wireframe_calls_available(project, 'claude', 10)
+        import kiro_workflow as kw
+        self.assertTrue(kw.within_call_limit(project['settings'], 300))
+        summary = app.budget_summary(project)
+        self.assertEqual(summary['call_cap_scope'], 'uncapped')
+        self.assertEqual(summary['total_calls'], 580)
+
+    def test_a_finite_cap_is_per_role_and_still_enforced(self):
+        project = self.project(20, 20, 18)
+        import kiro_workflow as kw
+        self.assertFalse(kw.within_call_limit(project['settings'], 20))
+        with patch('reframe_models.claude_uses_api_key', return_value=False):
+            with self.assertRaises(Blocked):
+                app.wireframe_calls_available(project, 'claude', 3)
+            app.wireframe_calls_available(project, 'claude', 2)
+        summary = app.budget_summary(project)
+        self.assertEqual(summary['call_cap_scope'], 'per-role')
+        self.assertIn('not a whole-run total', summary['call_cap_note'])
+        self.assertEqual((summary['preparation_calls'], summary['wireframe_calls']), (20, 18))
+        self.assertEqual(summary['total_calls'], 38)
+
+    def test_a_zero_api_budget_blocks_a_billed_call_but_not_subscription_use(self):
+        project = self.project(None, 0, 0)
+        with patch('reframe_models.claude_uses_api_key', return_value=True):
+            with self.assertRaises(Blocked):
+                app.require_dollar_cap(project, 'wireframes', 'claude')
+        with patch('reframe_models.claude_uses_api_key', return_value=False):
+            app.require_dollar_cap(project, 'wireframes', 'claude')
+        self.assertIn('unmeasured', app.spend_text(app.budget_summary(project)))
+
+
 if __name__ == '__main__':
     unittest.main()

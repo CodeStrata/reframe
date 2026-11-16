@@ -312,7 +312,8 @@ def finish_guided_design(ui, project):
     summary = budget_summary(project or {}, work)
 
     def cap_text(value):
-        return 'no call cap' if value is None else 'cap ' + str(value)
+        """Name the cap and say it applies to this role only."""
+        return 'no call cap' if value is None else 'a per-role cap of ' + str(value)
 
     ui.say('Preparation model calls used ' + str(summary['preparation_calls']) + ' with ' + cap_text(summary['preparation_cap'])
            + '. Completed units ' + str(summary.get('completed_units', 0)) + '. Remaining units ' + str(summary.get('remaining_units', 0)) + '.')
@@ -320,6 +321,7 @@ def finish_guided_design(ui, project):
     ui.say('Skip-draft model calls used ' + str(summary['skip_draft_calls'])
            + '. Failed attempts ' + str(summary.get('skip_failures', 0)) + ' of limit ' + str(summary.get('skip_failure_limit', 3)) + '.')
     from reframe import spend_text
+    ui.say('Total model calls across roles ' + str(summary.get('total_calls', 0)) + '. ' + summary.get('call_cap_note', ''))
     ui.say(spend_text(summary))
     if summary.get('next_call_estimate') is not None:
         ui.say('Estimated next billed call ' + str(summary['next_call_estimate']) + '. This estimate is not measured spend.')

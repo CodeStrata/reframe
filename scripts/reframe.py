@@ -546,6 +546,12 @@ def require_dollar_cap(project, role, provider=None):
     settings['model_dollars_spent'] = round(spent + price, 6)
 
 
+def _operation_counts(project):
+    """Attempted, completed, invalid, failed, and uncertain provider calls from the operation ledger."""
+    import reframe_operations as ops
+    return ops.counts(project)
+
+
 def budget_summary(project, work=None):
     """Report preparation, wireframe, and skip-draft counters separately."""
     settings = project.get('settings') or {}
@@ -572,6 +578,12 @@ def budget_summary(project, work=None):
         'api_budget': settings.get('max_model_dollars', 0),
         'subscription_usage_measured': False,
         'next_call_estimate': (project.get('pipeline') or {}).get('next_call_price'),
+        'call_cap_scope': ('per-role' if cap is not None else 'uncapped'),
+        'call_cap_note': ('The same call cap applies separately to preparation calls and to wireframe calls. '
+                          'It is not a whole-run total.' if cap is not None else
+                          'No call cap is set. Retry limits and any API dollar cap still apply.'),
+        'total_calls': used + (project.get('ui_calls') or 0) + skip_calls,
+        'operations': _operation_counts(project),
         'completed_units': sum(1 for item in ((project.get('checkpoints') or {}).get('units') or {}).values() if item.get('status') == 'PASS'),
         'remaining_units': sum(1 for item in ((project.get('checkpoints') or {}).get('units') or {}).values() if item.get('status') != 'PASS'),
     }
