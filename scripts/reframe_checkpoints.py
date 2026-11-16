@@ -1211,7 +1211,10 @@ def run(work, project, args, runtime, app):
             project['stage'] = 'RUNNING_' + role.upper()
             app.persist(work, project)
             call_run = dict(assessment_run, settings=project['settings'], model_calls=state['calls'], round=record['attempt'])
-            reply = runtime(project['providers'][role], call_run, area, role, message)
+            reply = app.tracked_runtime(work, project, 'preparation:' + str(state['calls']), 'preparation', role,
+                                        project['providers'][role], message,
+                                        lambda: runtime(project['providers'][role], call_run, area, role, message),
+                                        'preparation/reply-' + str(state['calls']) + '.json')
             if role == 'reviewer':
                 require(sha(work / record['candidate_path']) == record['candidate_sha256'], 'Reviewer cannot write the candidate')
             app.verify_source(project)

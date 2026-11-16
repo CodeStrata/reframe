@@ -191,10 +191,15 @@ def run(work, project, args, app, runtime=None):
         require(len(message.encode())<=project['settings']['max_context_bytes'],'Preview context too large')
         app.require_stage_contract(work, 'task')
         app.require_dollar_cap(project, 'wireframes', args.provider)
+        import reframe_operations as ops
+        kind='skip-draft:'+destination.name
+        ops.guard(project, kind, lambda record: (destination/('design-reply-'+str(record.get('call'))+'.json')).is_file())
         app.persist(work, project)
         state['calls']+=1;app.write(state_path,state)
         provider_run={'settings':project['settings'],'model_calls':state['calls']}
-        value=(runtime or app.model_call)(args.provider,provider_run,destination,'wireframes',message)
+        value=app.tracked_runtime(work, project, kind+':'+str(state['calls']), kind, 'wireframes', args.provider, message,
+                                  lambda: (runtime or app.model_call)(args.provider,provider_run,destination,'wireframes',message),
+                                  str((destination/('design-reply-'+str(state['calls'])+'.json')).relative_to(work)))
         app.write(destination/f'design-reply-{state["calls"]}.json',value)
         value=normalize_design(value)
         try: validate(value,rules)

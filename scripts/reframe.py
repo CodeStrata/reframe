@@ -1708,6 +1708,31 @@ def attach_synthesis_correction(context, work, state, capsules, plan):
     }
 
 
+def preparation_receipt(work, record):
+    """Where the reply of one counted preparation call is saved."""
+    return Path(work) / 'preparation' / ('reply-' + str(record.get('call')) + '.json')
+
+
+def tracked_runtime(work, project, op_id, kind, role, provider, message, invoke, receipt=None):
+    """Record the operation as dispatched, call the provider, and record the outcome. Counts never go back."""
+    import reframe_operations as ops
+    ops.begin(project, op_id, kind, message, role=role, provider=provider,
+              call=int(op_id.rsplit(':', 1)[-1]) if op_id.rsplit(':', 1)[-1].isdigit() else None)
+    persist(work, project)
+    try:
+        reply = invoke()
+    except Exception as error:
+        ops.failed(project, op_id, error, started=not getattr(error, 'pre_dispatch', False))
+        persist(work, project)
+        raise
+    except KeyboardInterrupt:
+        # The outcome is unknown. The record stays dispatched and becomes uncertain on the next run.
+        persist(work, project)
+        raise
+    ops.received(project, op_id, reply, receipt)
+    return reply
+
+
 def pipeline(work, project, args, runtime=None):
     """Run preparation. A new project uses reviewed evidence units; an older project keeps its saved loop."""
     if runtime is None:
@@ -1715,6 +1740,12 @@ def pipeline(work, project, args, runtime=None):
     if getattr(args, 'command', None) == 'resume':
         require_run_pins(project)
     require_stage_contract(work, 'task')
+    import reframe_operations as ops
+    try:
+        ops.guard(project, 'preparation', lambda record: preparation_receipt(work, record).is_file())
+    except Blocked:
+        persist(work, project)
+        raise
     import reframe_checkpoints as cp
     # Existing legacy runs retain their pinned behavior until explicitly migrated.
     checkpoints = project.get('checkpoints') or {}
@@ -1983,7 +2014,10 @@ def legacy_pipeline(work, project, args, runtime=model_call):
         run['model_calls'] = state['calls']
         project['stage'] = 'RUNNING_' + role.upper()
         persist(work, project)
-        reply = runtime(project['providers'][role], run, area, role, message)
+        reply = tracked_runtime(work, project, 'preparation:' + str(state['calls']), 'preparation', role,
+                                project['providers'][role], message,
+                                lambda: runtime(project['providers'][role], run, area, role, message),
+                                'preparation/reply-' + str(state['calls']) + '.json')
         signature = json.dumps(reply, sort_keys=True)
         repeated_results = repeated_results + 1 if signature == previous_signature else 1
         previous_signature = signature
@@ -2534,7 +2568,9 @@ def review_site(work, project, args, runtime=None):
         call_dir = Path(work) / 'previews' / ('business-' + str(stage['call']))
         run = {'settings': project['settings'], 'model_calls': stage['call']}
         try:
-            screens = runtime(provider, run, call_dir, 'wireframes', message)
+            screens = tracked_runtime(work, project, 'wireframes:' + str(stage['call']), 'wireframes', 'wireframes',
+                                      provider, message, lambda: runtime(provider, run, call_dir, 'wireframes', message),
+                                      str(response_path.relative_to(work)))
         except Exception as error:
             write(failure_path, {'error': str(error), 'type': type(error).__name__})
             stage.update(status='failed', provider_invoked=True, error=str(error))
@@ -2997,6 +3033,11 @@ def parser():
     recover_counter = commands.add_parser('recover-ui-call', help='Release a recorded pre-dispatch wireframe reservation')
     recover_counter.add_argument('--confirm', action='store_true')
     recover_counter.add_argument('--note', required=True)
+    reconcile_op = commands.add_parser('reconcile-operation', help='Record the outcome of an uncertain provider call; it stays counted')
+    reconcile_op.add_argument('--id', required=True)
+    reconcile_op.add_argument('--resolution', choices=['failed', 'received'], required=True)
+    reconcile_op.add_argument('--by', required=True)
+    reconcile_op.add_argument('--note', required=True)
     f = commands.add_parser('feedback')
     f.add_argument('--unit', help='Blocked evidence unit to revise; passed units remain sealed')
     f.add_argument('--authorize-correction', action='store_true',
@@ -3173,6 +3214,13 @@ def main(argv=None, reporter=None):
                     elif args.command == 'decide': result = decision(work, project, args)
                     elif args.command == 'review-site': result = review_site(work, project, args)
                     elif args.command == 'recover-ui-call': result = recover_ui_call(work, project, args)
+                    elif args.command == 'reconcile-operation':
+                        import reframe_operations as ops
+                        reject_instructional_placeholder(args.note, 'Reconciliation note')
+                        record = ops.reconcile(project, args.id, args.resolution, args.by, args.note)
+                        persist(work, project)
+                        result = {'status': project['stage'], 'operation': args.id, 'state': record['state'],
+                                  'counted': True, 'next_step': 'reframe --workspace ' + str(work) + ' resume'}
                     elif args.command == 'feedback': result = feedback(work, project, args)
                     elif args.command == 'package': result = package(work, project)
                     elif args.command == 'context':

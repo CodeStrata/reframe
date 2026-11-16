@@ -200,7 +200,15 @@ def collect_assessment(run, directory, location):
 
 
 class RuntimeUnavailable(Blocked):
-    pass
+    """The provider runtime could not complete a call. pre_dispatch is True only when no provider process started."""
+    pre_dispatch = False
+
+
+def not_started(message):
+    """A runtime failure raised before any provider process started."""
+    error = RuntimeUnavailable(message)
+    error.pre_dispatch = True
+    return error
 
 
 def blocked_cause(error):
@@ -1040,7 +1048,7 @@ def kiro_call(run, directory, role, message):
     config = run['settings']
     executable = config['kiro_command'][0]
     if not shutil.which(executable) or not os.environ.get('KIRO_API_KEY'):
-        raise RuntimeUnavailable('Kiro headless setup requires kiro-cli and KIRO_API_KEY; configure them and resume')
+        raise not_started('Kiro headless setup requires kiro-cli and KIRO_API_KEY; configure them and resume')
     runtime = directory / 'runtime' / role
     agents = runtime / '.kiro' / 'agents'
     agents.mkdir(parents=True, exist_ok=True, mode=0o700)
