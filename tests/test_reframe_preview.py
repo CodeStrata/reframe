@@ -193,6 +193,20 @@ class PreviewTests(unittest.TestCase):
         self.assertIn('cpy/AMOUNT.cpy', json.dumps(app.read(handoff_dir / 'field-inventory.json')))
         self.assertIn('jcl/NIGHTLY.jcl', json.dumps(app.read(handoff_dir / 'batch-inventory.json')))
 
+    def test_skip_route_requirements_get_coverage_and_the_skip_owner_stays_labeled(self):
+        import os
+        import reframe_acceptance as acceptance
+        import reframe_optional as optional
+        with patch.dict(os.environ, {'REFRAME_SIMULATED_ACTOR': '1'}):
+            preview.run(self.work, self.project, self.arguments, app, self.runtime)
+        self.assertTrue(optional._verification_record(self.project)['simulated'])
+        requirement = {'id': 'aws-req:F1:F1-R1', 'original_id': 'F1-R1'}
+        with patch('reframe_requirements.active_set', return_value={'requirements': [requirement]}):
+            rows = acceptance.skip_requirement_coverage(self.work, self.project)
+            state = acceptance.readiness(self.work, self.project, app)
+        self.assertEqual([(row['id'], row['disposition']) for row in rows], [('aws-req:F1:F1-R1', 'gap')])
+        self.assertTrue(any(item['kind'] == 'coverage' and item['id'] == 'aws-req:F1:F1-R1' for item in state['blockers']))
+
     def test_untrusted_screen_text_is_escaped(self):
         def runtime(*args):
             value=self.runtime(*args);value['screens'][0]['title']='<script>alert(1)</script>';return value

@@ -128,6 +128,22 @@ def _contradiction(text):
     return match.group(1) if match else None
 
 
+def context_file_problem(work, source):
+    """Why a context file would be refused before anything is stored, or None. Checked as soon as a path is typed."""
+    path = Path(source).expanduser()
+    if not path.is_file():
+        return 'No file was found at that path.'
+    raw = path.read_bytes().replace(b'\x00', b'')
+    if any(item['id'] == _submission_id(raw) for item in context_status(work).get('submissions') or []):
+        return 'This context file is already imported. Its earlier record stands; nothing new was recorded.'
+    from reframe import SECRET_PATTERNS
+    for kind, pattern in SECRET_PATTERNS:
+        if pattern.search(raw):
+            return ('The file contains text that looks like a ' + kind + '. Nothing was stored. '
+                    'Remove the value and import the file again.')
+    return None
+
+
 def import_context(work, source, by, role, category, affected, gate='unspecified'):
     """Store one Markdown, text, or JSON document as untrusted data."""
     require(category in CATEGORIES, 'Context category must be one of: ' + ', '.join(CATEGORIES))
@@ -144,6 +160,12 @@ def import_context(work, source, by, role, category, affected, gate='unspecified
         _quarantine(folder, path.name, 'unsupported or oversize')
         raise Blocked('Context file was quarantined; only Markdown, text, and JSON up to 1 MB are imported')
     raw = path.read_bytes().replace(b'\x00', b'')
+    from reframe import SECRET_PATTERNS
+    for kind, pattern in SECRET_PATTERNS:
+        # A credential-shaped value is never stored, so it cannot reach a review page or a package.
+        if pattern.search(raw):
+            raise Blocked('Context file was not imported: it contains text that looks like a ' + kind
+                          + '. Nothing was stored. Remove the value and import the file again.')
     try:
         text = raw.decode('utf-8')
         parsed = json.loads(text) if suffix == '.json' else None
@@ -482,8 +504,10 @@ def _verification_record(project):
     """Which verification this design rests on: a recorded skip, an independent review, or only assessment approval."""
     skip = project.get('verification_skip')
     if skip:
+        # A skip made by a labeled simulated actor stays labeled wherever the owner is copied.
         return {'kind': 'recorded_skip', 'status': 'SKIPPED_BY_OWNER',
-                'owner': skip.get('owner'), 'reason': skip.get('reason')}
+                'owner': skip.get('owner'), 'reason': skip.get('reason'),
+                **({'simulated': True} if skip.get('simulated') else {})}
     approvals = project.get('approvals') or {}
     if approvals.get('validation'):
         return {'kind': 'independent_review', 'status': 'INDEPENDENTLY_REVIEWED'}

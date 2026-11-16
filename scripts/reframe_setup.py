@@ -646,6 +646,14 @@ def next_step(project):
             return 'Use /flow and choose review. The next question asks before the cap is raised.'
         return 'Review reframe prepare-plan and the call budget, then reframe validate'
     if project.get('pending_action'): return 'reframe resume'
+    if project.get('verification_skip') and not project.get('specification') and stage not in {
+            'PACKAGED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGE_ACCEPTED'}:
+        # The skip route never runs validate; its next step is the draft, the design gate, or the package.
+        if not project.get('skip_bundle'):
+            return 'reframe preview --skip-validation --by OWNER --note WHY --name DRAFT, or /flow'
+        if not (project.get('approvals') or {}).get('design'):
+            return 'Review the draft, then reframe approve design or reframe feedback --scope design; /flow guides this'
+        return 'reframe package'
     if stage in {'PACKAGED', 'AWAITING_PACKAGE_ACCEPTANCE'}:
         return 'Review the package (reframe package-review), then accept its exact SHA-256 or give package feedback.'
     if stage == 'PACKAGE_ACCEPTED':

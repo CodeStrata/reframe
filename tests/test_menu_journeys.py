@@ -142,6 +142,35 @@ class MenuJourneyTests(unittest.TestCase):
         packages = sorted(path.name for path in (journey.work / 'packages').iterdir())
         self.assertFalse([name for name in packages if name.startswith('.')], 'no staging folder is left behind')
 
+    def test_a_skip_route_design_change_keeps_the_skip_decision_and_a_paused_gate_resumes_there(self):
+        journey = release.MenuJourney(FINDINGS)
+        self.model_fn = self.model()
+        text = self.drive([
+            '1', 'continue',
+            'none', 'Ari', 'none',
+            'skip',
+            'functional-parity', 'v1', 'java', 'none',
+            'guided-draft', 'Ari', 'Trust the sealed findings for this draft', 'codex', 'y',
+            'none', 'design-change', 'Label the amount field in the account currency',
+            'skip', '<default>', 'codex', 'y',                   # revised draft: the skip decision is not asked again
+            'none', 'pause',
+            '1', 'continue',                                     # resumes at the design gate of the saved draft
+            'none', 'approve', '<default>', 'The revised draft labels the amount',
+            'none', 'pause',                                     # package gate: nothing accepted
+            '0'])
+        flat = ' '.join(text.split())
+        project = journey.reload()
+        self.assertEqual(project['approvals']['design']['by'], 'Ari', text)
+        self.assertEqual(text.count('Accountable owner for skipping verification'), 1, 'the owner is asked once')
+        self.assertEqual(text.count('Reason for trusting AWS findings'), 1, 'the reason is asked once')
+        self.assertIn('Its owner and reason are not asked again', flat)
+        self.assertIn('Resuming the design review of saved draft guided-draft-2', flat)
+        self.assertEqual(text.count('Next step (skip/'), 2, 'the paused gate does not ask the route again')
+        self.assertIn('Review is not available', flat, 'findings without source lines are not offered for review')
+        self.assertNotIn('Next step (skip/review)', text)
+        self.assertEqual(project['verification_skip']['reason'], 'Trust the sealed findings for this draft')
+        self.assertEqual(self.state['calls'], ['wireframes', 'wireframes'])
+
     def test_review_route_with_context_feedback_loops_and_exact_acceptance(self):
         import test_requirements as req_fixtures
         journey = release.MenuJourney({'rules': ['reject zero amount']})

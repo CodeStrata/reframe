@@ -4,7 +4,7 @@ The independent acceptance agent's first report on `d65d86f` was **FAIL**: one b
 
 Every defect below was fixed in `ccd9777` or `351d34c` and has a regression test. No test expectation was weakened. Where a journey script changed, the change reflects the corrected behavior, and the test now asserts that behavior.
 
-The re-test on candidate `351d34c` is in `acceptance-report-351d34c.md`. Its defects are in the round-two table below.
+The re-test on candidate `351d34c` is in `acceptance-report-351d34c.md`, and the round-three re-test on `fd0e4c8` is in `acceptance-report-fd0e4c8.md`. Their defects are in the tables below.
 
 | # | Severity | Defect | Fix | Regression test |
 | --- | --- | --- | --- | --- |
@@ -55,3 +55,26 @@ Each fix below has a regression test. Each new test was also run against a copy 
 ## Operator note from the acceptance run
 
 In run E the acceptance agent answered a reprompted name with `y`. Three specification-gate "context none" records there have `by: "y"`. The agent disclosed this itself. D19 now refuses such an answer.
+
+## Round three: candidate `fd0e4c8`
+
+The re-test was **FAIL, narrowly**: no blockers, two major defects, eight minor ones. Every scenario reached explicit package acceptance through menu 1, and every round-two fix it checked held.
+
+Each fix below has a regression test that fails on `fd0e4c8`.
+
+| # | Severity | Defect | Fix | Regression test |
+| --- | --- | --- | --- | --- |
+| R3-1 | major | Imported traceability was merged across requirements, and supplied acceptance criteria were dropped | A top-level list of mappings is split into its items, so each requirement gets only its own rules and sources. "Acceptance:" and "Acceptance criteria:" lines and their bullets become `acceptance_criteria`. | `test_requirements::test_a_traceability_list_maps_each_requirement_only_to_its_own_item` |
+| R3-2 | major | A skip-route design change asked for the skip owner and reason again and refused any new wording without saying why | One recorded skip decision covers every draft of the same assessment; the flow uses it and says so. The CLI refusal explains the rule. | `test_menu_journeys::test_a_skip_route_design_change_keeps_the_skip_decision_and_a_paused_gate_resumes_there` |
+| R3-3 | minor | A credential-shaped context note was accepted, then blocked packaging with no menu recovery, and was echoed at the design gate | Such a file is refused at import, with nothing stored. For a note stored earlier, a package refusal offers to reject it (the record stays). Proposal text is masked on screen. | `test_guided_flow::test_a_package_refused_for_accepted_context_offers_to_reject_it`; `test_reframe_optional::test_malformed_context_and_unknown_enum_stay_local` |
+| R3-4 | minor | Resuming a paused skip design gate asked the route and draft name again | A saved draft waiting at the design gate resumes there; nothing is regenerated | the R3-2 journey |
+| R3-5 | minor | A refused session name returned to the menu | The session name is asked again, as gate approvers are | `test_guided_flow::test_each_approval_asks_who_approves_and_a_yes_is_not_a_name` |
+| R3-6 | minor | Review was offered when findings without source lines made its stop certain | The menu says review is not available and why, and asks skip or pause. If neither route can run, it says so and stops. | the R3-2 journey |
+| R3-7 | minor | A duplicate context file was refused only after category, ids, and role | Duplicate and credential-shaped files are refused as soon as the path is typed, and the path is asked again | `test_guided_flow::test_a_duplicate_or_credential_context_file_is_refused_before_other_questions` |
+| R3-8 | minor | Skip-route next steps named the review-route `validate` command | Skip-route next steps name the draft, the design gate, or the package | `test_guided_flow::test_the_skip_route_next_step_never_names_validate` |
+| R3-9 | minor | Design records copied the skip owner without `simulated` | The label is copied with the owner | `test_reframe_preview::test_skip_route_requirements_get_coverage_and_the_skip_owner_stays_labeled` |
+| R3-10 | minor | Imported requirements got no coverage record on the skip route | Coverage is computed against the draft's structured id lists; a gap is a readiness blocker and is written to `requirements-evidence.json` | the R3-9 test |
+
+One related change: declining a new assessment after recognizing a repository now ends that /flow instead of walking into the saved project's gates.
+
+N9 stays a known limitation.

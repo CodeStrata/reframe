@@ -151,7 +151,11 @@ def run(work, project, args, app, runtime=None):
     recorded=project.get('verification_skip')
     if recorded:
         require(recorded.get('owner')==args.by.strip() and recorded.get('reason')==args.note.strip()
-                and recorded.get('assessment_sha256')==fingerprint, 'Skip decision differs from the recorded preview')
+                and recorded.get('assessment_sha256')==fingerprint,
+                'A decision to skip verification is already recorded for this assessment with its owner and reason. '
+                'Every draft of this assessment uses that same decision, so pass the recorded owner and reason '
+                '(verification_skip in project.json); menu 1 does this for you. A different owner or reason is a new '
+                'decision and needs a new assessment.')
     # The skip decision is recorded on the project only when a draft exists. A failed attempt binds nothing.
     decision = recorded or {'owner':args.by.strip(),'reason':args.note.strip(),
                             'assessment_sha256':fingerprint,'at':time.time(),**actor_provenance()}

@@ -533,12 +533,24 @@ def _requirements(text, function_id):
                             'section': section, 'text': line.strip(), 'line': number, 'shape': 'statement',
                             'acceptance_criteria': [], 'uncertainty': None, 'disposition': 'unreviewed'})
             continue
+        criterion = re.match(r'^\s*(?:[-*]\s+)?(?:acceptance(?:\s+criteri(?:on|a))?|AC)\s*:\s*(.*)$', line, re.IGNORECASE)
+        if current is not None and criterion:
+            # Supplied acceptance criteria are kept as criteria, not folded into the requirement text.
+            current['in_acceptance'] = True
+            if criterion.group(1).strip():
+                current['acceptance_criteria'].append(criterion.group(1).strip())
+            continue
+        if current is not None and current.get('in_acceptance') and re.match(r'^\s*[-*]\s+\S', line):
+            current['acceptance_criteria'].append(re.sub(r'^\s*[-*]\s+', '', line).strip())
+            continue
         if current is not None and line.strip():
+            current.pop('in_acceptance', None)
             current['text'] = (current['text'] + ' ' + line.strip()).strip()
             continue
         if match:
             unrecognized.append({'line': number, 'id': match.group(1)})
     for item in records:
+        item.pop('in_acceptance', None)
         if seen[item['original_id']] > 1:
             item['uncertainty'] = 'duplicate identifier in the source file'
         if item.get('shape') == 'heading' and not EARS.search(item['text']):
@@ -547,7 +559,34 @@ def _requirements(text, function_id):
 
 
 def _trace_blocks(text):
-    """Split YAML text into top-level blocks without a YAML parser. Unknown shapes stay unparsed."""
+    """Split YAML text into one block per traced item without a YAML parser. Unknown shapes stay unparsed.
+
+    A top-level key per requirement is one block. A top-level list of mappings (- id: F1-R1) is split into its
+    items, so one item's rules and sources never attach to another id.
+    """
+    blocks = []
+    for block in _top_level_blocks(text):
+        blocks += _list_items(block) or [block]
+    return blocks
+
+
+def _list_items(block):
+    """The items of a list of mappings directly under a top-level key, or [] for any other shape."""
+    lines = block.splitlines()
+    depth = lambda line: len(line) - len(line.lstrip())
+    children = [line for line in lines[1:] if line.strip() and not line.lstrip().startswith('#')]
+    if not children:
+        return []
+    indent = min(depth(line) for line in children)
+    starts = [index for index, line in enumerate(lines)
+              if index and depth(line) == indent and re.match(r'^\s*-\s+[\w.-]+\s*:', line)]
+    if not starts or any(depth(line) == indent and not line.lstrip().startswith('-') for line in children):
+        return []
+    return ['\n'.join(lines[start:(starts[n + 1] if n + 1 < len(starts) else len(lines))]) for n, start in enumerate(starts)]
+
+
+def _top_level_blocks(text):
+    """Split YAML text at its top-level keys."""
     blocks, current = [], []
     for line in text.splitlines():
         if line and not line[0].isspace() and not line.startswith('#') and current:

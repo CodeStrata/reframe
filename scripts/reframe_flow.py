@@ -298,8 +298,9 @@ def offer_known_repository(ui, repository=None):
         reframe.persist(folder, saved)
         ui.say('Pinned revision ' + pinned['commit'] + '. The saved baseline and its approvals stay in place.')
     if not ui.yes('Authorize one new assessment of this revision on the verified infrastructure?'):
-        ui.say('No assessment job was created.')
-        return True
+        # A declined assessment ends this /flow; it does not walk on into the saved project's gates.
+        ui.say('No assessment job was created. The pinned revision is saved; /flow continues the saved project.')
+        return False
     command = ['assess', '--wait', '--allow-new-assessment']
     pending = saved.get('pending_revision') or {}
     if pending.get('commit'):
@@ -393,22 +394,27 @@ def _person(value):
     return name
 
 
+def ask_person(ui, prompt, default=None):
+    """Ask for a person's name. A yes/no answer or a blank is refused and asked again, up to three times."""
+    for _attempt in range(2):
+        value = ui.ask(prompt, default) if default is not None else ui.ask(prompt)
+        if str(value or '').strip() and str(value).strip().casefold() not in NOT_A_NAME:
+            return value.strip()
+        ui.say('Enter a person\'s name, not "' + str(value or '').strip() + '". Nothing was recorded.')
+    return _person(ui.ask(prompt, default) if default is not None else ui.ask(prompt))
+
+
 def reviewer(ui):
     """The person recording review decisions in this session, asked once."""
     name = getattr(ui, 'reviewer_name', None)
     if not name:
-        ui.reviewer_name = _person(ui.ask('Your name for these review records'))
+        ui.reviewer_name = ask_person(ui, 'Your name for these review records')
     return ui.reviewer_name
 
 
 def approver(ui, what):
     """Ask who makes this approval at this gate. The session name is offered, never assumed."""
-    for _attempt in range(2):
-        value = ui.ask('Who ' + what + '? Their name is recorded on it', reviewer(ui))
-        if str(value or '').strip() and str(value).strip().casefold() not in NOT_A_NAME:
-            return value.strip()
-        ui.say('Enter a person\'s name, not "' + str(value or '').strip() + '". Nothing was recorded.')
-    return _person(ui.ask('Who ' + what + '? Their name is recorded on it', reviewer(ui)))
+    return ask_person(ui, 'Who ' + what + '? Their name is recorded on it', reviewer(ui))
 
 
 def known_ids(work):
@@ -443,11 +449,21 @@ def offer_context(ui, gate):
     work = workspace_path()
     if work and not offer_open_conflicts(ui, work):
         return False
-    path = ask_existing_file(ui, 'Markdown context for the ' + gate + ' review, or none', allow_none=True)
-    if path is None:
+    import reframe_optional
+    for _attempt in range(3):
+        path = ask_existing_file(ui, 'Markdown context for the ' + gate + ' review, or none', allow_none=True)
+        if path is None:
+            return False
+        if path in {'', 'none'}:
+            return ui.invoke(['context', 'none', '--gate', gate, '--by', reviewer(ui)]) == 0
+        # A file that would be refused is refused before the category, ids, and role are asked.
+        problem = reframe_optional.context_file_problem(work, path) if work else None
+        if not problem:
+            break
+        ui.say(problem + ' Enter another path, or none.')
+    else:
+        ui.say('Stopped after three refused files. Nothing was recorded.')
         return False
-    if path in {'', 'none'}:
-        return ui.invoke(['context', 'none', '--gate', gate, '--by', reviewer(ui)]) == 0
     category = ui.ask('Context category (clarification/correction/constraint/current-state/future-state/review-feedback)',
                       'clarification')
     known = known_ids(work)
@@ -567,6 +583,15 @@ def ensure_design_plan(ui, project):
     return ui.invoke(command) == 0
 
 
+def masked(text):
+    """Text with credential- or identifier-shaped values replaced, for printing on the console."""
+    import reframe
+    data = text.encode()
+    for _kind, pattern in reframe.SECRET_PATTERNS:
+        data = pattern.sub(b'[hidden value]', data)
+    return data.decode(errors='replace')
+
+
 def design_review(ui, project, skip_route):
     """Design review: context, Reimagine proposals, then approve or route feedback to design or specification."""
     plan = project.get('design_plan') or {}
@@ -585,7 +610,7 @@ def design_review(ui, project, skip_route):
             deltas_path = work / 'previews' / str(plan['version']) / 'future-state' / 'deltas.json' if work else None
             deltas = json.loads(deltas_path.read_text()) if deltas_path and deltas_path.is_file() else {}
             for item in deltas.get('proposals') or []:
-                ui.say('Proposal ' + str(item.get('id')) + ' (' + str(item.get('status')) + '): ' + str(item.get('after') or '')[:160])
+                ui.say('Proposal ' + str(item.get('id')) + ' (' + str(item.get('status')) + '): ' + masked(str(item.get('after') or ''))[:160])
             if not deltas.get('proposals'):
                 ui.say('No proposal was made. ' + '; '.join(str(gap.get('reason')) for gap in (deltas.get('gaps') or [])[:3]))
             proposal = ui.ask('Approve one future-state delta by id, or none', 'none')
@@ -687,6 +712,38 @@ def offer_open_conflicts(ui, work):
     return False
 
 
+def offer_withdraw_flagged_context(ui):
+    """After a package refusal, offer to reject accepted context whose stored text looks like a credential.
+
+    The value itself is never printed. Rejecting keeps the submission on record; it only stops it reaching the package.
+    """
+    reason = str((getattr(ui, 'last_report', None) or {}).get('reason') or '')
+    work = workspace_path()
+    if not work or not reason.startswith('Refusing package'):
+        return
+    import reframe
+    import reframe_optional as optional
+    flagged = []
+    for item in optional.context_status(work).get('submissions') or []:
+        stored = optional.context_dir(work) / 'extracted' / (str(item.get('id')) + '.txt')
+        if item.get('disposition') == 'accepted' and stored.is_file() and any(
+                pattern.search(stored.read_bytes()) for _kind, pattern in reframe.SECRET_PATTERNS):
+            flagged.append(item['id'])
+    if not flagged:
+        return
+    ui.say('Accepted context ' + ', '.join(flagged) + ' contains text that looks like a credential or identifier, '
+           'so it cannot be packaged. Rejecting it keeps the record and leaves it out of the package.')
+    for submission in flagged:
+        if not ui.yes('Reject context ' + submission + ' now?'):
+            ui.say('Nothing was changed. The package stays blocked until that context is rejected or superseded.')
+            return
+        by = approver(ui, 'rejects this context')
+        note = ui.ask('Why it is rejected', 'Contains a credential-shaped value')
+        if ui.invoke(['context', 'decide', '--id', submission, '--disposition', 'rejected', '--by', by, '--note', note]) != 0:
+            return
+    ui.say('Rejected. /flow builds the package again.')
+
+
 def offer_wireframe_retry(ui):
     """After a failed or invalid wireframe call: authorize one new counted attempt, or stop. The failed call stays counted."""
     import reframe
@@ -786,6 +843,16 @@ def run(ui):
         approved = bool(project.get('approvals', {}).get('assessment'))
         if not record_framework_update(ui, project):
             return
+        if project.get('skip_bundle') and project.get('verification_skip') and not project.get('specification') \
+                and not project.get('approvals', {}).get('design') and stage not in {'DESIGN_APPROVED', 'PACKAGE_ACCEPTED'} \
+                and not (project.get('package') or {}).get('path'):
+            # A saved draft waiting at the design gate resumes there; nothing is regenerated or asked again.
+            draft = Path(project['skip_bundle']).name
+            ui.say('Resuming the design review of saved draft ' + draft + '. Nothing is regenerated.')
+            say_review(ui, 'Review these draft files. They are not an approval.', draft_rows(draft))
+            if design_review(ui, project, skip_route=True) != 'continue':
+                return
+            continue
         later = {'AWAITING_VALIDATION_APPROVAL', 'DESIGN_APPROVED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGED', 'PACKAGE_ACCEPTED'}
         if approved and not project.get('approvals', {}).get('validation') and stage not in later:
             interrupted = stage in {'WAITING_FOR_RUNTIME', 'RUNNING_EXECUTOR', 'RUNNING_REVIEWER', 'PREPARATION_PLANNED', 'REWORK_LIMIT',
@@ -800,13 +867,33 @@ def run(ui):
                 import reframe
                 import reframe_preview
                 available, why = reframe_preview.skip_available(project, reframe) if project.get('selected') else (True, None)
-                if available:
+                reviewable, unanchored = True, None
+                if project.get('selected') and workspace_path():
+                    try:
+                        # Findings without a source line would stop review before any call; say so instead of offering it.
+                        reframe.require_anchored_export(workspace_path(), project)
+                    except Blocked as error:
+                        reviewable, unanchored = False, str(error)
+                if available and reviewable:
                     ui.say('Assessment is approved. skip generates wireframes and the AI-DLC package without a second review. review runs the executor and an independent reviewer.')
                     choice = ui.ask('Next step (skip/review)', 'skip')
                     require(choice in {'skip', 'review', 'draft', 'verify'}, 'Choose skip or review')
-                else:
+                elif available:
+                    ui.say('Review is not available: ' + unanchored.split(' No model call')[0] + ' Independent review needs '
+                           'findings that cite a source file and line. Re-export the assessment with source anchors to review, '
+                           'or continue with skip, which labels the findings AWS-assumed.')
+                    choice = ui.ask('Next step (skip/pause)', 'skip')
+                    require(choice in {'skip', 'pause'}, 'Choose skip or pause')
+                    if choice == 'pause':
+                        ui.say('Paused. Nothing was recorded and no model call was made.')
+                        return
+                elif reviewable:
                     ui.say('Skip is not available: ' + str(why) + ' review runs the executor and an independent reviewer.')
                     choice = 'review'
+                else:
+                    ui.say('Neither route can use this assessment. Skip: ' + str(why) + ' Review: '
+                           + unanchored.split(' No model call')[0] + ' Nothing was recorded and no model call was made.')
+                    return
             if not interrupted and choice in {'skip', 'draft'}:
                 ui.say('Claude or Codex will generate design content. No executor/reviewer verification or approval is implied.')
                 if not ensure_design_plan(ui, project):
@@ -819,6 +906,13 @@ def run(ui):
                 from reframe_workspace import preview_directory
                 saved = preview_directory(workspace(), name) / 'preview-state.json'
                 state = json.loads(saved.read_text()) if saved.exists() else {}
+                recorded = project.get('verification_skip') or {}
+                selected = (project.get('assessments') or {}).get(project.get('selected')) or {}
+                if not state and recorded and recorded.get('assessment_sha256') == selected.get('sha256'):
+                    # One skip decision covers every draft of this assessment; a revised draft does not re-attribute it.
+                    ui.say('The recorded decision to skip verification for this assessment applies to this draft. '
+                           'Its owner and reason are not asked again.')
+                    state = recorded
                 owner = state.get('owner') or ui.ask('Accountable owner for skipping verification')
                 note = state.get('reason') or ui.ask('Reason for trusting AWS findings without independent verification')
                 provider = state.get('provider') or ui.ask('Design provider (claude/codex)', project.get('providers', {}).get('wireframes', 'claude'))
@@ -944,6 +1038,7 @@ def run(ui):
         if stage in {'SPECIFICATIONS_APPROVED', 'DESIGN_APPROVED'}:
             if ui.invoke(['package']) != 0:
                 ui.say('The package was not written. /flow retries it.')
+                offer_withdraw_flagged_context(ui)
                 return
             ui.say('The package is built and awaits your review. Building it did not accept it.')
             continue

@@ -3138,9 +3138,11 @@ def package_extras(work, project, destination, spec):
     import reframe_optional as optional
     import reframe_requirements as requirements_module
     active = requirements_module.active_set(work, project)
+    import reframe_acceptance
     write(destination / 'requirements-evidence.json', {
         'provenance': requirements_module.provenance_statement(work, project),
-        'state': active['state'], 'manifest': active['manifest'], 'requirements': active['requirements']})
+        'state': active['state'], 'manifest': active['manifest'], 'requirements': active['requirements'],
+        'coverage': (spec or {}).get('requirement_coverage') or reframe_acceptance.skip_requirement_coverage(work, project)})
     for entry in (active['manifest'] or {}).get('files') or []:
         shutil.copyfile(work / entry['stored_path'], destination / ('requirements-' + entry['function_id'] + '-'
                                                                     + Path(entry['stored_path']).name))

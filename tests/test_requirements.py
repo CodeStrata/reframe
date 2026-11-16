@@ -279,6 +279,31 @@ class RequirementsTests(unittest.TestCase):
         self.assertEqual(result['count'], 0)
         self.assertIn('No requirement records were recognized', ' '.join(result['warnings']))
 
+    def test_a_traceability_list_maps_each_requirement_only_to_its_own_item(self):
+        folder = self.root / 'listed'
+        folder.mkdir()
+        (folder / 'requirements.md').write_text(
+            '# Requirements for F1\n\n## F1-R1 Reject a zero amount\nA zero amount is rejected.\n'
+            'Acceptance: submitting 0.00 sets the error flag; submitting 0.01 does not.\n\n'
+            '## F1-R2 Nightly processing\nThe nightly job runs the amount rule program.\n'
+            'Acceptance criteria:\n- The job runs once a night\n- A failed run is reported\n')
+        (folder / 'traceability.yaml').write_text(
+            'function: F1\nrequirements:\n  - id: F1-R1\n    rules: [reject-zero-amount]\n    source: [rule.cbl]\n'
+            '  - id: F1-R2\n    rules: []\n    source: [jcl/NIGHTLY.jcl]\n')
+        self.command('import', '--requirements', str(folder / 'requirements.md'), '--traceability',
+                     str(folder / 'traceability.yaml'), '--function', 'F1', '--by', 'Analyst',
+                     '--note', 'Exported from the AWS console by the analyst')
+        records = {item['original_id']: item for item in requirements.active_set(self.work, self.project)['requirements']}
+        first, second = records['F1-R1'], records['F1-R2']
+        self.assertEqual((first['traceability']['state'], first['traceability']['rule_ids'], first['traceability']['source_paths']),
+                         ('mapped', ['reject-zero-amount'], ['rule.cbl']))
+        self.assertEqual((second['traceability']['state'], second['traceability']['rule_ids'], second['traceability']['source_paths']),
+                         ('partial', [], ['jcl/NIGHTLY.jcl']), 'no rule or source from another item is attached')
+        self.assertEqual(first['acceptance_criteria'], ['submitting 0.00 sets the error flag; submitting 0.01 does not.'])
+        self.assertEqual(second['acceptance_criteria'], ['The job runs once a night', 'A failed run is reported'])
+        self.assertNotIn('Acceptance', first['text'])
+        self.assertNotIn('in_acceptance', first)
+
     def test_an_import_after_a_reviewed_specification_supersedes_its_approvals(self):
         self.project['specification'] = {'path': 'preparation/candidate.json', 'sha256': 'x'}
         self.project['approvals']['validation'] = {'by': 'A', 'note': 'ok', 'sha256': 'y'}

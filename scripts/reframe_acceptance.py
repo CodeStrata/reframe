@@ -50,6 +50,25 @@ def _questions(work, project, app):
     return spec, rows
 
 
+def skip_requirement_coverage(work, project):
+    """Skip-route coverage of imported requirements against the draft's structured id lists.
+
+    The skip draft has no reviewed specification, so a requirement no draft section, work item, or test names is a gap.
+    Prose never creates a mapping.
+    """
+    if project.get('specification') or not project.get('verification_skip') or not project.get('skip_bundle'):
+        return []
+    import reframe_coverage
+    import reframe_optional as optional
+    import reframe_requirements
+    ids = [item['id'] for item in reframe_requirements.active_set(work, project)['requirements'] if item.get('id')]
+    if not ids:
+        return []
+    records = optional._bundle_records(Path(work) / project['skip_bundle'] / 'handoff')
+    draft = {'sections': records['sections'], 'work_items': records['backlog'], 'tests': records['acceptance']}
+    return reframe_coverage.requirement_coverage(draft, ids)
+
+
 def readiness(work, project, app):
     """Implementation readiness from every blocker. Empty decisions or blanket deferral never mean ready."""
     spec, questions = _questions(work, project, app)
@@ -71,7 +90,7 @@ def readiness(work, project, app):
     for row in spec.get('coverage') or []:
         if isinstance(row, dict) and row.get('gaps') and row.get('disposition') != 'excluded':
             blockers.append({'kind': 'coverage', 'id': row.get('id'), 'state': 'gap', 'gaps': row['gaps']})
-    for row in spec.get('requirement_coverage') or []:
+    for row in (spec.get('requirement_coverage') or []) + skip_requirement_coverage(work, project):
         if isinstance(row, dict) and row.get('disposition') == 'gap':
             blockers.append({'kind': 'coverage', 'id': row.get('id'), 'state': 'gap', 'gaps': row.get('gaps')})
     for row in spec.get('test_templates') or []:

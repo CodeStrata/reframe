@@ -9,6 +9,7 @@ os.environ.setdefault('REFRAME_CONFIG_HOME', tempfile.mkdtemp(prefix='reframe-gu
 from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).parents[1]/'scripts'))
 from reframe_flow import run
+from reframe_flow import offer_context as real_offer_context  # setUp stubs the module attribute
 from reframe_terminal import Terminal
 from rich.console import Console
 
@@ -404,9 +405,11 @@ class GuidedFlowTests(unittest.TestCase):
     def test_each_approval_asks_who_approves_and_a_yes_is_not_a_name(self):
         from reframe_flow import approver, reviewer
         from pilot import Blocked
-        ui = self.ui({}, ['y'], gates=False)
+        ui = self.ui({}, ['y', 'no', 'y'], gates=False)
         with self.assertRaisesRegex(Blocked, 'not "y"'):
             reviewer(ui)
+        ui = self.ui({}, ['y', 'Dana'], gates=False)
+        self.assertEqual(reviewer(ui), 'Dana', 'a refused session name is asked again, not sent back to the menu')
         ui = self.ui({}, ['Dana', 'Lee'], gates=False)
         self.assertEqual(approver(ui, 'approves this design'), 'Lee')
         self.assertEqual(ui.ask.call_args_list[-1].args, ('Who approves this design? Their name is recorded on it', 'Dana'))
@@ -468,6 +471,62 @@ class GuidedFlowTests(unittest.TestCase):
         self.assertEqual(invoked[:2], [['retry-wireframes', '--by', 'Dana', '--note', 'The provider outage is over'],
                                        ['review-site']])
         self.assertIn('Enter a person\'s name, not "y"', '\n'.join(lines))
+
+    def test_a_duplicate_or_credential_context_file_is_refused_before_other_questions(self):
+        import reframe_optional as optional
+        offer_context = real_offer_context
+        with tempfile.TemporaryDirectory() as root:
+            folder = Path(root)
+            (folder / 'project.json').write_text('{"stage":"AWAITING_VALIDATION_APPROVAL","settings":{}}')
+            note = folder / 'note.md'
+            note.write_text('The cutoff is 9.\n')
+            optional.import_context(folder, note, 'Ari', 'architect', 'clarification', [])
+            secret = folder / 'secret.md'
+            secret.write_text('token AKIAIOSFODNN7EXAMPLE\n')
+            ui = self.ui({}, [str(note), str(secret), 'none'], gates=False)
+            ui.reviewer_name = 'Ari'
+            lines = self.said(ui)
+            with patch('reframe_setup.workspace', return_value=folder):
+                self.assertTrue(offer_context(ui, 'specification'))
+        prompts = [call.args[0] for call in ui.ask.call_args_list]
+        self.assertFalse(any(prompt.startswith('Context category') for prompt in prompts), 'refused before the category')
+        text = '\n'.join(lines)
+        self.assertIn('already imported', text)
+        self.assertIn('looks like a cloud access key', text)
+        self.assertNotIn('AKIAIOSFODNN7EXAMPLE', text)
+        self.assertEqual(ui.invoke.call_args.args[0][:2], ['context', 'none'])
+
+    def test_a_package_refused_for_accepted_context_offers_to_reject_it(self):
+        from reframe_flow import offer_withdraw_flagged_context, masked
+        import reframe_optional as optional
+        with tempfile.TemporaryDirectory() as root:
+            folder = Path(root)
+            (folder / 'project.json').write_text('{"stage":"DESIGN_APPROVED","settings":{}}')
+            note = folder / 'note.md'
+            note.write_text('The cutoff is 9.\n')
+            record = optional.import_context(folder, note, 'Ari', 'architect', 'clarification', [])
+            optional.decide_context(folder, record['id'], 'accepted', 'Ari', 'Recorded')
+            # A note stored before import-time refusal existed.
+            (optional.context_dir(folder) / 'extracted' / (record['id'] + '.txt')).write_text('token AKIAIOSFODNN7EXAMPLE\n')
+            ui = self.ui({}, ['Dana', 'Contains a credential-shaped value'], gates=False)
+            ui.reviewer_name = 'Ari'
+            ui.yes.return_value = True
+            ui.last_report = {'reason': 'Refusing package; human-context.json matches cloud access key'}
+            lines = self.said(ui)
+            with patch('reframe_setup.workspace', return_value=folder):
+                offer_withdraw_flagged_context(ui)
+        self.assertEqual(ui.invoke.call_args.args[0], ['context', 'decide', '--id', record['id'], '--disposition', 'rejected',
+                                                       '--by', 'Dana', '--note', 'Contains a credential-shaped value'])
+        self.assertNotIn('AKIAIOSFODNN7EXAMPLE', '\n'.join(lines))
+        self.assertEqual(masked('key AKIAIOSFODNN7EXAMPLE here'), 'key [hidden value] here')
+
+    def test_the_skip_route_next_step_never_names_validate(self):
+        from reframe_setup import next_step
+        base = {'stage': 'ASSESSMENT_APPROVED', 'verification_skip': {'owner': 'Ari'}, 'settings': {}}
+        with patch('reframe.prompts_differ', return_value=False):
+            for extra in ({}, {'skip_bundle': 'previews/d'}, {'skip_bundle': 'previews/d', 'approvals': {'design': {}}}):
+                self.assertNotIn('validate', next_step({**base, **extra}))
+            self.assertIn('approve design', next_step({**base, 'skip_bundle': 'previews/d'}))
 
     def test_specifications_review_names_the_wireframes_and_json(self):
         ui = self.ui({'stage':'AWAITING_SPECIFICATIONS_APPROVAL', 'approvals':{'assessment':True, 'validation':True},

@@ -161,11 +161,13 @@ class OptionalModeTests(unittest.TestCase):
         self.assertFalse(archive.exists())
         secret = self.root / 'secret.md'
         secret.write_text('token AKIAIOSFODNN7EXAMPLE\n')
-        imported = optional.import_context(self.root, secret, 'Ari', 'architect', 'current-state', ['s1'])
-        optional.decide_context(self.root, imported['id'], 'accepted', 'Ari', 'Do not publish')
-        optional.design_export(self.root, self.project, 'v6', 'functional-parity', '')
-        with self.assertRaisesRegex(optional.Blocked, 'matches cloud access key'):
-            optional.package_export(self.root, self.project, 'v6', 'functional-parity')
+        before = len(optional.context_status(self.root)['submissions'])
+        # Refused at import, before it can reach a review page or a package (the package scans stay as a second check).
+        with self.assertRaisesRegex(optional.Blocked, 'looks like a cloud access key. Nothing was stored') as raised:
+            optional.import_context(self.root, secret, 'Ari', 'architect', 'current-state', ['s1'])
+        self.assertNotIn('AKIAIOSFODNN7EXAMPLE', str(raised.exception))
+        self.assertEqual(len(optional.context_status(self.root)['submissions']), before)
+        self.assertIn('cloud access key', optional.context_file_problem(self.root, secret))
         self.assertEqual(optional.known_documentation_enum({'properties': {'detailLevel': {'enum': ['DETAILED']}}}, False), 'DETAILED')
         with self.assertRaisesRegex(optional.Blocked, 'enum changed'):
             optional.known_documentation_enum({'properties': {'detailLevel': {'enum': ['BRIEF']}}}, False)
