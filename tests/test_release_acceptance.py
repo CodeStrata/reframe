@@ -249,7 +249,8 @@ class ReleaseAcceptanceTests(unittest.TestCase):
             self.assertEqual(inventory['copybooks'], [{'path': 'cpy/AMOUNT.cpy', 'fields': []}])
             self.assertEqual(batch['jobs'], [{'path': 'jcl/NIGHTLY.jcl', 'status': 'NOT_STARTED'}])
             self.assertNotIn('PIC', json.dumps(inventory))
-            self.assertIn(packaged['rules'][0]['source_path'], archive.read('rules.json').decode())
+            self.assertIsNone(packaged['rules'][0]['source_path'], 'an AWS-assumed rule cites no source line')
+            self.assertIn(packaged['rules'][0]['assessment_path'], archive.read('rules.json').decode())
         mode_path = journey.work / 'previews' / 'v1' / 'mode.json'
         saved_mode = json.loads(mode_path.read_text())
         saved_mode['status'] = 'generating'

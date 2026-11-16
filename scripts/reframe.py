@@ -2925,14 +2925,16 @@ def design_feedback(work, project, args):
         project.setdefault('design_plan_history', []).append(copy.deepcopy(plan))
         plan['version'] = optional._next_revision(work, plan['version'])
         plan['revised_by_feedback'] = True
-    if project.get('verification_skip') and not project.get('specification'):
+    skip_route = bool(project.get('verification_skip') and not project.get('specification'))
+    if skip_route:
         project.setdefault('skip_history', []).append(project.pop('skip_bundle', None))
         project['stage'] = 'ASSESSMENT_APPROVED'
     else:
         project['stage'] = 'VALIDATION_APPROVED'
     persist(work, project)
-    return {'status': 'DESIGN_FEEDBACK_RECORDED', 'stage': project['stage'], 'routed_to': 'design',
-            'kept': ['specification', 'validation approval', 'decisions'],
+    # A skip-route run has no specification or validation approval to keep.
+    kept = ['assessment approval', 'skip decision', 'decisions'] if skip_route else ['specification', 'validation approval', 'decisions']
+    return {'status': 'DESIGN_FEEDBACK_RECORDED', 'stage': project['stage'], 'routed_to': 'design', 'kept': kept,
             'next_step': 'reframe --workspace ' + str(work) + (' preview --skip-validation' if project['stage'] == 'ASSESSMENT_APPROVED'
                                                                 else ' review-site')}
 

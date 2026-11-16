@@ -1,6 +1,7 @@
 """Explicit AWS-assumed preview: draft artifacts without invented verification/approval."""
 import html
 import json
+import re
 import time
 import zipfile
 from pathlib import Path
@@ -40,8 +41,10 @@ def extract(directory, run, app):
                 'aws_rule_id':record.get('Rule_Id'), 'name':record.get('Rule_Name',''),
                 'statement':record.get('Rule_Description') or record.get('Rule_Name') or 'See AWS record',
                 'acceptance_criteria':record.get('Acceptance_Criteria'), 'aws_record':record,
-                'evidence_status':'AWS_ASSUMED', 'source_path':item['path'],
-                'source_anchor':f'/{field}/{index}', 'assessment_file_sha256':item['sha256']})
+                # The AWS export is assessment evidence, not a source citation: no source line was checked.
+                'evidence_status':'AWS_ASSUMED', 'source_path':None,
+                'assessment_path':item['path'], 'assessment_anchor':f'/{field}/{index}',
+                'assessment_file_sha256':item['sha256']})
     require(summaries or rules, 'This assessment has no AWS business-rule export or summary that the skip draft can read. '
             'The skip draft cannot be built from it. Choose review instead; the sealed originals stay unchanged.')
     return summaries, rules
@@ -61,6 +64,37 @@ def context_for(summaries, rules, scope, limit):
               'notice':NOTICE, 'coverage':'All imported rules are retained in the package. These examples guide a proposed UI, not exhaustive rule-to-screen mapping.'}
     require(len(json.dumps(result).encode()) < limit - 16000, 'AWS overview exceeds preview context limit; no model call made')
     return result
+
+
+def catalog_citations(sections, rules):
+    """Cite each rule by its catalog id in the section text. An AWS rule id is replaced only when it names one catalog rule
+    and carries both a letter and a digit; other AWS ids are listed, never guessed."""
+    owners = {}
+    for rule in rules:
+        if rule.get('aws_rule_id') is not None:
+            owners.setdefault(str(rule['aws_rule_id']), set()).add(rule['id'])
+    usable = {aws: next(iter(ids)) for aws, ids in owners.items()
+              if len(ids) == 1 and re.search(r'[A-Za-z]', aws) and re.search(r'\d', aws)}
+    ambiguous = sorted(aws for aws, ids in owners.items() if len(ids) > 1)
+    if not usable:
+        return sections, {'replaced': {}, 'ambiguous_aws_rule_ids': ambiguous}
+    pattern = re.compile(r'(?<![\w-])(' + '|'.join(re.escape(aws) for aws in sorted(usable, key=len, reverse=True)) + r')(?![\w-])')
+    replaced = {}
+
+    catalog = {rule['id'] for rule in rules}
+
+    def swap(aws):
+        replaced[aws] = usable[aws]
+        return usable[aws]
+
+    def item(key, value):
+        if key in ('specification', 'implementation_prompt') and isinstance(value, str):
+            return pattern.sub(lambda match: swap(match.group(1)), value)
+        if key == 'rule_ids' and isinstance(value, list):
+            return [swap(v) if isinstance(v, str) and v in usable and v not in catalog else v for v in value]
+        return value
+    cited = {name: {key: item(key, value) for key, value in section.items()} for name, section in sections.items()}
+    return cited, {'replaced': dict(sorted(replaced.items())), 'ambiguous_aws_rule_ids': ambiguous}
 
 
 def normalize_design(value):
@@ -229,6 +263,9 @@ def run(work, project, args, app, runtime=None):
             state['validation_error']=str(error);app.write(state_path,state);raise
         app.write(model_path,value);state['design_sha256']=sha(model_path);app.write(state_path,state)
     validate(value,rules)
+    # The saved model reply keeps the provider's wording; the draft cites the catalog ids.
+    sections, citations = catalog_citations(value['sections'], rules)
+    value = {**value, 'sections': sections}
     app.verify_source({**project,'framework_commit':current})
     app.verified_assessment(project,project['selected'])
     bundle=destination/'handoff';bundle.mkdir(exist_ok=True,mode=0o700)
@@ -257,7 +294,8 @@ def run(work, project, args, app, runtime=None):
              'AGENTS.md','SKILL.md','README.md','reframe-notice.md','index.html','rules.html','provenance.json','checksums.json',
              'package-manifest.json'} | {name+'-prompt.md' for name in SECTIONS} | handoff.NAMES
     require(all(p.name in allowed and p.is_file() and not p.is_symlink() for p in bundle.iterdir()), 'Unexpected file in draft output directory')
-    app.write(bundle/'specification.json',{'scope':project['scope'],'verification':'SKIPPED_BY_OWNER','sections':value['sections'],'questions':value['questions']})
+    app.write(bundle/'specification.json',{'scope':project['scope'],'verification':'SKIPPED_BY_OWNER','sections':value['sections'],'questions':value['questions'],
+                                          'rule_citations':citations})
     app.write(bundle/'rules.json',rules)
     app.write(bundle/'screens.json',value['screens']);app.write(bundle/'api-contracts.json',value['apis'])
     app.write(bundle/'implementation-backlog.json',value['work_items']);app.write(bundle/'decisions-needed.json',value['questions'])
@@ -278,10 +316,9 @@ def run(work, project, args, app, runtime=None):
     groups={}
     for r in rules: groups.setdefault(r['program'],[]).append(r)
     e=html.escape
-    (bundle/'rules.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>AWS rule catalog</title><style>body{font:16px system-ui;max-width:1000px;margin:40px auto}article{padding:16px;border-bottom:1px solid #ddd}pre{white-space:pre-wrap}</style><h1>AWS rule catalog</h1><p>'+e(NOTICE)+'</p><a href="index.html">Back to design preview</a>'+''.join('<details><summary>'+e(program)+' · '+str(len(items))+' rules</summary>'+''.join('<article><h3>'+e(str(r['name']))+'</h3><p>'+e(str(r['statement']))+'</p><pre>'+e(json.dumps(r['acceptance_criteria'],indent=2))+'</pre><small>'+e(r['id']+' · '+r['source_path']+' '+r['source_anchor'])+'</small></article>' for r in items)+'</details>' for program,items in groups.items())+'</html>')
+    (bundle/'rules.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>AWS rule catalog</title><style>body{font:16px system-ui;max-width:1000px;margin:40px auto}article{padding:16px;border-bottom:1px solid #ddd}pre{white-space:pre-wrap}</style><h1>AWS rule catalog</h1><p>'+e(NOTICE)+'</p><a href="index.html">Back to design preview</a>'+''.join('<details><summary>'+e(program)+' · '+str(len(items))+' rules</summary>'+''.join('<article><h3>'+e(str(r['name']))+'</h3><p>'+e(str(r['statement']))+'</p><pre>'+e(json.dumps(r['acceptance_criteria'],indent=2))+'</pre><small>'+e(r['id']+' · AWS rule '+str(r.get('aws_rule_id'))+' · assessment '+r['assessment_path']+' '+r['assessment_anchor']+' · no source line checked')+'</small></article>' for r in items)+'</details>' for program,items in groups.items())+'</html>')
     app.write(bundle/'provenance.json',{'assessment_sha256':fingerprint,'framework_commit':current,'source_commit':project['source']['commit'],'verification':'SKIPPED_BY_OWNER','generation_framework_commit':state.get('generation_framework_commit',current),'assistance':'Design content generated with '+args.provider+'; AWS rule records imported deterministically','preview_model_calls':state['calls']})
     paths=[item['path'] for item in assessment.get('assessment_index', []) if isinstance(item, dict) and isinstance(item.get('path'), str)]
-    paths += [rule['source_path'] for rule in rules if isinstance(rule.get('source_path'), str)]
     # Copybooks and batch members are named from the pinned checkout, as on the review route.
     import reframe_optional as optional
     paths += optional._pinned_inventory_paths(project)
