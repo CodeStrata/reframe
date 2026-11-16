@@ -193,13 +193,17 @@ def run(work, project, args, app, runtime=None):
         app.require_dollar_cap(project, 'wireframes', args.provider)
         import reframe_operations as ops
         kind='skip-draft:'+destination.name
-        ops.guard(project, kind, lambda record: (destination/('design-reply-'+str(record.get('call'))+'.json')).is_file())
+        try:
+            ops.guard(state, kind, lambda record: (destination/('design-reply-'+str(record.get('call'))+'.json')).is_file())
+        finally:
+            app.write(state_path,state)
         app.persist(work, project)
         state['calls']+=1;app.write(state_path,state)
         provider_run={'settings':project['settings'],'model_calls':state['calls']}
         value=app.tracked_runtime(work, project, kind+':'+str(state['calls']), kind, 'wireframes', args.provider, message,
                                   lambda: (runtime or app.model_call)(args.provider,provider_run,destination,'wireframes',message),
-                                  str((destination/('design-reply-'+str(state['calls'])+'.json')).relative_to(work)))
+                                  str((destination/('design-reply-'+str(state['calls'])+'.json')).relative_to(work)),
+                                  holder=state, save=lambda: app.write(state_path,state))
         app.write(destination/f'design-reply-{state["calls"]}.json',value)
         value=normalize_design(value)
         try: validate(value,rules)

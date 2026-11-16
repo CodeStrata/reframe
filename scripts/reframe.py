@@ -1713,23 +1713,29 @@ def preparation_receipt(work, record):
     return Path(work) / 'preparation' / ('reply-' + str(record.get('call')) + '.json')
 
 
-def tracked_runtime(work, project, op_id, kind, role, provider, message, invoke, receipt=None):
-    """Record the operation as dispatched, call the provider, and record the outcome. Counts never go back."""
+def tracked_runtime(work, project, op_id, kind, role, provider, message, invoke, receipt=None, holder=None, save=None):
+    """Record the operation as dispatched, call the provider, and record the outcome. Counts never go back.
+
+    holder and save keep the ledger somewhere other than project.json, such as a skip draft's own state file.
+    """
     import reframe_operations as ops
-    ops.begin(project, op_id, kind, message, role=role, provider=provider,
+    holder = project if holder is None else holder
+    save = save or (lambda: persist(work, project))
+    ops.begin(holder, op_id, kind, message, role=role, provider=provider,
               call=int(op_id.rsplit(':', 1)[-1]) if op_id.rsplit(':', 1)[-1].isdigit() else None)
-    persist(work, project)
+    save()
     try:
         reply = invoke()
     except Exception as error:
-        ops.failed(project, op_id, error, started=not getattr(error, 'pre_dispatch', False))
-        persist(work, project)
+        ops.failed(holder, op_id, error, started=not getattr(error, 'pre_dispatch', False))
+        save()
         raise
     except KeyboardInterrupt:
         # The outcome is unknown. The record stays dispatched and becomes uncertain on the next run.
-        persist(work, project)
+        save()
         raise
-    ops.received(project, op_id, reply, receipt)
+    ops.received(holder, op_id, reply, receipt)
+    save()
     return reply
 
 
