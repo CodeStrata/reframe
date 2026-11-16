@@ -193,11 +193,18 @@ class Terminal:
             lines.append('Last action  ' + str(last))
         lines.append('Watcher  already staying with this job' if owned else 'Watcher  not running')
         steps = progress.get('steps') or []
-        if steps:
+        if not steps:
+            lines.append('No plan steps recorded yet.')
+        elif len(steps) > 8:
+            counts = {}
+            for step in steps:
+                status = str(step.get('status') or 'unknown')
+                counts[status] = counts.get(status, 0) + 1
+            lines.append('Plan steps  ' + str(len(steps)) + '  ' + ', '.join(
+                status + ' ' + str(count) for status, count in sorted(counts.items())))
+        else:
             for step in steps:
                 lines.append('  ' + str(step.get('name')) + '  ' + str(step.get('status')))
-        else:
-            lines.append('No plan steps recorded yet.')
         if not self.private and progress.get('reason'):
             lines.append('Detail  ' + str(progress.get('reason')))
         elif self.private:

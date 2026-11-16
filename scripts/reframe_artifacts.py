@@ -407,8 +407,11 @@ def render_api_page(apis, title='API reference', screens=None, journeys=None):
     return _page(esc(title), body)
 
 
-def render_site(spec, screens, decisions, title='Modernization review'):
-    """Never execute model-generated HTML, JavaScript, URLs or styles."""
+def render_site(spec, screens, decisions, title='Modernization review', companions=True):
+    """Never execute model-generated HTML, JavaScript, URLs or styles.
+
+    companions is false for a report that has no api.html or usage.html beside it.
+    """
     esc = lambda value: html.escape(str(value), quote=True)
     rules = {rule['id']: rule for rule in spec.get('rules') or [] if isinstance(rule, dict) and rule.get('id')}
     screen_list = screens['screens']
@@ -440,6 +443,8 @@ def render_site(spec, screens, decisions, title='Modernization review'):
     reference.append('<details><summary>Acceptance scenarios — NOT RUN</summary><pre>'
                      + esc(json.dumps(spec.get('tests'), indent=2)) + '</pre></details>')
     articles[0] += ''.join(reference) + '</article>'
+    if not companions:
+        navigation = [item for item in navigation if 'href="#' in item]
     for screen, actions in zip(screen_list, linked_actions(screen_list)):
         part, index = part_of[screen['id']]
         steps = []

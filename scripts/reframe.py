@@ -600,6 +600,20 @@ def preparation_report_current(work, project):
         return False
 
 
+def unresolved_decision_count(project):
+    """Deferred and missing answers stay unresolved. They do not authorize implementation."""
+    decisions = project.get('decisions') or {}
+    return sum(1 for record in decisions.values()
+               if isinstance(record, dict) and record.get('disposition') != 'resolved')
+
+
+def implementation_readiness(project):
+    """Separate an accepted package from permission to implement blocked behavior."""
+    if unresolved_decision_count(project):
+        return 'BLOCKED_BY_UNRESOLVED_DECISIONS'
+    return 'NO_UNRESOLVED_DECISIONS'
+
+
 def require_clear_for_final(work, action):
     """Block an affected final approval while a context conflict is open."""
     import reframe_optional as optional
@@ -835,6 +849,23 @@ def verified_assessment(project, label):
     return directory, run
 
 
+def requirements_evidence_notice(run):
+    """Say whether the sealed assessment contains requirements, without renaming extraction output."""
+    names = set()
+    for item in run.get('assessment_index') or []:
+        if isinstance(item, dict) and isinstance(item.get('path'), str):
+            names.add(Path(item['path']).name.lower())
+    sealed = sorted(name for name in names if name in {'requirements.md', 'traceability.yaml', 'traceability.yml', 'traceability.json'})
+    if sealed:
+        listed = ', '.join(sealed)
+        text = ('The sealed assessment includes ' + listed + '. Reframe copies those files unchanged. '
+                'It did not generate them, and business-rule extraction was not renamed into requirements.')
+    else:
+        text = ('Requirements generation was not performed. The authorized assessment records business-rule extraction '
+                'and technical documentation. Those findings are not requirements.')
+    return '<section><h2>Requirements evidence</h2><p>' + html.escape(text) + '</p></section>'
+
+
 def extraction_guide():
     """Render the reading guide for a Transform extraction finding. It does not change source."""
     note = handoff.extraction_reading()
@@ -945,6 +976,7 @@ def assessment_report(work, project, args):
         '.notice{background:#fff4dc;padding:18px;border-left:4px solid #b87900}a{color:#145dad}</style>'
         '<h1>Assessment review</h1><p class="notice">Awaiting human review. Generated findings require verification; no validation or implementation is approved by this report.</p>'
         + extraction_guide()
+        + requirements_evidence_notice(run)
         + '<h2>Scope</h2><p>' + html.escape(run['objective']) + '</p>' + render_assessment_facts(run, directory, link) + ''.join(blocks)
         + '<h2>Your decision</h2><p>Confirm the scope and source coverage, review the issues above, and record any accepted limitations before approving phase 1. Approval starts the separate validation phase; it does not establish runtime equivalence.</p>'
         '<details><summary>Source baseline</summary><p>Source revision: <code>' + html.escape(run['source']['commit'])
@@ -979,7 +1011,7 @@ def preparation_report(work, project):
     spec = read(spec_path(work, project))
     report = work / 'preparation' / 'review.html'
     rendered = render_site(spec, {'screens': []}, project['decisions'],
-                           title='SME and architect review — preparation and challenge')
+                           title='SME and architect review — preparation and challenge', companions=False)
     review = read(work / project['specification']['review_path'])
     rules = ''.join('<tr><td>' + html.escape(str(rule.get('id', ''))) + '</td><td>' + html.escape(str(rule.get('statement', '')))
                     + '</td><td>' + html.escape(str(rule.get('evidence_status', ''))) + '</td><td>'
@@ -2205,13 +2237,16 @@ def wireframe_catalog(spec, decisions):
     return {'rules': rules, 'questions': questions, 'evidence': evidence, 'sections': sections, 'coverage': coverage}
 
 
-def wireframe_message(spec, stage, count, protocol):
+def wireframe_message(spec, stage, count, protocol, owned=None):
     """One provider request. Audit timestamps, batch ids, tests, and implementation prompts stay local."""
     catalog = stage['catalog']
     sections = {item['id']: {'specification': item['specification']}
                 for item in catalog['sections'] if item['id'] in stage['sections']}
     return {'protocol': protocol, 'stage': {'index': stage['index'] + 1, 'count': count,
-            'instruction': 'Return journeys, screens, and apis for this stage only. Keep the rule ids named here. Do not answer a deferred decision.'},
+            'instruction': 'Return journeys, screens, and apis for this stage only. Keep the rule ids named here. '
+                           'Define each shared screen or API once. A later stage references an owned id as {"id":"...","ref":true} and does not repeat its fields. '
+                           'Do not rename an id. Do not answer a deferred decision.'},
+            'owned': owned or [],
             'decisions': [{'id': item['id'], 'disposition': item['disposition']} for item in catalog['questions']],
             'specification': {
                 'scope': spec.get('scope'), 'excluded_scope': spec.get('excluded_scope'),
@@ -2223,9 +2258,15 @@ def wireframe_message(spec, stage, count, protocol):
 
 
 def wireframe_stages(spec, decisions, limit, protocol=None):
-    """Split a wireframe request into stages that each fit the context budget."""
+    """Split a wireframe request into stages that each fit the context budget.
+
+    Later stages also receive the ids already owned. Packing leaves room for that list
+    so those ids are not dropped to make the request fit.
+    """
     protocol = protocol if protocol is not None else (FRAMEWORK / 'prompts/pipeline/wireframes.md').read_text()
     catalog = wireframe_catalog(spec, decisions)
+    room = 8192 if limit > 16384 else 0
+    budget = limit - room
     groups = [('sections', item['id']) for item in catalog['sections']]
     groups += [('rules', item['id']) for item in catalog['rules']]
     groups += [('questions', item['id']) for item in catalog['questions']]
@@ -2239,7 +2280,7 @@ def wireframe_stages(spec, decisions, limit, protocol=None):
     for kind, ident in groups:
         trial = {key: list(value) if isinstance(value, list) else value for key, value in current.items()}
         trial[kind] = list(trial[kind]) + [ident]
-        if packed(trial, 99) <= limit:
+        if packed(trial, 99) <= budget:
             current = trial
             continue
         if any(current[key] for key in ('sections', 'rules', 'questions', 'evidence', 'coverage')):
@@ -2249,7 +2290,7 @@ def wireframe_stages(spec, decisions, limit, protocol=None):
                        'coverage': [], 'catalog': catalog, kind: [ident]}
         else:
             current = trial
-        if packed(current, 99) > limit:
+        if packed(current, 99) > budget:
             size = packed(current, max(len(stages) + 1, 1))
             raise Blocked('Wireframe input for ' + str(ident) + ' is ' + str(size)
                           + ' bytes and the limit is ' + str(limit) + ' bytes. It was not truncated.')
@@ -2258,17 +2299,48 @@ def wireframe_stages(spec, decisions, limit, protocol=None):
         stages.append(current)
     require(stages, 'Wireframe input has no behavior, questions, or evidence to stage')
     for stage in stages:
-        require(packed({**stage, 'catalog': catalog}, len(stages)) <= limit,
+        require(packed({**stage, 'catalog': catalog}, len(stages)) <= budget,
                 'Wireframe stage does not fit the context budget. It was not truncated.')
         stage['status'] = 'pending'
         stage['catalog'] = catalog
     return stages
 
 
+def wireframe_reference(item):
+    """A later stage points at an owned record instead of defining it again."""
+    return isinstance(item, dict) and item.get('ref') is True and set(item) <= {'id', 'ref'}
+
+
+def owned_wireframe_records(work, stages, before_index):
+    """Ids already defined by earlier stage receipts. Later stages reference these ids."""
+    owned = []
+    seen = set()
+    for stage in stages:
+        if not isinstance(stage, dict) or not isinstance(stage.get('index'), int) or stage['index'] >= before_index:
+            continue
+        response, _failure = wireframe_stage_files(work, stage['index'])
+        if not response.is_file():
+            continue
+        payload = read(response)
+        if not isinstance(payload, dict):
+            continue
+        for kind in ('journeys', 'screens', 'apis'):
+            for item in payload.get(kind) or []:
+                if not isinstance(item, dict) or not isinstance(item.get('id'), str) or wireframe_reference(item):
+                    continue
+                key = (kind, item['id'])
+                if key in seen:
+                    continue
+                seen.add(key)
+                owned.append({'kind': kind, 'id': item['id'], 'owner_stage': stage['index'] + 1})
+    return owned
+
+
 def merge_wireframe_responses(parts):
-    """Combine stage responses. A repeated screen, API, or journey id is rejected."""
+    """Combine stage responses. Identical shared definitions collapse. Conflicts stop for reconciliation."""
     merged = {'journeys': [], 'screens': [], 'apis': []}
-    seen = {'journeys': set(), 'screens': set(), 'apis': set()}
+    definitions = {key: {} for key in merged}
+    references = {key: set() for key in merged}
     for part in parts:
         require(isinstance(part, dict), 'Wireframe stage returned an unexpected response')
         for key in ('journeys', 'screens', 'apis'):
@@ -2276,9 +2348,22 @@ def merge_wireframe_responses(parts):
             require(isinstance(value, list), 'Wireframe stage returned an unexpected ' + key)
             for item in value:
                 require(isinstance(item, dict) and isinstance(item.get('id'), str), 'Wireframe stage item needs an id')
-                require(item['id'] not in seen[key], 'Wireframe stages repeated ' + key + ' id ' + item['id'])
-                seen[key].add(item['id'])
-                merged[key].append(item)
+                if wireframe_reference(item):
+                    references[key].add(item['id'])
+                    continue
+                canonical = json.dumps(item, sort_keys=True)
+                previous = definitions[key].get(item['id'])
+                if previous is None:
+                    definitions[key][item['id']] = (canonical, item)
+                    continue
+                require(previous[0] == canonical,
+                        'Wireframe stages gave conflicting ' + key + ' definitions for ' + item['id']
+                        + '. Reconciliation is required. Nothing was renamed or overwritten.')
+    for key in merged:
+        for _canonical, item in definitions[key].values():
+            merged[key].append(item)
+        missing = sorted(references[key] - set(definitions[key]))
+        require(not missing, 'Wireframe stage referenced ' + key + ' without a definition: ' + ', '.join(missing))
     return merged
 
 
@@ -2425,7 +2510,8 @@ def review_site(work, project, args, runtime=None):
             persist(work, project)
             continue
         stage['catalog'] = catalog
-        message = json.dumps(wireframe_message(spec, stage, len(stages), protocol))
+        owned = owned_wireframe_records(work, stages, stage.get('index') if isinstance(stage.get('index'), int) else 0)
+        message = json.dumps(wireframe_message(spec, stage, len(stages), protocol, owned))
         stage.pop('catalog', None)
         require(len(message.encode()) <= limit, 'Wireframe stage does not fit the context budget. It was not truncated.')
         if status == 'pending':
@@ -2637,7 +2723,10 @@ def package(work, project):
                          'decisions': 'decisions.json', 'acceptance': 'traceability.json', 'openapi': 'openapi.json'}),
         'gates': ['Review unresolved and deferred decisions before affected implementation',
                   'Independent code review and executed acceptance tests before release'],
-        'implementation_status': 'NOT_STARTED'})
+        'implementation_status': 'NOT_STARTED',
+        'workflow_status': 'PACKAGE_ACCEPTED',
+        'implementation_readiness': implementation_readiness(project),
+        'unresolved_decision_count': unresolved_decision_count(project)})
     (destination / 'AGENTS.md').write_text(
         '# Engineering instructions\n\nRead ai-dlc.json, specification.json, decisions.json and traceability.json first.\n'
         'Follow modernization-sequence.json. Leave every capability unassigned until a person chooses retain, expose, rewrite, or retire.\n'
@@ -2663,6 +2752,9 @@ def package(work, project):
     shutil.copyfile(work / project['site']['directory'] / 'api-contracts.json', destination / 'api-contracts.json')
     shutil.copyfile(work / project['site']['directory'] / 'openapi.json', destination / 'openapi.json')
     shutil.copyfile(work / project['site']['directory'] / 'usage.html', destination / 'usage.html')
+    for name in ('review.html', 'api.html', 'usage.html'):
+        page = destination / name
+        page.write_text(page.read_text().replace('href="index.html', 'href="review.html'))
     paths = [item['path'] for item in assessment_run.get('assessment_index', []) if isinstance(item, dict) and isinstance(item.get('path'), str)]
     paths += [rule['source_path'] for rule in spec['rules'] if isinstance(rule.get('source_path'), str)]
     handoff.write_into(destination, spec['rules'], paths, read(destination / 'api-contracts.json'), write, assessment_dir)
