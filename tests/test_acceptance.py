@@ -95,6 +95,22 @@ class AcceptanceTests(unittest.TestCase):
         entry = acceptance.accept(self.work, self.project, app, second['sha256'], 'Owner', 'Reviewed the rebuilt package')
         self.assertEqual(entry['package_sha256'], second['sha256'])
 
+    def test_status_after_acceptance_is_consistent(self):
+        result = self.built()
+        acceptance.accept(self.work, self.project, app, result['sha256'], 'Owner', 'Reviewed the inventory and gaps')
+        app.persist(self.work, self.project)
+        reports = []
+        self.assertEqual(app.main(['--workspace', str(self.work), 'status'], reporter=reports.append), 0)
+        status = reports[-1]
+        self.assertEqual(status['last_local_action'], 'package_accepted')
+        self.assertEqual(status['summary']['implementation_blockers_total'], status['readiness']['blocker_count'])
+        self.assertEqual(status['summary']['package'], 'PACKAGE_ACCEPTED')
+        import zipfile
+        with zipfile.ZipFile(result['archive']) as bundle:
+            coverage = json.loads(bundle.read('rule-coverage.json'))
+        self.assertEqual(sum(coverage['dispositions'].values()), coverage['rule_count'])
+        self.assertIn('Dispositions are counted separately', coverage['status_meaning'])
+
     def test_a_changed_archive_cannot_be_reviewed_or_accepted(self):
         result = self.built()
         Path(result['archive']).write_bytes(Path(result['archive']).read_bytes() + b' ')

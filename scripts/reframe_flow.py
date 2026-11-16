@@ -384,14 +384,41 @@ def simulated_flags():
     return ['--simulated'] if os.environ.get('REFRAME_SIMULATED_ACTOR') == '1' else []
 
 
+NOT_A_NAME = {'y', 'n', 'yes', 'no', 'none', 'ok', 'true', 'false'}
+
+
+def _person(value):
+    """A typed person name. A yes/no answer or a blank is not a name."""
+    name = str(value or '').strip()
+    require(name and name.casefold() not in NOT_A_NAME, 'Enter a person\'s name, not "' + name + '"')
+    return name
+
+
 def reviewer(ui):
     """The person recording review decisions in this session, asked once."""
     name = getattr(ui, 'reviewer_name', None)
     if not name:
-        name = ui.ask('Your name for these review records')
-        require(name.strip(), 'A review record needs your name')
-        ui.reviewer_name = name.strip()
+        ui.reviewer_name = _person(ui.ask('Your name for these review records'))
     return ui.reviewer_name
+
+
+def approver(ui, what):
+    """Ask who makes this approval at this gate. The session name is offered, never assumed."""
+    return _person(ui.ask('Who ' + what + '? Their name is recorded on it', reviewer(ui)))
+
+
+def known_ids(work):
+    """Rule, question, journey, screen, and API ids a context note can name, from the current specification and design."""
+    if not work:
+        return []
+    import reframe
+    ids = []
+    try:
+        project = json.loads((Path(work) / 'project.json').read_text())
+        ids += sorted(reframe.spec_scope_ids(work, project))
+    except (OSError, ValueError, KeyError, Exception):
+        return ids
+    return list(dict.fromkeys(str(item) for item in ids if item))
 
 
 def ask_existing_file(ui, label, allow_none=False):
@@ -419,6 +446,10 @@ def offer_context(ui, gate):
         return ui.invoke(['context', 'none', '--gate', gate, '--by', reviewer(ui)]) == 0
     category = ui.ask('Context category (clarification/correction/constraint/current-state/future-state/review-feedback)',
                       'clarification')
+    known = known_ids(work)
+    if known:
+        ui.say('Ids you can name: ' + ', '.join(known[:40]) + (' and ' + str(len(known) - 40) + ' more' if len(known) > 40 else '')
+               + '. A future-state note can name a journey, a screen, or an API.')
     affected = ui.ask('Affected ids, comma separated, or blank', '')
     role = ui.ask('Your role for this context', 'reviewer')
     if ui.invoke(['context', 'import', '--file', path, '--by', reviewer(ui), '--role', role, '--category', category,
@@ -538,22 +569,35 @@ def design_review(ui, project, skip_route):
     if not offer_context(ui, 'design'):
         return 'stop'
     if plan.get('mode') == 'reimagine' and not skip_route:
-        if ui.invoke(['design-export', '--version', plan['version'], '--mode', 'reimagine', '--stack',
-                      (plan.get('target') or {}).get('language') or 'unspecified']) == 0:
+        exported = ui.invoke(['design-export', '--version', plan['version'], '--mode', 'reimagine', '--stack',
+                              (plan.get('target') or {}).get('language') or 'unspecified']) == 0
+        if not exported and 'immutable' in str((getattr(ui, 'last_report', None) or {}).get('reason') or ''):
+            ui.say('Design version ' + str(plan['version']) + ' is complete and cannot change. New context reaches the design '
+                   'through design-change, which starts the next version and keeps this one.')
+        if exported:
             ui.say('Future-state proposals stay proposed_unapproved until a person approves a named delta.')
+            work = workspace_path()
+            deltas_path = work / 'previews' / str(plan['version']) / 'future-state' / 'deltas.json' if work else None
+            deltas = json.loads(deltas_path.read_text()) if deltas_path and deltas_path.is_file() else {}
+            for item in deltas.get('proposals') or []:
+                ui.say('Proposal ' + str(item.get('id')) + ' (' + str(item.get('status')) + '): ' + str(item.get('after') or '')[:160])
+            if not deltas.get('proposals'):
+                ui.say('No proposal was made. ' + '; '.join(str(gap.get('reason')) for gap in (deltas.get('gaps') or [])[:3]))
             proposal = ui.ask('Approve one future-state delta by id, or none', 'none')
             if proposal.strip() not in {'', 'none'}:
+                by = approver(ui, 'approves this delta')
                 note = ui.ask('Rationale for approving this delta')
-                ui.invoke(['context', 'approve-delta', '--version', plan['version'], '--id', proposal, '--by', reviewer(ui), '--note', note])
+                ui.invoke(['context', 'approve-delta', '--version', plan['version'], '--id', proposal, '--by', by, '--note', note])
     decision = ui.ask('Design decision (approve/design-change/behavior-change/pause)', 'pause')
     require(decision in {'approve', 'design-change', 'behavior-change', 'pause'}, 'Choose approve, design-change, behavior-change, or pause')
     if decision == 'pause':
         ui.say('Paused for human review. No approval was recorded. Return with /flow.')
         return 'stop'
     if decision == 'approve':
+        by = approver(ui, 'approves this design')
         note = ui.ask('Your rationale for approving this design')
         phase = 'design' if skip_route else 'specifications'
-        return 'continue' if ui.invoke(['approve', phase, '--by', reviewer(ui), '--note', note] + simulated_flags()) == 0 else 'stop'
+        return 'continue' if ui.invoke(['approve', phase, '--by', by, '--note', note] + simulated_flags()) == 0 else 'stop'
     note = ui.ask('Describe the change you need')
     scope = 'design' if decision == 'design-change' else 'specification'
     return 'continue' if ui.invoke(['feedback', '--scope', scope, '--by', reviewer(ui), '--note', note]) == 0 else 'stop'
@@ -593,8 +637,9 @@ def package_review(ui, project):
             skip_note = ui.ask('Their rationale for accepting the skip')
             if ui.invoke(['approve', 'verification-skip', '--by', second, '--note', skip_note] + simulated_flags()) != 0:
                 return 'stop'
+        by = approver(ui, 'accepts this exact package')
         note = ui.ask('Your rationale for accepting this exact package')
-        if ui.invoke(['accept-package', '--sha256', str(report.get('sha256')), '--by', reviewer(ui), '--note', note]
+        if ui.invoke(['accept-package', '--sha256', str(report.get('sha256')), '--by', by, '--note', note]
                      + simulated_flags()) != 0:
             return 'stop'
         accepted = getattr(ui, 'last_report', None) or {}
@@ -881,7 +926,7 @@ def run(ui):
             if ui.invoke(['package']) != 0:
                 ui.say('The package was not written. /flow retries it.')
                 return
-            say_review(ui, 'The package is built and awaits your review. Building it did not accept it.', package_rows(ui.project()))
+            ui.say('The package is built and awaits your review. Building it did not accept it.')
             continue
         from reframe_acceptance import built_stage
         if built_stage(stage):

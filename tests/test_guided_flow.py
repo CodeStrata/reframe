@@ -44,6 +44,7 @@ class GuidedFlowTests(unittest.TestCase):
         self.assertEqual(resolved[0][resolved[0].index('--resolution') + 1], 'keep-human-statement')
     GATE_ANSWERS = (
         ('Your name for these review records', 'Reviewer'),
+        ('Who ', 'Reviewer'),
         ('Markdown context for the ', 'none'),
         ('Business requirements (', 'none'),
         ('Design mode (functional-parity/reimagine)', 'functional-parity'),
@@ -399,6 +400,16 @@ class GuidedFlowTests(unittest.TestCase):
             self.assertEqual(ui.ask.call_count, 2, 'no category or role question came before the path was valid')
             ui = self.ui({}, ['a', 'b', 'c'], gates=False)
             self.assertIsNone(ask_existing_file(ui, 'Path to requirements.md'))
+
+    def test_each_approval_asks_who_approves_and_a_yes_is_not_a_name(self):
+        from reframe_flow import approver, reviewer
+        from pilot import Blocked
+        ui = self.ui({}, ['y'], gates=False)
+        with self.assertRaisesRegex(Blocked, 'not "y"'):
+            reviewer(ui)
+        ui = self.ui({}, ['Dana', 'Lee'], gates=False)
+        self.assertEqual(approver(ui, 'approves this design'), 'Lee')
+        self.assertEqual(ui.ask.call_args_list[-1].args, ('Who approves this design? Their name is recorded on it', 'Dana'))
 
     def test_deferring_a_conflict_records_it_and_keeps_it_open(self):
         from reframe_flow import offer_open_conflicts

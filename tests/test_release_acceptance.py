@@ -356,7 +356,7 @@ class ReleaseAcceptanceTests(unittest.TestCase):
             ['1', 'continue', 'y', 'Ari', 'Finish the remaining programs',
              'none', 'Ari', 'y', 'Ari', 'Deferred for package review', 'y', 'Ari', 'Reviewed the evidence',
              'reimagine', 'v1', 'java', 'none',
-             'none', 'none', 'approve', 'Approve the recorded screens',
+             'none', 'none', 'approve', '<default>', 'Approve the recorded screens',
              'none', 'pause', '0'],
             review_model(helper, state), refuse_aws)
         self.assertEqual(code, 0, console + '\n' + '\n'.join(second))
@@ -436,7 +436,7 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         code, prompts, console = drive(
             ['1', 'continue', 'none', 'Ari', 'n', 'y', 'none', 'skip', 'functional-parity', 'v1', 'java', 'none',
              'guided-draft', 'Ari', 'Accepted the sealed findings', 'claude', 'y',
-             'n', 'y', 'none', 'approve', 'Approve the draft despite the conflict', '0'],
+             'n', 'y', 'none', 'approve', '<default>', 'Approve the draft despite the conflict', '0'],
             review_model(helper, state), refuse_aws)
         text = '\n'.join(prompts) + console
         self.assertEqual(code, 0, text)
@@ -523,8 +523,8 @@ class ReleaseAcceptanceTests(unittest.TestCase):
             'none', 'Ari', 'none', 'y',
             'none', 'y', 'Ari', 'Deferred until the business owner replies', 'y', 'Ari', 'Reviewed the specification',
             'functional-parity', 'v1', 'java', 'none',
-            'none', 'approve', 'Reviewed the screens and API contracts',
-            'none', 'accept', 'Accept this handoff version for engineering review',
+            'none', 'approve', '<default>', 'Reviewed the screens and API contracts',
+            'none', 'accept', '<default>', 'Accept this handoff version for engineering review',
             '0']
         with patch.object(setup, 'ensure_aws_login', lambda project: None), \
                 patch.object(setup, 'checks', lambda project, work=None: None), \

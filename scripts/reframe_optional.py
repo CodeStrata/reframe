@@ -680,6 +680,17 @@ def _apply_current_context(work, spec, screens):
                           'layer': 'human-provided context'})
 
 
+def _plain_note(text):
+    """A note's statement without Markdown headings, bullets, or the Contradicts line."""
+    lines = []
+    for line in str(text).splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#') or re.match(r'(?i)^contradicts:', stripped):
+            continue
+        lines.append(re.sub(r'^[-*+]\s+|^\d+[.)]\s+', '', stripped))
+    return ' '.join(' '.join(lines).split())
+
+
 def _proposals(screens, accepted):
     """Build evidence-linked proposals. Accepted input stays unapproved until a delta approval."""
     proposals, gaps = [], []
@@ -696,7 +707,9 @@ def _proposals(screens, accepted):
             actions.extend(action for action in screen.get('actions') or [] if isinstance(action, str))
             apis.extend(screen.get('api_ids') or [])
         evidence = [screen.get('id') for screen in related if screen.get('id')]
-        matched = [(item, text) for item, text in accepted if journey.get('id') in (item.get('affected') or [])]
+        # A note may name the journey, one of its screens, or an API those screens use.
+        targets = {journey.get('id')} | set(evidence) | {str(item) for item in apis}
+        matched = [(item, text) for item, text in accepted if targets & set(item.get('affected') or [])]
         if not (fields or actions or apis or evidence):
             gaps.append({'id': 'gap-' + str(journey.get('id')), 'target': 'journey', 'target_id': journey.get('id'),
                          'reason': 'Recorded journey has no field, action, validation, or interface to change.'})
@@ -711,9 +724,11 @@ def _proposals(screens, accepted):
             # A generic step added to every journey is not a redesign. Without a person's future-state
             # expectation for this journey, the honest result is a named gap, not an invented proposal.
             gaps.append({'id': 'gap-' + str(journey.get('id')), 'target': 'journey', 'target_id': journey.get('id'),
-                         'reason': 'No accepted future-state expectation names this journey. No proposal was invented.'})
+                         'reason': 'No accepted future-state expectation names this journey, its screens ('
+                                   + ', '.join(evidence or ['none']) + '), or its APIs (' + (', '.join(str(item) for item in apis) or 'none')
+                                   + '). No proposal was invented.'})
             continue
-        note = ' '.join(matched[0][1].split())
+        note = _plain_note(matched[0][1])
         after = 'Change ' + (field or name) + ' so that ' + note
         confirmed = ''
         change = 'Before: ' + before + ' After: ' + after
@@ -769,6 +784,12 @@ def _write_future(work, version, screens):
     page = render_site({'scope': scope, 'rules': [], 'sections': {}, 'questions': [], 'tests': []}, future, {}, companions=False)
     (folder / 'index.html').write_text(page)
     (folder / 'index.html').chmod(0o600)
+    # The screens link to their services on api.html; the reference pages are the current-state ones.
+    for name in ('api.html', 'usage.html', 'openapi.json'):
+        companion = folder.parent / 'current-state' / name
+        if companion.is_file():
+            shutil.copyfile(companion, folder / name)
+            (folder / name).chmod(0o600)
     _write(folder / 'screens.json', future)
     return proposals, gaps
 
@@ -792,13 +813,14 @@ def approve_delta(work, version, proposal_id, by, note):
     found['authorization'] = 'implementation_requirement'
     found['approved_by'] = by
     found['approval_note'] = note
+    found.update(actor_provenance())
     _write(deltas_path, deltas)
     design_path = root / 'design.json'
     design = _read(design_path) if design_path.is_file() else {}
     for item in design.get('proposals') or []:
         if item.get('id') == proposal_id:
             item.update(status='implementation_requirement', authorization='implementation_requirement',
-                        approved_by=by, approval_note=note)
+                        approved_by=by, approval_note=note, **actor_provenance())
     if design_path.is_file():
         _write(design_path, design)
     future_screens = root / 'future-state' / 'screens.json'

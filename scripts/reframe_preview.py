@@ -178,7 +178,7 @@ def run(work, project, args, app, runtime=None):
     else:
         require(not any(destination.iterdir()), 'Preview directory already contains files; choose a new name')
         state={'status':'DRAFT','verification':'SKIPPED_BY_OWNER','owner':args.by,'reason':args.note,
-               'assessment_sha256':fingerprint,'framework_commit':current,'provider':args.provider,'calls':0,'created_at':time.time()}
+               'assessment_sha256':fingerprint,'framework_commit':current,'provider':args.provider,'calls':0,'created_at':time.time(),**actor_provenance()}
         app.write(state_path,state)
     summaries,rules=extract(directory,assessment,app)
     app.write(destination/'rule-catalog.json',rules)

@@ -19,7 +19,7 @@ import time
 from hashlib import sha256
 from pathlib import Path
 
-from pilot import Blocked, require
+from pilot import Blocked, actor_provenance, require
 
 DOCUMENTATION = {
     'read_on': '2026-11-15',
@@ -459,7 +459,7 @@ def record_set(work, project, originals, origin, evidence_level, producing_job_i
                 'normalized': {'path': str((folder / 'normalized.json').relative_to(work)),
                                'sha256': _sha((folder / 'normalized.json').read_bytes())}}
     if by:
-        manifest['imported_by'] = {'by': by, 'note': note}
+        manifest['imported_by'] = {'by': by, 'note': note, **actor_provenance()}
     _save(folder / 'manifest.json', manifest)
     previous = (project.get('requirements') or {}).get('manifest')
     history = (project.get('requirements') or {}).get('history') or []

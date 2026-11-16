@@ -50,6 +50,29 @@ class OptionalModeTests(unittest.TestCase):
             self.assertNotIn('future-state.html', names)
             self.assertNotIn(str(self.root), archive.read('manifest.json').decode())
 
+    def test_a_future_state_note_on_a_screen_becomes_a_clean_proposal_with_working_links(self):
+        import reframe_links
+        screens = json.loads(json.dumps(SCREENS))
+        screens['screens'][0]['api_ids'] = ['validate-amount']
+        screens['apis'] = [{'id': 'validate-amount', 'method': 'POST', 'path': '/amount/validate', 'purpose': 'Validate amount',
+                            'request': {'amount': 'number'}, 'responses': {'200': 'valid', '422': 'zero rejected'}, 'rule_ids': []}]
+        (self.site / 'screens.json').write_text(json.dumps(screens))
+        note = self.root / 'future.md'
+        note.write_text('# Future-state expectation for the amount screen\n\n- Show the rejection reason beside the amount.\n')
+        record = optional.import_context(self.root, note, 'Ari', 'business owner', 'future-state', ['s1'])
+        optional.decide_context(self.root, record['id'], 'accepted', 'Ari', 'Admitted for the redesign')
+        optional.design_export(self.root, self.project, 'v1', 'reimagine', 'unspecified')
+        future = self.root / 'previews' / 'v1' / 'future-state'
+        deltas = json.loads((future / 'deltas.json').read_text())
+        self.assertEqual([item['target_id'] for item in deltas['proposals']], ['pay'], 'a note on a screen reaches its journey')
+        after = deltas['proposals'][0]['after']
+        self.assertIn('Show the rejection reason beside the amount.', after)
+        self.assertNotIn('#', after)
+        self.assertNotIn('- Show', after)
+        self.assertEqual(deltas['proposals'][0]['status'], 'proposed_unapproved')
+        self.assertIn('api.html#op-validate-amount', (future / 'index.html').read_text())
+        self.assertEqual(reframe_links.check_html_tree(future), [])
+
     def test_reimagine_without_context_stays_unapproved(self):
         optional.design_export(self.root, self.project, 'v2', 'reimagine', 'unspecified')
         deltas = json.loads((self.root / 'previews' / 'v2' / 'future-state' / 'deltas.json').read_text())

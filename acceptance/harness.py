@@ -13,7 +13,10 @@ Every record a person makes in this run is marked simulated (REFRAME_SIMULATED_A
 test record, never genuine sign-off, and it never touches a saved workspace outside the run folder.
 
 Commands (RUN is a new or existing run folder):
-  start RUN          create the isolated run, check the candidate is clean, launch the console
+  start RUN [--findings rules|plain]
+                     create the isolated run, check the candidate is clean, launch the console.
+                     rules (default) seals an AWS business-rule export; plain seals findings with no rule
+                     records, so skip is unavailable
   say RUN TEXT       answer the waiting prompt (`<default>` takes the default), print new output
   ctrl-c RUN         press Ctrl-C at the waiting prompt
   restart RUN        launch the no-argument console again in the same run, after it exited
@@ -118,7 +121,7 @@ def _wait(run, seq, cursor):
     (run / 'cursor').write_text(str(len(text)))
 
 
-def start(run):
+def start(run, findings='rules'):
     """Create an isolated run folder and launch the console."""
     run = Path(run).resolve()
     if run.exists():
@@ -129,7 +132,7 @@ def start(run):
     source = _source_fixture(run)
     _write(run / 'meta.json', {'candidate': fingerprint(), 'created_at': time.time(), 'launches': 0,
                                'source_fixture': str(source), 'workspace_parent': str(run / 'engineer'),
-                               'simulated': True,
+                               'simulated': True, 'findings': findings,
                                'note': 'All human records in this run are simulated test records, not genuine sign-off.'})
     (run / 'transcript.txt').write_text('')
     print('Run ' + str(run) + '\nCandidate ' + json.dumps(_read(run / 'meta.json')['candidate']))
@@ -291,7 +294,13 @@ def serve(run):
         folder = directory / 'assessment'
         folder.mkdir(exist_ok=True)
         target = folder / 'rules.json'
-        target.write_text(json.dumps({'rules': ['reject zero amount']}))
+        if _read(run / 'meta.json').get('findings') == 'plain':
+            target.write_text(json.dumps({'rules': ['reject zero amount']}))
+        else:
+            target.write_text(json.dumps({'program_name': 'RULE', 'all_rules': [{
+                'Rule_Id': 'R1', 'Rule_Name': 'Reject a zero amount',
+                'Rule_Description': 'When AMOUNT is zero the program sets ERROR-FLAG and the amount is rejected',
+                'Acceptance_Criteria': ['A zero amount is rejected']}]}))
         record['assessment_index'] = [{'path': 'rules.json', 'bytes': target.stat().st_size,
                                        'sha256': sha256(target.read_bytes()).hexdigest()}]
         record['assessment_ready'] = True
@@ -348,6 +357,11 @@ def main(argv):
     command, run = argv[0], argv[1]
     if command == 'say':
         return say(run, ' '.join(argv[2:]))
+    if command == 'start':
+        findings = argv[argv.index('--findings') + 1] if '--findings' in argv else 'rules'
+        if findings not in {'rules', 'plain'}:
+            raise SystemExit('--findings is rules or plain')
+        return start(run, findings)
     if command == 'fail-next-model':
         (Path(run).resolve() / 'fail-next-model').write_text('1')
         return print('The next model call will fail before a reply.')

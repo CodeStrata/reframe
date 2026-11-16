@@ -209,6 +209,7 @@ def accept(work, project, app, package_sha256, by, note, simulated=False):
                                                           'simulated', 'at', 'entry_sha256', 'readiness')}
     project['package']['status'] = ACCEPTED
     project['stage'] = ACCEPTED
+    project['last_local_action'] = {'kind': 'package_accepted', 'at': entry['at']}
     return entry
 
 

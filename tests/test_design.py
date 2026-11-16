@@ -139,6 +139,16 @@ class PlanAndRegenerationTests(m1.WorkspaceFixture):
     def test_a_screen_citing_an_unknown_rule_is_refused(self):
         self.refused(('screens',), 'Screen has unknown rule reference')
 
+    def test_design_feedback_reports_what_happened_not_an_approval(self):
+        self.approved()
+        design.capture(self.work, self.project, 'functional-parity', 'v1', 'java', '', '', [], 'Architect')
+        app.review_site(self.work, self.project, argparse.Namespace(provider='claude'), self.wireframes([]))
+        result = app.feedback(self.work, self.project, argparse.Namespace(scope='design', by='Owner', note='Label the amount',
+                                                                          unit=None, authorize_correction=False))
+        self.assertEqual(result['status'], 'DESIGN_FEEDBACK_RECORDED')
+        self.assertEqual(result['stage'], 'VALIDATION_APPROVED')
+        self.assertNotIn('APPROVED', result['status'])
+
     def test_a_changed_plan_regenerates_and_never_returns_the_stale_design(self):
         self.approved()
         design.capture(self.work, self.project, 'functional-parity', 'v1', 'java', '', '', [], 'Architect')

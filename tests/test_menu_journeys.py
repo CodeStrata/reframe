@@ -50,9 +50,9 @@ class MenuJourneyTests(unittest.TestCase):
             'skip',
             'functional-parity', 'v1', 'java', 'none',              # design plan before the draft
             'guided-draft', 'Ari', 'Trust the sealed findings for this draft', 'codex', 'y',
-            'none', 'approve', 'Reviewed the draft screens',         # design review: no context, approve
+            'none', 'approve', '<default>', 'Reviewed the draft screens',         # design review: no context, approve
             'none', 'accept', 'Blake', 'Second reviewer accepts the unverified draft',
-            'Accept this draft handoff for stakeholder review',
+            '<default>', 'Accept this draft handoff for stakeholder review',
             '0'])
         project = journey.reload()
         self.assertEqual(project['stage'], 'PACKAGE_ACCEPTED', text)
@@ -107,6 +107,7 @@ class MenuJourneyTests(unittest.TestCase):
                          {'baseline': [False], 'design': [False], 'package': [False]})
         self.assertEqual(project['requirements']['state'], 'NOT_PROVIDED')
         self.assertTrue(project['verification_skip']['simulated'])
+        self.assertTrue(project['requirements']['simulated'], 'the requirements decision is a test record')
         self.assertTrue(project['design_plan']['simulated'])
         self.assertTrue(all(entry['simulated'] for entries in gates.values() for entry in entries))
         self.assertTrue(all(item.get('simulated') for item in project['approvals'].values()), 'every approval is test-only')
@@ -133,12 +134,12 @@ class MenuJourneyTests(unittest.TestCase):
             'y', 'Ari', 'Reviewed the specification and decisions',   # approve validation
             'reimagine', 'v1', 'java', 'Keep the nightly batch window',
             'none', 'none', 'design-change', 'Show the rejection reason on the payment screen',
-            'none', 'none', 'approve', 'The revised screens show the rejection reason',
+            'none', 'none', 'approve', '<default>', 'The revised screens show the rejection reason',
             str(package_note), 'review-feedback', 's1', 'business owner', 'accepted',
             'none',                                                   # the package was rebuilt to carry the note
             'design-change', 'Label the amount field in the currency of the account',
-            'none', 'none', 'approve', 'The amount label is correct',
-            'none', 'accept', 'Accept this conditional handoff; deferred questions stay blocking',
+            'none', 'none', 'approve', '<default>', 'The amount label is correct',
+            'none', 'accept', '<default>', 'Accept this conditional handoff; deferred questions stay blocking',
             '0'])
         project = journey.reload()
         self.assertEqual(project['stage'], 'PACKAGE_ACCEPTED', text)
@@ -156,7 +157,10 @@ class MenuJourneyTests(unittest.TestCase):
         self.assertIn('validation', project['approvals'], 'design feedback keeps the specification approval')
         packages = sorted((journey.work / 'packages').glob('package-*.zip'))
         self.assertEqual(len(packages), 3, 'the first package and the one rebuilt for the package note stay on disk')
-        self.assertIn('Rebuilding so the package carries it', ' '.join(text.split()))
+        flat = ' '.join(text.split())
+        self.assertIn('Rebuilding so the package carries it', flat)
+        self.assertIn('Ids you can name:', flat, 'the affected-ids prompt lists ids')
+        self.assertIn('No proposal was made', flat, 'the design gate says why there is no Reimagine proposal')
         rebuilt = [path for path in packages if path != archive]
         notes = []
         for path in rebuilt:
@@ -182,6 +186,7 @@ class MenuJourneyTests(unittest.TestCase):
             deltas = json.loads(bundle.read('deltas.json'))
             manifest = json.loads(bundle.read('package-manifest.json'))
         self.assertEqual(evidence['manifest']['origin'], 'imported')
+        self.assertTrue(evidence['manifest']['imported_by']['simulated'])
         self.assertIn('Reframe did not generate them', evidence['provenance'])
         self.assertIn('requirements-F1-requirements.md', names)
         self.assertEqual(sorted(context['gates']), ['baseline', 'design', 'package', 'specification'])

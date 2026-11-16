@@ -108,7 +108,11 @@ STOP_FILE = 'last-stop.json'
 def record_stop(work, error, command):
     """Save the latest stop beside project.json. A refused command leaves project.json byte-identical."""
     detail = describe(error)
-    record = {'cause': detail['cause'], 'recovery': detail['recovery'],
+    try:
+        phase = json.loads((Path(work) / 'project.json').read_text()).get('stage')
+    except (OSError, ValueError):
+        phase = None
+    record = {'cause': detail['cause'], 'recovery': detail['recovery'], 'phase': phase,
               'reason': str(error)[:500], 'command': command, 'at': time.time()}
     path = Path(work) / STOP_FILE
     temporary = path.with_suffix('.tmp')
@@ -138,7 +142,7 @@ def may_continue_automatically(stop_record):
     return isinstance(stop_record, dict) and stop_record.get('recovery') == AUTOMATIC
 
 
-def summary(work, project, questions, budget, readiness=None):
+def summary(work, project, questions, budget, readiness=None, implementation_blockers=None):
     """One compact status block: phase, questions, units, usage, blockers, package state."""
     checkpoints = (project.get('checkpoints') or {}).get('units') or {}
     by_status = {}
@@ -172,10 +176,14 @@ def summary(work, project, questions, budget, readiness=None):
         'functions': functions,
         'usage': {key: budget.get(key) for key in ('preparation_calls', 'wireframe_calls', 'skip_draft_calls',
                                                    'dollars_measured', 'api_budget', 'subscription_usage_measured')},
-        'blockers': blockers[:SUMMARY_LIMIT],
-        'blockers_total': len(blockers),
+        'workflow_blockers': blockers[:SUMMARY_LIMIT],
+        'workflow_blockers_total': len(blockers),
         'package': package_state,
     }
     if readiness:
         result['implementation_readiness'] = readiness
+    if implementation_blockers is not None:
+        result['implementation_blockers_total'] = implementation_blockers
+    result['note'] = ('Workflow blockers stop the next step. Implementation blockers are decisions, gaps, and conflicts '
+                      'that keep built work from being ready; they are counted separately.')
     return result

@@ -153,4 +153,22 @@ class TerminalTests(unittest.TestCase):
         self.assertEqual(code,2)
         self.assertEqual(results[0]['status'],'BLOCKED')
 
-if __name__=='__main__':unittest.main()
+class PrivacyPresentationTests(unittest.TestCase):
+    def test_privacy_keeps_counts_states_and_file_names_but_hides_names_and_text(self):
+        from reframe_terminal import present, HIDDEN
+        readiness = {'state': 'BLOCKED_BY_UNRESOLVED_DECISIONS', 'blocker_count': 7, 'blockers': [{'id': 'Q1'}]}
+        self.assertEqual(present('readiness', readiness, True), 'BLOCKED_BY_UNRESOLVED_DECISIONS with 7 recorded blockers')
+        inventory = [{'name': 'ai-dlc.json', 'bytes': 10, 'sha256': 'a'}, {'name': 'review.html', 'bytes': 20, 'sha256': 'b'}]
+        self.assertEqual(present('inventory', inventory, True), '2 files: ai-dlc.json (10 bytes), review.html (20 bytes)')
+        basis = [{'phase': 'validation', 'by': 'Dana', 'simulated': True}]
+        self.assertEqual(present('approval_basis', basis, True), 'validation (simulated)')
+        self.assertEqual(present('approval_basis', basis, False), 'validation by Dana (simulated)')
+        self.assertEqual(present('conflicts', [{'statement': 'secret text'}], True), '1 items; details hidden by presentation privacy')
+        self.assertEqual(present('reason', '/Users/someone/private/path failed', True), HIDDEN)
+        self.assertEqual(present('recorded', 398, True), 398)
+        self.assertEqual(present('sha256', 'f' * 64, True), 'f' * 64)
+        self.assertNotIn('{', str(present('inventory', inventory, False)), 'no raw repr')
+
+
+if __name__ == '__main__':
+    unittest.main()

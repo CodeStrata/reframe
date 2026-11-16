@@ -1294,6 +1294,7 @@ def approve(work, project, args):
         approved(project, 'validation', digest({'specification': project['specification']['sha256'], 'decisions': project['decisions']}))
         project['stage'] = 'SPECIFICATIONS_APPROVED'
     project['approvals'][args.phase] = {'sha256': fingerprint, 'by': args.by, 'note': args.note, 'at': time.time()}
+    project['last_local_action'] = {'kind': args.phase + '_approved', 'at': time.time()}
     if getattr(args, 'simulated', False) or actor_provenance():
         project['approvals'][args.phase]['simulated'] = True
     if args.phase == 'validation':
@@ -2882,7 +2883,8 @@ def design_feedback(work, project, args):
     else:
         project['stage'] = 'VALIDATION_APPROVED'
     persist(work, project)
-    return {'status': project['stage'], 'routed_to': 'design', 'kept': ['specification', 'validation approval', 'decisions'],
+    return {'status': 'DESIGN_FEEDBACK_RECORDED', 'stage': project['stage'], 'routed_to': 'design',
+            'kept': ['specification', 'validation approval', 'decisions'],
             'next_step': 'reframe --workspace ' + str(work) + (' preview --skip-validation' if project['stage'] == 'ASSESSMENT_APPROVED'
                                                                 else ' review-site')}
 
@@ -2971,7 +2973,8 @@ def feedback(work, project, args):
     reframe_versions.supersede(project, ('validation', 'specifications', 'design', 'package'), 'specification_feedback', stamp)
     project['stage'] = 'REVISION_PENDING'
     persist(work, project)
-    return {'status': project['stage']}
+    return {'status': 'SPECIFICATION_FEEDBACK_RECORDED', 'stage': project['stage'], 'routed_to': 'specification',
+            'note': 'Earlier approvals moved to the approval history as superseded. Validation runs again.'}
 
 
 SECRET_PATTERNS = (
@@ -3059,6 +3062,7 @@ def package_skip(work, project):
                           'draft_archive': str(draft.relative_to(work)), 'draft_sha256': sha(draft),
                           'status': acceptance.AWAITING, 'built_at': time.time()}
     project['stage'] = acceptance.AWAITING
+    project['last_local_action'] = {'kind': 'package_built', 'at': time.time()}
     project['package']['version_id'] = reframe_versions.record(work, project, 'skip package built')
     persist(work, project)
     return {'status': acceptance.AWAITING, 'archive': str(archive), 'sha256': sha(archive), 'verification': 'SKIPPED_BY_OWNER',
@@ -3229,6 +3233,7 @@ def package(work, project):
                           'verification': 'SKIPPED_BY_OWNER' if project.get('verification_skip') else 'INDEPENDENTLY_REVIEWED',
                           'status': acceptance.AWAITING, 'built_at': time.time()}
     project['stage'] = acceptance.AWAITING
+    project['last_local_action'] = {'kind': 'package_built', 'at': time.time()}
     project['package']['version_id'] = reframe_versions.record(work, project, 'package built')
     persist(work, project)
     return {'status': acceptance.AWAITING, 'archive': str(archive), 'sha256': sha(archive),
@@ -3369,7 +3374,7 @@ def requirements_command(work, project, args, client=None):
         return result
     if action == 'none':
         project['requirements'] = {**(project.get('requirements') or {}), 'state': 'NOT_PROVIDED',
-                                   'decided_by': args.by, 'decided_at': time.time()}
+                                   'decided_by': args.by, 'decided_at': time.time(), **actor_provenance()}
         persist(work, project)
         return {'status': 'REQUIREMENTS_NOT_PROVIDED', 'provenance': requirements.provenance_statement(work, project)}
     if action == 'import':
@@ -3711,11 +3716,15 @@ def main(argv=None, reporter=None):
             stop_record = reframe_states.last_stop(work)
             if stop_record:
                 result['last_stop'] = {k: v for k, v in stop_record.items() if k != 'reason'}
+                result['last_stop']['current'] = stop_record.get('phase') == project['stage'] and project['stage'] not in {
+                    'PACKAGE_ACCEPTED', 'AWAITING_PACKAGE_ACCEPTANCE'}
+                if not result['last_stop']['current']:
+                    result['last_stop']['note'] = 'Historical stop. Later work moved the project on.'
             if isinstance(project.get('last_cancellation'), dict):
                 result['last_cancellation'] = project['last_cancellation']
             readiness = package_readiness(work, project)
             result['summary'] = reframe_states.summary(work, project, result['questions'], budget_summary(project, work),
-                                                       readiness['state'])
+                                                       readiness['state'], readiness['blocker_count'])
             result['readiness'] = readiness
         elif getattr(args, 'detach', False):
             require((work / 'project.json').is_file(), 'Initialize first')
