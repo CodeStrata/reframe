@@ -1812,11 +1812,11 @@ class CheckpointTests(unittest.TestCase):
             api['rule_ids'] = ['R-KEEP']
         sent = {'count': 0}
 
-        def staged_screens(*_args):
+        def staged_screens(*args):
             sent['count'] += 1
-            if sent['count'] > 1:
-                return {'journeys': [], 'screens': [], 'apis': []}
-            return screens
+            if json.loads(args[-1])['stage'].get('planner') or sent['count'] == 2:
+                return screens  # the design plan, then the first detail stage
+            return {'journeys': [], 'screens': [], 'apis': []}
 
         app.review_site(self.work, saved, self.args('review-site'), staged_screens)
         app.approve(self.work, saved, self.args('approve', 'specifications', '--by', 'Fixture owner', '--note', 'Fixture review'))
