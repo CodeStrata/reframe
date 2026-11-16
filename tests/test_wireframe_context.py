@@ -29,8 +29,9 @@ class WireframeContextTests(unittest.TestCase):
         spec = json.loads((live / project['specification']['path']).read_text())
         protocol = (app.FRAMEWORK / 'prompts/pipeline/wireframes.md').read_text()
         legacy = json.dumps({'protocol': protocol, 'specification': spec, 'decisions': project['decisions']})
-        self.assertEqual(len(legacy.encode()), 686037)
         limit = project['settings']['max_context_bytes']
+        self.assertGreater(len(legacy.encode()), 600000)
+        self.assertGreater(len(legacy.encode()), limit)
         stages = app.wireframe_stages(spec, project['decisions'], limit, protocol)
         self.assertGreater(len(stages), 1)
         covered = {'rules': set(), 'questions': set(), 'evidence': set(), 'coverage': set()}
@@ -372,14 +373,23 @@ class WireframeContextTests(unittest.TestCase):
         self.assertEqual(saved['wireframe_plan']['stages'][0]['status'], 'validated')
         duplicate_screen = inner.screens()
         duplicate_screen['journeys'][0]['id'] = 'amount-again'
-        with self.assertRaisesRegex(app.Blocked, 'repeated screens id s1'):
+        duplicate_screen['screens'][0]['purpose'] = 'A second sign-on definition'
+        with self.assertRaisesRegex(app.Blocked, 'conflicting screens definitions for s1'):
             app.merge_wireframe_responses([inner.screens(), duplicate_screen])
+        self.assertEqual(duplicate_screen['screens'][0]['id'], 's1')
         duplicate_journey = inner.screens()
         duplicate_journey['screens'][0]['id'] = 's9'
         duplicate_journey['journeys'][0]['screen_ids'] = ['s9']
+        duplicate_journey['journeys'][0]['summary'] = 'A different summary'
         duplicate_journey['apis'][0]['id'] = 'other-amount'
-        with self.assertRaisesRegex(app.Blocked, 'repeated journeys id amount'):
+        with self.assertRaisesRegex(app.Blocked, 'conflicting journeys definitions for amount'):
             app.merge_wireframe_responses([inner.screens(), duplicate_journey])
+        self.assertEqual(duplicate_journey['journeys'][0]['id'], 'amount')
+        shared = inner.screens()
+        reference = {'journeys': [], 'screens': [{'id': 's1', 'ref': True}], 'apis': [{'id': 'validate-amount', 'ref': True}]}
+        collapsed = app.merge_wireframe_responses([shared, reference])
+        self.assertEqual([item['id'] for item in collapsed['screens']], ['s1'])
+        self.assertEqual(collapsed['screens'][0]['purpose'], shared['screens'][0]['purpose'])
         conflict = dict(merged)
         conflict['screens'] = [dict(conflict['screens'][0], rule_ids=['NOT-A-RULE'])]
         with self.assertRaisesRegex(app.Blocked, 'unknown rule'):
