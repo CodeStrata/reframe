@@ -138,6 +138,7 @@ def review(work, project, app):
 
 
 def _ledger_entries(work):
+    """Every acceptance ledger entry, oldest first."""
     path = Path(work) / LEDGER
     if not path.is_file():
         return []

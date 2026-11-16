@@ -70,6 +70,7 @@ def annotate(spec, requirement_ids):
 
 
 def _state(question, decisions):
+    """A question's recorded disposition, or open when nothing is recorded."""
     decision = decisions.get(question.get('id'))
     if not isinstance(decision, dict):
         return 'open'

@@ -25,10 +25,12 @@ MAX_BYTES = 1_000_000
 
 
 def _read(path):
+    """Read one JSON file."""
     return json.loads(Path(path).read_text())
 
 
 def _write(path, value):
+    """Write JSON privately through a temporary file and rename it into place."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = path.with_name(path.name + '.tmp')
@@ -38,10 +40,12 @@ def _write(path, value):
 
 
 def _digest(value):
+    """SHA-256 of the canonical JSON form of a value."""
     return sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
 def _version(value):
+    """Accept a short design version label that is not reserved for the review path."""
     require(bool(re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_-]{0,40}', value or '')), 'Use a short version label')
     require(value.casefold() not in {'business-1', 'flow-review'}, 'That version name is reserved for the existing review path')
     return value
@@ -69,19 +73,23 @@ def _mode_root(work, version):
 
 
 def context_dir(work):
+    """The folder that holds human review context for this workspace."""
     return Path(work) / 'human-review-context'
 
 
 def _now():
+    """The current UTC time in ISO format, to the second."""
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 def _quarantine(folder, name, reason):
+    """Record a refused context file with its reason. Nothing in it is executed."""
     record = {'file': name, 'reason': reason, 'executed': False}
     _write(folder / 'quarantine' / (_submission_id(name.encode()) + '.json'), record)
 
 
 def _context_fingerprint(work):
+    """A hash of every submission disposition and conflict state."""
     manifest = context_status(work)
     items = [(item.get('id'), item.get('disposition')) for item in manifest.get('submissions') or []]
     conflicts = [(item.get('id'), item.get('status'), item.get('resolution')) for item in manifest.get('conflicts') or []]
@@ -89,6 +97,7 @@ def _context_fingerprint(work):
 
 
 def _scan(data, label):
+    """Refuse an export when the data matches a secret pattern."""
     from reframe import SECRET_PATTERNS
     for kind, pattern in SECRET_PATTERNS:
         if pattern.search(data):
@@ -108,10 +117,12 @@ def context_status(work):
 
 
 def _submission_id(content):
+    """A stable submission id from the content hash."""
     return 'ctx-' + sha256(content).hexdigest()[:16]
 
 
 def _contradiction(text):
+    """The id named on a "Contradicts:" line, if the text has one."""
     match = re.search(r'(?im)^contradicts:\s*(\S+)\s*$', text)
     return match.group(1) if match else None
 
@@ -229,6 +240,7 @@ def resolve_conflict(work, conflict_id, resolution, by, note):
 
 
 def _atomic_write(path, data):
+    """Write bytes privately through a temporary file and rename it into place."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = path.with_name(path.name + '.partial')
@@ -241,6 +253,7 @@ def _atomic_write(path, data):
 
 
 def open_conflicts(work):
+    """Conflicts that are still open."""
     manifest = context_status(work)
     return [item for item in manifest.get('conflicts') or [] if item.get('status') == 'open']
 
@@ -303,6 +316,7 @@ def admitted(work, limit=60000):
 
 
 def _active(work, category):
+    """Accepted submissions in one category, with their extracted text."""
     manifest = context_status(work)
     chosen = []
     for item in manifest.get('submissions') or []:
@@ -313,16 +327,19 @@ def _active(work, category):
 
 
 def _page(title, body):
+    """A self-contained HTML page with no scripts, external assets, or form submission."""
     return ('<!doctype html><html lang="en"><meta charset="utf-8">'
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; form-action \'none\'; base-uri \'none\'">'
             '<title>' + html.escape(title) + '</title><body>' + body + '</body></html>')
 
 
 def _file_sha(path):
+    """SHA-256 of a file."""
     return sha256(Path(path).read_bytes()).hexdigest()
 
 
 def _require_hash(path, expected, label):
+    """Stop when a completed file is missing or no longer matches its recorded hash."""
     require(Path(path).is_file() and expected and _file_sha(path) == expected,
             'Completed version integrity failure. The recorded hash does not match ' + label
             + '. The version was not overwritten.')
@@ -345,6 +362,7 @@ def _design_source(work, project):
 
 
 def _read_if(path):
+    """Read a JSON file when it exists."""
     return _read(path) if Path(path).is_file() else None
 
 
@@ -399,6 +417,7 @@ def _bundle_records(source):
 
 
 def _remember_path(paths, value):
+    """Add a non-empty path once."""
     if isinstance(value, str) and value and value not in paths:
         paths.append(value)
 
@@ -452,6 +471,7 @@ def _pinned_inventory_paths(project):
 
 
 def _verification_record(project):
+    """Which verification this design rests on: a recorded skip, an independent review, or only assessment approval."""
     skip = project.get('verification_skip')
     if skip:
         return {'kind': 'recorded_skip', 'status': 'SKIPPED_BY_OWNER',
@@ -465,6 +485,7 @@ def _verification_record(project):
 
 
 def _output_names(mode):
+    """The files one design mode writes."""
     names = [
         'design.json', 'current-state/index.html', 'current-state/screens.json',
         'current-state/api.html', 'current-state/usage.html', 'current-state/openapi.json',
@@ -475,10 +496,12 @@ def _output_names(mode):
 
 
 def _output_hashes(root, mode):
+    """SHA-256 of each file a design mode wrote."""
     return {name: _file_sha(Path(root) / name) for name in _output_names(mode)}
 
 
 def _verify_outputs(root, mode, record):
+    """Check every recorded output hash of a completed design before it is reused."""
     outputs = record.get('outputs') or {}
     if outputs:
         for name in _output_names(mode):
@@ -489,6 +512,7 @@ def _verify_outputs(root, mode, record):
 
 
 def _next_revision(work, version):
+    """The next unused vN design version after the given one."""
     match = re.fullmatch(r'v(\d+)', version or '')
     number = int(match.group(1)) + 1 if match else 2
     while (Path(work) / 'previews' / ('v' + str(number))).exists():
@@ -497,6 +521,7 @@ def _next_revision(work, version):
 
 
 def _selection(work, project, mode, stack, screens, spec, provenance):
+    """The inputs a design export depends on: source, assessment, mode, stack, context, and approvals."""
     source = project.get('source') or {}
     return {
         'repository': source.get('repository'),
@@ -514,6 +539,7 @@ def _selection(work, project, mode, stack, screens, spec, provenance):
 
 
 def _same_selection(saved, selection):
+    """True when a saved design was made from the same inputs."""
     recorded = saved.get('selection')
     if not isinstance(recorded, dict):
         return (saved.get('mode') == selection['mode']
@@ -714,6 +740,7 @@ def _proposals(screens, accepted):
 
 
 def _write_future(work, version, screens):
+    """Write Reimagine proposals and gaps from accepted future-state context. Nothing is approved."""
     accepted = _active(work, 'future-state')
     proposals, gaps = _proposals(screens, accepted)
     folder = Path(work) / 'previews' / version / 'future-state'
@@ -969,6 +996,7 @@ def _mode_package_files(work, project, version, mode, current_html, conflicts):
 
 
 def _readme(mode):
+    """The README for a draft mode package."""
     return ('# Draft ' + mode + ' package\n\nThis is not the approved single AI-DLC package. '
             'Do not implement a proposed_unapproved item as a requirement. '
             'Tests and implementation are NOT RUN. No application has been built.\n'
@@ -1006,6 +1034,7 @@ def canonical_repository(url):
 
 
 def _same_repository(left, right):
+    """True when two repository references name the same repository."""
     first, second = canonical_repository(left), canonical_repository(right)
     if first.get('canonical') and second.get('canonical'):
         return first['canonical'] == second['canonical']

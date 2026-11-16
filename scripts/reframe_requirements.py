@@ -56,10 +56,12 @@ STATES = ('NOT_REQUESTED', 'REQUIREMENTS_GENERATION_UNAVAILABLE', 'AUTHORIZED', 
 
 
 def _sha(data):
+    """SHA-256 of bytes or text."""
     return sha256(data if isinstance(data, bytes) else data.encode()).hexdigest()
 
 
 def _digest(value):
+    """SHA-256 of the canonical JSON form of a value."""
     return _sha(json.dumps(value, sort_keys=True, separators=(',', ':')))
 
 
@@ -85,6 +87,7 @@ def _store_bytes(path, data):
 
 
 def root(work):
+    """The folder that holds requirements records for this workspace."""
     return Path(work) / 'requirements'
 
 
@@ -105,6 +108,7 @@ def capability(work):
 
 
 def _observe(record, item, observed, fixture):
+    """Record what was observed for one capability item, and whether it came from an offline fixture or this account."""
     entry = record['items'][item]
     entry['observed'] = observed
     if fixture:
@@ -196,6 +200,7 @@ def require_requestable(work):
 # Generation job (#173)
 
 def job_path(work, label):
+    """Where one requirements job record is saved."""
     return root(work) / 'jobs' / label / 'job.json'
 
 
@@ -218,12 +223,14 @@ def authorize_job(work, project, functions, by, note):
 
 
 def _baseline_run(project):
+    """The selected assessment's run record."""
     from reframe import read
     record = project['assessments'][project['selected']]
     return read(Path(record['directory']) / 'run.json')
 
 
 def _identity(project, job):
+    """The Transform workspace and job ids for one requirements job."""
     workspace = ((project.get('settings') or {}).get('transform') or {}).get('workspace_id')
     require(workspace, 'The Transform workspace is not configured')
     return {'workspaceId': workspace, 'jobId': job['job_id']}

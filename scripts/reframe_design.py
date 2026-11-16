@@ -20,10 +20,12 @@ WRITE_METHODS = {'POST', 'PUT', 'PATCH', 'DELETE'}
 
 
 def _digest(value):
+    """SHA-256 of the canonical JSON form of a value."""
     return sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
 def _save(path, value):
+    """Write JSON privately through a temporary file and rename it into place."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = path.with_name(path.name + '.tmp')
@@ -102,6 +104,7 @@ def require_plan(project):
 # Design inventory (#183)
 
 def inventory_path(work, fingerprint):
+    """Where the design inventory for one plan fingerprint is saved."""
     return Path(work) / 'previews' / ('design-inventory-' + str(fingerprint)[:16] + '.json')
 
 
@@ -143,6 +146,7 @@ def build_inventory(work, project, spec, stages, fingerprint):
 
 
 def load_inventory(work, project):
+    """Read the project's saved design inventory."""
     record = project.get('design_inventory') or {}
     require(record.get('path'), 'No design inventory is saved')
     return json.loads((Path(work) / record['path']).read_text())
