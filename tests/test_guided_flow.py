@@ -411,6 +411,24 @@ class GuidedFlowTests(unittest.TestCase):
         self.assertEqual(approver(ui, 'approves this design'), 'Lee')
         self.assertEqual(ui.ask.call_args_list[-1].args, ('Who approves this design? Their name is recorded on it', 'Dana'))
 
+    def test_a_completed_design_version_explains_how_to_start_the_next(self):
+        from reframe_flow import design_review
+        ui = self.ui({'stage': 'AWAITING_SPECIFICATIONS_APPROVAL'}, [])
+        ui.reviewer_name = 'Reviewer'
+
+        def invoke(command):
+            if command[0] == 'design-export':
+                ui.last_report = {'status': 'BLOCKED', 'reason': 'Completed version v1 is immutable. The next revision is v2.'}
+                return 2
+            return 0
+
+        ui.invoke.side_effect = invoke
+        lines = self.said(ui)
+        with tempfile.TemporaryDirectory() as root, patch('reframe_setup.workspace', return_value=Path(root)):
+            outcome = design_review(ui, {'design_plan': {'mode': 'reimagine', 'version': 'v1', 'target': {}}}, skip_route=False)
+        self.assertEqual(outcome, 'stop', 'the gate pauses by default; nothing is approved')
+        self.assertIn('through design-change, which starts the next version', ' '.join(' '.join(lines).split()))
+
     def test_deferring_a_conflict_records_it_and_keeps_it_open(self):
         from reframe_flow import offer_open_conflicts
         conflict = {'id': 'conflict-ctx-1', 'contradicts': 'R1', 'status': 'open'}
