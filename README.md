@@ -336,7 +336,7 @@ PYTHONPATH=tests python -m unittest discover -s tests
 reframe --help
 ```
 
-The [CI workflow](.github/workflows/ci.yml) is configured for pull requests to `main` and pushes to `main`. It runs three jobs in parallel: offline tests, a package build check, and a pinned gitleaks secret scan. **The badge reflects GitHub's actual workflow result; it is not a claim of live AWS acceptance.** No AWS credentials or paid model calls are required by CI.
+The [CI workflow](.github/workflows/ci.yml) is configured for pull requests and pushes to `develop` (integration) and `main` (release). Feature branches open pull requests into `develop`. It runs three jobs in parallel: offline tests, a package build check, and a pinned gitleaks secret scan. **The badge reflects GitHub's actual workflow result; it is not a claim of live AWS acceptance.** No AWS credentials or paid model calls are required by CI.
 
 ## Author and attribution
 

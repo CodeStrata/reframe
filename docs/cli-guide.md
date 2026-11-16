@@ -508,7 +508,7 @@ stops instead of truncating or claiming full coverage.
 
 Run `PYTHONPATH=tests python -m unittest discover -s tests`. Optional MCP transport tests need the
 SDK. Tests use synthetic findings and provider/AWS fixtures, not live services.
-Pull requests into `main`, and pushes to `main`, run that suite in GitHub Actions on Python 3.12.
+Pull requests into `develop` or `main`, and pushes to either branch, run that suite in GitHub Actions on Python 3.12.
 The workflow installs this project, checks `reframe --help`, builds the distribution, and scans the
 checkout with pinned gitleaks. It does not call AWS or a model provider.
 For live acceptance, verify actual provider flags/behavior, AWS authentication,
