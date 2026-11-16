@@ -812,6 +812,10 @@ def coverage_dispositions(spec):
         ident = rule['id']
         gaps = [name for name, refs in (('section', section_refs), ('test', test_refs), ('work_item', work_refs))
                 if ident not in refs]
+        if isinstance(rule.get('excluded_reason'), str) and rule['excluded_reason'].strip():
+            rows.append({'id': ident, 'kind': 'source_rule', 'disposition': 'excluded', 'gaps': [],
+                         'reason': rule['excluded_reason'], 'sections': [], 'tests': [], 'work_items': []})
+            continue
         rows.append({'id': ident, 'kind': 'source_rule', 'disposition': 'gap' if gaps else 'covered', 'gaps': gaps,
                      'sections': section_refs.get(ident, []), 'tests': test_refs.get(ident, []),
                      'work_items': work_refs.get(ident, [])})
@@ -848,8 +852,9 @@ def validate_synthesis(spec, capsules, plan):
     rows = {row['id']: row for row in spec.get('coverage') or [] if isinstance(row, dict) and row.get('id')}
     for rule in source_rules:
         row = rows.get(rule['id'])
-        require(row and row.get('kind') == 'source_rule' and row.get('disposition') in {'covered', 'gap'},
+        require(row and row.get('kind') == 'source_rule' and row.get('disposition') in {'covered', 'gap', 'excluded'},
                 'Synthesis has no coverage disposition for ' + rule['id'])
+        require(row.get('disposition') != 'excluded' or row.get('reason'), 'An excluded rule needs a recorded reason: ' + rule['id'])
         require(bool(row.get('gaps')) == (row.get('disposition') == 'gap'),
                 'Coverage disposition does not match the gaps for ' + rule['id'])
     require(spec.get('coverage') == coverage_dispositions(spec),
@@ -932,6 +937,7 @@ def review_defects(review):
             'location': finding.get('location') if isinstance(finding.get('location'), str) else '',
             'required_change': required_change,
             'severity': finding.get('severity') if isinstance(finding.get('severity'), str) else '',
+            'area': finding.get('area') if isinstance(finding.get('area'), str) else '',
         })
     return defects
 
@@ -1211,7 +1217,10 @@ def run(work, project, args, runtime, app):
             project['stage'] = 'RUNNING_' + role.upper()
             app.persist(work, project)
             call_run = dict(assessment_run, settings=project['settings'], model_calls=state['calls'], round=record['attempt'])
-            reply = runtime(project['providers'][role], call_run, area, role, message)
+            reply = app.tracked_runtime(work, project, 'preparation:' + str(state['calls']), 'preparation', role,
+                                        project['providers'][role], message,
+                                        lambda: runtime(project['providers'][role], call_run, area, role, message),
+                                        'preparation/reply-' + str(state['calls']) + '.json')
             if role == 'reviewer':
                 require(sha(work / record['candidate_path']) == record['candidate_sha256'], 'Reviewer cannot write the candidate')
             app.verify_source(project)

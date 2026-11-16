@@ -11,8 +11,9 @@ class HandoffTests(unittest.TestCase):
     def documents(self):
         rules = [{'id': 'R1', 'program': 'CLAIMINF', 'source_path': 'copybooks/claiminf.cpy'}]
         paths = ['copybooks/claiminf.cpy', 'jcl/nightly.jcl', 'src/main.txt']
-        apis = [{'id': 'read', 'method': 'GET', 'path': '/claiminf'}]
-        return handoff.documents(rules, paths, apis)
+        self.apis = [{'id': 'read', 'method': 'GET', 'path': '/claiminf'}]
+        self.apis_before = json.loads(json.dumps(self.apis))
+        return handoff.documents(rules, paths, self.apis)
 
     def test_sequence_capabilities_and_unrun_cases_stay_open(self):
         payload = self.documents()
@@ -30,6 +31,7 @@ class HandoffTests(unittest.TestCase):
         self.assertEqual([case['name'] for case in plan['rules'][0]['cases']],
                          ['match', 'mismatch', 'missing_input', 'invalid_input', 'boundary'])
         self.assertTrue(all(case['status'] == 'NOT RUN' for case in plan['rules'][0]['cases']))
+        self.assertTrue(all(case['oracle'] == handoff.ORACLE for case in plan['rules'][0]['cases']))
 
     def test_inventories_governance_and_boundary_use_only_named_members(self):
         payload = self.documents()
@@ -42,7 +44,11 @@ class HandoffTests(unittest.TestCase):
         self.assertTrue(governance['synthetic_data_only'])
         self.assertEqual(governance['do_not_rewrite_yet'], ['claiminf'])
         self.assertEqual(governance['retirement_status'], 'NOT_READY')
+        self.assertEqual([gate['gate'] for gate in governance['retirement']],
+                         ['business', 'compliance', 'engineering', 'data', 'operations', 'uat', 'rollback'])
         self.assertTrue(all(gate['status'] == 'PENDING' for gate in governance['retirement']))
+        self.assertEqual(self.apis, self.apis_before, 'the API contract is not rewritten')
+        self.assertEqual(payload['api-boundary.json']['violations'][0]['api'], 'read')
         text = json.dumps(payload).lower()
         for word in ('node', 'react', 'kubernetes', 'terraform', 'formulary', 'blazor'):
             self.assertIsNone(re.search(r'(?<![a-z])' + word + r'(?![a-z])', text))
@@ -52,6 +58,9 @@ class HandoffTests(unittest.TestCase):
         self.assertTrue(guide['source_stays_pinned'])
         self.assertIn('COPY-expanded', guide['line_numbers'])
         self.assertIn('Remove a member from the pinned source', guide['refused_actions'])
+        self.assertIn('Rewrite a member', guide['refused_actions'])
+        self.assertIn('Submit a replacement archive', guide['refused_actions'])
+        self.assertIn('symptom of the earlier failure', guide['cascading_symptom'])
         self.assertIn('COPY-expanded', payload['skill-extraction.md'])
         coverage = payload['rule-coverage.json']
         self.assertEqual(coverage['status'], 'COMPLETE')
@@ -70,6 +79,10 @@ class HandoffTests(unittest.TestCase):
                 'spec/requirements.md', 'traceability.yaml', '../secret.md', 'spec/../../secret.md'])
         self.assertEqual([item['path'] for item in files], ['spec/requirements.md', 'traceability.yaml'])
         self.assertEqual(files[0]['text'], 'REQ unchanged\n')
+        self.assertEqual(files[1]['text'], '- id: R1\n  disposition: captured\n')
+        packaged = handoff.documents([{'id': 'R1', 'program': 'CLAIMINF'}], [], [], files)['legacy-requirements.json']
+        self.assertEqual([(item['path'], item['text']) for item in packaged['files']],
+                         [('spec/requirements.md', 'REQ unchanged\n'), ('traceability.yaml', '- id: R1\n  disposition: captured\n')])
         rules = [{'id': 'R1', 'program': 'CLAIMINF'}, {'id': 'R2', 'program': 'CLAIMINF'}]
         coverage = handoff.rule_coverage(rules, files)
         self.assertEqual(coverage['status'], 'COMPLETE')

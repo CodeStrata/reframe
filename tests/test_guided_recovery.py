@@ -232,6 +232,7 @@ class BulkAndStatusTests(unittest.TestCase):
         self.assertIn('API dollar cap', listed)
         self.assertIn('unmeasured', listed)
         self.assertIn('zero-dollar', listed)
+        self.assertIn('blocks the next billed API call', __import__('re').sub(r'[\s\u2502]+', ' ', listed))
 
 
 class ReviewedSpecificationUpgradeTests(BulkAndStatusTests):
@@ -365,6 +366,8 @@ class ReviewedSpecificationUpgradeTests(BulkAndStatusTests):
         self.assertEqual(approved['pipeline']['calls'], 306)
         self.assertEqual(approved['checkpoints']['units'], units)
         self.assertEqual(approved['approvals']['assessment'], approvals['assessment'])
+        self.assertEqual(app.main(['--workspace', str(inner.work), 'design-plan', '--mode', 'functional-parity',
+                                   '--by', 'Owner'], reporter=lambda _result: None), 0)
         calls = []
 
         def wireframes(provider, run, directory, role, message):

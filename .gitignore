@@ -38,3 +38,7 @@ dist/
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+
+# Transcripts written by the acceptance tests
+/acceptance-*-transcript.txt
+/guided-session-transcript.txt

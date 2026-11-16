@@ -197,14 +197,28 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         helper = checkpoint_fixtures.CheckpointTests('test_default_workflow_reviews_units_then_integrates_and_preserves_human_gate')
         helper.seen = []
         code, transcript, console = drive(
-            ['1', 'continue', 'skip', 'guided-draft', 'Ari', 'Accepted the sealed findings', 'codex', 'y',
-             'functional-parity', 'v1', 'java', 'none', '0'],
+            ['1', 'continue', 'none', 'Ari', 'none', 'skip', 'functional-parity', 'v1', 'java', 'none',
+             'guided-draft', 'Ari', 'Accepted the sealed findings', 'codex', 'y', 'none', 'pause', '0'],
             review_model(helper, state), refuse_aws)
         self.assertEqual(code, 0, console)
         self.assertEqual(state['calls'], ['wireframes'])
+        self.assertIn('No approval was recorded', console)
         project = journey.reload()
         self.assertEqual(project['verification_skip']['owner'], 'Ari')
         self.assertNotIn('validation', project['approvals'])
+        self.assertNotIn('design', project['approvals'])
+        self.assertEqual(project['design_plan']['target']['language'], 'java')
+
+        def cli(*values):
+            reports = []
+            code = reframe.main(['--workspace', str(journey.work), *values], reporter=reports.append)
+            return code, reports[-1]
+
+        from reframe_terminal import recovery_notice
+        code, exported = cli('design-export', '--version', 'v1', '--mode', 'functional-parity', '--stack', 'java')
+        self.assertEqual(code, 0, exported)
+        code, packaged_mode = cli('package-export', '--version', 'v1', '--mode', 'functional-parity')
+        self.assertEqual(code, 0, packaged_mode)
         design = json.loads((journey.work / 'previews' / 'v1' / 'design.json').read_text())
         self.assertEqual(design['mode'], 'functional-parity')
         self.assertEqual(design['stack'], 'java')
@@ -252,42 +266,42 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         self.assertNotIn('previews/v1/current-state', visible.getvalue())
         note = journey.root / 'cutoff.md'
         note.write_text('Cutoff is 5.\n')
-        code, changed, changed_console = drive(
-            ['1', 'continue', 'skip', 'guided-draft', 'y', 'functional-parity', 'v1', 'java', str(note),
-             'Ari', 'architect', 'current-state', 's1', 'accepted', '0'],
-            review_model(helper, state), refuse_aws)
-        self.assertEqual(code, 0)
-        self.assertIn('Completed version is immutable', changed_console)
-        self.assertIn('Export the next version', changed_console)
-        self.assertNotIn(str(note), changed_console)
+        code, imported = cli('context', 'import', '--file', str(note), '--by', 'Ari', '--role', 'architect',
+                             '--category', 'current-state', '--affected', 's1', '--gate', 'design')
+        self.assertEqual(code, 0, imported)
+        self.assertEqual(cli('context', 'decide', '--id', imported['id'], '--disposition', 'accepted', '--by', 'Ari',
+                             '--note', 'Recorded at design review')[0], 0)
+        code, changed = cli('design-export', '--version', 'v1', '--mode', 'functional-parity', '--stack', 'java')
+        self.assertEqual(code, 2)
+        notice = recovery_notice(changed['reason'], changed)
+        self.assertIn('Completed version is immutable', notice['summary'])
+        self.assertIn('Export the next version', notice['next_step'])
+        self.assertNotIn(str(note), json.dumps(changed))
         self.assertEqual(json.loads((journey.work / 'previews' / 'v1' / 'design.json').read_text())['context_status'], 'not_provided')
-        code, revised, revised_console = drive(
-            ['1', 'continue', 'skip', 'guided-draft', 'y', 'functional-parity', 'v2', 'java', 'none', '0'],
-            review_model(helper, state), refuse_aws)
-        self.assertEqual(code, 0, '\n'.join(revised) + revised_console)
+        code, revised = cli('design-export', '--version', 'v2', '--mode', 'functional-parity', '--stack', 'java')
+        self.assertEqual(code, 0, revised)
         revised_page = (journey.work / 'previews' / 'v2' / 'current-state' / 'index.html').read_text()
         self.assertIn('Cutoff is 5.', revised_page)
         self.assertNotIn('Cutoff is 5.', page)
         api = journey.work / 'previews' / 'v2' / 'current-state' / 'api.html'
         original = api.read_text()
         api.write_text('corrupted')
-        code, integrity, integrity_console = drive(
-            ['1', 'continue', 'skip', 'guided-draft', 'y', 'functional-parity', 'v2', 'java', 'none', '0'],
-            review_model(helper, state), refuse_aws)
-        self.assertEqual(code, 0)
-        self.assertIn('integrity failure', integrity_console)
-        self.assertIn('Restore the completed files', integrity_console)
-        self.assertNotIn('current-state/api.html', integrity_console)
+        code, integrity = cli('design-export', '--version', 'v2', '--mode', 'functional-parity', '--stack', 'java')
+        self.assertEqual(code, 2)
+        notice = recovery_notice(integrity['reason'], integrity)
+        self.assertIn('integrity failure', notice['summary'])
+        self.assertIn('Restore the completed files', notice['next_step'])
+        self.assertNotIn('current-state/api.html', notice['summary'] + notice['next_step'])
         self.assertEqual(api.read_text(), 'corrupted')
         self.assertEqual(json.loads((journey.work / 'previews' / 'v2' / 'mode.json').read_text())['status'], 'complete')
         self.assertIn('Amount', original)
-        code, corrupt, corrupt_console = drive(
-            ['1', 'continue', 'skip', 'guided-draft', 'y', 'functional-parity', 'v1', 'cobol', 'none', '0'],
-            review_model(helper, state), refuse_aws)
-        self.assertEqual(code, 0)
-        self.assertIn('Completed version is immutable', corrupt_console)
-        self.assertNotIn('integrity failure', corrupt_console)
+        code, corrupt = cli('design-export', '--version', 'v1', '--mode', 'functional-parity', '--stack', 'cobol')
+        self.assertEqual(code, 2)
+        self.assertIn('immutable', corrupt['reason'])
+        self.assertNotIn('integrity failure', corrupt['reason'])
         self.assertEqual(json.loads((journey.work / 'previews' / 'v1' / 'design.json').read_text())['stack'], 'java')
+        changed, integrity = [json.dumps(changed)], [json.dumps(integrity)]
+        changed_console = integrity_console = ''
         calls_before = list(state['calls'])
         code, recognized, recognized_console = drive(
             ['1', 'recognize', 'reuse-baseline', '0'],
@@ -328,9 +342,11 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         helper = checkpoint_fixtures.CheckpointTests('test_default_workflow_reviews_units_then_integrates_and_preserves_human_gate')
         helper.seen = []
         code, first, console = drive(
-            ['1', 'continue', 'review', 'y', 'y', 'Ari', 'Finish the remaining programs', '0'],
+            ['1', 'continue', 'none', 'Ari', 'none', 'y', 'y', 'Ari', 'Finish the remaining programs', '0'],
             review_model(helper, state), refuse_aws)
         self.assertEqual(code, 0, console + '\n' + '\n'.join(first))
+        self.assertIn('Skip is not available', console, 'findings without rule exports cannot build a skip draft')
+        self.assertNotIn('Next step (skip/review)', '\n'.join(first))
         paused = journey.reload()
         self.assertEqual(paused['stage'], 'WAITING_FOR_RUNTIME')
         self.assertGreater(paused['pipeline']['calls'], 256)
@@ -338,14 +354,16 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         spent = paused['pipeline']['calls']
         code, second, console = drive(
             ['1', 'continue', 'y', 'Ari', 'Finish the remaining programs',
-             'y', 'Ari', 'Deferred for package review', 'y', 'Ari', 'Reviewed the evidence',
-             'y', 'Ari', 'Approve the recorded screens', 'reimagine', 'v1', 'java', 'none', '0'],
+             'none', 'Ari', 'y', 'Ari', 'Deferred for package review', 'y', 'Ari', 'Reviewed the evidence',
+             'reimagine', 'v1', 'java', 'none',
+             'none', 'none', 'approve', '<default>', 'Approve the recorded screens',
+             'none', 'pause', '0'],
             review_model(helper, state), refuse_aws)
         self.assertEqual(code, 0, console + '\n' + '\n'.join(second))
         self.assertIn('Resuming the saved review', '\n'.join(second) + console)
         project = journey.reload()
         self.assertGreaterEqual(project['pipeline']['calls'], spent)
-        self.assertEqual(project['stage'], 'PACKAGED', console + '\n' + '\n'.join(second))
+        self.assertEqual(project['stage'], 'AWAITING_PACKAGE_ACCEPTANCE', console + '\n' + '\n'.join(second))
         self.assertIn('validation', project['approvals'])
         self.assertNotIn('assess', [role for role in state['calls']])
         design = json.loads((journey.work / 'previews' / 'v1' / 'design.json').read_text())
@@ -353,37 +371,32 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         self.assertEqual(design['stack'], 'java')
         self.assertEqual(design['provenance']['verification']['status'], 'INDEPENDENTLY_REVIEWED')
         self.assertEqual(design['provenance']['source_commit'], journey.commit)
-        proposal = design['proposals'][0]
-        self.assertEqual(proposal['status'], 'proposed_unapproved')
-        self.assertNotEqual(proposal.get('authorization'), 'implementation_requirement')
-        self.assertTrue(proposal['change'].startswith('Before:'))
-        self.assertIn('After:', proposal['change'])
-        self.assertNotIn('Keep journey', proposal['change'])
+        self.assertEqual(design['proposals'], [], 'no future-state expectation was given, so no proposal is invented')
+        self.assertTrue(all('No accepted future-state expectation' in gap['reason'] for gap in design['gaps']))
         future = (journey.work / 'previews' / 'v1' / 'future-state' / 'index.html').read_text()
         current = (journey.work / 'previews' / 'v1' / 'current-state' / 'index.html').read_text()
         self.assertIn('Amount', current)
-        self.assertIn('proposed_unapproved', future)
-        self.assertIn('Confirm Submit', future)
-        with zipfile.ZipFile(journey.work / 'packages' / 'v1' / 'reimagine' / 'ai-dlc-package.zip') as archive:
-            self.assertIn('proposed_unapproved', archive.read('deltas.json').decode())
+        self.assertIn('No proposal was invented', future)
+        self.assertNotIn('Confirm Submit', future)
+        with zipfile.ZipFile(journey.work / project['package']['path']) as archive:
+            self.assertEqual(json.loads(archive.read('deltas.json'))['proposals'], [])
             self.assertNotIn('implementation_requirement', archive.read('deltas.json').decode())
-            self.assertEqual(json.loads(archive.read('manifest.json'))['package_status'], 'DRAFT')
+            self.assertEqual(json.loads(archive.read('ai-dlc.json'))['workflow_status'], 'AWAITING_PACKAGE_ACCEPTANCE')
         conflict = journey.root / 'conflict.md'
         conflict.write_text('Contradicts: R1\nThe cutoff is 9.\n')
-        code, blocked, _console = drive(
-            ['1', 'continue', 'reimagine', 'v2', 'java', str(conflict), 'Ari', 'architect', 'current-state', 's1',
-             'accepted', 'y', 'needs-more-evidence', 'Ari', 'Need the source line', '0'],
+        code, blocked, blocked_console = drive(
+            ['1', 'continue', str(conflict), 'current-state', 's1', 'architect', 'Ari', 'accepted',
+             'accept', 'Accept despite the open conflict', '0'],
             review_model(helper, state), refuse_aws)
         self.assertEqual(code, 0, '\n'.join(blocked))
         packaged = reframe.read(journey.work / 'project.json')
-        self.assertTrue((journey.work / 'packages' / 'v2' / 'reimagine' / 'ai-dlc-package.zip').is_file())
-        with zipfile.ZipFile(journey.work / 'packages' / 'v2' / 'reimagine' / 'ai-dlc-package.zip') as archive:
-            manifest = json.loads(archive.read('manifest.json'))
-        self.assertEqual(manifest['final_handoff'], 'BLOCKED')
+        self.assertEqual(packaged['stage'], 'AWAITING_PACKAGE_ACCEPTANCE', 'an open conflict blocks package acceptance')
+        self.assertNotIn('package_acceptance', packaged)
+        self.assertFalse((journey.work / 'acceptance' / 'ledger.jsonl').exists())
+        self.assertEqual(len(optional.open_conflicts(journey.work)), 1)
         approval = reframe.main(['approve', 'specifications', '--by', 'Ari', '--note', 'Try the final gate'],
                                 reporter=lambda value: None)
         self.assertEqual(approval, 2)
-        self.assertEqual(packaged['stage'], 'PACKAGED')
         text = '\n'.join(first + ['', '--- resume ---', ''] + second + ['', '--- conflict ---', ''] + blocked)
         path = Path(__file__).resolve().parents[1] / 'acceptance-review-transcript.txt'
         path.write_text(text + '\n\n' + console + '\n')
@@ -421,8 +434,9 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         helper = checkpoint_fixtures.CheckpointTests()
         state = {'calls': [], 'pause': False}
         code, prompts, console = drive(
-            ['1', 'continue', 'skip', 'guided-draft', 'Ari', 'Accepted the sealed findings', 'claude', 'y',
-             'functional-parity', 'v1', 'java', 'none', 'n', 'y', '0'],
+            ['1', 'continue', 'none', 'Ari', 'n', 'y', 'none', 'skip', 'functional-parity', 'v1', 'java', 'none',
+             'guided-draft', 'Ari', 'Accepted the sealed findings', 'claude', 'y',
+             'n', 'y', 'none', 'approve', '<default>', 'Approve the draft despite the conflict', '0'],
             review_model(helper, state), refuse_aws)
         text = '\n'.join(prompts) + console
         self.assertEqual(code, 0, text)
@@ -430,8 +444,9 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         self.assertIn('unresolved context conflicts', text)
         self.assertIn('Defer the open conflict', text)
         self.assertIn('The conflict stays open', text)
-        with zipfile.ZipFile(journey.work / 'packages' / 'v1' / 'functional-parity' / 'ai-dlc-package.zip') as archive:
-            self.assertEqual(json.loads(archive.read('manifest.json'))['final_handoff'], 'BLOCKED')
+        project = journey.reload()
+        self.assertNotIn('design', project['approvals'], 'an open conflict on R1 blocks the design approval it affects')
+        self.assertEqual(len(optional.open_conflicts(journey.work)), 1)
         path = Path(__file__).resolve().parents[1] / 'acceptance-conflict-transcript.txt'
         path.write_text(text + '\n')
 
@@ -491,22 +506,26 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         def seal(run, directory, client):
             folder = directory / 'assessment'
             folder.mkdir(exist_ok=True)
-            payload = {'program_name': 'PAY', 'all_rules': [{
-                'Rule_Id': 'R1', 'Rule_Name': 'Reject zero', 'Rule_Description': 'Reject a zero amount',
-                'Acceptance_Criteria': ['Zero is rejected']}]}
+            payload = {'rules': ['reject zero amount']}
             target = folder / 'rules.json'
             target.write_text(json.dumps(payload))
-            run['assessment_index'] = [{'path': 'rules.json', 'sha256': sha256(target.read_bytes()).hexdigest()}]
+            run['assessment_index'] = [{'path': 'rules.json', 'bytes': target.stat().st_size,
+                                        'sha256': sha256(target.read_bytes()).hexdigest()}]
             run['assessment_ready'] = True
 
         import reframe_setup as setup
         helper = checkpoint_fixtures.CheckpointTests()
+        helper.seen = []
         state = {'calls': [], 'pause': False}
         answers = [
             '1', str(source), 'y', str(parent), '<default>', 'Zero-amount journey', 'fixture-profile', 'us-east-1',
             'claude', 'claude', 'y', 'Ari', '250000000', 'y', 'y', 'Ari', 'Findings match the pinned source', 'y',
-            'skip', 'guided-draft', 'Ari', 'Accepted the sealed findings', 'claude', 'y',
-            'functional-parity', 'v1', 'java', 'none', '0']
+            'none', 'Ari', 'none', 'y',
+            'none', 'y', 'Ari', 'Deferred until the business owner replies', 'y', 'Ari', 'Reviewed the specification',
+            'functional-parity', 'v1', 'java', 'none',
+            'none', 'approve', '<default>', 'Reviewed the screens and API contracts',
+            'none', 'accept', '<default>', 'Accept this handoff version for engineering review',
+            '0']
         with patch.object(setup, 'ensure_aws_login', lambda project: None), \
                 patch.object(setup, 'checks', lambda project, work=None: None), \
                 patch.object(setup, 'sandbox_outputs', lambda *args, **kwargs: ('fixture-bucket', 'reframe/', 'fixture-role', role)), \
@@ -521,20 +540,27 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         self.assertIn('Repository URL to recognize', text)
         self.assertIn('Create a new project?', text)
         self.assertIn('Have you reviewed the assessment outputs', text)
-        self.assertIn('Draft functional-parity package written for v1', text)
+        self.assertIn('Building it did not accept it', text)
+        self.assertIn('Skip is not available', text)
         config = Path(os.environ['REFRAME_CONFIG_HOME'])
         work = Path(json.loads((config / 'active.json').read_text())['workspace'])
         project = reframe.read(work / 'project.json')
         self.assertIn('run-1', project['assessments'])
         self.assertTrue(project['approvals']['assessment'])
-        archive_path = work / 'packages' / 'v1' / 'functional-parity' / 'ai-dlc-package.zip'
-        self.assertTrue(archive_path.is_file())
+        self.assertEqual(project['stage'], 'PACKAGE_ACCEPTED', text)
+        self.assertEqual(set(project['approvals']), {'assessment', 'validation', 'specifications'})
+        self.assertIn('executor', state['calls'])
+        self.assertIn('reviewer', state['calls'])
+        self.assertIn('wireframes', state['calls'])
+        archive_path = work / project['package']['path']
+        self.assertEqual(project['package_acceptance']['package_sha256'], reframe.sha(archive_path))
         with zipfile.ZipFile(archive_path) as archive:
             inventory = json.loads(archive.read('field-inventory.json'))
-            batch = json.loads(archive.read('batch-inventory.json'))
-        self.assertEqual(inventory['copybooks'], [{'path': 'cpy/AMOUNT.cpy', 'fields': []}])
-        self.assertEqual(batch['jobs'], [{'path': 'jcl/NIGHTLY.jcl', 'status': 'NOT_STARTED'}])
+            plan = json.loads(archive.read('design-plan.json'))
+            manifest = json.loads(archive.read('package-manifest.json'))
         self.assertFalse(inventory['fields_parsed'])
+        self.assertEqual(plan['target']['language'], 'java')
+        self.assertEqual(manifest['absent'], [])
         path = Path(__file__).resolve().parents[1] / 'acceptance-fresh-transcript.txt'
         path.write_text(text + '\n')
 

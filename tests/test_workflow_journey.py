@@ -86,7 +86,7 @@ class WorkflowJourneyTests(unittest.TestCase):
             app.merge_wireframe_responses(parts)
         self.assertEqual([sha(path) for path in paths], before)
 
-    def test_deferred_package_is_accepted_and_not_implementation_ready(self):
+    def test_deferred_package_awaits_acceptance_and_stays_not_implementation_ready(self):
         inner = self.inner
         inner.validated()
         path = inner.work / inner.project['specification']['path']
@@ -121,6 +121,8 @@ class WorkflowJourneyTests(unittest.TestCase):
             code = app.main(['--workspace', str(inner.work), 'approve', 'validation', '--by', 'Owner',
                              '--note', 'Reviewed the deferred amount question'], reporter=lambda _result: None)
             self.assertEqual(code, 0)
+            self.assertEqual(app.main(['--workspace', str(inner.work), 'design-plan', '--mode', 'functional-parity',
+                                       '--by', 'Owner'], reporter=lambda _result: None), 0)
             inner.project = app.read(inner.work / 'project.json')
             inner.project['settings']['max_context_bytes'] = 1
             app.persist(inner.work, inner.project)
@@ -134,7 +136,9 @@ class WorkflowJourneyTests(unittest.TestCase):
             protocol = (app.FRAMEWORK / 'prompts/pipeline/wireframes.md').read_text()
             whole = app.wireframe_stages(current, saved['decisions'], 600000, protocol)
             whole[0]['catalog'] = app.wireframe_catalog(current, saved['decisions'])
-            fitted = len(json.dumps(app.wireframe_message(current, whole[0], 1, protocol)).encode())
+            import reframe_design
+            request = {**app.wireframe_message(current, whole[0], 1, protocol), **reframe_design.message_view(inner.work, saved)}
+            fitted = len(json.dumps(request).encode())
             saved['settings']['max_context_bytes'] = fitted - 1
             app.persist(inner.work, saved)
             code = app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _result: None)
@@ -149,11 +153,30 @@ class WorkflowJourneyTests(unittest.TestCase):
         packaged = app.read(inner.work / 'project.json')
         archive = next((inner.work / 'packages').glob('package-*/ai-dlc.json'))
         record = json.loads(archive.read_text())
-        self.assertEqual(record['workflow_status'], 'PACKAGE_ACCEPTED')
+        self.assertEqual(record['workflow_status'], 'AWAITING_PACKAGE_ACCEPTANCE')
         self.assertEqual(record['implementation_readiness'], 'BLOCKED_BY_UNRESOLVED_DECISIONS')
         self.assertEqual(record['unresolved_decision_count'], 1)
         self.assertEqual(record['implementation_status'], 'NOT_STARTED')
-        self.assertEqual(packaged['stage'], 'PACKAGED')
+        self.assertEqual(packaged['stage'], 'AWAITING_PACKAGE_ACCEPTANCE')
+        self.assertNotIn('package_acceptance', packaged)
+        zip_path = inner.work / packaged['package']['path']
+        before = zip_path.read_bytes()
+        refused = []
+        code = app.main(['--workspace', str(inner.work), 'accept-package', '--sha256', '0' * 64, '--by', 'Owner',
+                         '--note', 'Wrong hash'], reporter=refused.append)
+        self.assertEqual(code, 2)
+        self.assertIn('does not match', refused[-1]['reason'])
+        accepted = []
+        code = app.main(['--workspace', str(inner.work), 'accept-package', '--sha256', packaged['package']['sha256'],
+                         '--by', 'Owner', '--note', 'Accept this conditional handoff for review', '--simulated'],
+                        reporter=accepted.append)
+        self.assertEqual(code, 0, accepted)
+        self.assertEqual(accepted[-1]['status'], 'PACKAGE_ACCEPTED')
+        self.assertEqual(accepted[-1]['implementation_readiness'], 'BLOCKED_BY_UNRESOLVED_DECISIONS')
+        self.assertTrue(accepted[-1]['simulated'])
+        self.assertEqual(zip_path.read_bytes(), before)
+        ledger = (inner.work / 'acceptance' / 'ledger.jsonl').read_text().splitlines()
+        self.assertEqual(json.loads(ledger[-1])['package_sha256'], packaged['package']['sha256'])
         self.assertNotIn('assess', roles)
         for page in archive.parent.glob('*.html'):
             for href in re.findall(r'href="([^"]+)"', page.read_text()):

@@ -24,7 +24,7 @@ ACTIONS = {'1':'flow', '2':'assess', '3':'status', '4':'resume', '5':'compare',
            '6':'validate', '7':'review-site', '8':'package', '9':'guide', '0':'exit'}
 DEMO_STAGES = ['READY_TO_ASSESS', 'AWAITING_ASSESSMENT_APPROVAL', 'ASSESSMENT_APPROVED',
                'AWAITING_VALIDATION_APPROVAL', 'VALIDATION_APPROVED',
-               'AWAITING_SPECIFICATIONS_APPROVAL', 'SPECIFICATIONS_APPROVED', 'PACKAGED']
+               'AWAITING_SPECIFICATIONS_APPROVAL', 'SPECIFICATIONS_APPROVED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGE_ACCEPTED']
 
 
 def recovery_notice(reason, result=None):
@@ -55,6 +55,43 @@ def recovery_notice(reason, result=None):
 def clean(value):
     """Render untrusted paths/model text as literal text, without terminal controls."""
     return re.sub(r'[\x00-\x1f\x7f-\x9f]', ' ', str(value))
+
+
+# Shown with privacy on: categories, counts, states, hashes, and next actions (NR-05). Never paths, identities, or rationale.
+PRIVATE_SAFE = {'next_step', 'cause', 'recovery', 'phase', 'stage', 'model_calls', 'calls', 'round', 'changed_files',
+                'semantic_review', 'hint', 'units', 'unit', 'attempts', 'minimum_calls', 'calls_consumed', 'calls_remaining',
+                'reviewed_units', 'opaque_segments', 'remaining_calls', 'minimum_additional_calls', 'total_cap',
+                'sha256', 'package_sha256', 'version_id', 'route', 'verification', 'routed_to', 'origin', 'acceptance',
+                'implementation_readiness', 'warnings', 'authorized_stage_count', 'kept', 'count'}
+HIDDEN = 'Details hidden by presentation privacy; /privacy reveals local results.'
+
+
+def present(key, value, private):
+    """One result value as readable text. Privacy keeps counts, states, and file names; it hides paths, names, and rationale."""
+    if isinstance(value, bool) or isinstance(value, (int, float)):
+        return value
+    if key == 'readiness' and isinstance(value, dict):
+        return str(value.get('state')) + ' with ' + str(value.get('blocker_count', 0)) + ' recorded blockers'
+    if key == 'inventory' and isinstance(value, list):
+        names = [str(item.get('name')) + ' (' + str(item.get('bytes')) + ' bytes)' for item in value if isinstance(item, dict)]
+        return str(len(names)) + ' files: ' + ', '.join(names)
+    if key == 'approval_basis' and isinstance(value, list):
+        return ', '.join(str(item.get('phase')) + ('' if private else ' by ' + str(item.get('by')))
+                         + (' (simulated)' if item.get('simulated') else '') for item in value if isinstance(item, dict))
+    if private and key not in PRIVATE_SAFE:
+        if isinstance(value, dict):
+            return '1 record; details hidden by presentation privacy'
+        if isinstance(value, list):
+            return str(len(value)) + (' item' if len(value) == 1 else ' items') + '; details hidden by presentation privacy'
+        return HIDDEN
+    if isinstance(value, list):
+        if all(isinstance(item, (str, int, float)) for item in value):
+            return ', '.join(str(item) for item in value) or 'none'
+        return '; '.join(', '.join(str(k) + ' ' + str(v) for k, v in item.items()) if isinstance(item, dict) else str(item)
+                         for item in value) or 'none'
+    if isinstance(value, dict):
+        return ', '.join(str(k) + ' ' + str(v) for k, v in value.items()) or 'none'
+    return value
 
 
 class Terminal:
@@ -167,7 +204,11 @@ class Terminal:
         lines.append('Completed units  ' + str(summary.get('completed_units', 0)) + '  Remaining units  ' + str(summary.get('remaining_units', 0)))
         lines.append('Wireframe calls  ' + str(summary['wireframe_calls']) + ' with ' + ('no call cap' if summary['wireframe_cap'] is None else 'cap ' + str(summary['wireframe_cap'])))
         lines.append('Skip-draft calls  ' + str(summary['skip_draft_calls'])
-                     + '  Failed attempts  ' + str(summary.get('skip_failures', 0)) + ' of limit ' + str(summary.get('skip_failure_limit', 3)))
+                     + '  Skip-draft failed attempts  ' + str(summary.get('skip_failures', 0)) + ' of limit ' + str(summary.get('skip_failure_limit', 3)))
+        operations = summary.get('operations') or {}
+        if any(operations.get(key) for key in ('failed', 'invalid', 'uncertain')):
+            lines.append('Provider calls  failed ' + str(operations.get('failed', 0)) + '  invalid ' + str(operations.get('invalid', 0))
+                         + '  uncertain ' + str(operations.get('uncertain', 0)) + '  (all stay counted)')
         lines.append(reframe.spend_text(summary))
         if summary.get('next_call_estimate') is not None:
             lines.append('Estimated next billed call  ' + str(summary['next_call_estimate']) + '. This estimate is not measured spend.')
@@ -206,7 +247,7 @@ class Terminal:
             for step in steps:
                 lines.append('  ' + str(step.get('name')) + '  ' + str(step.get('status')))
         if not self.private and progress.get('reason'):
-            lines.append('Detail  ' + str(progress.get('reason')))
+            lines.append('Assessment service detail (historical)  ' + str(progress.get('reason')))
         elif self.private:
             lines.append('Presentation privacy ON · /privacy reveals the saved detail')
         self.console.print(Panel('\n'.join(clean(line) for line in lines), title='Project status', border_style='blue'))
@@ -246,14 +287,11 @@ class Terminal:
         table=Table.grid(padding=(0,2));table.add_column(style='bold');table.add_column(overflow='fold')
         notice = recovery_notice(result.get('reason'), result)
         if self.private and notice:
-            table.add_row('Recovery', clean(notice['summary']))
+            table.add_row('Recovery guidance', clean(notice['summary']))
             table.add_row('Next Step', clean(notice['next_step']))
         for key,value in result.items():
             if key=='status':continue
-            # Hide values that can contain paths, resource identifiers or arbitrary error text.
-            if self.private and key not in {'next_step','model_calls','calls','round','changed_files','semantic_review','hint','units','unit','attempts','minimum_calls','calls_consumed','calls_remaining','reviewed_units','opaque_segments','remaining_calls','minimum_additional_calls','total_cap'}:
-                value='Details hidden by presentation privacy; /privacy reveals local results.'
-            table.add_row(clean(key.replace('_',' ').title()),clean(value))
+            table.add_row(clean(key.replace('_',' ').title()),clean(present(key, value, self.private)))
         self.last_report = dict(result)
         self.console.print(Panel(table,title=Text(state.replace('_',' ')),border_style='red' if failed else 'green'))
 
@@ -389,7 +427,11 @@ class Terminal:
             args=[*args,'--wait']
         if cmd in {'assess','resume','validate','review-site','package'}:
             self.say('Running '+cmd+'. Existing evidence and approval checks remain enforced.','cyan')
-        self.invoke([cmd,*args])
+        code=self.invoke([cmd,*args])
+        if cmd=='package' and code!=0:
+            # Menu 8 offers the same recovery as /flow when accepted context blocks the package.
+            from reframe_flow import offer_withdraw_flagged_context
+            offer_withdraw_flagged_context(self)
         return True
 
     def run(self, initial=None):

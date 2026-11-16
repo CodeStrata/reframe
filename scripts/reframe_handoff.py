@@ -171,7 +171,13 @@ def rule_coverage(rules, legacy_files):
         rows.append({'rule_id': ident, 'disposition': disposition, 'disposition_source': source})
     ids = [row['rule_id'] for row in rows]
     complete = ids == [str(rule['id']) for rule in rules] and len(ids) == len(set(ids))
-    return {'status': 'COMPLETE' if complete else 'GAP', 'rule_count': len(rules), 'rules': rows}
+    dispositions = {}
+    for row in rows:
+        dispositions[row['disposition']] = dispositions.get(row['disposition'], 0) + 1
+    return {'status': 'COMPLETE' if complete else 'GAP',
+            'status_meaning': 'COMPLETE means every imported rule is listed once. Dispositions are counted separately; '
+                              'an unassigned rule is not covered by implementation.',
+            'rule_count': len(rules), 'dispositions': dispositions, 'rules': rows}
 
 
 def legacy_requirements(files):
@@ -281,7 +287,7 @@ def validation_plan(rules):
         'oracle': ORACLE,
         'rules': [{
             'rule_id': rule['id'],
-            'cases': [{'name': case, 'status': 'NOT RUN'} for case in CASES],
+            'cases': [{'name': case, 'status': 'NOT RUN', 'oracle': ORACLE} for case in CASES],
         } for rule in rules],
     }
 

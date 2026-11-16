@@ -1304,6 +1304,7 @@ class CheckpointTests(unittest.TestCase):
             app.decision(self.work, self.project, self.args(
                 'decide', '--question', question['id'], '--by', 'SME', '--answer', 'Fixture answer', '--disposition', 'resolved'))
         app.approve(self.work, self.project, self.args('approve', 'validation', '--by', 'Fixture owner', '--note', 'Fixture review'))
+        fixtures.record_design_plan(self.work, self.project)
         screens = fixtures.PreparationTests.screens(self)
         rule_id = saved['rules'][0]['id']
         for screen in screens['screens']:
@@ -1448,7 +1449,7 @@ class CheckpointTests(unittest.TestCase):
         self.assertIn('RF1-R', reports[0]['reason'])
         self.assertIn('RF5', reports[0]['reason'])
         self.assertNotIn('RF1.', reports[0]['reason'])
-        self.assertIn('reframe resume', reports[0]['next_step'])
+        self.assertIn('reframe --workspace ' + str(self.work) + ' resume', reports[0]['next_step'])
         self.assertNotIn('feedback --unit', reports[0]['next_step'])
         self.assertIsNone(app.read(self.work / 'project.json')['pipeline'].get('reason'))
         with patch.object(app, 'model_call', runtime), patch.object(app, 'assessment', side_effect=AssertionError('assessment job')):
@@ -1741,6 +1742,7 @@ class CheckpointTests(unittest.TestCase):
                 self.assertNotIn('rejected_specification', context.get('candidate_correction', {}))
                 self.assertEqual([item['id'] for item in context['candidate_correction']['review_findings']], ['RF1-R', 'RF5'])
                 self.assertIn('U0075-Q1', json.dumps(context['candidate_correction']['focus']['questions']))
+                seen['focus'] = context['candidate_correction']['focus']
                 return {'kind': 'correction', 'base_sha256': context['candidate_correction']['base_sha256'], 'edits': [
                     {'op': 'set_rule_ids', 'target': 'work_item', 'id': 'W1', 'rule_ids': ['R-KEEP']},
                     {'op': 'set_rule_ids', 'target': 'section', 'id': 'delivery', 'rule_ids': ['R-KEEP']},
@@ -1764,6 +1766,12 @@ class CheckpointTests(unittest.TestCase):
         self.assertTrue(seen['validated_before_review'])
         self.assertLess(seen['components']['candidate_correction'], 20000)
         self.assertNotIn('candidate', seen['components'])
+        self.assertEqual([item['id'] for item in seen['focus']['work_items']], ['W1'])
+        self.assertIn('data', seen['focus']['sections'])
+        self.assertEqual([row['unit'] for row in seen['focus']['evidence_index']], [f'U{number:04d}' for number in range(1, 113)])
+        self.assertIn('U0001-F1', seen['focus']['evidence_index'][0]['finding_ids'])
+        self.assertEqual(app.read(area / 'checkpoint-review-2.json'), review, 'reviewer findings stay intact')
+        self.assertEqual(app.read(area / 'reply-299.json'), review)
         self.assertGreater(evidence_bytes + spec_bytes, seen['bytes'])
         saved = app.read(self.work / 'project.json')
         self.assertEqual(saved['pipeline']['calls'], 301)
@@ -1796,6 +1804,7 @@ class CheckpointTests(unittest.TestCase):
             app.decision(self.work, saved, self.args(
                 'decide', '--question', item['id'], '--by', 'SME', '--answer', 'Keep both lengths open', '--disposition', 'resolved'))
         app.approve(self.work, saved, self.args('approve', 'validation', '--by', 'Fixture owner', '--note', 'Fixture review'))
+        fixtures.record_design_plan(self.work, saved)
         screens = fixtures.PreparationTests.screens(self)
         for screen in screens['screens']:
             screen['rule_ids'] = ['R-KEEP']
@@ -1874,6 +1883,8 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn('Preparation context is', reports[-1]['reason'])
         self.assertIn('Components:', reports[-1]['reason'])
+        for component in ('candidate_correction', 'protocol'):
+            self.assertRegex(reports[-1]['reason'], component + r'\D{0,4}\d+', 'each component size is named')
         self.assertIn('limit is 600000', reports[-1]['reason'])
         self.assertGreater(reports[-1]['context_bytes'], 600000)
         saved = app.read(self.work / 'project.json')
@@ -2076,6 +2087,8 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(sha(area / 'checkpoint-candidate-2.json'), digest)
         self.assertNotIn('Changed data', json.dumps(app.read(area / 'checkpoint-candidate-3.json')))
         self.assertIn('The data section stays descriptive.', json.dumps(app.read(area / 'checkpoint-candidate-3.json')))
+        self.assertEqual(saved['stage'], 'AWAITING_VALIDATION_APPROVAL', 'one resume reaches the human gate')
+        self.assertNotIn('validation', saved['approvals'])
 
     def test_saved_valid_correction_does_not_repeat_the_executor_call(self):
         area, units, _saved_spec = self._synthesis_recovery_project({
@@ -2164,6 +2177,36 @@ class CheckpointTests(unittest.TestCase):
 
         first, _ignored = adapt('reply-301.json', 'R1')
         second, work_ids = adapt('reply-302.json', 'U0001-F1')
+        self._correction_continues_once_then_stops(first, second, work_ids)
+
+    def test_synthetic_replies_continue_once_then_stop_without_a_retry_reset(self):
+        """The same contract as the saved CardDemo replies, with generated replies of the same shapes (#144)."""
+        first = {'kind': 'correction', 'edits': [
+            {'op': 'set_rule_ids', 'target': {'type': 'section', 'id': 'data'}, 'id': 'data', 'rule_ids': ['R1']}]}
+        edits = [{'op': 'set_rule_ids', 'target': 'section', 'id': name, 'rule_ids': ['U0001-F1']}
+                 for name in list(artifacts.SECTIONS)[:6]]
+        edits += [{'op': 'set_rule_ids', 'target': 'work_item', 'id': 'W1', 'rule_ids': ['U0001-F1']},
+                  {'op': 'set_rule_ids', 'target': 'work_item', 'id': 'W2', 'rule_ids': ['U0001-F1']},
+                  {'op': 'replace_text', 'target': 'section', 'id': 'data', 'field': 'specification', 'old': 'x', 'new': 'x'}]
+        second = {'kind': 'correction', 'edits': edits}
+        self.assertEqual(sorted(second['edits'][8]), ['field', 'id', 'new', 'old', 'op', 'target'])
+        self._correction_continues_once_then_stops(first, second, ['W1', 'W2'])
+
+    def test_find_replace_is_refused_and_replace_text_replaces_the_whole_field(self):
+        spec = self.spec()
+        original = copy.deepcopy(spec)
+        legacy = {'op': 'replace_text', 'target': 'section', 'id': 'data', 'field': 'specification', 'find': 'a', 'replace': 'b'}
+        problem = cp.correction_edit_problem(0, legacy)
+        self.assertIn('unexpected fields find, replace', problem)
+        self.assertIn('Accepted shape: ' + json.dumps(cp.correction_examples()['replace_text'], sort_keys=True), problem)
+        with self.assertRaisesRegex(Blocked, 'unexpected fields find, replace'):
+            cp.apply_synthesis_edits(spec, [legacy])
+        self.assertEqual(spec, original)
+        text = 'The data section now states both key lengths. Neither is authoritative.'
+        cp.apply_synthesis_edits(spec, [{'op': 'replace_text', 'target': 'section', 'id': 'data', 'field': 'specification', 'text': text}])
+        self.assertEqual(spec['sections']['data']['specification'], text, 'the entire field is replaced')
+
+    def _correction_continues_once_then_stops(self, first, second, work_ids):
         spec = self.spec()
         original = copy.deepcopy(spec)
         with self.assertRaisesRegex(Blocked, r'edits\[0\].*received dict'):
@@ -2237,6 +2280,7 @@ class CheckpointTests(unittest.TestCase):
         with patch.object(app, 'model_call', denied), patch.object(app, 'assessment', side_effect=AssertionError('assessment job')):
             again = app.main(['--workspace', str(self.work), 'resume'], reporter=reports.append)
         self.assertEqual(again, 2)
+        self.assertIn('edits[8]', reports[-1]['reason'], 'a repeated resume restates the latest error')
         saved = app.read(self.work / 'project.json')
         self.assertEqual(saved['pipeline']['calls'], 302)
         self.assertEqual(saved['pipeline']['invalid_candidates'], 3)
@@ -2260,6 +2304,14 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(len([event for event in saved['events']
                               if event.get('event') == 'candidate_validation_failed' and event.get('call') == 302]), 1)
         self.assertEqual(app.read(area / 'reply-302.json'), second)
+        self.assertEqual(saved['pipeline']['candidate_sha256'], digest)
+        self.assertEqual(app.read(area / 'checkpoint-candidate-2.json'), saved_spec)
+        with patch.object(app, 'model_call', denied), patch.object(app, 'assessment', side_effect=AssertionError('assessment job')):
+            early = app.main(['--workspace', str(self.work), 'feedback', '--authorize-correction',
+                              '--by', 'Fixture owner', '--note', 'Another series before this one is used'], reporter=reports.append)
+        self.assertEqual(early, 2)
+        self.assertIn('A bounded correction is still available', reports[-1]['reason'])
+        self.assertEqual(app.read(self.work / 'project.json')['pipeline']['invalid_candidate_authorizations'], 1)
 
     def test_sanitized_carddemo_recovery_builds_exact_requests(self):
         live = Path('/Users/satish_byndr/Documents/workspace-intraedge/aws-mainframe-modernization-carddemo_assessment')

@@ -1,0 +1,4 @@
+{
+  "layout": "installed",
+  "note": "Marks an installed Reframe resource root. Its revision is a content hash of the installed modules and resources, not a Git commit."
+}

@@ -628,6 +628,10 @@ def next_step(project):
     if project['stage'] == 'PROVIDER_REVIEW_REQUIRED':
         return 'Review the private provider refusal and request content; automatic model retries are stopped.'
     stage = project['stage']
+    if not project.get('site') and any(isinstance(item, dict) and item.get('status') in {'failed', 'invalid'}
+                                       for item in (project.get('wireframe_plan') or {}).get('stages') or []):
+        return ('A wireframe call failed and stays counted. reframe retry-wireframes --by NAME --note WHY authorizes '
+                'one new attempt, then reframe review-site.')
     if stage == 'RUNNING_EXECUTOR':
         error = (project.get('pipeline') or {}).get('correction_error')
         if isinstance(error, dict) and error.get('reason') and (project.get('pipeline') or {}).get('invalid_candidates', 0) < 3:
@@ -642,7 +646,18 @@ def next_step(project):
             return 'Use /flow and choose review. The next question asks before the cap is raised.'
         return 'Review reframe prepare-plan and the call budget, then reframe validate'
     if project.get('pending_action'): return 'reframe resume'
-    if stage == 'PACKAGED': return 'Inspect the generated package and its deferred work boundaries.'
+    if project.get('verification_skip') and not project.get('specification') and stage not in {
+            'PACKAGED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGE_ACCEPTED'}:
+        # The skip route never runs validate; its next step is the draft, the design gate, or the package.
+        if not project.get('skip_bundle'):
+            return 'reframe preview --skip-validation --by OWNER --note WHY --name DRAFT, or /flow'
+        if not (project.get('approvals') or {}).get('design'):
+            return 'Review the draft, then reframe approve design or reframe feedback --scope design; /flow guides this'
+        return 'reframe package'
+    if stage in {'PACKAGED', 'AWAITING_PACKAGE_ACCEPTANCE'}:
+        return 'Review the package (reframe package-review), then accept its exact SHA-256 or give package feedback.'
+    if stage == 'PACKAGE_ACCEPTED':
+        return 'The handoff is accepted. Implementation readiness is reported separately; blocked work stays blocked.'
     if stage == 'SPECIFICATIONS_APPROVED': return 'reframe package'
     if stage == 'AWAITING_SPECIFICATIONS_APPROVAL': return 'Review the HTML, then reframe approve specifications'
     if stage == 'VALIDATION_APPROVED':
@@ -677,6 +692,14 @@ def next_step(project):
             return ('Synthesis correction limit reached. Inspect the saved review before another correction. '
                     'Passed units stay sealed. No assessment job is created.')
         return 'Authorize one targeted correction with reframe feedback --unit UNIT --authorize-correction --by NAME --note REASON'
+    if stage == 'ASSESSMENT_APPROVED' and not project.get('pipeline') and not project.get('specification') \
+            and project.get('design_plan'):
+        # Review asks for the design plan only after validation, so a plan here means skip was chosen.
+        return 'Generate the skip draft: /flow, or reframe preview --skip-validation --by OWNER --note WHY --name DRAFT'
+    if stage == 'ASSESSMENT_APPROVED' and not project.get('pipeline') and not project.get('specification'):
+        # No route is chosen yet, so neither command is presumed.
+        return ('Choose a route with /flow: skip writes a draft (reframe preview --skip-validation --by OWNER --note WHY), '
+                'review runs reframe validate --reviewer claude-code when the findings cite source lines.')
     if stage in {'ASSESSMENT_APPROVED', 'REVISION_PENDING', 'WAITING_FOR_RUNTIME'}: return 'reframe validate --reviewer claude-code'
     if stage == 'AWAITING_ASSESSMENT_APPROVAL': return 'Inspect findings, then reframe approve assessment'
     if project.get('active_assessment') and project.get('assessments') and stage in {'INITIALIZED', 'READY_TO_ASSESS'}:
@@ -699,7 +722,7 @@ def prepare_command(args, work, project):
                              'RUNNING_EXECUTOR', 'RUNNING_REVIEWER', 'REWORK_LIMIT', 'WAITING_FOR_RUNTIME'}
             human_gates = {'AWAITING_ASSESSMENT_APPROVAL', 'AWAITING_VALIDATION_APPROVAL',
                            'AWAITING_SPECIFICATIONS_APPROVAL', 'VALIDATION_APPROVED', 'SPECIFICATIONS_APPROVED',
-                           'PACKAGED', 'PROVIDER_REVIEW_REQUIRED', 'BLOCKED'}
+                           'PACKAGED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGE_ACCEPTED', 'PROVIDER_REVIEW_REQUIRED', 'BLOCKED'}
             continuing_review = args.command == 'resume' and project.get('pipeline') and project.get('stage') in review_stages
             if args.command == 'resume' and project.get('stage') in human_gates:
                 args.label = project.get('active_assessment')

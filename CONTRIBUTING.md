@@ -2,6 +2,13 @@
 
 Use a feature branch and a pull request. The repository owner reviews and merges every PR. Do not push directly to main or enable automated merges without explicit owner authorization.
 
+## Branches
+
+- `develop` is the integration branch. Start a feature branch from `develop`. After the tests pass, open a pull request into `develop`.
+- `main` is the release branch. Changes reach `main` only through a pull request from `develop`.
+- Both branches take changes only through a pull request with green CI: Offline tests, Distribution, and Secret scan. The owner merges.
+- There is no other integration branch.
+
 ## Before committing
 
 - Verify the authenticated GitHub login is the intended personal account. Check effective Git author and committer identities, including environment overrides, and verify that their email belongs to that account.

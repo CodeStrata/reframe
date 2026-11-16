@@ -6,7 +6,7 @@ import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from pilot import require, sha, git
+from pilot import actor_provenance, require, sha, git
 from reframe_artifacts import SECTIONS, digest, validate_screens
 import reframe_handoff as handoff
 
@@ -42,7 +42,8 @@ def extract(directory, run, app):
                 'acceptance_criteria':record.get('Acceptance_Criteria'), 'aws_record':record,
                 'evidence_status':'AWS_ASSUMED', 'source_path':item['path'],
                 'source_anchor':f'/{field}/{index}', 'assessment_file_sha256':item['sha256']})
-    require(summaries or rules, 'No supported AWS summaries or business-rule exports found; retain originals and add an importer')
+    require(summaries or rules, 'This assessment has no AWS business-rule export or summary that the skip draft can read. '
+            'The skip draft cannot be built from it. Choose review instead; the sealed originals stay unchanged.')
     return summaries, rules
 
 
@@ -127,6 +128,16 @@ def render(value, rules, summaries):
     return header+'<aside><b>REFRAME</b><p>AWS-based design preview<br>Stakeholder review edition</p>'+nav+'</aside><main>'+body+'</main></html>'
 
 
+def skip_available(project, app):
+    """Whether the selected assessment has rule exports or summaries a skip draft can use, and why not."""
+    try:
+        directory, assessment = app.verified_assessment(project, project['selected'])
+        extract(directory, assessment, app)
+        return True, None
+    except Exception as error:
+        return False, str(error)
+
+
 def run(work, project, args, app, runtime=None):
     """Write the wireframe draft after the owner skips independent verification. A saved draft is reused."""
     require(args.skip_validation, 'Use --skip-validation to explicitly choose AWS-assumed preparation')
@@ -140,11 +151,13 @@ def run(work, project, args, app, runtime=None):
     recorded=project.get('verification_skip')
     if recorded:
         require(recorded.get('owner')==args.by.strip() and recorded.get('reason')==args.note.strip()
-                and recorded.get('assessment_sha256')==fingerprint, 'Skip decision differs from the recorded preview')
-    else:
-        project['verification_skip']={'owner':args.by.strip(),'reason':args.note.strip(),
-                                      'assessment_sha256':fingerprint,'at':time.time()}
-        app.persist(work, project)
+                and recorded.get('assessment_sha256')==fingerprint,
+                'A decision to skip verification is already recorded for this assessment with its owner and reason. '
+                'Every draft of this assessment uses that same decision. Use menu 1, which passes the recorded owner and '
+                'reason for you. A different owner or reason is a new decision and needs a new assessment.')
+    # The skip decision is recorded on the project only when a draft exists. A failed attempt binds nothing.
+    decision = recorded or {'owner':args.by.strip(),'reason':args.note.strip(),
+                            'assessment_sha256':fingerprint,'at':time.time(),**actor_provenance()}
     from reframe_workspace import preview_directory
     destination=preview_directory(work,app.name(args.name))
     destination.mkdir(exist_ok=True,mode=0o700)
@@ -168,7 +181,8 @@ def run(work, project, args, app, runtime=None):
     else:
         require(not any(destination.iterdir()), 'Preview directory already contains files; choose a new name')
         state={'status':'DRAFT','verification':'SKIPPED_BY_OWNER','owner':args.by,'reason':args.note,
-               'assessment_sha256':fingerprint,'framework_commit':current,'provider':args.provider,'calls':0,'created_at':time.time()}
+               'assessment_sha256':fingerprint,'framework_commit':current,'provider':args.provider,'calls':0,'created_at':time.time(),
+               'prompt_sha256':sha(app.FRAMEWORK/app.PREVIEW_PROMPT),**actor_provenance()}
         app.write(state_path,state)
     summaries,rules=extract(directory,assessment,app)
     app.write(destination/'rule-catalog.json',rules)
@@ -186,15 +200,27 @@ def run(work, project, args, app, runtime=None):
                 'Preview generation stopped after 3 failed attempts. A saved valid design is reused without another call.')
         context=context_for(summaries,rules,project['scope'],project['settings']['max_context_bytes'])
         context['protocol']=(app.FRAMEWORK/'prompts/pipeline/transform-preview.md').read_text()
+        if project.get('design_plan'):
+            import reframe_design
+            context.update(reframe_design.message_view(work, project))
         if state.get('validation_error'): context['validation_error']=state['validation_error']
         message=json.dumps(context)
         require(len(message.encode())<=project['settings']['max_context_bytes'],'Preview context too large')
         app.require_stage_contract(work, 'task')
         app.require_dollar_cap(project, 'wireframes', args.provider)
+        import reframe_operations as ops
+        kind='skip-draft:'+destination.name
+        try:
+            ops.guard(state, kind, lambda record: (destination/('design-reply-'+str(record.get('call'))+'.json')).is_file())
+        finally:
+            app.write(state_path,state)
         app.persist(work, project)
         state['calls']+=1;app.write(state_path,state)
         provider_run={'settings':project['settings'],'model_calls':state['calls']}
-        value=(runtime or app.model_call)(args.provider,provider_run,destination,'wireframes',message)
+        value=app.tracked_runtime(work, project, kind+':'+str(state['calls']), kind, 'wireframes', args.provider, message,
+                                  lambda: (runtime or app.model_call)(args.provider,provider_run,destination,'wireframes',message),
+                                  str((destination/('design-reply-'+str(state['calls'])+'.json')).relative_to(work)),
+                                  holder=state, save=lambda: app.write(state_path,state))
         app.write(destination/f'design-reply-{state["calls"]}.json',value)
         value=normalize_design(value)
         try: validate(value,rules)
@@ -220,6 +246,7 @@ def run(work, project, args, app, runtime=None):
         manifest=app.read(bundle/'checksums.json')
         require(all(sha(bundle/name)==expected for name,expected in manifest.items()), 'Draft output changed; use a new preview name')
         require(sha(archive) == state['archive_sha256'], 'Draft archive changed')
+        project['verification_skip'] = decision
         project['skip_bundle'] = destination.relative_to(work).as_posix()
         app.persist(work, project)
         return {'status':'DRAFT_READY','verification':'SKIPPED_BY_OWNER','rules':len(rules),'screens':len(value['screens']),
@@ -227,13 +254,14 @@ def run(work, project, args, app, runtime=None):
                 'next_step':'Review the draft with stakeholders. Existing generation reused without model calls.'}
     allowed={'specification.json','rules.json','screens.json','api-contracts.json','implementation-backlog.json',
              'decisions-needed.json','assumptions.json','acceptance-catalog.json','ai-dlc.json','monorepo-layout.txt',
-             'AGENTS.md','SKILL.md','README.md','reframe-notice.md','index.html','rules.html','provenance.json','checksums.json'} | {name+'-prompt.md' for name in SECTIONS} | handoff.NAMES
+             'AGENTS.md','SKILL.md','README.md','reframe-notice.md','index.html','rules.html','provenance.json','checksums.json',
+             'package-manifest.json'} | {name+'-prompt.md' for name in SECTIONS} | handoff.NAMES
     require(all(p.name in allowed and p.is_file() and not p.is_symlink() for p in bundle.iterdir()), 'Unexpected file in draft output directory')
     app.write(bundle/'specification.json',{'scope':project['scope'],'verification':'SKIPPED_BY_OWNER','sections':value['sections'],'questions':value['questions']})
     app.write(bundle/'rules.json',rules)
     app.write(bundle/'screens.json',value['screens']);app.write(bundle/'api-contracts.json',value['apis'])
     app.write(bundle/'implementation-backlog.json',value['work_items']);app.write(bundle/'decisions-needed.json',value['questions'])
-    app.write(bundle/'assumptions.json',{'notice':NOTICE,'skip_decision':{k:state[k] for k in ('owner','reason','assessment_sha256','created_at')},'approvals':{'assessment':'RECORDED','independent_verification':'SKIPPED','SME_architect':'PENDING','business_technical_lead':'PENDING'}})
+    app.write(bundle/'assumptions.json',{'notice':NOTICE,'skip_decision':{k:state[k] for k in ('owner','reason','assessment_sha256','created_at','simulated') if k in state},'approvals':{'assessment':'RECORDED','independent_verification':'SKIPPED','SME_architect':'PENDING','business_technical_lead':'PENDING'}})
     app.write(bundle/'acceptance-catalog.json',[{'rule_id':r['id'],'aws_acceptance_criteria':r['acceptance_criteria'],'status':'NOT RUN','oracle':'Legacy runtime oracle not established'} for r in rules])
     app.write(bundle/'ai-dlc.json',{'version':1,'phase':'DRAFT_ENGINEERING_PREPARATION','verification':'SKIPPED_BY_OWNER','implementation_status':'NOT_STARTED',
         'tools':['kiro','claude-code','codex','cursor'],'entry_points':handoff.entry_points({'review':'index.html','specifications':'specification.json','rules':'rules.json','backlog':'implementation-backlog.json','decisions':'decisions-needed.json'}),
@@ -254,13 +282,24 @@ def run(work, project, args, app, runtime=None):
     app.write(bundle/'provenance.json',{'assessment_sha256':fingerprint,'framework_commit':current,'source_commit':project['source']['commit'],'verification':'SKIPPED_BY_OWNER','generation_framework_commit':state.get('generation_framework_commit',current),'assistance':'Design content generated with '+args.provider+'; AWS rule records imported deterministically','preview_model_calls':state['calls']})
     paths=[item['path'] for item in assessment.get('assessment_index', []) if isinstance(item, dict) and isinstance(item.get('path'), str)]
     paths += [rule['source_path'] for rule in rules if isinstance(rule.get('source_path'), str)]
+    # Copybooks and batch members are named from the pinned checkout, as on the review route.
+    import reframe_optional as optional
+    paths += optional._pinned_inventory_paths(project)
     handoff.write_into(bundle, rules, paths, value['apis'], app.write, directory)
+    import reframe_acceptance
+    app.write(bundle/'package-manifest.json', reframe_acceptance.fr10_manifest(
+        [p.name for p in bundle.iterdir() if p.is_file()] + ['package-manifest.json'], 'skip',
+        {'AWS requirements and traceability, or an explicit provenance statement': 'Skip route: requirements are not part of this draft.'}))
+    app.refuse_packaged_secrets(bundle)
+    import reframe_links
+    reframe_links.require_valid(bundle, 'skip draft')
     app.write(bundle/'checksums.json',{p.name:sha(p) for p in bundle.iterdir() if p.is_file() and p.name!='checksums.json'})
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
         for path in sorted(bundle.iterdir()):
             if path.is_file():path.chmod(0o600);z.write(path,path.name)
     archive.chmod(0o600)
     state.update(status='DRAFT_READY',archive_sha256=sha(archive),bundle_manifest_sha256=sha(bundle/'checksums.json'));app.write(state_path,state)
+    project['verification_skip'] = decision
     project['skip_bundle'] = destination.relative_to(work).as_posix()
     app.persist(work, project)
     return {'status':'DRAFT_READY','verification':'SKIPPED_BY_OWNER','rules':len(rules),'screens':len(value['screens']),

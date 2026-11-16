@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 from pilot import Blocked, require
-from kiro_workflow import private_save, kiro_call, RuntimeUnavailable
+from kiro_workflow import private_save, kiro_call, RuntimeUnavailable, not_started
 
 
 class ProviderSafetyRefusal(Blocked):
@@ -17,7 +17,8 @@ class ProviderSafetyRefusal(Blocked):
 
 def preparation_protocol_hash():
     """Hash the executor and reviewer prompts so a changed protocol is visible."""
-    root = Path(__file__).resolve().parent.parent / 'prompts/pipeline'
+    from pilot import framework_root
+    root = framework_root(__file__) / 'prompts/pipeline'
     return hashlib.sha256(b'\0'.join((root/name).read_bytes() for name in ('executor.md','reviewer.md'))).hexdigest()
 
 
@@ -54,13 +55,13 @@ def claude_uses_api_key():
 def require_claude_login():
     """The Claude CLI subscription must already be signed in. Reframe does not collect credentials."""
     if not shutil.which('claude'):
-        raise RuntimeUnavailable('Install the Claude CLI, run claude auth login, then resume')
+        raise not_started('Install the Claude CLI, run claude auth login, then resume')
     try:
         result = subprocess.run(['claude', 'auth', 'status'], capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise RuntimeUnavailable('Run claude auth login, then resume') from error
+        raise not_started('Run claude auth login, then resume') from error
     if result.returncode != 0:
-        raise RuntimeUnavailable('Run claude auth login, then resume')
+        raise not_started('Run claude auth login, then resume')
 
 
 def call(provider, run, directory, role, message):
@@ -71,7 +72,7 @@ def call(provider, run, directory, role, message):
         return kiro_call(run, directory, role, message)
     executable = 'claude' if provider == 'claude' else 'codex'
     if not shutil.which(executable):
-        raise RuntimeUnavailable(f'Install and authenticate {executable}, then resume')
+        raise not_started(f'Install and authenticate {executable}, then resume')
     if provider == 'claude' and not claude_uses_api_key():
         require_claude_login()
     work = directory / 'runtime' / role

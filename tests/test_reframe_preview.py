@@ -2,6 +2,7 @@ import copy
 import json
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 import zipfile
 from unittest.mock import patch
 
@@ -136,6 +137,103 @@ class PreviewTests(unittest.TestCase):
         state=app.read(self.work/'previews'/'transform-direct'/'preview-state.json')
         self.assertEqual(state['calls'],1)
         self.assertEqual(self.project['pipeline']['calls'],64)
+
+    def test_a_failed_skip_attempt_records_no_skip_decision(self):
+        def failed(*_args):
+            raise RuntimeError('provider failed before a design')
+        with self.assertRaises(RuntimeError):
+            preview.run(self.work, self.project, self.arguments, app, failed)
+        self.assertNotIn('verification_skip', self.project)
+        self.assertNotIn('verification_skip', app.read(self.work / 'project.json'))
+        (self.findings / 'rules.json').write_text(json.dumps({'rules': ['reject zero amount']}))
+        other = fixtures.PreparationTests('test_missing_sme_decision_blocks_validation_approval')
+        other.setUp()
+        self.addCleanup(other.doCleanups)
+        (other.findings / 'rules.json').write_text(json.dumps({'rules': ['reject zero amount']}))
+        other.assess()
+        other.approve('assessment', '--label', 'a', '--confirm-source-match')
+        available, why = preview.skip_available(other.project, app)
+        self.assertFalse(available)
+        self.assertIn('Choose review instead', why)
+        with self.assertRaisesRegex(Blocked, 'Choose review instead'):
+            preview.run(other.work, other.project, self.arguments, app, self.runtime)
+        self.assertNotIn('verification_skip', app.read(other.work / 'project.json'))
+        self.assertTrue(preview.skip_available(self.project, app)[0])
+
+    def test_validation_of_findings_without_source_lines_stops_before_any_call(self):
+        self.project['pipeline'] = {'calls': 0}
+        self.project['stage'] = 'ASSESSMENT_APPROVED'
+        app.persist(self.work, self.project)
+        for _ in range(2):
+            with self.assertRaises(Blocked) as raised:
+                app.pipeline(self.work, self.project, SimpleNamespace(command='prepare'),
+                             lambda *a: self.fail('No model call for an unanchored export'))
+            self.assertEqual(raised.exception.cause, 'EVIDENCE_MISSING')
+            self.assertIn('No model call was made', str(raised.exception))
+            self.assertIn('skip route', raised.exception.hint)
+            self.assertEqual(app.read(self.work / 'project.json')['pipeline'].get('calls', 0), 0)
+
+    def test_skip_readiness_counts_the_draft_questions_and_the_skip_record_is_labeled(self):
+        import os
+        import reframe_acceptance as acceptance
+        with patch.dict(os.environ, {'REFRAME_SIMULATED_ACTOR': '1'}):
+            preview.run(self.work, self.project, self.arguments, app, self.runtime)
+        state = acceptance.readiness(self.work, self.project, app)
+        self.assertIn({'kind': 'decision', 'id': 'Q1', 'state': 'unrecorded', 'blocks': 'Implementation'}, state['blockers'])
+        assumptions = app.read(self.work / 'previews' / 'transform-direct' / 'handoff' / 'assumptions.json')
+        self.assertTrue(assumptions['skip_decision']['simulated'])
+
+    def test_skip_draft_names_copybooks_and_batch_members_from_the_pinned_checkout(self):
+        import pilot
+        stub = pilot.git
+        listing = lambda folder, *args: 'rule.cbl\ncpy/AMOUNT.cpy\njcl/NIGHTLY.jcl' if args == ('ls-files',) else stub(folder, *args)
+        with patch('pilot.git', side_effect=listing):
+            preview.run(self.work, self.project, self.arguments, app, self.runtime)
+        handoff_dir = self.work / 'previews' / 'transform-direct' / 'handoff'
+        self.assertIn('cpy/AMOUNT.cpy', json.dumps(app.read(handoff_dir / 'field-inventory.json')))
+        self.assertIn('jcl/NIGHTLY.jcl', json.dumps(app.read(handoff_dir / 'batch-inventory.json')))
+
+    def test_skip_route_requirements_get_coverage_and_the_skip_owner_stays_labeled(self):
+        import os
+        import reframe_acceptance as acceptance
+        import reframe_optional as optional
+        with patch.dict(os.environ, {'REFRAME_SIMULATED_ACTOR': '1'}):
+            preview.run(self.work, self.project, self.arguments, app, self.runtime)
+        self.assertTrue(optional._verification_record(self.project)['simulated'])
+        requirement = {'id': 'aws-req:F1:F1-R1', 'original_id': 'F1-R1'}
+        with patch('reframe_requirements.active_set', return_value={'requirements': [requirement]}):
+            rows = acceptance.skip_requirement_coverage(self.work, self.project)
+            state = acceptance.readiness(self.work, self.project, app)
+        self.assertEqual([(row['id'], row['disposition']) for row in rows], [('aws-req:F1:F1-R1', 'gap')])
+        self.assertTrue(any(item['kind'] == 'coverage' and item['id'] == 'aws-req:F1:F1-R1' for item in state['blockers']))
+
+    def test_a_skip_route_with_a_design_approval_can_record_a_controller_update(self):
+        import argparse
+        import os
+        preview.run(self.work, self.project, self.arguments, app, self.runtime)
+        self.project['approvals']['design'] = {'by': 'Architect', 'note': 'Reviewed the draft'}
+        self.assertIsNone(app.upgrade_refusal(self.work, self.project), 'the draft prompt is unchanged')
+        self.project['framework_commit'] = 'b' * 40
+        with patch.dict(os.environ, {'REFRAME_SIMULATED_ACTOR': '1'}):
+            result = app.upgrade_framework(self.work, self.project, argparse.Namespace(
+                note='Controller fix only', adopt_prompts=False, by='Architect'))
+        self.assertEqual(result['status'], 'FRAMEWORK_UPDATED')
+        self.assertIn('design', self.project['approvals'], 'the design approval is kept')
+        events = {event['event']: event for event in self.project['events'] if event['event'].startswith('framework_')}
+        for name in ('framework_upgraded', 'framework_audit'):
+            self.assertEqual((events[name]['by'], events[name]['simulated']), ('Architect', True), name)
+        self.assertEqual(self.project['approvals']['design']['framework_audits'][-1]['by'], 'Architect')
+        state_path = self.work / 'previews' / 'transform-direct' / 'preview-state.json'
+        state = app.read(state_path)
+        app.write(state_path, {**state, 'prompt_sha256': '0' * 64})
+        self.assertIn('bound to the preview prompt', app.upgrade_refusal(self.work, self.project))
+        state.pop('prompt_sha256')
+        app.write(state_path, state)
+        with patch.object(app, 'git', side_effect=Blocked('no checkout')):
+            self.assertTrue(app.skip_draft_prompt_changed(self.work, self.project),
+                            'an older draft whose prompt cannot be shown is not assumed compatible')
+        self.project.pop('skip_bundle')
+        self.assertIn('no specification or saved skip draft', app.upgrade_refusal(self.work, self.project))
 
     def test_untrusted_screen_text_is_escaped(self):
         def runtime(*args):
