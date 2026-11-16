@@ -228,7 +228,7 @@ class PreparationTests(unittest.TestCase):
             self.assertTrue(json.loads(archive.read('extraction-reading.json'))['source_stays_pinned'])
             self.assertEqual(json.loads(archive.read('rule-coverage.json'))['status'], 'COMPLETE')
             self.assertEqual(json.loads(archive.read('capability-map.json'))['acceptance'], 'PROPOSAL')
-        self.assertEqual(self.project['stage'], 'PACKAGED')
+        self.assertEqual(self.project['stage'], 'AWAITING_PACKAGE_ACCEPTANCE')
         with zipfile.ZipFile(result['archive']) as archive:
             self.assertEqual(json.loads(archive.read('provenance.json'))['pins']['prompt_hash'], app.preparation_protocol_hash())
 
@@ -315,7 +315,7 @@ class PreparationTests(unittest.TestCase):
         app.approve(self.work, self.project, self.args(
             'approve', 'verification-skip', '--by', 'Second owner', '--note', 'Verification was skipped'))
         result = app.package(self.work, self.project)
-        self.assertEqual(result['status'], 'PACKAGED')
+        self.assertEqual(result['status'], 'AWAITING_PACKAGE_ACCEPTANCE')
         with zipfile.ZipFile(result['archive']) as archive:
             self.assertEqual(json.loads(archive.read('provenance.json'))['verification'], 'SKIPPED_BY_OWNER')
             self.assertEqual(json.loads(archive.read('ai-dlc.json'))['verification'], 'SKIPPED_BY_OWNER')

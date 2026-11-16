@@ -626,6 +626,12 @@ def implementation_readiness(project):
     return 'NO_UNRESOLVED_DECISIONS'
 
 
+def package_readiness(work, project):
+    """Readiness from every recorded blocker, not only decisions."""
+    import reframe_acceptance as acceptance
+    return acceptance.readiness(work, project, sys.modules[__name__])
+
+
 def require_clear_for_final(work, action, scope_ids=None):
     """Block a final approval only while an open context conflict affects its scope. Unscoped conflicts affect all."""
     import reframe_optional as optional
@@ -2917,8 +2923,10 @@ def package(work, project):
         'gates': ['Review unresolved and deferred decisions before affected implementation',
                   'Independent code review and executed acceptance tests before release'],
         'implementation_status': 'NOT_STARTED',
-        'workflow_status': 'PACKAGE_ACCEPTED',
-        'implementation_readiness': implementation_readiness(project),
+        'workflow_status': 'AWAITING_PACKAGE_ACCEPTANCE',
+        'workflow_status_note': 'Building this package does not accept it. Acceptance is a separate ledger entry outside this archive.',
+        'implementation_readiness': package_readiness(work, project)['state'],
+        'implementation_blockers': package_readiness(work, project)['blockers'],
         'unresolved_decision_count': unresolved_decision_count(project)})
     (destination / 'AGENTS.md').write_text(
         '# Engineering instructions\n\nRead ai-dlc.json, specification.json, decisions.json and traceability.json first.\n'
@@ -2982,10 +2990,18 @@ def package(work, project):
             path.chmod(0o600)
             bundle.write(path, path.name)
     archive.chmod(0o600)
-    project['package'] = {'path': str(archive.relative_to(work)), 'sha256': sha(archive)}
-    project['stage'] = 'PACKAGED'
+    import reframe_acceptance as acceptance
+    import reframe_versions
+    project['package'] = {'path': str(archive.relative_to(work)), 'sha256': sha(archive), 'route': 'review',
+                          'manifest_sha256': sha(destination / 'checksums.json'),
+                          'verification': 'SKIPPED_BY_OWNER' if project.get('verification_skip') else 'INDEPENDENTLY_REVIEWED',
+                          'status': acceptance.AWAITING, 'built_at': time.time()}
+    project['stage'] = acceptance.AWAITING
+    project['package']['version_id'] = reframe_versions.record(work, project, 'package built')
     persist(work, project)
-    return {'status': 'PACKAGED', 'archive': str(archive), 'sha256': sha(archive)}
+    return {'status': acceptance.AWAITING, 'archive': str(archive), 'sha256': sha(archive),
+            'next_step': 'Review the package, then reframe --workspace ' + str(work)
+                         + ' accept-package --sha256 ' + sha(archive) + ' --by YOUR_NAME --note YOUR_REASON'}
 
 
 def compare(work, project, args):
@@ -3244,6 +3260,12 @@ def parser():
     recover_counter = commands.add_parser('recover-ui-call', help='Release a recorded pre-dispatch wireframe reservation')
     recover_counter.add_argument('--confirm', action='store_true')
     recover_counter.add_argument('--note', required=True)
+    commands.add_parser('package-review', help='Show the package inventory, exact hash, approval basis, gaps, and readiness')
+    accept_package = commands.add_parser('accept-package', help='Accept one exact package by its SHA-256; recorded outside the archive')
+    accept_package.add_argument('--sha256', required=True)
+    accept_package.add_argument('--by', required=True)
+    accept_package.add_argument('--note', required=True)
+    accept_package.add_argument('--simulated', action='store_true', help='Mark a test-only acceptance; never genuine sign-off')
     commands.add_parser('recovery-plan', help='Read-only plan: verify hashes and receipts, classify saved outputs, list needed authorizations')
     reconcile_op = commands.add_parser('reconcile-operation', help='Record the outcome of an uncertain provider call; it stays counted')
     reconcile_op.add_argument('--id', required=True)
@@ -3394,8 +3416,10 @@ def main(argv=None, reporter=None):
                 result['last_stop'] = {k: v for k, v in stop_record.items() if k != 'reason'}
             if isinstance(project.get('last_cancellation'), dict):
                 result['last_cancellation'] = project['last_cancellation']
+            readiness = package_readiness(work, project)
             result['summary'] = reframe_states.summary(work, project, result['questions'], budget_summary(project, work),
-                                                       implementation_readiness(project))
+                                                       readiness['state'])
+            result['readiness'] = readiness
         elif getattr(args, 'detach', False):
             require((work / 'project.json').is_file(), 'Initialize first')
             with locked(work) as project:
@@ -3434,7 +3458,7 @@ def main(argv=None, reporter=None):
                         result = review_site(work, project, SimpleNamespace(provider=None))
                     elif args.command == 'resume' and project['stage'] == 'SPECIFICATIONS_APPROVED':
                         result = package(work, project)
-                    elif args.command == 'resume' and project['stage'] in {'AWAITING_ASSESSMENT_APPROVAL', 'AWAITING_VALIDATION_APPROVAL', 'AWAITING_SPECIFICATIONS_APPROVAL', 'PACKAGED', 'PROVIDER_REVIEW_REQUIRED', 'BLOCKED', 'REWORK_LIMIT'}:
+                    elif args.command == 'resume' and project['stage'] in {'AWAITING_ASSESSMENT_APPROVAL', 'AWAITING_VALIDATION_APPROVAL', 'AWAITING_SPECIFICATIONS_APPROVAL', 'PACKAGED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGE_ACCEPTED', 'PROVIDER_REVIEW_REQUIRED', 'BLOCKED', 'REWORK_LIMIT'}:
                         result = {'status': project['stage'], 'next_step': next_step(project)}
                     elif args.command == 'relocate':
                         import reframe_workspace
@@ -3492,6 +3516,18 @@ def main(argv=None, reporter=None):
                             result = optional.approve_delta(work, args.version, args.id, args.by, args.note)
                         else:
                             result = optional.resolve_conflict(work, args.id, args.resolution, args.by, args.note)
+                    elif args.command == 'package-review':
+                        import reframe_acceptance as acceptance
+                        result = acceptance.review(work, project, sys.modules[__name__])
+                    elif args.command == 'accept-package':
+                        import reframe_acceptance as acceptance
+                        entry = acceptance.accept(work, project, sys.modules[__name__], args.sha256, args.by, args.note,
+                                                  args.simulated)
+                        persist(work, project)
+                        result = {'status': project['stage'], 'package_sha256': entry['package_sha256'],
+                                  'ledger_entry': entry['entry_sha256'], 'simulated': entry['simulated'],
+                                  'implementation_readiness': entry['readiness'],
+                                  'note': 'Accepted this handoff version only. Blocked work stays blocked.'}
                     elif args.command == 'requirements':
                         result = requirements_command(work, project, args)
                     elif args.command == 'design-export':

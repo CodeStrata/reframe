@@ -24,7 +24,7 @@ ACTIONS = {'1':'flow', '2':'assess', '3':'status', '4':'resume', '5':'compare',
            '6':'validate', '7':'review-site', '8':'package', '9':'guide', '0':'exit'}
 DEMO_STAGES = ['READY_TO_ASSESS', 'AWAITING_ASSESSMENT_APPROVAL', 'ASSESSMENT_APPROVED',
                'AWAITING_VALIDATION_APPROVAL', 'VALIDATION_APPROVED',
-               'AWAITING_SPECIFICATIONS_APPROVAL', 'SPECIFICATIONS_APPROVED', 'PACKAGED']
+               'AWAITING_SPECIFICATIONS_APPROVAL', 'SPECIFICATIONS_APPROVED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGE_ACCEPTED']
 
 
 def recovery_notice(reason, result=None):

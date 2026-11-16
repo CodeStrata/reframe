@@ -345,7 +345,7 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         self.assertIn('Resuming the saved review', '\n'.join(second) + console)
         project = journey.reload()
         self.assertGreaterEqual(project['pipeline']['calls'], spent)
-        self.assertEqual(project['stage'], 'PACKAGED', console + '\n' + '\n'.join(second))
+        self.assertEqual(project['stage'], 'AWAITING_PACKAGE_ACCEPTANCE', console + '\n' + '\n'.join(second))
         self.assertIn('validation', project['approvals'])
         self.assertNotIn('assess', [role for role in state['calls']])
         design = json.loads((journey.work / 'previews' / 'v1' / 'design.json').read_text())
@@ -383,7 +383,7 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         approval = reframe.main(['approve', 'specifications', '--by', 'Ari', '--note', 'Try the final gate'],
                                 reporter=lambda value: None)
         self.assertEqual(approval, 2)
-        self.assertEqual(packaged['stage'], 'PACKAGED')
+        self.assertEqual(packaged['stage'], 'AWAITING_PACKAGE_ACCEPTANCE')
         text = '\n'.join(first + ['', '--- resume ---', ''] + second + ['', '--- conflict ---', ''] + blocked)
         path = Path(__file__).resolve().parents[1] / 'acceptance-review-transcript.txt'
         path.write_text(text + '\n\n' + console + '\n')

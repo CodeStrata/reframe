@@ -86,7 +86,7 @@ class WorkflowJourneyTests(unittest.TestCase):
             app.merge_wireframe_responses(parts)
         self.assertEqual([sha(path) for path in paths], before)
 
-    def test_deferred_package_is_accepted_and_not_implementation_ready(self):
+    def test_deferred_package_awaits_acceptance_and_stays_not_implementation_ready(self):
         inner = self.inner
         inner.validated()
         path = inner.work / inner.project['specification']['path']
@@ -149,11 +149,30 @@ class WorkflowJourneyTests(unittest.TestCase):
         packaged = app.read(inner.work / 'project.json')
         archive = next((inner.work / 'packages').glob('package-*/ai-dlc.json'))
         record = json.loads(archive.read_text())
-        self.assertEqual(record['workflow_status'], 'PACKAGE_ACCEPTED')
+        self.assertEqual(record['workflow_status'], 'AWAITING_PACKAGE_ACCEPTANCE')
         self.assertEqual(record['implementation_readiness'], 'BLOCKED_BY_UNRESOLVED_DECISIONS')
         self.assertEqual(record['unresolved_decision_count'], 1)
         self.assertEqual(record['implementation_status'], 'NOT_STARTED')
-        self.assertEqual(packaged['stage'], 'PACKAGED')
+        self.assertEqual(packaged['stage'], 'AWAITING_PACKAGE_ACCEPTANCE')
+        self.assertNotIn('package_acceptance', packaged)
+        zip_path = inner.work / packaged['package']['path']
+        before = zip_path.read_bytes()
+        refused = []
+        code = app.main(['--workspace', str(inner.work), 'accept-package', '--sha256', '0' * 64, '--by', 'Owner',
+                         '--note', 'Wrong hash'], reporter=refused.append)
+        self.assertEqual(code, 2)
+        self.assertIn('does not match', refused[-1]['reason'])
+        accepted = []
+        code = app.main(['--workspace', str(inner.work), 'accept-package', '--sha256', packaged['package']['sha256'],
+                         '--by', 'Owner', '--note', 'Accept this conditional handoff for review', '--simulated'],
+                        reporter=accepted.append)
+        self.assertEqual(code, 0, accepted)
+        self.assertEqual(accepted[-1]['status'], 'PACKAGE_ACCEPTED')
+        self.assertEqual(accepted[-1]['implementation_readiness'], 'BLOCKED_BY_UNRESOLVED_DECISIONS')
+        self.assertTrue(accepted[-1]['simulated'])
+        self.assertEqual(zip_path.read_bytes(), before)
+        ledger = (inner.work / 'acceptance' / 'ledger.jsonl').read_text().splitlines()
+        self.assertEqual(json.loads(ledger[-1])['package_sha256'], packaged['package']['sha256'])
         self.assertNotIn('assess', roles)
         for page in archive.parent.glob('*.html'):
             for href in re.findall(r'href="([^"]+)"', page.read_text()):

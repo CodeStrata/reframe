@@ -642,7 +642,10 @@ def next_step(project):
             return 'Use /flow and choose review. The next question asks before the cap is raised.'
         return 'Review reframe prepare-plan and the call budget, then reframe validate'
     if project.get('pending_action'): return 'reframe resume'
-    if stage == 'PACKAGED': return 'Inspect the generated package and its deferred work boundaries.'
+    if stage in {'PACKAGED', 'AWAITING_PACKAGE_ACCEPTANCE'}:
+        return 'Review the package (reframe package-review), then accept its exact SHA-256 or give package feedback.'
+    if stage == 'PACKAGE_ACCEPTED':
+        return 'The handoff is accepted. Implementation readiness is reported separately; blocked work stays blocked.'
     if stage == 'SPECIFICATIONS_APPROVED': return 'reframe package'
     if stage == 'AWAITING_SPECIFICATIONS_APPROVAL': return 'Review the HTML, then reframe approve specifications'
     if stage == 'VALIDATION_APPROVED':
@@ -699,7 +702,7 @@ def prepare_command(args, work, project):
                              'RUNNING_EXECUTOR', 'RUNNING_REVIEWER', 'REWORK_LIMIT', 'WAITING_FOR_RUNTIME'}
             human_gates = {'AWAITING_ASSESSMENT_APPROVAL', 'AWAITING_VALIDATION_APPROVAL',
                            'AWAITING_SPECIFICATIONS_APPROVAL', 'VALIDATION_APPROVED', 'SPECIFICATIONS_APPROVED',
-                           'PACKAGED', 'PROVIDER_REVIEW_REQUIRED', 'BLOCKED'}
+                           'PACKAGED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGE_ACCEPTED', 'PROVIDER_REVIEW_REQUIRED', 'BLOCKED'}
             continuing_review = args.command == 'resume' and project.get('pipeline') and project.get('stage') in review_stages
             if args.command == 'resume' and project.get('stage') in human_gates:
                 args.label = project.get('active_assessment')

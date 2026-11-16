@@ -594,7 +594,8 @@ def run(ui):
             say_review(ui, 'The approved package is ready to review.', package_rows(ui.project()))
             finish_guided_design(ui, ui.project() or project)
             return
-        if stage == 'PACKAGED':
+        from reframe_acceptance import built_stage
+        if built_stage(stage):
             say_review(ui, 'The approved package is already written.', package_rows(project))
             finish_guided_design(ui, project)
             return
