@@ -494,7 +494,8 @@ def import_files(work, project, requirements_file, traceability_file, function_i
                       producing_job_id=job_id, functions=[function_id], by=by, note=origin_note)
 
 
-REQ_ID = re.compile(r'\b([A-Z][A-Z0-9]*(?:[-_.][A-Z0-9]+)*[-_.]\d+[A-Z0-9]*)\b')
+# The last segment may carry a letter prefix, so F1-R1 is read as well as REQ-1.
+REQ_ID = re.compile(r'\b([A-Z][A-Z0-9]*(?:[-_.][A-Z0-9]+)*[-_.][A-Z]*\d+[A-Z0-9]*)\b')
 EARS = re.compile(r'\b(shall|SHALL)\b')
 
 

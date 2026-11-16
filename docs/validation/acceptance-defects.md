@@ -1,10 +1,10 @@
-# Acceptance defects from candidate `d65d86f` and their fixes
+# Acceptance defects and their fixes
 
 The independent acceptance agent's first report on `d65d86f` was **FAIL**: one blocker, six major defects, and thirteen minor ones. See `acceptance-report-d65d86f.md`.
 
 Every defect below was fixed in `ccd9777` or `351d34c` and has a regression test. No test expectation was weakened. Where a journey script changed, the change reflects the corrected behavior, and the test now asserts that behavior.
 
-The re-test on the new candidate `351d34c` is in `acceptance-report-r2.md`.
+The re-test on candidate `351d34c` is in `acceptance-report-351d34c.md`. Its defects are in the round-two table below.
 
 | # | Severity | Defect | Fix | Regression test |
 | --- | --- | --- | --- | --- |
@@ -29,6 +29,28 @@ The re-test on the new candidate `351d34c` is in `acceptance-report-r2.md`.
 | D20 | minor | Status inconsistencies | Workflow and implementation blockers are separated; an older stop is marked historical; the last local action is recorded through acceptance; the historical service detail is labeled; rule coverage counts dispositions | `test_acceptance::test_status_after_acceptance_is_consistent` |
 
 D5 in the report was a pointer to D13.
+
+## Round two: candidate `351d34c`
+
+The re-test was **FAIL**: two blockers (N1, N2), six major defects, and two minor ones. It also found three round-one fixes incomplete (D12, D13, D14).
+
+Each fix below has a regression test. Each new test was also run against a copy of `351d34c` and fails there, so it covers the defect as reported.
+
+| # | Severity | Defect | Fix | Regression test |
+| --- | --- | --- | --- | --- |
+| N1 | blocker | A rule export without source lines spent every review call, then blocked; each resume spent one more | The source-line check runs before any call is reserved. It names the findings, says no model call was made, and points to re-export or the skip route. | `test_reframe_preview::test_validation_of_findings_without_source_lines_stops_before_any_call` |
+| N2 | blocker | A skip + Reimagine package failed its link check, and the failed build left a folder that blocked every retry | Both package builders write into a staging folder; only a complete build takes the package name, and a failed one leaves nothing. The skip package carries `review.html`, `api.html`, `usage.html`, and `openapi.json`, so its screen and future-state links resolve. | `test_menu_journeys::test_skip_route_reimagine_package_carries_its_reference_pages_and_proposals` |
+| N2b | major | Skip-route Reimagine proposals were not shown at design review | The design gate exports and lists the proposals on both routes; the package carries that same completed version | the N2 journey asserts the proposal step |
+| N3 | major | Skip-route readiness ignored the draft's open questions | Without a specification, readiness reads the skip draft's `decisions-needed.json` | `test_reframe_preview::test_skip_readiness_counts_the_draft_questions_and_the_skip_record_is_labeled` |
+| N4 | major | The skip manifest said a second person had accepted the skip before that happened | The note says a second person must accept the skip before package acceptance, and that the acceptance is recorded in the ledger | the N2 journey |
+| N5 | minor | The skip package had no OpenAPI | Fixed with N2 | the N2 journey |
+| N6 | major | Skip-route copybook and batch inventories were empty | The skip draft names members from the pinned checkout, as the review route does | `test_reframe_preview::test_skip_draft_names_copybooks_and_batch_members_from_the_pinned_checkout` |
+| N7 | major | A conflict deferral's person and reason were overwritten by the later resolution | An earlier resolution moves to the conflict's `history` before a new one is recorded; each record has a time | `test_context_validation::test_a_conflict_on_a_specification_rule_blocks_validation_approval` |
+| N8 | minor | Usability: a step bound mid-flow, "Authorized Stages 0", the skip package link pointing at the draft, a repeated "Recovery" row, "5 items" for one record, a refused name leaving the gate | The bound is 40 steps and its message says it is a safety bound; the result reports a stage count; the link points at the package folder; the notice row is "Recovery guidance"; a record shows as "1 record"; a refused name is asked again twice | `test_terminal::PrivacyPresentationTests`; the D14 flow test (refused name) |
+| N9 | minor | Traceability: two id forms for one rule on the skip route, `source_path: rules.json`, a synthetic `recorded` journey | Not fixed. Listed as a known limitation in the review package. | — |
+| D12 | major | Ids such as `F1-R1` were not recognized | The last id segment may carry a letter prefix | `test_requirements::test_heading_requirements_are_read_and_nothing_is_dropped_silently` |
+| D13 | minor | The skip draft's `assumptions.json` skip decision lacked `simulated` | The label is carried | the N3 test |
+| D14 | major | After a retry was authorized, menu 1 did not generate the site; a declined retry was never offered again | /flow offers the retry whenever a failed wireframe call has no site yet; an authorized retry runs review-site at once | `test_guided_flow::test_a_failed_wireframe_call_is_offered_again_and_an_authorized_attempt_runs` |
 
 ## Operator note from the acceptance run
 

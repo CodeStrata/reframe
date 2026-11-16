@@ -137,6 +137,11 @@ class ContextAndValidationTests(m1.WorkspaceFixture):
         optional.resolve_conflict(self.work, conflict['id'], 'keep-evidence', 'Architect', 'The source rejects zero')
         app.approve(self.work, self.project, approve)
         self.assertIn('validation', self.project['approvals'])
+        resolved = next(item for item in optional.context_status(self.work)['conflicts'] if item['id'] == conflict['id'])
+        self.assertEqual(resolved['resolution'], 'keep-evidence')
+        self.assertEqual([(item['resolution'], item['resolved_by'], item['resolution_note']) for item in resolved['history']],
+                         [('needs-more-evidence', 'Architect', 'Ask the business owner')],
+                         'the deferral keeps its person and reason after the resolution')
 
     def test_all_fr04_categories_are_accepted_and_unknown_ones_refused(self):
         for index, category in enumerate(optional.CATEGORIES):

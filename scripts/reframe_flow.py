@@ -127,8 +127,7 @@ def package_rows(project):
     recorded = package.get('path')
     if work and recorded:
         archive = work / recorded
-        folder = (work / project['skip_bundle'] / 'handoff') if package.get('route') == 'skip' and project.get('skip_bundle') \
-            else archive.with_suffix('')
+        folder = archive.with_suffix('')
         return [
             (label, 'ZIP', str(archive)),
             ('Package files', 'HTML, JSON, and Markdown', str(folder)),
@@ -404,6 +403,11 @@ def reviewer(ui):
 
 def approver(ui, what):
     """Ask who makes this approval at this gate. The session name is offered, never assumed."""
+    for _attempt in range(2):
+        value = ui.ask('Who ' + what + '? Their name is recorded on it', reviewer(ui))
+        if str(value or '').strip() and str(value).strip().casefold() not in NOT_A_NAME:
+            return value.strip()
+        ui.say('Enter a person\'s name, not "' + str(value or '').strip() + '". Nothing was recorded.')
     return _person(ui.ask('Who ' + what + '? Their name is recorded on it', reviewer(ui)))
 
 
@@ -568,7 +572,8 @@ def design_review(ui, project, skip_route):
     plan = project.get('design_plan') or {}
     if not offer_context(ui, 'design'):
         return 'stop'
-    if plan.get('mode') == 'reimagine' and not skip_route:
+    # Both routes show the Reimagine proposals here; the package carries this same completed version.
+    if plan.get('mode') == 'reimagine':
         exported = ui.invoke(['design-export', '--version', plan['version'], '--mode', 'reimagine', '--stack',
                               (plan.get('target') or {}).get('language') or 'unspecified']) == 0
         if not exported and 'immutable' in str((getattr(ui, 'last_report', None) or {}).get('reason') or ''):
@@ -694,9 +699,12 @@ def offer_wireframe_retry(ui):
     if not ui.yes('Authorize one new wireframe attempt now?'):
         ui.say('Paused. Nothing was changed. /flow offers the new attempt again.')
         return False
-    owner = ui.ask('Who authorizes the new attempt')
+    owner = approver(ui, 'authorizes the new attempt')
     note = ui.ask('Why a new attempt is acceptable')
-    return ui.invoke(['retry-wireframes', '--by', owner, '--note', note]) == 0
+    if ui.invoke(['retry-wireframes', '--by', owner, '--note', note]) != 0:
+        return False
+    ui.say('The new attempt is authorized. Generating the review site now.')
+    return ui.invoke(['review-site']) == 0 or offer_wireframe_retry(ui)
 
 
 def say_design_recovery(ui):
@@ -714,6 +722,9 @@ def say_design_recovery(ui):
 def category_was_future(context, names):
     """True when this turn imported a future-state note."""
     return context not in {'', 'none'} and names.get('category') == 'future-state' and names.get('disposition') == 'accepted'
+
+
+FLOW_STEPS = 40
 
 
 def run(ui):
@@ -760,10 +771,18 @@ def run(ui):
     if not project or project.get('stage') in {'INITIALIZED', 'WAITING_FOR_CONNECTOR_APPROVAL'}:
         if ui.invoke(['init', '--guided']) != 0:
             return
-    for _ in range(12):
+    for _ in range(FLOW_STEPS):
         project = ui.project()
         require(project is not None, 'Setup did not save a project; use /flow to retry')
         stage = project['stage']
+        import reframe
+        work = workspace_path()
+        if work and not project.get('site') and project.get('approvals', {}).get('validation') \
+                and reframe.failed_wireframe_stages(work, project):
+            # A failed wireframe call is offered again on every /flow until a person authorizes or stops.
+            if not offer_wireframe_retry(ui):
+                return
+            continue
         approved = bool(project.get('approvals', {}).get('assessment'))
         if not record_framework_update(ui, project):
             return
@@ -952,4 +971,4 @@ def run(ui):
                 continue
         ui.say('Work is saved. Use /flow to continue; inspect /status for any pending service task or blocker.')
         return
-    ui.say('Paused after multiple transitions. Use /flow to continue from saved state.')
+    ui.say('Paused after ' + str(FLOW_STEPS) + ' steps in one /flow, a safety bound. Everything is saved; /flow continues from here.')

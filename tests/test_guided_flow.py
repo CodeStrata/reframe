@@ -441,6 +441,34 @@ class GuidedFlowTests(unittest.TestCase):
                                                        'needs-more-evidence', '--by', 'Dana', '--note', 'Waiting for the business owner'])
         self.assertIn('keeps blocking the approvals it affects', '\n'.join(lines))
 
+    def test_a_failed_wireframe_call_is_offered_again_and_an_authorized_attempt_runs(self):
+        project = {'stage': 'BLOCKED', 'approvals': {'assessment': True, 'validation': True}}
+        failed = [{'index': 0, 'status': 'failed'}]
+        with tempfile.TemporaryDirectory() as root, patch('reframe_setup.workspace', return_value=Path(root)), \
+                patch('reframe.failed_wireframe_stages', side_effect=lambda *_a: failed):
+            ui = self.ui(project, ['continue'], gates=False)
+            ui.yes.return_value = False
+            lines = self.said(ui)
+            run(ui)
+            self.assertIn('/flow offers the new attempt again', '\n'.join(lines))
+            self.assertEqual([call.args[0] for call in ui.invoke.call_args_list], [], 'declining changes nothing')
+            ui = self.ui(project, ['continue', 'y', 'Dana', 'The provider outage is over'], gates=False)
+            ui.reviewer_name = 'Ari'
+            ui.yes.return_value = True
+            lines = self.said(ui)
+
+            def invoke(command):
+                if command[0] == 'review-site':
+                    failed.clear()
+                return 0
+
+            ui.invoke.side_effect = invoke
+            run(ui)
+        invoked = [call.args[0] for call in ui.invoke.call_args_list]
+        self.assertEqual(invoked[:2], [['retry-wireframes', '--by', 'Dana', '--note', 'The provider outage is over'],
+                                       ['review-site']])
+        self.assertIn('Enter a person\'s name, not "y"', '\n'.join(lines))
+
     def test_specifications_review_names_the_wireframes_and_json(self):
         ui = self.ui({'stage':'AWAITING_SPECIFICATIONS_APPROVAL', 'approvals':{'assessment':True, 'validation':True},
                       'site':{'directory':'previews/business-1'}}, ['continue'])

@@ -31,9 +31,17 @@ def _questions(work, project, app):
         spec = app.read(app.spec_path(work, project)) if project.get('specification') else {}
     except Exception:
         spec = {}
+    questions = spec.get('questions') or []
+    if not project.get('specification') and project.get('verification_skip') and project.get('skip_bundle'):
+        # The skip route has no specification. Its open questions are the draft's decisions-needed.json.
+        bundle = Path(work) / project['skip_bundle'] / 'handoff' / 'decisions-needed.json'
+        try:
+            questions = app.read(bundle) if bundle.is_file() else []
+        except Exception:
+            questions = [{'id': 'decisions-needed.json', 'blocks': 'unreadable'}]
     decisions = project.get('decisions') or {}
     rows = []
-    for question in spec.get('questions') or []:
+    for question in questions if isinstance(questions, list) else []:
         if not isinstance(question, dict) or not question.get('id'):
             continue
         decision = decisions.get(question['id'])

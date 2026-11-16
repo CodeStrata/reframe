@@ -260,12 +260,13 @@ class RequirementsTests(unittest.TestCase):
         folder.mkdir()
         (folder / 'requirements.md').write_text(
             '# Payments\n\n## PAY-010 Reject a zero amount\nA payment of zero is refused with a message.\n\n'
-            '## PAY-011 Keep a receipt\nEvery accepted payment keeps a receipt.\n\n## Appendix\nSee also PAY-099 in the appendix.\n')
+            '## PAY-011 Keep a receipt\nEvery accepted payment keeps a receipt.\n\n'
+            '## F1-R1 Post nightly\nThe batch posts accepted payments nightly.\n\n## Appendix\nSee also PAY-099 in the appendix.\n')
         result = self.command('import', '--requirements', str(folder / 'requirements.md'), '--function', 'F1',
                               '--by', 'Analyst', '--note', 'Exported from the AWS console by the analyst')
-        self.assertEqual(result['count'], 2)
+        self.assertEqual(result['count'], 3)
         records = {item['original_id']: item for item in requirements.active_set(self.work, self.project)['requirements']}
-        self.assertEqual(sorted(records), ['PAY-010', 'PAY-011'])
+        self.assertEqual(sorted(records), ['F1-R1', 'PAY-010', 'PAY-011'], 'an id whose last segment has a letter prefix is read')
         self.assertIn('refused with a message', records['PAY-010']['text'])
         self.assertIn('no "shall" statement', records['PAY-010']['uncertainty'])
         self.assertEqual(result['unrecognized_lines'], 1, 'the cross-reference line is counted, not dropped silently')

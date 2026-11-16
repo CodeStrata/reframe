@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import time
 import zipfile
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -229,7 +230,13 @@ def resolve_conflict(work, conflict_id, resolution, by, note):
     manifest = context_status(work)
     found = next((item for item in manifest.get('conflicts') or [] if item.get('id') == conflict_id), None)
     require(found and found.get('status') == 'open', 'Open conflict was not found')
+    if found.get('resolution'):
+        # An earlier deferral keeps its person and reason; the new record does not replace them.
+        found.setdefault('history', []).append({key: found[key] for key in (
+            'resolution', 'resolved_by', 'resolution_note', 'resolved_at', 'simulated') if key in found})
+        found.pop('simulated', None)
     found['resolution'] = resolution
+    found['resolved_at'] = time.time()
     found['resolved_by'] = by.strip()
     found.update(actor_provenance())
     found['resolution_note'] = note.strip()

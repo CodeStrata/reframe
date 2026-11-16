@@ -62,7 +62,7 @@ PRIVATE_SAFE = {'next_step', 'cause', 'recovery', 'phase', 'stage', 'model_calls
                 'semantic_review', 'hint', 'units', 'unit', 'attempts', 'minimum_calls', 'calls_consumed', 'calls_remaining',
                 'reviewed_units', 'opaque_segments', 'remaining_calls', 'minimum_additional_calls', 'total_cap',
                 'sha256', 'package_sha256', 'version_id', 'route', 'verification', 'routed_to', 'origin', 'acceptance',
-                'implementation_readiness', 'warnings', 'authorized_stages', 'kept', 'count'}
+                'implementation_readiness', 'warnings', 'authorized_stage_count', 'kept', 'count'}
 HIDDEN = 'Details hidden by presentation privacy; /privacy reveals local results.'
 
 
@@ -79,8 +79,10 @@ def present(key, value, private):
         return ', '.join(str(item.get('phase')) + ('' if private else ' by ' + str(item.get('by')))
                          + (' (simulated)' if item.get('simulated') else '') for item in value if isinstance(item, dict))
     if private and key not in PRIVATE_SAFE:
-        if isinstance(value, (list, dict)):
-            return str(len(value)) + ' items; details hidden by presentation privacy'
+        if isinstance(value, dict):
+            return '1 record; details hidden by presentation privacy'
+        if isinstance(value, list):
+            return str(len(value)) + (' item' if len(value) == 1 else ' items') + '; details hidden by presentation privacy'
         return HIDDEN
     if isinstance(value, list):
         if all(isinstance(item, (str, int, float)) for item in value):
@@ -285,7 +287,7 @@ class Terminal:
         table=Table.grid(padding=(0,2));table.add_column(style='bold');table.add_column(overflow='fold')
         notice = recovery_notice(result.get('reason'), result)
         if self.private and notice:
-            table.add_row('Recovery', clean(notice['summary']))
+            table.add_row('Recovery guidance', clean(notice['summary']))
             table.add_row('Next Step', clean(notice['next_step']))
         for key,value in result.items():
             if key=='status':continue

@@ -113,6 +113,35 @@ class MenuJourneyTests(unittest.TestCase):
         self.assertTrue(all(item.get('simulated') for item in project['approvals'].values()), 'every approval is test-only')
         (Path(__file__).resolve().parents[1] / 'acceptance-skip-route-transcript.txt').write_text(text + '\n')
 
+    def test_skip_route_reimagine_package_carries_its_reference_pages_and_proposals(self):
+        journey = release.MenuJourney(FINDINGS)
+        self.model_fn = self.model()
+        text = self.drive([
+            '1', 'continue',
+            'none', 'Ari', 'none',
+            'skip',
+            'reimagine', 'v1', 'java', 'none',
+            'guided-draft', 'Ari', 'Trust the sealed findings for this draft', 'codex', 'y',
+            'none', 'none', 'approve', '<default>', 'Reviewed the draft and its proposals',
+            'none', 'accept', 'Blake', 'Second reviewer accepts the unverified draft',
+            '<default>', 'Accept this draft handoff for stakeholder review',
+            '0'])
+        flat = ' '.join(text.split())
+        project = journey.reload()
+        self.assertEqual(project['stage'], 'PACKAGE_ACCEPTED', text)
+        self.assertIn('Future-state proposals stay proposed_unapproved', flat, 'the skip route shows Reimagine proposals')
+        archive = journey.work / project['package']['path']
+        with zipfile.ZipFile(archive) as bundle:
+            names = set(bundle.namelist())
+            readiness = json.loads(bundle.read('ai-dlc.json'))
+            notes = {row['item']: row['note'] for row in json.loads(bundle.read('package-manifest.json'))['items']}
+        self.assertTrue({'review.html', 'api.html', 'usage.html', 'openapi.json', 'future-state.html', 'deltas.json'} <= names)
+        self.assertNotIn('accepted that skip', notes['Reviewed business specification and requirement/rule coverage'])
+        self.assertNotEqual(readiness['implementation_readiness'], 'NO_KNOWN_BLOCKERS')
+        handoff_checks.check(self, archive)
+        packages = sorted(path.name for path in (journey.work / 'packages').iterdir())
+        self.assertFalse([name for name in packages if name.startswith('.')], 'no staging folder is left behind')
+
     def test_review_route_with_context_feedback_loops_and_exact_acceptance(self):
         import test_requirements as req_fixtures
         journey = release.MenuJourney({'rules': ['reject zero amount']})

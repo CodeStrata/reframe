@@ -257,7 +257,7 @@ def run(work, project, args, app, runtime=None):
     app.write(bundle/'rules.json',rules)
     app.write(bundle/'screens.json',value['screens']);app.write(bundle/'api-contracts.json',value['apis'])
     app.write(bundle/'implementation-backlog.json',value['work_items']);app.write(bundle/'decisions-needed.json',value['questions'])
-    app.write(bundle/'assumptions.json',{'notice':NOTICE,'skip_decision':{k:state[k] for k in ('owner','reason','assessment_sha256','created_at')},'approvals':{'assessment':'RECORDED','independent_verification':'SKIPPED','SME_architect':'PENDING','business_technical_lead':'PENDING'}})
+    app.write(bundle/'assumptions.json',{'notice':NOTICE,'skip_decision':{k:state[k] for k in ('owner','reason','assessment_sha256','created_at','simulated') if k in state},'approvals':{'assessment':'RECORDED','independent_verification':'SKIPPED','SME_architect':'PENDING','business_technical_lead':'PENDING'}})
     app.write(bundle/'acceptance-catalog.json',[{'rule_id':r['id'],'aws_acceptance_criteria':r['acceptance_criteria'],'status':'NOT RUN','oracle':'Legacy runtime oracle not established'} for r in rules])
     app.write(bundle/'ai-dlc.json',{'version':1,'phase':'DRAFT_ENGINEERING_PREPARATION','verification':'SKIPPED_BY_OWNER','implementation_status':'NOT_STARTED',
         'tools':['kiro','claude-code','codex','cursor'],'entry_points':handoff.entry_points({'review':'index.html','specifications':'specification.json','rules':'rules.json','backlog':'implementation-backlog.json','decisions':'decisions-needed.json'}),
@@ -278,6 +278,9 @@ def run(work, project, args, app, runtime=None):
     app.write(bundle/'provenance.json',{'assessment_sha256':fingerprint,'framework_commit':current,'source_commit':project['source']['commit'],'verification':'SKIPPED_BY_OWNER','generation_framework_commit':state.get('generation_framework_commit',current),'assistance':'Design content generated with '+args.provider+'; AWS rule records imported deterministically','preview_model_calls':state['calls']})
     paths=[item['path'] for item in assessment.get('assessment_index', []) if isinstance(item, dict) and isinstance(item.get('path'), str)]
     paths += [rule['source_path'] for rule in rules if isinstance(rule.get('source_path'), str)]
+    # Copybooks and batch members are named from the pinned checkout, as on the review route.
+    import reframe_optional as optional
+    paths += optional._pinned_inventory_paths(project)
     handoff.write_into(bundle, rules, paths, value['apis'], app.write, directory)
     import reframe_acceptance
     app.write(bundle/'package-manifest.json', reframe_acceptance.fr10_manifest(

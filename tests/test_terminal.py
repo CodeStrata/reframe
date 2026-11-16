@@ -163,7 +163,9 @@ class PrivacyPresentationTests(unittest.TestCase):
         basis = [{'phase': 'validation', 'by': 'Dana', 'simulated': True}]
         self.assertEqual(present('approval_basis', basis, True), 'validation (simulated)')
         self.assertEqual(present('approval_basis', basis, False), 'validation by Dana (simulated)')
-        self.assertEqual(present('conflicts', [{'statement': 'secret text'}], True), '1 items; details hidden by presentation privacy')
+        self.assertEqual(present('conflicts', [{'statement': 'secret text'}], True), '1 item; details hidden by presentation privacy')
+        self.assertEqual(present('plan', {'mode': 'reimagine', 'version': 'v1', 'by': 'Dana'}, True),
+                         '1 record; details hidden by presentation privacy', 'a record is not counted by its fields')
         self.assertEqual(present('reason', '/Users/someone/private/path failed', True), HIDDEN)
         self.assertEqual(present('recorded', 398, True), 398)
         self.assertEqual(present('sha256', 'f' * 64, True), 'f' * 64)

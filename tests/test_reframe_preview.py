@@ -2,6 +2,7 @@ import copy
 import json
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 import zipfile
 from unittest.mock import patch
 
@@ -158,6 +159,39 @@ class PreviewTests(unittest.TestCase):
             preview.run(other.work, other.project, self.arguments, app, self.runtime)
         self.assertNotIn('verification_skip', app.read(other.work / 'project.json'))
         self.assertTrue(preview.skip_available(self.project, app)[0])
+
+    def test_validation_of_findings_without_source_lines_stops_before_any_call(self):
+        self.project['pipeline'] = {'calls': 0}
+        self.project['stage'] = 'ASSESSMENT_APPROVED'
+        app.persist(self.work, self.project)
+        for _ in range(2):
+            with self.assertRaises(Blocked) as raised:
+                app.pipeline(self.work, self.project, SimpleNamespace(command='prepare'),
+                             lambda *a: self.fail('No model call for an unanchored export'))
+            self.assertEqual(raised.exception.cause, 'EVIDENCE_MISSING')
+            self.assertIn('No model call was made', str(raised.exception))
+            self.assertIn('skip route', raised.exception.hint)
+            self.assertEqual(app.read(self.work / 'project.json')['pipeline'].get('calls', 0), 0)
+
+    def test_skip_readiness_counts_the_draft_questions_and_the_skip_record_is_labeled(self):
+        import os
+        import reframe_acceptance as acceptance
+        with patch.dict(os.environ, {'REFRAME_SIMULATED_ACTOR': '1'}):
+            preview.run(self.work, self.project, self.arguments, app, self.runtime)
+        state = acceptance.readiness(self.work, self.project, app)
+        self.assertIn({'kind': 'decision', 'id': 'Q1', 'state': 'unrecorded', 'blocks': 'Implementation'}, state['blockers'])
+        assumptions = app.read(self.work / 'previews' / 'transform-direct' / 'handoff' / 'assumptions.json')
+        self.assertTrue(assumptions['skip_decision']['simulated'])
+
+    def test_skip_draft_names_copybooks_and_batch_members_from_the_pinned_checkout(self):
+        import pilot
+        stub = pilot.git
+        listing = lambda folder, *args: 'rule.cbl\ncpy/AMOUNT.cpy\njcl/NIGHTLY.jcl' if args == ('ls-files',) else stub(folder, *args)
+        with patch('pilot.git', side_effect=listing):
+            preview.run(self.work, self.project, self.arguments, app, self.runtime)
+        handoff_dir = self.work / 'previews' / 'transform-direct' / 'handoff'
+        self.assertIn('cpy/AMOUNT.cpy', json.dumps(app.read(handoff_dir / 'field-inventory.json')))
+        self.assertIn('jcl/NIGHTLY.jcl', json.dumps(app.read(handoff_dir / 'batch-inventory.json')))
 
     def test_untrusted_screen_text_is_escaped(self):
         def runtime(*args):
