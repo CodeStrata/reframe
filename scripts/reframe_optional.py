@@ -17,7 +17,8 @@ from pilot import Blocked, require
 import reframe_handoff as handoff
 
 MODES = ('functional-parity', 'reimagine')
-CATEGORIES = ('current-state', 'future-state', 'clarification')
+CATEGORIES = ('current-state', 'future-state', 'clarification', 'correction', 'constraint', 'review-feedback')
+GATES = ('baseline', 'specification', 'design', 'package', 'unspecified')
 DISPOSITIONS = ('proposed', 'accepted', 'rejected', 'superseded')
 TEXT_SUFFIXES = {'.md', '.txt', '.json'}
 MAX_BYTES = 1_000_000
@@ -115,9 +116,10 @@ def _contradiction(text):
     return match.group(1) if match else None
 
 
-def import_context(work, source, by, role, category, affected):
+def import_context(work, source, by, role, category, affected, gate='unspecified'):
     """Store one Markdown, text, or JSON document as untrusted data."""
-    require(category in CATEGORIES, 'Context category must be current-state, future-state, or clarification')
+    require(category in CATEGORIES, 'Context category must be one of: ' + ', '.join(CATEGORIES))
+    require(gate in GATES, 'Context gate must be one of: ' + ', '.join(GATES))
     require(by.strip() and role.strip(), 'Context needs the name and role supplied by the user')
     path = Path(source)
     require(path.is_file(), 'Context file was not found')
@@ -150,7 +152,7 @@ def import_context(work, source, by, role, category, affected):
         'extraction': 'extracted', 'executed': False, 'source_name': path.name,
         'sha256': sha256(raw).hexdigest(), 'recorded_at': _now(),
         'version': 1, 'privacy': 'private', 'layer': 'human-provided context',
-        'verified_source_behavior': False,
+        'verified_source_behavior': False, 'gate': gate,
     }
     manifest = context_status(work)
     if manifest['status'] == 'not_provided':
@@ -172,6 +174,10 @@ def import_context(work, source, by, role, category, affected):
         conflict = {
             'id': 'conflict-' + submission['id'], 'submission_id': submission['id'], 'contradicts': contradicts,
             'status': 'open', 'preserves': 'both the cited evidence and this human statement',
+            'statement': text[:2000], 'statement_sha256': submission['sha256'],
+            'evidence': {'cited': contradicts, 'kept': True},
+            'affected': [item for item in affected if item] if isinstance(affected, list) else [],
+            'detection': 'explicit contradicts marker in the submission; Reframe does not detect all contradictions',
         }
         manifest['conflicts'].append(conflict)
         _write(folder / 'conflicts' / (conflict['id'] + '.json'), conflict)
@@ -237,6 +243,63 @@ def _atomic_write(path, data):
 def open_conflicts(work):
     manifest = context_status(work)
     return [item for item in manifest.get('conflicts') or [] if item.get('status') == 'open']
+
+
+def conflicts_affecting(work, ids):
+    """Open conflicts that touch the given ids. A conflict with no affected ids has unknown impact and affects everything."""
+    scope = {str(item) for item in ids or []}
+    found = []
+    for conflict in open_conflicts(work):
+        affected = set(conflict.get('affected') or [])
+        if not affected:
+            found.append(conflict)
+            continue
+        if conflict.get('contradicts'):
+            affected.add(str(conflict['contradicts']))
+        if affected & scope:
+            found.append(conflict)
+    return found
+
+
+def record_gate(work, gate, by, provided, submission_id=None):
+    """Record what a review gate received: a submission id, or an explicit 'none'. None is valid and is not approval."""
+    require(gate in GATES and gate != 'unspecified', 'Name the review gate')
+    require(str(by).strip(), 'Name the person recording the gate')
+    folder = context_dir(work)
+    path = folder / 'gates.json'
+    gates = _read(path) if path.is_file() else {}
+    entry = {'gate': gate, 'by': str(by).strip(), 'at': _now(), 'provided': bool(provided)}
+    if submission_id:
+        entry['submission_id'] = submission_id
+    gates.setdefault(gate, []).append(entry)
+    _write(path, gates)
+    return entry
+
+
+def gate_records(work):
+    """Every gate record, including explicit none entries."""
+    path = context_dir(work) / 'gates.json'
+    return _read(path) if path.is_file() else {}
+
+
+def admitted(work, limit=60000):
+    """Accepted context submissions with their text and provenance, for validation. Refuses rather than truncates."""
+    manifest = context_status(work)
+    items = []
+    for item in manifest.get('submissions') or []:
+        if item.get('disposition') != 'accepted':
+            continue
+        text = (context_dir(work) / 'extracted' / (item['id'] + '.txt')).read_text(errors='replace')
+        items.append({'id': item['id'], 'category': item.get('category'), 'gate': item.get('gate', 'unspecified'),
+                      'affected': item.get('affected') or [], 'supplied_by': item.get('by'), 'role': item.get('role'),
+                      'sha256': item.get('sha256'), 'text': text,
+                      'status': 'ADMITTED_HUMAN_INPUT', 'verified_source_behavior': False})
+    size = len(json.dumps(items).encode())
+    if size > limit:
+        from reframe_states import stop
+        stop('Admitted human context is ' + str(size) + ' bytes; the validation allowance is ' + str(limit)
+             + '. Nothing was truncated. Reject or supersede a submission, or raise the allowance.', 'CONTEXT_LIMIT')
+    return items
 
 
 def _active(work, category):
