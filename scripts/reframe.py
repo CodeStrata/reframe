@@ -634,21 +634,53 @@ def prompt_framework_origin(project, recorded_commit, current):
     return recorded_commit
 
 
+def wireframe_prompt_hash():
+    """Hash of the wireframe prompt in this checkout."""
+    return sha(FRAMEWORK / 'prompts/pipeline/wireframes.md')
+
+
+def wireframe_prompt_changed(project):
+    """True when a saved review site was produced by a different wireframe prompt than this checkout has."""
+    recorded = (project.get('site') or {}).get('prompt_sha256')
+    return isinstance(recorded, str) and recorded != wireframe_prompt_hash()
+
+
+def migration_state(project):
+    """Name runs whose framework commit differs from the project's, which marks a partial upgrade."""
+    expected = project.get('framework_commit')
+    behind, ahead = [], []
+    for label, item in (project.get('assessments') or {}).items():
+        try:
+            run = read(Path(item['directory']) / 'run.json')
+        except (OSError, ValueError, KeyError):
+            continue
+        if run.get('framework_commit') != expected:
+            (ahead if any(e.get('event') == 'framework_upgraded' and e.get('from') == expected
+                          for e in run.get('events') or []) else behind).append(label)
+    return {'consistent': not (behind or ahead), 'runs_ahead': ahead, 'runs_behind': behind,
+            'repair': ('Run upgrade-framework again with the same note. It finishes the recorded update '
+                       'without changing evidence.') if ahead else None}
+
+
 def upgrade_framework(work, project, args):
     """Record a reviewed controller fix without replacing source, jobs or evidence."""
     approvals = set(project.get('approvals') or {})
     reviewed = project.get('specification')
+    downstream = approvals - {'assessment'}
     if reviewed:
-        require(approvals <= {'assessment'},
-                'A reviewed specification can record a controller update only before validation approval. '
-                'Validation or specification approval is already recorded. The upgrade was not recorded.')
-        require(project.get('stage') == 'AWAITING_VALIDATION_APPROVAL',
-                'A reviewed specification can record a controller update only while awaiting validation approval. '
-                'The upgrade was not recorded.')
+        require(not downstream or not (prompts_differ(project) or wireframe_prompt_changed(project)),
+                'A controller update after validation approval is allowed only when the saved preparation and wireframe '
+                'prompts are unchanged. This checkout changes them. The upgrade was not recorded.')
+        require(downstream or project.get('stage') == 'AWAITING_VALIDATION_APPROVAL',
+                'A reviewed specification can record a controller update only while awaiting validation approval '
+                'or after an approval with unchanged prompts. The upgrade was not recorded.')
         spec_path(work, project)
     else:
-        require(not (approvals - {'assessment'}),
+        require(not downstream,
                 'Framework upgrades require no specification or downstream approvals')
+    require(not wireframe_prompt_changed(project),
+            'The review site stays bound to the wireframe prompt that produced it. This checkout changes that prompt. '
+            'The upgrade was not recorded. Use the matching checkout, or give design feedback for a new design version.')
     if project.get('approvals', {}).get('assessment'):
         require(project.get('selected') in project['assessments'], 'Approved assessment identity is missing')
         verified_assessment(project, project['selected'])
@@ -696,6 +728,16 @@ def upgrade_framework(work, project, args):
         if run != before:
             write(path, run)
     update(project)
+    if downstream and recorded_commit != current:
+        stamp = time.time()
+        for phase in sorted(downstream):
+            approval = project['approvals'].get(phase)
+            if isinstance(approval, dict):
+                approval.setdefault('framework_audits', []).append({
+                    'from': recorded_commit, 'to': current, 'at': stamp, 'note': args.note,
+                    'compatibility': 'controller-only; preparation and wireframe prompts unchanged'})
+        project.setdefault('events', []).append({'event': 'framework_audit', 'at': stamp, 'from': recorded_commit,
+                                                 'to': current, 'approvals_preserved': sorted(downstream)})
     if isinstance(pins, dict):
         pins['framework_commit'] = current
         if prompts_changed:
@@ -715,6 +757,9 @@ def upgrade_framework(work, project, args):
             pins['prompt_hash'] = current_hash
     persist(work, project)
     result = {'status':'FRAMEWORK_UPDATED', 'revision':current, 'next_step':'reframe resume'}
+    if downstream:
+        result['approvals_preserved'] = sorted(downstream)
+        result['next_step'] = 'reframe --workspace ' + str(work) + ' status'
     if reviewed:
         result['preserved'] = 'reviewed_specification'
         result['next_step'] = ('reframe --workspace WORKSPACE status. '
@@ -2615,6 +2660,7 @@ def review_site(work, project, args, runtime=None):
         (directory / name).chmod(0o600)
     project['site'] = {'directory': str(directory.relative_to(work)), 'specification': project['specification']['sha256'],
                        'decisions': digest(project['decisions']), 'provider': provider,
+                       'prompt_sha256': wireframe_prompt_hash(),
                        'files': {p: sha(directory / p) for p in ('screens.json', 'index.html', 'api-contracts.json', 'openapi.json', 'api.html', 'usage.html')}}
     for stage in stages:
         stage['status'] = 'validated'
@@ -3039,6 +3085,7 @@ def parser():
     recover_counter = commands.add_parser('recover-ui-call', help='Release a recorded pre-dispatch wireframe reservation')
     recover_counter.add_argument('--confirm', action='store_true')
     recover_counter.add_argument('--note', required=True)
+    commands.add_parser('recovery-plan', help='Read-only plan: verify hashes and receipts, classify saved outputs, list needed authorizations')
     reconcile_op = commands.add_parser('reconcile-operation', help='Record the outcome of an uncertain provider call; it stays counted')
     reconcile_op.add_argument('--id', required=True)
     reconcile_op.add_argument('--resolution', choices=['failed', 'received'], required=True)
@@ -3125,6 +3172,11 @@ def main(argv=None, reporter=None):
                     raise Blocked('Another command is initializing this workspace') from error
                 result = initialize(args, work)
                 select_workspace(work)
+        elif args.command == 'recovery-plan':
+            import reframe_recovery
+            project = read(work / 'project.json')
+            result = reframe_recovery.plan(work, project, sys.modules[__name__])
+            result['next_step'] = 'Review the plan. Nothing was changed.'
         elif args.command == 'status':
             project = read(work / 'project.json')
             service = saved_progress(work)
@@ -3151,6 +3203,9 @@ def main(argv=None, reporter=None):
                 result['preparation'] = {'units':len(plan['units']), 'reviewed_units':len(capsules),
                     'calls_consumed':project['pipeline']['calls'], 'total_cap':project['settings'].get('max_model_calls'),
                     'call_cap_set': project['settings'].get('max_model_calls') is not None}
+            migration = migration_state(project)
+            if not migration['consistent']:
+                result['migration'] = migration
             import reframe_states
             stop_record = reframe_states.last_stop(work)
             if stop_record:

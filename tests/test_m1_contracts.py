@@ -45,7 +45,8 @@ class StopCauseTests(unittest.TestCase):
             self.assertFalse(states.may_continue_automatically({'recovery': recovery}))
 
 
-class WorkspaceContracts(unittest.TestCase):
+class WorkspaceFixture(unittest.TestCase):
+    """A validated-ready workspace from the checkpoint fixtures. Holds no tests itself."""
     args = checkpoint_fixtures.CheckpointTests.args
     assess = checkpoint_fixtures.CheckpointTests.assess
     approve = checkpoint_fixtures.CheckpointTests.approve
@@ -63,6 +64,8 @@ class WorkspaceContracts(unittest.TestCase):
             code = app.main(['--workspace', str(self.work), *values])
         return code, json.loads(out.getvalue())
 
+
+class WorkspaceContracts(WorkspaceFixture):
     def test_a_refused_command_reports_a_cause_and_leaves_project_state_unchanged(self):
         before = (self.work / 'project.json').read_bytes()
         code, result = self.cli('approve', 'validation', '--by', 'Ari', '--note', 'Reviewed')
@@ -189,6 +192,137 @@ class WorkspaceContracts(unittest.TestCase):
         self.assertEqual(record['state'], 'not_dispatched')
         self.assertEqual(self.project['pipeline']['calls'], 1)
         self.assertTrue(any(e.get('event') == 'operation_not_dispatched' for e in self.project['events']))
+
+
+class MigrationTests(WorkspaceFixture):
+    def validated_and_approved(self):
+        result = app.pipeline(self.work, self.project, self.args('validate'), self.runtime)
+        self.assertEqual(result['status'], 'AWAITING_VALIDATION_APPROVAL')
+        spec = app.read(app.spec_path(self.work, self.project))
+        ids = [q['id'] for q in spec['questions']]
+        if ids:
+            app.decision(self.work, self.project, argparse.Namespace(
+                question=None, questions=','.join(ids), open=False, placeholders=False, by='SME',
+                answer='Deferred for this fixture', disposition='deferred', amend=False, confirm=True))
+        app.approve(self.work, self.project, argparse.Namespace(
+            phase='validation', by='Architect', note='Reviewed report and decisions', label=None, confirm_source_match=False))
+        return self.project
+
+    def rewind(self, commit='b' * 40):
+        self.project['framework_commit'] = commit
+        self.project['pins']['framework_commit'] = commit
+        for item in self.project['assessments'].values():
+            run = app.read(Path(item['directory']) / 'run.json')
+            run['framework_commit'] = commit
+            app.write(Path(item['directory']) / 'run.json', run)
+        app.persist(self.work, self.project)
+
+    def test_controller_update_after_validation_approval_keeps_the_approval_with_an_audit(self):
+        self.validated_and_approved()
+        approval_before = dict(self.project['approvals']['validation'])
+        self.rewind()
+        result = app.upgrade_framework(self.work, self.project, argparse.Namespace(note='Controller fix only', adopt_prompts=False))
+        self.assertEqual(result['status'], 'FRAMEWORK_UPDATED')
+        self.assertEqual(result['approvals_preserved'], ['validation'])
+        approval = self.project['approvals']['validation']
+        self.assertEqual(approval['sha256'], approval_before['sha256'])
+        audit = approval['framework_audits'][-1]
+        self.assertEqual(audit['from'], 'b' * 40)
+        self.assertIn('prompts unchanged', audit['compatibility'])
+        self.assertTrue(any(e['event'] == 'framework_audit' for e in self.project['events']))
+
+    def test_prompt_change_after_validation_approval_is_refused_before_mutation(self):
+        self.validated_and_approved()
+        self.rewind()
+        before = (self.work / 'project.json').read_bytes()
+        reports = []
+        with patch.object(app, 'preparation_protocol_hash', return_value='e' * 64):
+            code = app.main(['--workspace', str(self.work), 'upgrade-framework', '--note', 'New prompts',
+                             '--adopt-prompts'], reporter=reports.append)
+        self.assertEqual(code, 2)
+        self.assertIn('prompts are unchanged', reports[-1]['reason'])
+        self.assertEqual((self.work / 'project.json').read_bytes(), before)
+
+    def test_a_changed_wireframe_prompt_is_refused_once_a_site_exists(self):
+        self.validated_and_approved()
+        self.project['site'] = {'directory': 'previews/business-1', 'prompt_sha256': '0' * 64, 'files': {}}
+        app.persist(self.work, self.project)
+        before = (self.work / 'project.json').read_bytes()
+        reports = []
+        code = app.main(['--workspace', str(self.work), 'upgrade-framework', '--note', 'x'], reporter=reports.append)
+        self.assertEqual(code, 2)
+        self.assertIn('wireframe prompt', reports[-1]['reason'])
+        self.assertEqual((self.work / 'project.json').read_bytes(), before)
+
+    def test_a_partial_upgrade_is_visible_and_the_same_command_finishes_it(self):
+        self.rewind()
+        current = app.git(app.FRAMEWORK, 'rev-parse', 'HEAD')
+        item = next(iter(self.project['assessments'].values()))
+        run = app.read(Path(item['directory']) / 'run.json')
+        run['framework_commit'] = current
+        run.setdefault('events', []).append({'event': 'framework_upgraded', 'from': 'b' * 40, 'to': current, 'at': 1})
+        app.write(Path(item['directory']) / 'run.json', run)
+        state = app.migration_state(self.project)
+        self.assertFalse(state['consistent'])
+        self.assertTrue(state['runs_ahead'])
+        self.assertIn('upgrade-framework again', state['repair'])
+        app.upgrade_framework(self.work, self.project, argparse.Namespace(note='Finish the recorded update', adopt_prompts=False))
+        self.assertTrue(app.migration_state(self.project)['consistent'])
+
+
+class RecoveryPlanTests(MigrationTests):
+    test_controller_update_after_validation_approval_keeps_the_approval_with_an_audit = None
+    test_prompt_change_after_validation_approval_is_refused_before_mutation = None
+    test_a_changed_wireframe_prompt_is_refused_once_a_site_exists = None
+    test_a_partial_upgrade_is_visible_and_the_same_command_finishes_it = None
+
+    def tree(self):
+        return {str(p.relative_to(self.work)): p.read_bytes() for p in sorted(self.work.rglob('*')) if p.is_file()}
+
+    def test_the_plan_reads_everything_and_writes_nothing(self):
+        self.validated_and_approved()
+        self.project['approvals']['validation']['note'] = 'Approved for workflow testing only'
+        stages = self.work / 'previews' / 'wireframe-stages'
+        stages.mkdir(parents=True)
+        sign_on_a = {'id': 'sign-on', 'title': 'Sign on', 'fields': ['user']}
+        sign_on_b = {'id': 'sign-on', 'title': 'Sign on', 'fields': ['user', 'password']}
+        app.write(stages / 'stage-0.json', {'screens': [sign_on_a], 'apis': []})
+        app.write(stages / 'stage-1.json', {'screens': [sign_on_b], 'apis': []})
+        app.write(stages / 'stage-2.json', {'screens': [{'id': 'menu', 'title': 'Menu'}], 'apis': []})
+        self.project['wireframe_plan'] = {'fingerprint': 'f', 'limit': 1, 'stages': [
+            {'index': 0, 'call': 1, 'status': 'received'}, {'index': 1, 'call': 2, 'status': 'received'},
+            {'index': 2, 'call': 3, 'status': 'received'}, {'index': 3, 'call': 4, 'status': 'pending'}]}
+        self.project['ui_calls'] = 4
+        app.persist(self.work, self.project)
+        before = self.tree()
+        code, result = self.cli('recovery-plan')
+        self.assertEqual(code, 0)
+        self.assertEqual(self.tree(), before)
+        self.assertEqual(result['writes'], 'none')
+        classes = {entry['index']: entry['classification'] for entry in result['wireframe_stages']['stages']}
+        self.assertEqual(classes, {0: 'incompatible-shared-definition', 1: 'incompatible-shared-definition',
+                                   2: 'reusable', 3: 'missing'})
+        self.assertEqual(result['wireframe_stages']['conflicts'][0]['id'], 'sign-on')
+        validation = next(item for item in result['approvals'] if item['phase'] == 'validation')
+        self.assertTrue(validation['test_only'])
+        self.assertTrue(validation['needs_renewal'])
+        self.assertEqual(result['usage']['wireframe_calls'], 4)
+        self.assertTrue(result['usage']['preserved'])
+        self.assertTrue(any('reconciliation' in item for item in result['requires_authorization']))
+        self.assertIn('reset counters', result['never'])
+        self.assertTrue(all(check['status'] == 'ok' for check in result['checks']), result['checks'])
+
+    def test_a_changed_specification_is_reported_and_left_alone(self):
+        self.validated_and_approved()
+        path = self.work / self.project['specification']['path']
+        path.write_text(path.read_text() + ' ')
+        before = self.tree()
+        code, result = self.cli('recovery-plan')
+        self.assertEqual(self.tree(), before)
+        failed = [c for c in result['checks'] if c['status'] == 'failed']
+        self.assertTrue(failed)
+        validation = next(item for item in result['approvals'] if item['phase'] == 'validation')
+        self.assertTrue(validation['needs_renewal'])
 
 
 if __name__ == '__main__':
