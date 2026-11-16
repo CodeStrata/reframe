@@ -4,10 +4,11 @@ Read this first if work on `feature/agreed-workflow` resumes in a new session.
 
 ## State
 
-- Branch `feature/agreed-workflow`, created from `origin/develop` at `b534f85`.
-- Completed: #160, M1 (#161–#166, #34), requirements boundary offline (#169–#173), context and validation inputs (#174–#177), links (#181), acceptance and readiness (#187, #188, #190), isolation and installed wheel (#195). See agreed-workflow-progress.md.
-- Next: design plan and inventory (#182, #183), reconciliation (#184), API completeness (#185), Reimagine deltas (#186), feedback routing (#189), route manifest (#191), skip parity (#178), coverage and questions (#179, #180), guided journey (#192), docs (#116, #115), fixtures and acceptance (#44, #194, #196), verification of the 17 Awaiting-verification items.
-- Explicit checks: `REFRAME_WHEEL_CHECK=1 REFRAME_UV=<uv>` runs tests/test_installed_wheel.py (builds, installs, probes outside the repo).
+- Branch `feature/agreed-workflow`, created from `origin/develop` at `b534f85`. Acceptance candidate `d65d86f` (frozen checkout `../candidate-d65d86f`).
+- Implemented and tested offline: every M1–M5 story in the completion matrix (docs/validation/completion-matrix.md). Live work is not done: #169, #173, #197, #26, #41, #42 stay open.
+- Review package: docs/validation/review-package.md. Independent acceptance report: docs/validation/acceptance-report.md.
+- Explicit checks: `REFRAME_WHEEL_CHECK=1 REFRAME_UV=<uv>` runs tests/test_installed_wheel.py; the clean snapshot runs the fresh-start journey (`test_clean_snapshot_passes_and_a_dirty_tree_is_refused`).
+- Acceptance harness: `acceptance/harness.py` (run it from a clean candidate checkout).
 - Never commit from a shell that sourced the isolated env.sh: it sets a test Git identity.
 
 ## How to run
