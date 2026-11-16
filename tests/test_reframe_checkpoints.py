@@ -1449,7 +1449,7 @@ class CheckpointTests(unittest.TestCase):
         self.assertIn('RF1-R', reports[0]['reason'])
         self.assertIn('RF5', reports[0]['reason'])
         self.assertNotIn('RF1.', reports[0]['reason'])
-        self.assertIn('reframe resume', reports[0]['next_step'])
+        self.assertIn('reframe --workspace ' + str(self.work) + ' resume', reports[0]['next_step'])
         self.assertNotIn('feedback --unit', reports[0]['next_step'])
         self.assertIsNone(app.read(self.work / 'project.json')['pipeline'].get('reason'))
         with patch.object(app, 'model_call', runtime), patch.object(app, 'assessment', side_effect=AssertionError('assessment job')):

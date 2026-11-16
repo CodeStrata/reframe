@@ -59,6 +59,22 @@ class AcceptanceTests(unittest.TestCase):
         self.assertNotIn('acceptance', ' '.join(n for n in __import__('zipfile').ZipFile(archive).namelist()))
         self.assertTrue(acceptance.verify_ledger(self.work))
 
+    def test_a_copied_recovery_hint_is_refused_as_a_name_or_rationale(self):
+        self.validated()
+        for by, note in (('NAME', 'Reviewed the report'), ('Owner', 'WHY'), ('Owner', ' RATIONALE ')):
+            with self.assertRaisesRegex(Blocked, 'instructional placeholder'):
+                app.approve(self.work, self.project, self.args('approve', 'validation', '--by', by, '--note', note))
+        self.assertNotIn('validation', self.project['approvals'])
+        self.assertIsNone(app.instructional_placeholder('Why the NAME field is optional was reviewed'))
+
+    def test_a_copied_recovery_hint_cannot_accept_a_package(self):
+        result = self.built()
+        for by, note in (('NAME', 'Reviewed the inventory'), ('Owner', 'WHY')):
+            with self.assertRaisesRegex(Blocked, 'instructional placeholder'):
+                acceptance.accept(self.work, self.project, app, result['sha256'], by, note)
+        self.assertNotIn('package_acceptance', self.project)
+        self.assertIn('--by NAME --note WHY', result['next_step'])
+
     def test_a_changed_archive_cannot_be_reviewed_or_accepted(self):
         result = self.built()
         Path(result['archive']).write_bytes(Path(result['archive']).read_bytes() + b' ')

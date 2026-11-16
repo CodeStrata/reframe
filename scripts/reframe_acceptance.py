@@ -173,6 +173,7 @@ def accept(work, project, app, package_sha256, by, note, simulated=False):
     """Record that a named person accepted this exact archive. The archive is not modified."""
     require(built_stage(project.get('stage')), 'Only a built package that awaits acceptance can be accepted')
     require(str(by).strip() and str(note).strip(), 'Acceptance needs a named person and their own rationale')
+    app.reject_instructional_placeholder(by, 'Acceptor name')
     app.reject_instructional_placeholder(note, 'Acceptance note')
     detail = review(work, project, app)
     require(package_sha256 == detail['sha256'],
@@ -186,6 +187,8 @@ def accept(work, project, app, package_sha256, by, note, simulated=False):
                            'version_id': detail['version_id'], 'route': detail['route'], 'by': str(by).strip(),
                            'note': str(note).strip(), 'simulated': bool(simulated), 'at': time.time(),
                            'readiness': detail['readiness']['state'],
+                           'skip_acceptance': {k: (project['approvals'].get('verification-skip') or {}).get(k) for k in ('by', 'note', 'simulated')}
+                           if project.get('verification_skip') else None,
                            'scope': 'Accepts this handoff version only. Not deployment approval; blocked work stays blocked.'})
     project['package_acceptance'] = {k: entry[k] for k in ('package_sha256', 'manifest_sha256', 'version_id', 'by',
                                                           'simulated', 'at', 'entry_sha256', 'readiness')}

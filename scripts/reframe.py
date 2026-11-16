@@ -9,6 +9,7 @@ import html
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -1247,6 +1248,7 @@ def approve(work, project, args):
     require_stage_contract(work, 'approval')
     verify_source(project)
     require(args.by.strip() and args.note.strip(), 'Named human owner and approval rationale required')
+    reject_instructional_placeholder(args.by, 'Approver name')
     reject_instructional_placeholder(args.note, 'Approval note')
     if args.phase == 'assessment':
         require(args.label in project['assessments'], 'Select an assessment label')
@@ -1357,6 +1359,7 @@ def decision(work, project, args):
     rationale = str(getattr(args, 'answer', '') or '')
     disposition = getattr(args, 'disposition', None)
     require(owner.strip() and rationale.strip(), 'Decision owner and answer required')
+    reject_instructional_placeholder(owner, 'Decision owner')
     reject_instructional_placeholder(rationale, 'Decision rationale')
     require(disposition in {'resolved', 'deferred'}, 'Disposition must be resolved or deferred')
     unknown = [item for item in selected if item not in known]
@@ -2355,6 +2358,8 @@ def site_fingerprint(work, project):
 
 
 INSTRUCTIONAL_PLACEHOLDERS = ('YOUR_REASON', 'YOUR_APPROVAL_RATIONALE', 'YOUR_NAME', 'YOUR_NOTE')
+# Words the recovery hints print in place of a value. A copied hint is refused, not recorded.
+HINT_PLACEHOLDERS = ('NAME', 'WHY', 'RATIONALE', 'NOTE', 'REASON')
 WIREFRAME_CONTEXT_CEILING = 600000
 
 
@@ -2362,6 +2367,8 @@ def instructional_placeholder(text):
     """Return the instructional token in a rationale, or nothing when the text is a real answer."""
     if not isinstance(text, str):
         return None
+    if text.strip() in HINT_PLACEHOLDERS:
+        return text.strip()
     for token in INSTRUCTIONAL_PLACEHOLDERS:
         if re.search(r'(?<![A-Z0-9_])' + token + r'(?![A-Z0-9_])', text):
             return token
@@ -2374,7 +2381,7 @@ def reject_instructional_placeholder(text, kind):
     if not token:
         return
     error = Blocked(kind + ' contains the instructional placeholder ' + token + '.')
-    error.hint = ('Replace ' + token + ' with the rationale you intend to record. '
+    error.hint = ('Replace ' + token + ' with the name or rationale you intend to record. '
                   'Saved placeholder decisions: reframe decide --placeholders --amend --confirm '
                   '--by NAME --answer RATIONALE --disposition deferred. '
                   'Then approve validation with a real note.')
@@ -2945,23 +2952,61 @@ def require_skip_acceptance(project):
 
 
 def package_skip(work, project):
-    """Register the skip draft ZIP as this run's package. It awaits acceptance and stays labeled unverified."""
+    """Build the skip-route package from the approved draft and the FR-10 records. It awaits acceptance, labeled unverified.
+
+    The draft ZIP written at preview stays unchanged. This package copies the reviewed draft files and adds the
+    requirements provenance, human context, approval history, and design plan recorded since.
+    """
     import reframe_acceptance as acceptance
+    import reframe_links
     import reframe_versions
     bundle = work / project['skip_bundle'] / 'handoff'
     approved(project, 'design', sha(bundle / 'checksums.json'))
     state = read(work / project['skip_bundle'] / 'preview-state.json')
-    archive = work / state['archive_path'] if state.get('archive_path') else next(
+    draft = work / state['archive_path'] if state.get('archive_path') else next(
         path for path in (work / project['skip_bundle'] / 'ai-dlc-draft.zip', work / 'packages' / Path(project['skip_bundle']).name / 'ai-dlc-draft.zip')
         if path.is_file())
-    require(sha(archive) == state.get('archive_sha256'), 'The skip draft archive changed after it was written')
+    require(sha(draft) == state.get('archive_sha256'), 'The skip draft archive changed after it was written')
+    manifest = read(bundle / 'checksums.json')
+    require(all(sha(bundle / name) == expected for name, expected in manifest.items()), 'The approved draft files changed')
+    version = digest({'approvals': project.get('approvals'), 'draft': sha(draft)})[:16]
+    destination = work / 'packages' / ('skip-' + version)
+    require(not destination.exists(), 'Package already exists; inspect it or use feedback for a new version')
+    destination.mkdir(parents=True, mode=0o700)
+    for name in manifest:
+        if name != 'package-manifest.json':
+            shutil.copyfile(bundle / name, destination / name)
+    record = read(destination / 'ai-dlc.json')
+    readiness = package_readiness(work, project)
+    record.update({'workflow_status': acceptance.AWAITING,
+                   'workflow_status_note': 'Building this package does not accept it. Acceptance is a separate ledger entry outside this archive.',
+                   'implementation_readiness': readiness['state'], 'implementation_blockers': readiness['blockers'],
+                   'draft_archive_sha256': sha(draft)})
+    write(destination / 'ai-dlc.json', record)
+    package_extras(work, project, destination, None)
+    write(destination / 'package-manifest.json', acceptance.fr10_manifest(
+        [p.name for p in destination.iterdir() if p.is_file()] + ['package-manifest.json'], 'skip',
+        {'Reviewed business specification and requirement/rule coverage':
+         'Not independently reviewed. The owner skipped validation; a second person accepted that skip.'}))
+    reframe_links.require_valid(destination, 'skip package')
+    write(destination / 'checksums.json', {p.name: sha(p) for p in destination.iterdir() if p.is_file()})
+    refuse_packaged_secrets(destination)
+    archive = destination.parent / (destination.name + '.zip')
+    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zipped:
+        for path in sorted(destination.iterdir()):
+            path.chmod(0o600)
+            zipped.write(path, path.name)
+    archive.chmod(0o600)
     project['package'] = {'path': str(archive.relative_to(work)), 'sha256': sha(archive), 'route': 'skip',
-                          'manifest_sha256': sha(bundle / 'checksums.json'), 'verification': 'SKIPPED_BY_OWNER',
+                          'manifest_sha256': sha(destination / 'checksums.json'), 'verification': 'SKIPPED_BY_OWNER',
+                          'draft_archive': str(draft.relative_to(work)), 'draft_sha256': sha(draft),
                           'status': acceptance.AWAITING, 'built_at': time.time()}
     project['stage'] = acceptance.AWAITING
-    project['package']['version_id'] = reframe_versions.record(work, project, 'skip package registered')
+    project['package']['version_id'] = reframe_versions.record(work, project, 'skip package built')
     persist(work, project)
-    return {'status': acceptance.AWAITING, 'archive': str(archive), 'sha256': sha(archive), 'verification': 'SKIPPED_BY_OWNER'}
+    return {'status': acceptance.AWAITING, 'archive': str(archive), 'sha256': sha(archive), 'verification': 'SKIPPED_BY_OWNER',
+            'next_step': 'Review the package, then reframe --workspace ' + str(work)
+                         + ' accept-package --sha256 ' + sha(archive) + ' --by NAME --note WHY'}
 
 
 def package_extras(work, project, destination, spec):
@@ -3121,7 +3166,7 @@ def package(work, project):
     persist(work, project)
     return {'status': acceptance.AWAITING, 'archive': str(archive), 'sha256': sha(archive),
             'next_step': 'Review the package, then reframe --workspace ' + str(work)
-                         + ' accept-package --sha256 ' + sha(archive) + ' --by YOUR_NAME --note YOUR_REASON'}
+                         + ' accept-package --sha256 ' + sha(archive) + ' --by NAME --note WHY'}
 
 
 def compare(work, project, args):
@@ -3315,8 +3360,9 @@ def parser():
     for flag in ('connect', 'create-workspace', 'create-connector', 'attach-workspace', 'attach-connector', 'role-arn', 'connector-approved'):
         s.add_argument('--' + flag)
     s.add_argument('--create-bucket', action='store_true')
-    for command in ('assess', 'resume'):
-        a = commands.add_parser(command)
+    for command, text in (('assess', 'Start or attach an AWS Transform assessment job; a new job needs explicit authorization'),
+                          ('resume', 'Continue saved work from its recorded phase; never creates an assessment')):
+        a = commands.add_parser(command, help=text)
         a.add_argument('--label')
         if command == 'assess': a.add_argument('--source')
         a.add_argument('--findings')
@@ -3325,7 +3371,7 @@ def parser():
         a.add_argument('--wait', action='store_true')
         a.add_argument('--detach', action='store_true')
         a.add_argument('--attach-job')
-    commands.add_parser('status')
+    commands.add_parser('status', help='Show phase, approvals, blockers, usage, readiness, and the next step')
     relocate = commands.add_parser('relocate', help='Move verified private outputs into <source-repo>_assessment')
     relocate.add_argument('--output-parent', required=True)
     planning = commands.add_parser('prepare-plan', help='Plan bounded evidence units without model calls')
@@ -3362,14 +3408,14 @@ def parser():
     t.add_argument('--details', action='store_true', help='Include private task artifact and response schema')
     t.add_argument('--continue-code-analysis', action='store_true', help='Keep current file classifications and acknowledge the code-analysis checkpoint; does not approve assessment findings')
     t.add_argument('--configure-documentation', action='store_true', help='Select all eligible uploaded files for detailed documentation under a recorded full-upload scope')
-    a = commands.add_parser('approve')
+    a = commands.add_parser('approve', help='Record a named person\'s approval of one gate; never inferred')
     a.add_argument('phase', choices=['assessment', 'validation', 'specifications', 'design', 'verification-skip'])
     a.add_argument('--label')
     a.add_argument('--by')
     a.add_argument('--note')
     a.add_argument('--confirm-source-match', action='store_true')
     a.add_argument('--simulated', action='store_true', help='Mark a test-only approval; never genuine sign-off')
-    v = commands.add_parser('validate')
+    v = commands.add_parser('validate', help='Run independent executor and reviewer validation of the evidence')
     v.add_argument('--reviewer', choices=['claude-code'], default='claude-code')
     d = commands.add_parser('decide', help='Record one SME decision or one confirmed batch. A deferral is not an answer.')
     d.add_argument('--question', help='One SME question id')
@@ -3381,7 +3427,7 @@ def parser():
     d.add_argument('--by', required=True)
     d.add_argument('--answer', required=True)
     d.add_argument('--disposition', choices=['resolved', 'deferred'], required=True)
-    u = commands.add_parser('review-site')
+    u = commands.add_parser('review-site', help='Generate wireframes and API contracts from the approved specification and design plan')
     u.add_argument('--provider', choices=['claude', 'codex'])
     recover_counter = commands.add_parser('recover-ui-call', help='Release a recorded pre-dispatch wireframe reservation')
     recover_counter.add_argument('--confirm', action='store_true')
@@ -3417,7 +3463,7 @@ def parser():
     reconcile_op.add_argument('--resolution', choices=['failed', 'received'], required=True)
     reconcile_op.add_argument('--by', required=True)
     reconcile_op.add_argument('--note', required=True)
-    f = commands.add_parser('feedback')
+    f = commands.add_parser('feedback', help='Send specification or design feedback back for a new version')
     f.add_argument('--unit', help='Blocked evidence unit to revise; passed units remain sealed')
     f.add_argument('--scope', choices=['specification', 'design'], default='specification',
                    help='design keeps the specification and regenerates the design; specification revisits validation')
@@ -3425,10 +3471,10 @@ def parser():
                    help='Record one more targeted correction after the bounded allowance is exhausted')
     f.add_argument('--by', required=True)
     f.add_argument('--note', required=True)
-    commands.add_parser('package')
+    commands.add_parser('package', help='Build the AI-DLC package; it then awaits a separate acceptance')
     requirements = commands.add_parser('requirements', help='AWS requirements: capability, generation job, import, status')
     requirement_commands = requirements.add_subparsers(dest='requirements_command', required=True)
-    requirement_commands.add_parser('status')
+    requirement_commands.add_parser('status', help='Show the requirements capability, active set, and provenance')
     none_parser = requirement_commands.add_parser('none', help='Record that this run continues without a requirements set')
     none_parser.add_argument('--by', required=True)
     discover = requirement_commands.add_parser('discover', help='Read-only: list the Transform tools and connectors this account reports')
@@ -3449,7 +3495,7 @@ def parser():
     imported.add_argument('--note', required=True)
     context = commands.add_parser('context', help='Import or decide optional human context')
     context_commands = context.add_subparsers(dest='context_command', required=True)
-    context_import = context_commands.add_parser('import')
+    context_import = context_commands.add_parser('import', help='Admit a Markdown file or text from a named person at one gate')
     context_import.add_argument('--file')
     context_import.add_argument('--text')
     context_import.add_argument('--by', required=True)
@@ -3460,18 +3506,18 @@ def parser():
     context_none = context_commands.add_parser('none', help='Record that a review gate received no context; none is valid')
     context_none.add_argument('--gate', required=True, choices=['baseline', 'specification', 'design', 'package'])
     context_none.add_argument('--by', required=True)
-    context_status = context_commands.add_parser('status')
-    context_decide = context_commands.add_parser('decide')
+    context_status = context_commands.add_parser('status', help='Show submissions, gate records, and open conflicts')
+    context_decide = context_commands.add_parser('decide', help='Mark one submission accepted, rejected, or superseded')
     context_decide.add_argument('--id', required=True)
     context_decide.add_argument('--disposition', required=True)
     context_decide.add_argument('--by', required=True)
     context_decide.add_argument('--note', required=True)
-    context_delta = context_commands.add_parser('approve-delta')
+    context_delta = context_commands.add_parser('approve-delta', help='Approve one Reimagine proposal as an implementation requirement')
     context_delta.add_argument('--version', required=True)
     context_delta.add_argument('--id', required=True)
     context_delta.add_argument('--by', required=True)
     context_delta.add_argument('--note', required=True)
-    context_resolve = context_commands.add_parser('resolve')
+    context_resolve = context_commands.add_parser('resolve', help='Record keep-evidence, keep-human-statement, or needs-more-evidence for one conflict')
     context_resolve.add_argument('--id', required=True)
     context_resolve.add_argument('--resolution', required=True)
     context_resolve.add_argument('--by', required=True)
@@ -3485,12 +3531,25 @@ def parser():
     exported.add_argument('--mode', required=True)
     registered = commands.add_parser('register-project', help='Record project identity locally without an AWS job')
     registered.add_argument('--choice', choices=['assess-new-revision', 'reuse-baseline'])
-    c = commands.add_parser('compare')
+    c = commands.add_parser('compare', help='Diff two sealed assessments by file content')
     c.add_argument('--left', required=True)
     c.add_argument('--right', required=True)
     c.add_argument('--semantic', action='store_true')
     c.add_argument('--provider', choices=['claude', 'codex'], default='claude')
     return p
+
+
+def name_workspace(result, work):
+    """Recovery commands in a result name the workspace they apply to, so a copied command acts on this run."""
+    if work is None:
+        return result
+    sub = next(action for action in parser()._actions if isinstance(action, argparse._SubParsersAction))
+    pattern = r'\breframe (?!--workspace\b)(?=(?:' + '|'.join(re.escape(name) for name in sub.choices) + r')\b)'
+    flag = 'reframe --workspace ' + shlex.quote(str(work)) + ' '
+    for key in ('next_step', 'hint'):
+        if isinstance(result.get(key), str):
+            result[key] = re.sub(pattern, flag, result[key])
+    return result
 
 
 def main(argv=None, reporter=None):
@@ -3752,7 +3811,7 @@ def main(argv=None, reporter=None):
         if stopped and 'cause' not in result:
             import reframe_states
             result.update(reframe_states.describe(result.get('reason') or result.get('status')))
-        emit(result)
+        emit(name_workspace(result, locals().get('work')))
         return 2 if stopped else 0
     except KeyboardInterrupt:
         result = {'status': 'CANCELLED', 'reason': 'Cancelled by user. Saved work is retained.',
@@ -3760,13 +3819,13 @@ def main(argv=None, reporter=None):
                   'next_step': 'reframe init' if args.command == 'init' else 'reframe status'}
         if args.command in {'assess', 'resume'}:
             result['reason'] += ' An existing AWS job may continue; check status before resuming.'
-        emit(result)
+        emit(name_workspace(result, locals().get('work')))
         return 130
     except (Blocked, OSError, ValueError, KeyError, EOFError, subprocess.SubprocessError) as error:
         import reframe_states
         result = {'status': 'BLOCKED', 'reason': str(error), **reframe_states.describe(error)}
         if getattr(error, 'hint', None): result['hint'] = error.hint
-        emit(result)
+        emit(name_workspace(result, locals().get('work')))
         return 2
 
 
