@@ -256,6 +256,25 @@ class Transform:
             private_save(self.directory / 'mcp-error.json', {'type': type(error).__name__, 'detail': str(error)})
             raise Blocked('AWS MCP transport failed; inspect the private mcp-error.json and reconcile uncertain creation') from error
 
+    def tools(self):
+        """Read-only listing of the server's tools and input schemas. No tool is called."""
+        async def listing():
+            ClientSession, StdioServerParameters, stdio_client = mcp_transport(self.directory)
+            command = self.config.get('command', ['uvx', 'awslabs.aws-transform-mcp-server@latest'])
+            require(isinstance(command, list) and command, 'MCP command must be an argv array')
+            env = dict(os.environ)
+            env.update(self.config.get('env', {}))
+            parameters = StdioServerParameters(command=command[0], args=command[1:], env=env)
+            with (self.directory / 'mcp-server.log').open('a') as errlog:
+                async with stdio_client(parameters, errlog=errlog) as (reader, writer):
+                    async with ClientSession(reader, writer) as session:
+                        await session.initialize()
+                        found = (await session.list_tools()).tools
+            return [{'name': tool.name, 'description': getattr(tool, 'description', None),
+                     'inputSchema': getattr(tool, 'input_schema', None) or getattr(tool, 'inputSchema', {}) or {}}
+                    for tool in found]
+        return asyncio.run(asyncio.wait_for(listing(), timeout=self.config.get('timeout_seconds', 180)))
+
     async def _calls(self, requests):
         """Open the Transform MCP server, call each named tool, and unwrap the reply."""
         ClientSession, StdioServerParameters, stdio_client = mcp_transport(self.directory)

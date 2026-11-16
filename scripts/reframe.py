@@ -3005,6 +3005,66 @@ def semantic_compare(work, project, args, runtime=model_call):
     raise Blocked('Comparison invocation budget exhausted')
 
 
+def transform_client(project, work):
+    """The Transform MCP client for this project's saved settings."""
+    return kw.Transform(project['settings']['transform'], Path(work))
+
+
+def requirements_command(work, project, args, client=None):
+    """Requirements capability, job, and import commands. Every AWS mutation needs a recorded authorization."""
+    import reframe_requirements as requirements
+    action = args.requirements_command
+    if action == 'status':
+        record = requirements.capability(work)
+        status = requirements.generation_status(record)
+        job = None
+        label = (project.get('requirements') or {}).get('active_job')
+        if label and requirements.job_path(work, label).is_file():
+            job = read(requirements.job_path(work, label))
+        result = {'status': status['status'], 'missing': status['missing'], 'evidence_level': status['evidence_level'],
+                  'generation_verified': record.get('generation_verified', False),
+                  'items': {name: {k: v for k, v in item.items() if k != 'observed'} for name, item in record['items'].items()},
+                  'requirements': {k: v for k, v in (project.get('requirements') or {}).items() if k != 'history'},
+                  'provenance': requirements.provenance_statement(work, project)}
+        if job:
+            result['job'] = {k: job.get(k) for k in ('label', 'state', 'job_id', 'completion', 'selected_functions',
+                                                     'catalog', 'evidence_level', 'reason')}
+        if status['status'] != 'GENERATION_REQUESTABLE':
+            result.update(cause='REQUIREMENTS_GENERATION_UNAVAILABLE', recovery='capability', reason=status['reason'])
+        return result
+    if action == 'import':
+        reject_instructional_placeholder(args.note, 'Import note')
+        set_id = requirements.import_files(work, project, args.requirements, args.traceability, args.function,
+                                           args.by, args.note, args.job_id)
+        import reframe_versions
+        reframe_versions.record(work, project, 'requirements import')
+        persist(work, project)
+        return {'status': 'REQUIREMENTS_IMPORTED', 'set_id': set_id, 'origin': 'imported',
+                'superseded_approvals': project['requirements'].get('superseded_approvals', []),
+                'provenance': requirements.provenance_statement(work, project)}
+    if action == 'discover':
+        reject_instructional_placeholder(args.note, 'Discovery note')
+        record = requirements.discover(work, project, client or transform_client(project, work), args.by, args.note)
+        persist(work, project)
+        return {'status': 'CAPABILITY_RECORDED', **requirements.generation_status(record)}
+    if action == 'authorize-job':
+        reject_instructional_placeholder(args.note, 'Authorization note')
+        functions = [item.strip() for item in args.functions.split(',') if item.strip()]
+        job = requirements.authorize_job(work, project, functions, args.by, args.note)
+        persist(work, project)
+        return {'status': 'REQUIREMENTS_JOB_AUTHORIZED', 'label': job['label'], 'evidence_level': job['evidence_level'],
+                'next_step': 'reframe --workspace ' + str(work) + ' requirements resume'}
+    selected = [item.strip() for item in (args.select or '').split(',') if item.strip()]
+    job = requirements.step(work, project, client or transform_client(project, work), selected or None)
+    if job.get('state') == 'RETRIEVED':
+        import reframe_versions
+        reframe_versions.record(work, project, 'requirements retrieved')
+    persist(work, project)
+    return {'status': 'REQUIREMENTS_' + job['state'], 'job': job['label'], 'job_id': job.get('job_id'),
+            'completion': job.get('completion'), 'catalog': job.get('catalog'), 'reason': job.get('reason'),
+            'evidence_level': job.get('evidence_level')}
+
+
 def parser():
     """Build the reframe command-line parser."""
     p = argparse.ArgumentParser(prog='reframe', description=__doc__, epilog='Terminal application: reframe | reframe ui | reframe demo')
@@ -3110,6 +3170,25 @@ def parser():
     f.add_argument('--by', required=True)
     f.add_argument('--note', required=True)
     commands.add_parser('package')
+    requirements = commands.add_parser('requirements', help='AWS requirements: capability, generation job, import, status')
+    requirement_commands = requirements.add_subparsers(dest='requirements_command', required=True)
+    requirement_commands.add_parser('status')
+    discover = requirement_commands.add_parser('discover', help='Read-only: list the Transform tools and connectors this account reports')
+    discover.add_argument('--by', required=True)
+    discover.add_argument('--note', required=True)
+    authorize = requirement_commands.add_parser('authorize-job', help='Authorize one new requirements job for selected functions')
+    authorize.add_argument('--functions', default='')
+    authorize.add_argument('--by', required=True)
+    authorize.add_argument('--note', required=True)
+    advance = requirement_commands.add_parser('resume', help='Advance the authorized requirements job by one step')
+    advance.add_argument('--select', default='')
+    imported = requirement_commands.add_parser('import', help='Import externally generated requirements, labeled imported')
+    imported.add_argument('--requirements', required=True)
+    imported.add_argument('--traceability')
+    imported.add_argument('--function', required=True)
+    imported.add_argument('--job-id')
+    imported.add_argument('--by', required=True)
+    imported.add_argument('--note', required=True)
     context = commands.add_parser('context', help='Import or decide optional human context')
     context_commands = context.add_subparsers(dest='context_command', required=True)
     context_import = context_commands.add_parser('import')
@@ -3315,6 +3394,8 @@ def main(argv=None, reporter=None):
                             result = optional.approve_delta(work, args.version, args.id, args.by, args.note)
                         else:
                             result = optional.resolve_conflict(work, args.id, args.resolution, args.by, args.note)
+                    elif args.command == 'requirements':
+                        result = requirements_command(work, project, args)
                     elif args.command == 'design-export':
                         import reframe_optional as optional
                         result = optional.design_export(work, project, args.version, args.mode, args.stack)
