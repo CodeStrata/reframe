@@ -19,7 +19,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import kiro_workflow as kw
-from pilot import Blocked, framework_root, git, require, sha
+from pilot import Blocked, actor_provenance, framework_root, git, require, sha
 from reframe_artifacts import digest, validate_spec, validate_screens, render_site, render_assessment_facts, SECTIONS
 from reframe_models import call as model_call, ProviderSafetyRefusal, check_provider_refusals, preparation_protocol_hash
 from reframe_contracts import require_stage_contract
@@ -1292,7 +1292,7 @@ def approve(work, project, args):
         approved(project, 'validation', digest({'specification': project['specification']['sha256'], 'decisions': project['decisions']}))
         project['stage'] = 'SPECIFICATIONS_APPROVED'
     project['approvals'][args.phase] = {'sha256': fingerprint, 'by': args.by, 'note': args.note, 'at': time.time()}
-    if getattr(args, 'simulated', False):
+    if getattr(args, 'simulated', False) or actor_provenance():
         project['approvals'][args.phase]['simulated'] = True
     if args.phase == 'validation':
         project['approvals'][args.phase]['report_sha256'] = project['preparation_report']['sha256']
@@ -1432,9 +1432,9 @@ def decision(work, project, args):
         for item in targets:
             project['decisions'][item] = {'by': owner, 'answer': rationale, 'disposition': disposition,
                                           'specification_sha256': project['specification']['sha256'],
-                                          'at': stamp, 'batch_id': fingerprint}
+                                          'at': stamp, 'batch_id': fingerprint, **actor_provenance()}
         batches.append({'batch_id': fingerprint, 'question_ids': list(targets), 'disposition': disposition,
-                        'by': owner, 'rationale': rationale, 'at': stamp, 'amend': amend,
+                        'by': owner, 'rationale': rationale, 'at': stamp, 'amend': amend, **actor_provenance(),
                         'specification_sha256': project['specification']['sha256']})
         import reframe_versions
         reframe_versions.supersede(project, ('validation', 'specifications', 'design', 'package'),
@@ -2812,7 +2812,7 @@ def design_feedback(work, project, args):
     import reframe_design as design
     require(project.get('site') or project.get('skip_bundle'), 'There is no design to revise yet')
     reject_instructional_placeholder(args.note, 'Feedback note')
-    project.setdefault('design_feedback', []).append({'by': args.by, 'note': args.note, 'at': time.time(),
+    project.setdefault('design_feedback', []).append({**actor_provenance(), 'by': args.by, 'note': args.note, 'at': time.time(),
                                                        'from_stage': project.get('stage')})
     design.retire_design(work, project, 'design_feedback')
     plan = project.get('design_plan')
@@ -2901,7 +2901,7 @@ def feedback(work, project, args):
                 'correction_authorizations': state['invalid_candidate_authorizations'],
                 'next_step': 'reframe resume'}
 
-    project.setdefault('feedback', []).append({'by': args.by, 'note': args.note, 'at': time.time()})
+    project.setdefault('feedback', []).append({'by': args.by, 'note': args.note, 'at': time.time(), **actor_provenance()})
     require(state['round'] < project['settings']['max_rounds'], 'Revision limit exhausted; start a new workspace')
     state.update(round=state['round'] + 1, role='executor', status='RUNNING')
     stamp = time.time()

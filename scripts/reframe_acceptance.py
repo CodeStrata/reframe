@@ -12,7 +12,7 @@ import zipfile
 from hashlib import sha256
 from pathlib import Path
 
-from pilot import require, sha
+from pilot import actor_provenance, require, sha
 
 AWAITING = 'AWAITING_PACKAGE_ACCEPTANCE'
 ACCEPTED = 'PACKAGE_ACCEPTED'
@@ -186,7 +186,7 @@ def accept(work, project, app, package_sha256, by, note, simulated=False):
     entry = _append(work, {'event': 'package_accepted', 'package': detail['package'], 'package_sha256': detail['sha256'],
                            'manifest_sha256': (project.get('package') or {}).get('manifest_sha256'),
                            'version_id': detail['version_id'], 'route': detail['route'], 'by': str(by).strip(),
-                           'note': str(note).strip(), 'simulated': bool(simulated), 'at': time.time(),
+                           'note': str(note).strip(), 'simulated': bool(simulated) or bool(actor_provenance()), 'at': time.time(),
                            'readiness': detail['readiness']['state'],
                            'skip_acceptance': {k: (project['approvals'].get('verification-skip') or {}).get(k) for k in ('by', 'note', 'simulated')}
                            if project.get('verification_skip') else None,

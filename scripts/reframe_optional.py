@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 
-from pilot import Blocked, require
+from pilot import Blocked, actor_provenance, require
 import reframe_handoff as handoff
 
 MODES = ('functional-parity', 'reimagine')
@@ -158,7 +158,7 @@ def import_context(work, source, by, role, category, affected, gate='unspecified
     else:
         contradicts = _contradiction(text)
     submission = {
-        'id': _submission_id(raw), 'by': by.strip(), 'role': role.strip(), 'category': category,
+        **actor_provenance(), 'id': _submission_id(raw), 'by': by.strip(), 'role': role.strip(), 'category': category,
         'affected': affected, 'disposition': 'proposed', 'identity_proof': False,
         'extraction': 'extracted', 'executed': False, 'source_name': path.name,
         'sha256': sha256(raw).hexdigest(), 'recorded_at': _now(),
@@ -209,7 +209,7 @@ def decide_context(work, submission_id, disposition, by, note):
     found['note'] = note.strip()
     found['decided_at'] = _now()
     _write(context_dir(work) / 'decisions' / (submission_id + '.json'), {
-        'id': submission_id, 'disposition': disposition, 'by': by.strip(), 'note': note.strip(),
+        **actor_provenance(), 'id': submission_id, 'disposition': disposition, 'by': by.strip(), 'note': note.strip(),
         'layer': 'human-provided context', 'verified_source_behavior': False,
     })
     if disposition in {'rejected', 'superseded'}:
@@ -231,6 +231,7 @@ def resolve_conflict(work, conflict_id, resolution, by, note):
     require(found and found.get('status') == 'open', 'Open conflict was not found')
     found['resolution'] = resolution
     found['resolved_by'] = by.strip()
+    found.update(actor_provenance())
     found['resolution_note'] = note.strip()
     found['status'] = 'open' if resolution == 'needs-more-evidence' else 'resolved'
     found['verified_source_behavior'] = False
@@ -281,7 +282,7 @@ def record_gate(work, gate, by, provided, submission_id=None):
     folder = context_dir(work)
     path = folder / 'gates.json'
     gates = _read(path) if path.is_file() else {}
-    entry = {'gate': gate, 'by': str(by).strip(), 'at': _now(), 'provided': bool(provided)}
+    entry = {'gate': gate, 'by': str(by).strip(), 'at': _now(), 'provided': bool(provided), **actor_provenance()}
     if submission_id:
         entry['submission_id'] = submission_id
     gates.setdefault(gate, []).append(entry)

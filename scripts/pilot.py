@@ -19,6 +19,15 @@ class Blocked(Exception):
     pass
 
 
+def actor_provenance():
+    """Marks a record made by a labeled simulated actor. Empty for a real person.
+
+    Acceptance runs set REFRAME_SIMULATED_ACTOR=1. Such records are test records, never genuine sign-off.
+    """
+    import os
+    return {'simulated': True} if os.environ.get('REFRAME_SIMULATED_ACTOR') == '1' else {}
+
+
 def require(condition, message):
     """Stop the operation when a condition is false."""
     if not condition:

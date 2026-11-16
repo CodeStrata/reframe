@@ -106,6 +106,10 @@ class MenuJourneyTests(unittest.TestCase):
         self.assertEqual({gate: [e['provided'] for e in entries] for gate, entries in gates.items()},
                          {'baseline': [False], 'design': [False], 'package': [False]})
         self.assertEqual(project['requirements']['state'], 'NOT_PROVIDED')
+        self.assertTrue(project['verification_skip']['simulated'])
+        self.assertTrue(project['design_plan']['simulated'])
+        self.assertTrue(all(entry['simulated'] for entries in gates.values() for entry in entries))
+        self.assertTrue(all(item.get('simulated') for item in project['approvals'].values()), 'every approval is test-only')
         (Path(__file__).resolve().parents[1] / 'acceptance-skip-route-transcript.txt').write_text(text + '\n')
 
     def test_review_route_with_context_feedback_loops_and_exact_acceptance(self):
@@ -155,6 +159,9 @@ class MenuJourneyTests(unittest.TestCase):
         spec = reframe.read(reframe.spec_path(journey.work, project))
         admitted = spec['admitted_inputs']
         self.assertEqual([item['supplied_by'] for item in admitted['human_context']], ['Ari'])
+        self.assertTrue(project['decisions'] and all(item['simulated'] for item in project['decisions'].values()))
+        self.assertTrue(all(item.get('simulated') for item in project['approvals'].values() if item), 'every approval is test-only')
+        self.assertTrue(all(item['simulated'] for item in project['design_feedback']))
         self.assertEqual(len(admitted['requirement_ids']), 3)
         with zipfile.ZipFile(archive) as bundle:
             names = set(bundle.namelist())
@@ -168,6 +175,7 @@ class MenuJourneyTests(unittest.TestCase):
         self.assertIn('requirements-F1-requirements.md', names)
         self.assertEqual(sorted(context['gates']), ['baseline', 'design', 'package', 'specification'])
         self.assertTrue(any(item['category'] == 'review-feedback' for item in context['submissions']))
+        self.assertTrue(all(item['simulated'] for item in context['submissions']), 'context from a simulated actor is labeled')
         self.assertEqual(ai['workflow_status'], 'AWAITING_PACKAGE_ACCEPTANCE')
         self.assertEqual(deltas['proposals'], [], 'no future-state expectation was supplied, so nothing is proposed')
         self.assertTrue(deltas['gaps'])

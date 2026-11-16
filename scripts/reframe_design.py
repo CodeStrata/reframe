@@ -12,7 +12,7 @@ import time
 from hashlib import sha256
 from pathlib import Path
 
-from pilot import Blocked, require
+from pilot import Blocked, actor_provenance, require
 
 MODES = ('functional-parity', 'reimagine')
 KINDS = ('journeys', 'screens', 'apis')
@@ -51,7 +51,7 @@ def capture(work, project, mode, version, language, runtime, platform, constrain
             'target': {'language': (language or 'unspecified').strip(), 'runtime': (runtime or 'unspecified').strip(),
                        'platform': (platform or 'unspecified').strip()},
             'constraints': [item.strip() for item in (constraints or []) if item and item.strip()],
-            'by': str(by).strip(), 'at': time.time()}
+            'by': str(by).strip(), 'at': time.time(), **actor_provenance()}
     previous = project.get('design_plan')
     if previous and plan_fields(previous) == plan_fields(plan):
         return {'status': 'DESIGN_PLAN_UNCHANGED', 'plan': previous}
@@ -188,7 +188,7 @@ def reconcile(work, project, kind, ident, keep_stage, by, note):
     inventory = load_inventory(work, project)
     inventory['reconciliations'] = [item for item in inventory['reconciliations']
                                     if not (item['kind'] == kind and item['id'] == ident)]
-    inventory['reconciliations'].append({'kind': kind, 'id': ident, 'keep_stage': int(keep_stage), 'by': str(by).strip(),
+    inventory['reconciliations'].append({**actor_provenance(), 'kind': kind, 'id': ident, 'keep_stage': int(keep_stage), 'by': str(by).strip(),
                                          'note': str(note).strip(), 'at': time.time()})
     _save(Path(work) / project['design_inventory']['path'], inventory)
     return inventory['reconciliations'][-1]

@@ -6,7 +6,7 @@ import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from pilot import require, sha, git
+from pilot import actor_provenance, require, sha, git
 from reframe_artifacts import SECTIONS, digest, validate_screens
 import reframe_handoff as handoff
 
@@ -143,7 +143,7 @@ def run(work, project, args, app, runtime=None):
                 and recorded.get('assessment_sha256')==fingerprint, 'Skip decision differs from the recorded preview')
     else:
         project['verification_skip']={'owner':args.by.strip(),'reason':args.note.strip(),
-                                      'assessment_sha256':fingerprint,'at':time.time()}
+                                      'assessment_sha256':fingerprint,'at':time.time(),**actor_provenance()}
         app.persist(work, project)
     from reframe_workspace import preview_directory
     destination=preview_directory(work,app.name(args.name))
