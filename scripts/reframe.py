@@ -1142,6 +1142,8 @@ def preparation_report(work, project):
                                 + html.escape(json.dumps(review, indent=2)) + '</pre></main>')
     report.write_text(rendered)
     report.chmod(0o600)
+    import reframe_links
+    reframe_links.require_valid(report.parent, 'preparation report')
     project['preparation_report'] = {'path': str(report.relative_to(work)), 'sha256': sha(report),
                                    'specification': project['specification']['sha256'],
                                    'decisions': digest(project['decisions'])}
@@ -2751,6 +2753,8 @@ def review_site(work, project, args, runtime=None):
     (directory / 'usage.html').write_text(render_usage_page(provider_usage([work / 'preparation', directory]), project['settings']))
     for name in ('index.html', 'api.html', 'usage.html'):
         (directory / name).chmod(0o600)
+    import reframe_links
+    reframe_links.require_valid(directory, 'review site')
     project['site'] = {'directory': str(directory.relative_to(work)), 'specification': project['specification']['sha256'],
                        'decisions': digest(project['decisions']), 'provider': provider,
                        'prompt_sha256': wireframe_prompt_hash(),
@@ -2967,6 +2971,8 @@ def package(work, project):
         'Keep private; inspect all contents before sharing.\n'
         'reframe-notice.md applies only to copied Reframe framework instructions.\n')
     (destination / 'reframe-notice.md').write_text(handoff.framework_notice())
+    import reframe_links
+    reframe_links.require_valid(destination, 'approved package')
     manifest = {p.name: sha(p) for p in destination.iterdir() if p.is_file()}
     write(destination / 'checksums.json', manifest)
     refuse_packaged_secrets(destination)

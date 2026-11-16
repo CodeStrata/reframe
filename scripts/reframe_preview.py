@@ -264,6 +264,8 @@ def run(work, project, args, app, runtime=None):
     paths=[item['path'] for item in assessment.get('assessment_index', []) if isinstance(item, dict) and isinstance(item.get('path'), str)]
     paths += [rule['source_path'] for rule in rules if isinstance(rule.get('source_path'), str)]
     handoff.write_into(bundle, rules, paths, value['apis'], app.write, directory)
+    import reframe_links
+    reframe_links.require_valid(bundle, 'skip draft')
     app.write(bundle/'checksums.json',{p.name:sha(p) for p in bundle.iterdir() if p.is_file() and p.name!='checksums.json'})
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
         for path in sorted(bundle.iterdir()):

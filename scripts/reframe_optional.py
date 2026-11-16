@@ -737,7 +737,7 @@ def _write_future(work, version, screens):
     scope = 'Future-state draft. Unapproved proposals are not requirements.'
     if gaps:
         scope += ' Missing design work: ' + '; '.join(item['reason'] for item in gaps)
-    page = render_site({'scope': scope, 'rules': [], 'sections': {}, 'questions': [], 'tests': []}, future, {})
+    page = render_site({'scope': scope, 'rules': [], 'sections': {}, 'questions': [], 'tests': []}, future, {}, companions=False)
     (folder / 'index.html').write_text(page)
     (folder / 'index.html').chmod(0o600)
     _write(folder / 'screens.json', future)
@@ -785,7 +785,7 @@ def approve_delta(work, version, proposal_id, by, note):
         page = render_site({
             'scope': 'Approved delta ' + proposal_id + '. Status implementation_requirement for the named change only.',
             'rules': [], 'sections': {}, 'questions': [], 'tests': [],
-        }, future, {})
+        }, future, {}, companions=False)
         html_path = root / 'future-state' / 'index.html'
         html_path.write_text(page)
         html_path.chmod(0o600)
@@ -841,6 +841,12 @@ def package_export(work, project, version, mode):
             info.compress_type = zipfile.ZIP_DEFLATED
             zipped.writestr(info, files[name])
     archive.chmod(0o600)
+    import reframe_links
+    try:
+        reframe_links.require_valid(archive, 'mode package')
+    except Blocked:
+        archive.unlink()
+        raise
     status = 'DRAFT_READY' if not conflicts else 'DRAFT_BLOCKED_FOR_APPROVAL'
     design_path = Path(work) / 'previews' / version / 'design.json'
     _write(completion_path, {
@@ -908,7 +914,9 @@ def _mode_package_files(work, project, version, mode, current_html, conflicts):
     version_root = Path(work) / 'previews' / version
     current_dir = version_root / 'current-state'
     files['screens.json'] = (current_dir / 'screens.json').read_bytes()
-    files['api.html'] = (current_dir / 'api.html').read_bytes()
+    # The packaged current-state page is current-state.html, so companion links point there.
+    for name in ('api.html', 'usage.html'):
+        files[name] = (current_dir / name).read_bytes().replace(b'href="index.html', b'href="current-state.html')
     openapi = current_dir / 'openapi.json'
     files['openapi.json'] = openapi.read_bytes() if openapi.is_file() else (json.dumps(openapi_document(
         screens.get('apis') or [], title='Draft review APIs',
