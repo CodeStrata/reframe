@@ -138,7 +138,10 @@ def plan(work, project, app):
         'checks': checks, 'usage': usage, 'wireframe_stages': stages, 'approvals': approvals,
         'questions': questions,
         'controller_migration': {'prompts_changed': app.prompts_differ(project),
-                                 'wireframe_prompt_changed': app.wireframe_prompt_changed(project)},
+                                 'wireframe_prompt_changed': app.wireframe_prompt_changed(project),
+                                 'skip_draft_prompt_changed': app.skip_draft_prompt_changed(work, project),
+                                 # The same check upgrade-framework applies, so the plan never disagrees with it.
+                                 'upgrade_refusal': app.upgrade_refusal(work, project)},
         'requires_authorization': authorization,
         'never': ['delete the workspace', 'reset counters', 'erase receipts', 'rename conflicting screens',
                   'reopen passed units', 'change deferrals', 'rerun the assessment to escape a blocker'],

@@ -528,6 +528,30 @@ class GuidedFlowTests(unittest.TestCase):
                 self.assertNotIn('validate', next_step({**base, **extra}))
             self.assertIn('approve design', next_step({**base, 'skip_bundle': 'previews/d'}))
 
+    def test_menu_8_offers_the_same_recovery_when_context_blocks_the_package(self):
+        ui = Terminal(console=Console(file=io.StringIO()), demo=False)
+        with patch.object(ui, 'invoke', return_value=2), \
+                patch('reframe_flow.offer_withdraw_flagged_context') as offered:
+            ui.dispatch('8')
+        offered.assert_called_once_with(ui)
+
+    def test_an_unknown_delta_id_is_refused_before_the_approver_is_asked(self):
+        from reframe_flow import ask_proposal_id
+        ui = self.ui({}, ['P9', 'P1'], gates=False)
+        lines = self.said(ui)
+        self.assertEqual(ask_proposal_id(ui, ['P1', 'P2'], 'Approve one future-state delta by id, or none', 'none'), 'P1')
+        self.assertIn('No proposal P9 is recorded for this version. Proposals: P1, P2.', lines)
+        ui = self.ui({}, ['P7', 'P8', 'P9'], gates=False)
+        self.assertIsNone(ask_proposal_id(ui, ['P1'], 'Proposal id to approve', None))
+        self.assertEqual(ui.ask.call_count, 3, 'no approver or rationale is asked for an unknown id')
+
+    def test_before_a_route_is_chosen_the_next_step_presumes_neither(self):
+        from reframe_setup import next_step
+        with patch('reframe.prompts_differ', return_value=False):
+            text = next_step({'stage': 'ASSESSMENT_APPROVED', 'design_plan': {'mode': 'reimagine'}, 'settings': {}})
+        self.assertTrue(text.startswith('Choose a route with /flow'), text)
+        self.assertIn('preview --skip-validation', text)
+
     def test_specifications_review_names_the_wireframes_and_json(self):
         ui = self.ui({'stage':'AWAITING_SPECIFICATIONS_APPROVAL', 'approvals':{'assessment':True, 'validation':True},
                       'site':{'directory':'previews/business-1'}}, ['continue'])

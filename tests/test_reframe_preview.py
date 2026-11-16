@@ -207,6 +207,26 @@ class PreviewTests(unittest.TestCase):
         self.assertEqual([(row['id'], row['disposition']) for row in rows], [('aws-req:F1:F1-R1', 'gap')])
         self.assertTrue(any(item['kind'] == 'coverage' and item['id'] == 'aws-req:F1:F1-R1' for item in state['blockers']))
 
+    def test_a_skip_route_with_a_design_approval_can_record_a_controller_update(self):
+        import argparse
+        preview.run(self.work, self.project, self.arguments, app, self.runtime)
+        self.project['approvals']['design'] = {'by': 'Architect', 'note': 'Reviewed the draft'}
+        self.assertIsNone(app.upgrade_refusal(self.work, self.project), 'the draft prompt is unchanged')
+        result = app.upgrade_framework(self.work, self.project, argparse.Namespace(note='Controller fix only', adopt_prompts=False))
+        self.assertEqual(result['status'], 'FRAMEWORK_UPDATED')
+        self.assertIn('design', self.project['approvals'], 'the design approval is kept')
+        state_path = self.work / 'previews' / 'transform-direct' / 'preview-state.json'
+        state = app.read(state_path)
+        app.write(state_path, {**state, 'prompt_sha256': '0' * 64})
+        self.assertIn('bound to the preview prompt', app.upgrade_refusal(self.work, self.project))
+        state.pop('prompt_sha256')
+        app.write(state_path, state)
+        with patch.object(app, 'git', side_effect=Blocked('no checkout')):
+            self.assertTrue(app.skip_draft_prompt_changed(self.work, self.project),
+                            'an older draft whose prompt cannot be shown is not assumed compatible')
+        self.project.pop('skip_bundle')
+        self.assertIn('no specification or saved skip draft', app.upgrade_refusal(self.work, self.project))
+
     def test_untrusted_screen_text_is_escaped(self):
         def runtime(*args):
             value=self.runtime(*args);value['screens'][0]['title']='<script>alert(1)</script>';return value

@@ -4,7 +4,7 @@ The independent acceptance agent's first report on `d65d86f` was **FAIL**: one b
 
 Every defect below was fixed in `ccd9777` or `351d34c` and has a regression test. No test expectation was weakened. Where a journey script changed, the change reflects the corrected behavior, and the test now asserts that behavior.
 
-The re-test on candidate `351d34c` is in `acceptance-report-351d34c.md`, and the round-three re-test on `fd0e4c8` is in `acceptance-report-fd0e4c8.md`. Their defects are in the tables below.
+The re-test on candidate `351d34c` is in `acceptance-report-351d34c.md`, the round-three re-test on `fd0e4c8` is in `acceptance-report-fd0e4c8.md`, and the round-four re-test on `6e3aed4` is in `acceptance-report-6e3aed4.md`. Their defects are in the tables below.
 
 | # | Severity | Defect | Fix | Regression test |
 | --- | --- | --- | --- | --- |
@@ -76,5 +76,20 @@ Each fix below has a regression test that fails on `fd0e4c8`.
 | R3-10 | minor | Imported requirements got no coverage record on the skip route | Coverage is computed against the draft's structured id lists; a gap is a readiness blocker and is written to `requirements-evidence.json` | the R3-9 test |
 
 One related change: declining a new assessment after recognizing a repository now ends that /flow instead of walking into the saved project's gates.
+
+N9 stays a known limitation.
+
+## Round four: candidate `6e3aed4`
+
+The re-test was **FAIL, narrowly**: no blockers, one major defect, four minor ones. Every round-three fix it could reach was confirmed. Runs A2, B, C, D, E, and F reached explicit acceptance, and it found no regression.
+
+| # | Severity | Defect | Fix | Regression test |
+| --- | --- | --- | --- | --- |
+| R4-1 | major | A skip-route run with a design approval could not record a framework update: every approval after the assessment was refused when there was no specification | The skip route may record a controller update when its saved draft's preview prompt is unchanged. New drafts record that prompt's hash; an older draft is compared by Git blob id at the commit that generated it, and is treated as changed when that cannot be shown. Approvals are kept and audited as on the review route. | `test_reframe_preview::test_a_skip_route_with_a_design_approval_can_record_a_controller_update` |
+| M1 | minor | Before a route was chosen, next steps named `validate` | Until a route is chosen, the next step names both routes and presumes neither | `test_guided_flow::test_before_a_route_is_chosen_the_next_step_presumes_neither` |
+| M2 | minor | A package refusal from menu 8 did not offer to reject the flagged note | Menu 8 and the package-gate rebuild offer the same recovery as menu 1 | `test_guided_flow::test_menu_8_offers_the_same_recovery_when_context_blocks_the_package` |
+| M3 | minor | An unknown delta id was refused only after the approver and rationale | The id is checked against the recorded proposals first and asked again | `test_guided_flow::test_an_unknown_delta_id_is_refused_before_the_approver_is_asked` |
+| M4 | minor | The CLI skip refusal pointed at project.json | It points to menu 1, which passes the recorded decision | the R3-2 journey |
+| M5 | minor | `recovery-plan` reported a migration as fine while `upgrade-framework` refused it | Both use one check, `upgrade_refusal`, and the plan reports its result | the R4-1 test |
 
 N9 stays a known limitation.

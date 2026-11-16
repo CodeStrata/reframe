@@ -427,7 +427,11 @@ class Terminal:
             args=[*args,'--wait']
         if cmd in {'assess','resume','validate','review-site','package'}:
             self.say('Running '+cmd+'. Existing evidence and approval checks remain enforced.','cyan')
-        self.invoke([cmd,*args])
+        code=self.invoke([cmd,*args])
+        if cmd=='package' and code!=0:
+            # Menu 8 offers the same recovery as /flow when accepted context blocks the package.
+            from reframe_flow import offer_withdraw_flagged_context
+            offer_withdraw_flagged_context(self)
         return True
 
     def run(self, initial=None):

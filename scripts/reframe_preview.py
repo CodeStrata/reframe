@@ -153,9 +153,8 @@ def run(work, project, args, app, runtime=None):
         require(recorded.get('owner')==args.by.strip() and recorded.get('reason')==args.note.strip()
                 and recorded.get('assessment_sha256')==fingerprint,
                 'A decision to skip verification is already recorded for this assessment with its owner and reason. '
-                'Every draft of this assessment uses that same decision, so pass the recorded owner and reason '
-                '(verification_skip in project.json); menu 1 does this for you. A different owner or reason is a new '
-                'decision and needs a new assessment.')
+                'Every draft of this assessment uses that same decision. Use menu 1, which passes the recorded owner and '
+                'reason for you. A different owner or reason is a new decision and needs a new assessment.')
     # The skip decision is recorded on the project only when a draft exists. A failed attempt binds nothing.
     decision = recorded or {'owner':args.by.strip(),'reason':args.note.strip(),
                             'assessment_sha256':fingerprint,'at':time.time(),**actor_provenance()}
@@ -182,7 +181,8 @@ def run(work, project, args, app, runtime=None):
     else:
         require(not any(destination.iterdir()), 'Preview directory already contains files; choose a new name')
         state={'status':'DRAFT','verification':'SKIPPED_BY_OWNER','owner':args.by,'reason':args.note,
-               'assessment_sha256':fingerprint,'framework_commit':current,'provider':args.provider,'calls':0,'created_at':time.time(),**actor_provenance()}
+               'assessment_sha256':fingerprint,'framework_commit':current,'provider':args.provider,'calls':0,'created_at':time.time(),
+               'prompt_sha256':sha(app.FRAMEWORK/app.PREVIEW_PROMPT),**actor_provenance()}
         app.write(state_path,state)
     summaries,rules=extract(directory,assessment,app)
     app.write(destination/'rule-catalog.json',rules)

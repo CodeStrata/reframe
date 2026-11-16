@@ -365,9 +365,9 @@ def finish_guided_design(ui, project):
     if report.get('resumed'):
         ui.say('Incomplete generation was resumed from the saved selection. No new model call was required.')
         ui.say('Review the completed version before packaging.')
-    if category_was_future(context, locals()):
-        if ui.yes('Approve one future-state delta as an implementation requirement?'):
-            proposal = ui.ask('Proposal id to approve')
+    if category_was_future(context, locals()) and ui.yes('Approve one future-state delta as an implementation requirement?'):
+        proposal = ask_proposal_id(ui, proposal_ids(version), 'Proposal id to approve', None)
+        if proposal:
             owner = ui.ask('Delta approver')
             note = ui.ask('Delta approval note')
             if ui.invoke(['context', 'approve-delta', '--version', version, '--id', proposal, '--by', owner, '--note', note]) != 0:
@@ -583,6 +583,25 @@ def ensure_design_plan(ui, project):
     return ui.invoke(command) == 0
 
 
+def proposal_ids(version):
+    """The Reimagine proposal ids recorded for one design version."""
+    work = workspace_path()
+    path = work / 'previews' / str(version) / 'future-state' / 'deltas.json' if work else None
+    deltas = json.loads(path.read_text()) if path and path.is_file() else {}
+    return [str(item.get('id')) for item in deltas.get('proposals') or []]
+
+
+def ask_proposal_id(ui, known, prompt, default):
+    """A proposal id from the recorded list, checked before the approver is asked. Three unknown ids record nothing."""
+    for _attempt in range(3):
+        value = (ui.ask(prompt, default) if default is not None else ui.ask(prompt)).strip()
+        if value in {'', 'none'} or value in known:
+            return value
+        ui.say('No proposal ' + value + ' is recorded for this version. Proposals: ' + (', '.join(known) or 'none') + '.')
+    ui.say('Stopped after three unknown proposal ids. No delta was approved.')
+    return None
+
+
 def masked(text):
     """Text with credential- or identifier-shaped values replaced, for printing on the console."""
     import reframe
@@ -613,7 +632,8 @@ def design_review(ui, project, skip_route):
                 ui.say('Proposal ' + str(item.get('id')) + ' (' + str(item.get('status')) + '): ' + masked(str(item.get('after') or ''))[:160])
             if not deltas.get('proposals'):
                 ui.say('No proposal was made. ' + '; '.join(str(gap.get('reason')) for gap in (deltas.get('gaps') or [])[:3]))
-            proposal = ui.ask('Approve one future-state delta by id, or none', 'none')
+            proposal = ask_proposal_id(ui, [str(item.get('id')) for item in deltas.get('proposals') or []],
+                                       'Approve one future-state delta by id, or none', 'none') or 'none'
             if proposal.strip() not in {'', 'none'}:
                 by = approver(ui, 'approves this delta')
                 note = ui.ask('Rationale for approving this delta')
@@ -653,7 +673,10 @@ def package_review(ui, project):
     if work and reframe_acceptance.context_changed(work, current):
         ui.say('Context or a conflict changed after this package was built. Rebuilding so the package carries it. '
                'The earlier package stays on disk and was not accepted.')
-        return 'continue' if ui.invoke(['package']) == 0 else 'stop'
+        if ui.invoke(['package']) == 0:
+            return 'continue'
+        offer_withdraw_flagged_context(ui)
+        return 'stop'
     decision = ui.ask('Package decision (accept/design-change/behavior-change/pause)', 'pause')
     require(decision in {'accept', 'design-change', 'behavior-change', 'pause'}, 'Choose accept, design-change, behavior-change, or pause')
     if decision == 'pause':

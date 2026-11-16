@@ -692,6 +692,10 @@ def next_step(project):
             return ('Synthesis correction limit reached. Inspect the saved review before another correction. '
                     'Passed units stay sealed. No assessment job is created.')
         return 'Authorize one targeted correction with reframe feedback --unit UNIT --authorize-correction --by NAME --note REASON'
+    if stage == 'ASSESSMENT_APPROVED' and not project.get('pipeline') and not project.get('specification'):
+        # No route is chosen yet, so neither command is presumed.
+        return ('Choose a route with /flow: skip writes a draft (reframe preview --skip-validation --by OWNER --note WHY), '
+                'review runs reframe validate --reviewer claude-code when the findings cite source lines.')
     if stage in {'ASSESSMENT_APPROVED', 'REVISION_PENDING', 'WAITING_FOR_RUNTIME'}: return 'reframe validate --reviewer claude-code'
     if stage == 'AWAITING_ASSESSMENT_APPROVAL': return 'Inspect findings, then reframe approve assessment'
     if project.get('active_assessment') and project.get('assessments') and stage in {'INITIALIZED', 'READY_TO_ASSESS'}:
