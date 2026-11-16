@@ -255,6 +255,29 @@ class RequirementsTests(unittest.TestCase):
         self.assertIn('Reframe did not generate them', result['provenance'])
         self.assertEqual(self.command('status')['status'], 'REQUIREMENTS_GENERATION_UNAVAILABLE')
 
+    def test_heading_requirements_are_read_and_nothing_is_dropped_silently(self):
+        folder = self.root / 'headings'
+        folder.mkdir()
+        (folder / 'requirements.md').write_text(
+            '# Payments\n\n## PAY-010 Reject a zero amount\nA payment of zero is refused with a message.\n\n'
+            '## PAY-011 Keep a receipt\nEvery accepted payment keeps a receipt.\n\n## Appendix\nSee also PAY-099 in the appendix.\n')
+        result = self.command('import', '--requirements', str(folder / 'requirements.md'), '--function', 'F1',
+                              '--by', 'Analyst', '--note', 'Exported from the AWS console by the analyst')
+        self.assertEqual(result['count'], 2)
+        records = {item['original_id']: item for item in requirements.active_set(self.work, self.project)['requirements']}
+        self.assertEqual(sorted(records), ['PAY-010', 'PAY-011'])
+        self.assertIn('refused with a message', records['PAY-010']['text'])
+        self.assertIn('no "shall" statement', records['PAY-010']['uncertainty'])
+        self.assertEqual(result['unrecognized_lines'], 1, 'the cross-reference line is counted, not dropped silently')
+        self.assertTrue(result['warnings'])
+        empty = self.root / 'prose'
+        empty.mkdir()
+        (empty / 'requirements.md').write_text('# Notes\nPayments are checked before posting.\n')
+        result = self.command('import', '--requirements', str(empty / 'requirements.md'), '--function', 'F2',
+                              '--by', 'Analyst', '--note', 'Exported from the AWS console by the analyst')
+        self.assertEqual(result['count'], 0)
+        self.assertIn('No requirement records were recognized', ' '.join(result['warnings']))
+
     def test_an_import_after_a_reviewed_specification_supersedes_its_approvals(self):
         self.project['specification'] = {'path': 'preparation/candidate.json', 'sha256': 'x'}
         self.project['approvals']['validation'] = {'by': 'A', 'note': 'ok', 'sha256': 'y'}

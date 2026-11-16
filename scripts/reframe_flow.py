@@ -394,13 +394,28 @@ def reviewer(ui):
     return ui.reviewer_name
 
 
+def ask_existing_file(ui, label, allow_none=False):
+    """Ask for a file path and check it at once. Three missing paths stop with nothing recorded."""
+    for _attempt in range(3):
+        value = ui.ask(label, 'none' if allow_none else None).strip()
+        if allow_none and value in {'', 'none'}:
+            return 'none'
+        if Path(value).expanduser().is_file():
+            return value
+        ui.say('No file was found at that path. Nothing was recorded. Enter the path again' + (', or none.' if allow_none else '.'))
+    ui.say('Stopped after three paths that were not found. Nothing was recorded.')
+    return None
+
+
 def offer_context(ui, gate):
     """Optional Markdown at one review gate. None is valid and is recorded; nothing is inferred from a missing file."""
     work = workspace_path()
     if work and not offer_open_conflicts(ui, work):
         return False
-    path = ui.ask('Markdown context for the ' + gate + ' review, or none', 'none')
-    if path.strip() in {'', 'none'}:
+    path = ask_existing_file(ui, 'Markdown context for the ' + gate + ' review, or none', allow_none=True)
+    if path is None:
+        return False
+    if path in {'', 'none'}:
         return ui.invoke(['context', 'none', '--gate', gate, '--by', reviewer(ui)]) == 0
     category = ui.ask('Context category (clarification/correction/constraint/current-state/future-state/review-feedback)',
                       'clarification')
@@ -419,6 +434,11 @@ def offer_context(ui, gate):
         return False
     if category == 'future-state' and disposition == 'accepted':
         ui.say('Accepting this note records input only. It does not authorize a behavior change.')
+    if work and disposition == 'accepted':
+        from reframe_optional import open_conflicts
+        if any(item.get('submission_id') == imported for item in open_conflicts(work)):
+            ui.say('This context contradicts recorded evidence. The conflict is shown now; it blocks the approvals it affects.')
+            return offer_open_conflicts(ui, work)
     return True
 
 
@@ -439,8 +459,12 @@ def baseline_inputs(ui, project):
         if choice == 'generate' and not generate_requirements(ui):
             return False
         if choice == 'import':
-            path = ui.ask('Path to requirements.md')
-            trace = ui.ask('Path to traceability.yaml, or none', 'none')
+            path = ask_existing_file(ui, 'Path to requirements.md')
+            if path is None:
+                return False
+            trace = ask_existing_file(ui, 'Path to traceability.yaml, or none', allow_none=True)
+            if trace is None:
+                return False
             function = ui.ask('Business function id for these files')
             note = ui.ask('Where these files came from')
             command = ['requirements', 'import', '--requirements', path, '--function', function, '--by', reviewer(ui), '--note', note]
@@ -449,6 +473,11 @@ def baseline_inputs(ui, project):
             if ui.invoke(command) != 0:
                 ui.say('The requirements were not imported. Nothing else changed.')
                 return False
+            report = getattr(ui, 'last_report', None) or {}
+            ui.say('Imported ' + str(report.get('count', 0)) + ' requirement records, labeled imported. '
+                   + str(report.get('unrecognized_lines', 0)) + ' lines named an id in an unrecognized shape.')
+            for warning in report.get('warnings') or []:
+                ui.say('Warning: ' + warning)
         if choice == 'none' and ui.invoke(['requirements', 'none', '--by', reviewer(ui)]) != 0:
             return False
     work = workspace_path()
@@ -544,6 +573,13 @@ def package_review(ui, project):
            + ' recorded blockers. Accepting the package does not make blocked work ready.')
     if not offer_context(ui, 'package'):
         return 'stop'
+    import reframe_acceptance
+    work = workspace_path()
+    current = ui.project() or project
+    if work and reframe_acceptance.context_changed(work, current):
+        ui.say('Context or a conflict changed after this package was built. Rebuilding so the package carries it. '
+               'The earlier package stays on disk and was not accepted.')
+        return 'continue' if ui.invoke(['package']) == 0 else 'stop'
     decision = ui.ask('Package decision (accept/design-change/behavior-change/pause)', 'pause')
     require(decision in {'accept', 'design-change', 'behavior-change', 'pause'}, 'Choose accept, design-change, behavior-change, or pause')
     if decision == 'pause':
@@ -588,11 +624,34 @@ def offer_open_conflicts(ui, work):
                       '--by', owner, '--note', note]) != 0:
             ui.say('The conflict remains open. The draft can still be written. Final approval stays blocked.')
         return True
-    if ui.yes('Defer the open conflict and continue the draft? Final approval stays blocked.'):
-        ui.say('The conflict stays open. The draft can still be written. Final approval stays blocked.')
+    if ui.yes('Defer the open conflict and continue? It stays open and keeps blocking the approvals it affects.'):
+        conflict = conflicts[0]
+        owner = ui.ask('Who is deferring this conflict')
+        note = ui.ask('Why it is deferred and what evidence is needed')
+        if ui.invoke(['context', 'resolve', '--id', conflict['id'], '--resolution', 'needs-more-evidence',
+                      '--by', owner, '--note', note]) != 0:
+            ui.say('The deferral was not recorded. The conflict stays open.')
+        ui.say('The conflict stays open and keeps blocking the approvals it affects. Other work can continue.')
         return True
     ui.say('Paused. Resolve the conflict or defer it before the design is written.')
     return False
+
+
+def offer_wireframe_retry(ui):
+    """After a failed or invalid wireframe call: authorize one new counted attempt, or stop. The failed call stays counted."""
+    import reframe
+    work = workspace_path()
+    current = ui.project() or {}
+    if not work or not reframe.failed_wireframe_stages(work, current):
+        return False
+    ui.say('The wireframe call failed or returned invalid output. It stays counted, and its receipt is kept. '
+           'A new attempt makes another counted provider call.')
+    if not ui.yes('Authorize one new wireframe attempt now?'):
+        ui.say('Paused. Nothing was changed. /flow offers the new attempt again.')
+        return False
+    owner = ui.ask('Who authorizes the new attempt')
+    note = ui.ask('Why a new attempt is acceptable')
+    return ui.invoke(['retry-wireframes', '--by', owner, '--note', note]) == 0
 
 
 def say_design_recovery(ui):
@@ -674,9 +733,16 @@ def run(ui):
             else:
                 if not baseline_inputs(ui, project):
                     return
-                ui.say('Assessment is approved. skip generates wireframes and the AI-DLC package without a second review. review runs the executor and an independent reviewer.')
-                choice = ui.ask('Next step (skip/review)', 'skip')
-                require(choice in {'skip', 'review', 'draft', 'verify'}, 'Choose skip or review')
+                import reframe
+                import reframe_preview
+                available, why = reframe_preview.skip_available(project, reframe) if project.get('selected') else (True, None)
+                if available:
+                    ui.say('Assessment is approved. skip generates wireframes and the AI-DLC package without a second review. review runs the executor and an independent reviewer.')
+                    choice = ui.ask('Next step (skip/review)', 'skip')
+                    require(choice in {'skip', 'review', 'draft', 'verify'}, 'Choose skip or review')
+                else:
+                    ui.say('Skip is not available: ' + str(why) + ' review runs the executor and an independent reviewer.')
+                    choice = 'review'
             if not interrupted and choice in {'skip', 'draft'}:
                 ui.say('Claude or Codex will generate design content. No executor/reviewer verification or approval is implied.')
                 if not ensure_design_plan(ui, project):
@@ -808,7 +874,8 @@ def run(ui):
             if not ensure_design_plan(ui, project):
                 return
             if ui.invoke(['review-site']) != 0:
-                return
+                if not offer_wireframe_retry(ui):
+                    return
             continue
         if stage in {'SPECIFICATIONS_APPROVED', 'DESIGN_APPROVED'}:
             if ui.invoke(['package']) != 0:

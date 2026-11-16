@@ -170,6 +170,15 @@ def verify_ledger(work):
     return True
 
 
+def context_changed(work, project):
+    """True when admitted context, a disposition, or a conflict changed after the package was built."""
+    recorded = (project.get('package') or {}).get('context_fingerprint')
+    if not recorded:
+        return False
+    import reframe_optional as optional
+    return optional._context_fingerprint(work) != recorded
+
+
 def accept(work, project, app, package_sha256, by, note, simulated=False):
     """Record that a named person accepted this exact archive. The archive is not modified."""
     require(built_stage(project.get('stage')), 'Only a built package that awaits acceptance can be accepted')
@@ -182,6 +191,11 @@ def accept(work, project, app, package_sha256, by, note, simulated=False):
     if project.get('verification_skip'):
         app.require_skip_acceptance(project)
     app.require_clear_for_final(work, 'package acceptance', app.spec_scope_ids(work, project))
+    if context_changed(work, project):
+        from reframe_states import stop
+        stop('Human context or a conflict changed after this package was built, so the package does not carry it. '
+             'Nothing was accepted. Rebuild the package and review the new one; the earlier package stays on disk.',
+             'HUMAN_DECISION_REQUIRED', 'reframe package')
     verify_ledger(work)
     entry = _append(work, {'event': 'package_accepted', 'package': detail['package'], 'package_sha256': detail['sha256'],
                            'manifest_sha256': (project.get('package') or {}).get('manifest_sha256'),

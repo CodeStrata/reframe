@@ -499,26 +499,50 @@ EARS = re.compile(r'\b(shall|SHALL)\b')
 
 
 def _requirements(text, function_id):
-    """Requirement records with stable namespaced ids. Lines without an id and 'shall' are not requirements."""
-    records, section, seen = [], None, {}
+    """Requirement records with stable namespaced ids.
+
+    Two shapes are read: a line with an id and 'shall', and a heading that names an id followed by its text.
+    Other lines that name an id are counted as unrecognized, never dropped silently.
+    """
+    records, section, seen, unrecognized = [], None, {}, []
     lines = text.splitlines()
+    current = None
     for number, line in enumerate(lines, 1):
         heading = re.match(r'^\s*#{1,6}\s+(.*)$', line)
         if heading:
-            section = heading.group(1).strip()
+            current = None
+            title = heading.group(1).strip()
+            match = REQ_ID.search(title)
+            if match:
+                original = match.group(1)
+                current = {'id': 'aws-req:' + function_id + ':' + original, 'original_id': original,
+                           'function_id': function_id, 'section': section, 'text': title, 'line': number,
+                           'shape': 'heading', 'acceptance_criteria': [], 'uncertainty': None, 'disposition': 'unreviewed'}
+                seen[original] = seen.get(original, 0) + 1
+                records.append(current)
+            else:
+                section = title
             continue
         match = REQ_ID.search(line)
-        if not match or not EARS.search(line):
+        if match and EARS.search(line):
+            current = None
+            original = match.group(1)
+            seen[original] = seen.get(original, 0) + 1
+            records.append({'id': 'aws-req:' + function_id + ':' + original, 'original_id': original, 'function_id': function_id,
+                            'section': section, 'text': line.strip(), 'line': number, 'shape': 'statement',
+                            'acceptance_criteria': [], 'uncertainty': None, 'disposition': 'unreviewed'})
             continue
-        original = match.group(1)
-        seen[original] = seen.get(original, 0) + 1
-        records.append({'id': 'aws-req:' + function_id + ':' + original, 'original_id': original, 'function_id': function_id,
-                        'section': section, 'text': line.strip(), 'line': number,
-                        'acceptance_criteria': [], 'uncertainty': None, 'disposition': 'unreviewed'})
+        if current is not None and line.strip():
+            current['text'] = (current['text'] + ' ' + line.strip()).strip()
+            continue
+        if match:
+            unrecognized.append({'line': number, 'id': match.group(1)})
     for item in records:
         if seen[item['original_id']] > 1:
             item['uncertainty'] = 'duplicate identifier in the source file'
-    return records
+        if item.get('shape') == 'heading' and not EARS.search(item['text']):
+            item['uncertainty'] = item['uncertainty'] or 'no "shall" statement; read from a heading and its text'
+    return records, unrecognized
 
 
 def _trace_blocks(text):
@@ -568,11 +592,13 @@ def normalize(work, project, files):
     except (Blocked, OSError, ValueError, KeyError):
         rule_ids = set()
     source_root = Path((project.get('source') or {}).get('root') or '.')
-    requirements, traces = [], {}
+    requirements, traces, unrecognized = [], {}, []
     for entry in files:
         data = (Path(work) / entry['stored_path']).read_text(errors='replace') if entry.get('stored_path') else ''
         if entry['kind'] == 'requirements':
-            requirements += _requirements(data, entry['function_id'])
+            found, skipped = _requirements(data, entry['function_id'])
+            requirements += found
+            unrecognized += [{**item, 'file': entry['stored_path']} for item in skipped]
         else:
             traces.setdefault(entry['function_id'], []).append(data)
     for item in requirements:
@@ -591,8 +617,15 @@ def normalize(work, project, files):
         item['traceability'] = {'state': state, 'rule_ids': rules, 'known_rule_ids': sorted(set(rules) & rule_ids),
                                 'source_paths': paths, 'source_paths_in_pin': linked,
                                 'evidence_status': 'TRACEABILITY_CLAIM'}
-    return {'schema_version': 1, 'requirements': requirements,
-            'counts': {'requirements': len(requirements),
+    warnings = []
+    if not requirements:
+        warnings.append('No requirement records were recognized. The original files are kept unchanged. '
+                        'Reframe reads a line with an id and "shall", or a heading that names an id.')
+    if unrecognized:
+        warnings.append(str(len(unrecognized)) + ' lines name an id but are not in a recognized requirement shape; '
+                        'they are listed in unrecognized_lines and kept in the original file.')
+    return {'schema_version': 1, 'requirements': requirements, 'unrecognized_lines': unrecognized, 'warnings': warnings,
+            'counts': {'requirements': len(requirements), 'unrecognized_lines': len(unrecognized),
                        'by_traceability': {state: sum(1 for r in requirements if (r.get('traceability') or {}).get('state') == state)
                                            for state in ('mapped', 'partial', 'missing', 'ambiguous', 'unsupported')}},
             'note': 'Traceability is the producer\'s claim. It is not SOURCE_VERIFIED until independent validation checks it.'}

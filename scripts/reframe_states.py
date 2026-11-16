@@ -95,6 +95,8 @@ def classify(reason):
 def describe(error_or_reason):
     """Return the cause and recovery class for an exception or a saved reason."""
     cause = getattr(error_or_reason, 'cause', None)
+    if cause not in CAUSES and type(error_or_reason).__name__ == 'RuntimeUnavailable':
+        cause = 'PROVIDER_UNAVAILABLE'
     if cause not in CAUSES:
         cause = classify(error_or_reason)
     return {'cause': cause, 'recovery': CAUSES[cause]}

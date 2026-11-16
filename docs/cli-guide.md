@@ -157,9 +157,10 @@ reframe --workspace /path/to/private-poc status
 reframe --workspace /path/to/private-poc recovery-plan
 reframe --workspace /path/to/private-poc reconcile-operation --id OPERATION_ID --resolution failed --by NAME --note WHY
 reframe --workspace /path/to/private-poc recover-ui-call --confirm --note WHY
+reframe --workspace /path/to/private-poc retry-wireframes --by NAME --note WHY
 ```
 
-`recovery-plan` changes nothing. It verifies the saved source, evidence, specification, review, and decision hashes and the provider receipts. It states which saved outputs are reusable, incompatible, or superseded, which approvals need renewal, and which steps need your authorization. `reconcile-operation` settles a provider call whose outcome is uncertain; the call stays counted either way. `recover-ui-call` releases only a wireframe reservation recorded before dispatch with no provider receipt.
+`recovery-plan` changes nothing. It verifies the saved source, evidence, specification, review, and decision hashes and the provider receipts. It states which saved outputs are reusable, incompatible, or superseded, which approvals need renewal, and which steps need your authorization. `reconcile-operation` settles a provider call whose outcome is uncertain; the call stays counted either way. `recover-ui-call` releases only a wireframe reservation recorded before dispatch with no provider receipt. After a wireframe call fails or returns invalid output, `retry-wireframes` authorizes one new attempt: the failed call stays counted, its receipt is archived, and the next `review-site` makes a new counted call. Menu 1 offers the same choice.
 
 ## Command reference
 
@@ -185,6 +186,7 @@ Every command takes `--workspace`. `reframe --help` and `reframe COMMAND --help`
 | `reframe --workspace "$W" validate` | Run independent executor and reviewer validation of the evidence |
 | `reframe --workspace "$W" decide` | Record one SME decision or one confirmed batch. A deferral is not an answer. |
 | `reframe --workspace "$W" review-site` | Generate wireframes and API contracts from the approved specification and design plan |
+| `reframe --workspace "$W" retry-wireframes` | Authorize a new attempt after a failed wireframe call; the failed call stays counted |
 | `reframe --workspace "$W" recover-ui-call` | Release a recorded pre-dispatch wireframe reservation |
 | `reframe --workspace "$W" design-plan` | Record the design mode and target constraints before detailed design |
 | `reframe --workspace "$W" reconcile-design` | Record which stage definition of a shared id stands |

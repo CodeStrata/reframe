@@ -628,6 +628,10 @@ def next_step(project):
     if project['stage'] == 'PROVIDER_REVIEW_REQUIRED':
         return 'Review the private provider refusal and request content; automatic model retries are stopped.'
     stage = project['stage']
+    if not project.get('site') and any(isinstance(item, dict) and item.get('status') in {'failed', 'invalid'}
+                                       for item in (project.get('wireframe_plan') or {}).get('stages') or []):
+        return ('A wireframe call failed and stays counted. reframe retry-wireframes --by NAME --note WHY authorizes '
+                'one new attempt, then reframe review-site.')
     if stage == 'RUNNING_EXECUTOR':
         error = (project.get('pipeline') or {}).get('correction_error')
         if isinstance(error, dict) and error.get('reason') and (project.get('pipeline') or {}).get('invalid_candidates', 0) < 3:

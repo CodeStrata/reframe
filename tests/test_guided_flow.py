@@ -387,6 +387,31 @@ class GuidedFlowTests(unittest.TestCase):
         self.assertIn('Independent reviewer report — JSON — ' + str(Path(root) / 'preparation' / 'review-1.json'), text)
         self.assertEqual(self.routed(ui), [])
 
+    def test_a_missing_context_path_is_asked_again_before_other_questions(self):
+        from reframe_flow import ask_existing_file
+        with tempfile.TemporaryDirectory() as root:
+            real = Path(root) / 'note.md'
+            real.write_text('note')
+            ui = self.ui({}, [str(Path(root) / 'missing.md'), str(real)], gates=False)
+            lines = self.said(ui)
+            self.assertEqual(ask_existing_file(ui, 'Markdown context for the design review, or none', allow_none=True), str(real))
+            self.assertIn('No file was found at that path', '\n'.join(lines))
+            self.assertEqual(ui.ask.call_count, 2, 'no category or role question came before the path was valid')
+            ui = self.ui({}, ['a', 'b', 'c'], gates=False)
+            self.assertIsNone(ask_existing_file(ui, 'Path to requirements.md'))
+
+    def test_deferring_a_conflict_records_it_and_keeps_it_open(self):
+        from reframe_flow import offer_open_conflicts
+        conflict = {'id': 'conflict-ctx-1', 'contradicts': 'R1', 'status': 'open'}
+        ui = self.ui({'stage': 'AWAITING_VALIDATION_APPROVAL'}, ['Dana', 'Waiting for the business owner'], gates=False)
+        ui.yes.side_effect = [False, True]
+        lines = self.said(ui)
+        with patch('reframe_optional.open_conflicts', return_value=[conflict]):
+            self.assertTrue(offer_open_conflicts(ui, Path('/nowhere')))
+        self.assertEqual(ui.invoke.call_args.args[0], ['context', 'resolve', '--id', 'conflict-ctx-1', '--resolution',
+                                                       'needs-more-evidence', '--by', 'Dana', '--note', 'Waiting for the business owner'])
+        self.assertIn('keeps blocking the approvals it affects', '\n'.join(lines))
+
     def test_specifications_review_names_the_wireframes_and_json(self):
         ui = self.ui({'stage':'AWAITING_SPECIFICATIONS_APPROVAL', 'approvals':{'assessment':True, 'validation':True},
                       'site':{'directory':'previews/business-1'}}, ['continue'])

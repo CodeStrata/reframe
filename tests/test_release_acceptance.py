@@ -342,9 +342,11 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         helper = checkpoint_fixtures.CheckpointTests('test_default_workflow_reviews_units_then_integrates_and_preserves_human_gate')
         helper.seen = []
         code, first, console = drive(
-            ['1', 'continue', 'none', 'Ari', 'none', 'review', 'y', 'y', 'Ari', 'Finish the remaining programs', '0'],
+            ['1', 'continue', 'none', 'Ari', 'none', 'y', 'y', 'Ari', 'Finish the remaining programs', '0'],
             review_model(helper, state), refuse_aws)
         self.assertEqual(code, 0, console + '\n' + '\n'.join(first))
+        self.assertIn('Skip is not available', console, 'findings without rule exports cannot build a skip draft')
+        self.assertNotIn('Next step (skip/review)', '\n'.join(first))
         paused = journey.reload()
         self.assertEqual(paused['stage'], 'WAITING_FOR_RUNTIME')
         self.assertGreater(paused['pipeline']['calls'], 256)
@@ -518,7 +520,7 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         answers = [
             '1', str(source), 'y', str(parent), '<default>', 'Zero-amount journey', 'fixture-profile', 'us-east-1',
             'claude', 'claude', 'y', 'Ari', '250000000', 'y', 'y', 'Ari', 'Findings match the pinned source', 'y',
-            'none', 'Ari', 'none', 'review', 'y',
+            'none', 'Ari', 'none', 'y',
             'none', 'y', 'Ari', 'Deferred until the business owner replies', 'y', 'Ari', 'Reviewed the specification',
             'functional-parity', 'v1', 'java', 'none',
             'none', 'approve', 'Reviewed the screens and API contracts',
@@ -539,6 +541,7 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         self.assertIn('Create a new project?', text)
         self.assertIn('Have you reviewed the assessment outputs', text)
         self.assertIn('Building it did not accept it', text)
+        self.assertIn('Skip is not available', text)
         config = Path(os.environ['REFRAME_CONFIG_HOME'])
         work = Path(json.loads((config / 'active.json').read_text())['workspace'])
         project = reframe.read(work / 'project.json')

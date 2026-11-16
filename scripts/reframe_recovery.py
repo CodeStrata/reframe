@@ -125,6 +125,9 @@ def plan(work, project, app):
                              'version. The saved stage outputs stay unchanged.')
     if any(entry['classification'] in {'missing', 'not-reusable'} for entry in stages['stages']):
         authorization.append('Generate the missing wireframe stages; each new provider call needs authorization and stays counted.')
+    if app.failed_wireframe_stages(work, project):
+        authorization.append('A wireframe call failed or returned invalid output and stays counted. '
+                             'reframe retry-wireframes --by NAME --note WHY authorizes one new counted attempt.')
     if any(item['needs_renewal'] for item in approvals):
         authorization.append('Renew the listed approvals with a genuine reviewer; test-only approvals are not sign-off.')
     if questions.get('deferred'):

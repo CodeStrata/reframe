@@ -110,6 +110,34 @@ class ContextAndValidationTests(m1.WorkspaceFixture):
             optional.resolve_conflict(self.work, conflict['id'], 'needs-more-evidence', 'Architect', 'Ask operations')
         self.assertEqual(len(optional.open_conflicts(self.work)), 2, 'needs-more-evidence keeps a conflict open')
 
+    def test_a_conflict_on_a_specification_rule_blocks_validation_approval(self):
+        import argparse
+        result = app.pipeline(self.work, self.project, self.args('validate'), self.runtime)
+        self.assertEqual(result['status'], 'AWAITING_VALIDATION_APPROVAL')
+        spec = app.read(app.spec_path(self.work, self.project))
+        ids = [q['id'] for q in spec['questions']]
+        if ids:
+            app.decision(self.work, self.project, argparse.Namespace(
+                question=None, questions=','.join(ids), open=False, placeholders=False, by='SME',
+                answer='Deferred for this fixture', disposition='deferred', amend=False, confirm=True))
+        rule = spec['rules'][0]['id']
+        note = self.context_file('conflict.md', 'Zero is accepted for refunds.\ncontradicts: ' + rule + '\n')
+        record = optional.import_context(self.work, note, 'Dana', 'SME', 'correction', [rule], 'specification')
+        optional.decide_context(self.work, record['id'], 'accepted', 'Dana', 'Admitted at the specification gate')
+        approve = argparse.Namespace(phase='validation', by='Architect', note='Reviewed', label=None, confirm_source_match=False)
+        with self.assertRaises(Blocked) as raised:
+            app.approve(self.work, self.project, approve)
+        self.assertEqual(states.describe(raised.exception)['cause'], 'CONTEXT_CONFLICT')
+        self.assertIn('A deferred conflict stays open', str(raised.exception))
+        self.assertNotIn('validation', self.project['approvals'])
+        conflict = optional.open_conflicts(self.work)[0]
+        optional.resolve_conflict(self.work, conflict['id'], 'needs-more-evidence', 'Architect', 'Ask the business owner')
+        with self.assertRaises(Blocked):
+            app.approve(self.work, self.project, approve)
+        optional.resolve_conflict(self.work, conflict['id'], 'keep-evidence', 'Architect', 'The source rejects zero')
+        app.approve(self.work, self.project, approve)
+        self.assertIn('validation', self.project['approvals'])
+
     def test_all_fr04_categories_are_accepted_and_unknown_ones_refused(self):
         for index, category in enumerate(optional.CATEGORIES):
             path = self.context_file('c' + str(index) + '.md', 'note ' + str(index))

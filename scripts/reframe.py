@@ -640,7 +640,8 @@ def require_clear_for_final(work, action, scope_ids=None):
     if conflicts:
         from reframe_states import stop
         stop('Open context conflicts block ' + action + ': ' + ', '.join(c['id'] for c in conflicts[:5])
-             + '. Resolve or defer each conflict; other work stays available.', 'CONTEXT_CONFLICT')
+             + '. Resolve each conflict with keep-evidence or keep-human-statement. '
+             'A deferred conflict stays open and keeps blocking this; other work stays available.', 'CONTEXT_CONFLICT')
 
 
 def spec_scope_ids(work, project):
@@ -1266,6 +1267,7 @@ def approve(work, project, args):
         unresolved = [q['id'] for q in spec['questions'] if q['id'] not in project['decisions']]
         require(not unresolved, 'Record SME decisions first: ' + ', '.join(unresolved))
         verified_preparation_report(work, project)
+        require_clear_for_final(work, 'validation approval', spec_scope_ids(work, project))
         fingerprint = digest({'specification': project['specification']['sha256'], 'decisions': project['decisions']})
         project['stage'] = 'VALIDATION_APPROVED'
     elif args.phase == 'design':
@@ -2614,6 +2616,54 @@ def wireframe_calls_available(project, provider, new_calls, uncharged_calls=0):
         raise Blocked('Wireframe generation needs ' + str(billed) + ' billed calls and the API dollar cap cannot cover them. No new call was counted.')
 
 
+def failed_wireframe_stages(work, project):
+    """Wireframe stages whose counted call failed or returned invalid output."""
+    stages = (project.get('wireframe_plan') or {}).get('stages') or []
+    found = []
+    for stage in stages:
+        if not isinstance(stage, dict):
+            continue
+        _response, failure = wireframe_stage_files(work, stage.get('index'))
+        if stage.get('status') in {'failed', 'invalid'} or failure.is_file():
+            found.append(stage)
+    return found
+
+
+def retry_wireframes(work, project, args):
+    """Authorize one new attempt for failed or invalid wireframe stages. Earlier calls stay counted and archived."""
+    require(str(getattr(args, 'by', '') or '').strip() and str(getattr(args, 'note', '') or '').strip(),
+            'A new wireframe attempt needs a named person and a reason')
+    reject_instructional_placeholder(args.by, 'Authorizer name')
+    reject_instructional_placeholder(args.note, 'Authorization note')
+    require(not project.get('site'), 'A review site already exists. Use feedback for a new design version.')
+    failed = failed_wireframe_stages(work, project)
+    require(failed, 'No failed or invalid wireframe call is recorded. Nothing was changed.')
+    archive = Path(work) / 'previews' / 'wireframe-stages-archive' / ('attempt-' + str(int(time.time() * 1000)))
+    archive.mkdir(parents=True, exist_ok=True, mode=0o700)
+    for stage in failed:
+        response, failure = wireframe_stage_files(work, stage['index'])
+        kept = []
+        for path in (response, failure):
+            if path.is_file():
+                shutil.move(str(path), str(archive / path.name))
+                kept.append(str((archive / path.name).relative_to(work)))
+        stage.setdefault('attempt_history', []).append({
+            'call': stage.get('call'), 'status': stage.get('status'), 'error': stage.get('error'),
+            'receipts': kept, 'authorized_by': args.by.strip(), 'note': args.note.strip(), 'at': time.time(),
+            **actor_provenance()})
+        for key in ('call', 'provider_invoked', 'error', 'spent_before'):
+            stage.pop(key, None)
+        stage['status'] = 'pending'
+    project.setdefault('events', []).append({'event': 'wireframe_new_attempt_authorized', 'at': time.time(),
+                                             'stages': [stage['index'] for stage in failed], 'by': args.by.strip(),
+                                             'reason': args.note.strip(), 'ui_calls_kept': project.get('ui_calls') or 0,
+                                             **actor_provenance()})
+    persist(work, project)
+    return {'status': project['stage'], 'authorized_stages': [stage['index'] for stage in failed],
+            'ui_calls': project.get('ui_calls') or 0,
+            'next_step': 'reframe review-site. The failed calls stay counted; their receipts are archived.'}
+
+
 def recover_ui_call(work, project, args):
     """Release a recorded pre-dispatch reservation. Every other wireframe count stays."""
     require(bool(getattr(args, 'confirm', False)) and str(getattr(args, 'note', '') or '').strip(),
@@ -2703,10 +2753,14 @@ def review_site(work, project, args, runtime=None):
         if status == 'validated':
             continue
         if status == 'failed' or failure_path.is_file():
+            from reframe_states import stop
             saved_error = read(failure_path).get('error') if failure_path.is_file() else stage.get('error')
-            raise Blocked('Wireframe call ' + str(stage.get('call')) + ' failed and stays counted. ' + str(saved_error or ''))
+            stop('Wireframe call ' + str(stage.get('call')) + ' failed and stays counted. ' + str(saved_error or ''),
+                 'PROVIDER_FAILURE', 'reframe retry-wireframes --by NAME --note WHY authorizes one new counted attempt')
         if status == 'invalid':
-            raise Blocked('Wireframe call ' + str(stage.get('call')) + ' returned invalid output and stays counted.')
+            from reframe_states import stop
+            stop('Wireframe call ' + str(stage.get('call')) + ' returned invalid output and stays counted.',
+                 'PROVIDER_FAILURE', 'reframe retry-wireframes --by NAME --note WHY authorizes one new counted attempt')
         if status == 'dispatched' and not response_path.is_file():
             raise Blocked('Wireframe call ' + str(stage.get('call'))
                           + ' was dispatched and has no provider receipt. The counter stays. '
@@ -2969,7 +3023,9 @@ def package_skip(work, project):
     require(sha(draft) == state.get('archive_sha256'), 'The skip draft archive changed after it was written')
     manifest = read(bundle / 'checksums.json')
     require(all(sha(bundle / name) == expected for name, expected in manifest.items()), 'The approved draft files changed')
-    version = digest({'approvals': project.get('approvals'), 'draft': sha(draft)})[:16]
+    import reframe_optional as optional_context
+    context_fingerprint = optional_context._context_fingerprint(work)
+    version = digest({'approvals': project.get('approvals'), 'draft': sha(draft), 'context': context_fingerprint})[:16]
     destination = work / 'packages' / ('skip-' + version)
     require(not destination.exists(), 'Package already exists; inspect it or use feedback for a new version')
     destination.mkdir(parents=True, mode=0o700)
@@ -2998,6 +3054,7 @@ def package_skip(work, project):
             zipped.write(path, path.name)
     archive.chmod(0o600)
     project['package'] = {'path': str(archive.relative_to(work)), 'sha256': sha(archive), 'route': 'skip',
+                          'context_fingerprint': context_fingerprint,
                           'manifest_sha256': sha(destination / 'checksums.json'), 'verification': 'SKIPPED_BY_OWNER',
                           'draft_archive': str(draft.relative_to(work)), 'draft_sha256': sha(draft),
                           'status': acceptance.AWAITING, 'built_at': time.time()}
@@ -3039,7 +3096,14 @@ def package_extras(work, project, destination, spec):
     plan = project.get('design_plan') or {}
     if plan.get('mode') == 'reimagine':
         import reframe_optional as optional_module
-        optional_module.design_export(work, project, plan['version'], 'reimagine', (plan.get('target') or {}).get('language') or 'unspecified')
+        saved = work / 'previews' / plan['version'] / 'mode.json'
+        record = read(saved) if saved.is_file() else {}
+        if record.get('status') == 'complete':
+            # The design reviewed at the design gate is carried as approved. Later context needs design-change.
+            optional_module._verify_outputs(work / 'previews' / plan['version'], 'reimagine', record)
+        else:
+            optional_module.design_export(work, project, plan['version'], 'reimagine',
+                                          (plan.get('target') or {}).get('language') or 'unspecified')
         future = work / 'previews' / plan['version'] / 'future-state'
         for name, target in (('deltas.json', 'deltas.json'), ('index.html', 'future-state.html'), ('screens.json', 'future-screens.json')):
             if (future / name).is_file():
@@ -3060,7 +3124,9 @@ def package(work, project):
     approved(project, 'specifications', site_fingerprint(work, project))
     require(project['approvals']['validation'].get('report_sha256') == verified_preparation_report(work, project),
             'Preparation report approval changed')
-    version = digest(project['approvals'])[:16]
+    import reframe_optional as optional_context
+    context_fingerprint = optional_context._context_fingerprint(work)
+    version = digest({'approvals': project['approvals'], 'context': context_fingerprint})[:16]
     destination = work / 'packages' / ('package-' + version)
     destination.parent.mkdir(exist_ok=True, mode=0o700)
     require(not destination.exists(), 'Package already exists; inspect it or use feedback for a new version')
@@ -3158,6 +3224,7 @@ def package(work, project):
     import reframe_acceptance as acceptance
     import reframe_versions
     project['package'] = {'path': str(archive.relative_to(work)), 'sha256': sha(archive), 'route': 'review',
+                          'context_fingerprint': context_fingerprint,
                           'manifest_sha256': sha(destination / 'checksums.json'),
                           'verification': 'SKIPPED_BY_OWNER' if project.get('verification_skip') else 'INDEPENDENTLY_REVIEWED',
                           'status': acceptance.AWAITING, 'built_at': time.time()}
@@ -3312,7 +3379,13 @@ def requirements_command(work, project, args, client=None):
         import reframe_versions
         reframe_versions.record(work, project, 'requirements import')
         persist(work, project)
+        imported = requirements.active_set(work, project)
+        manifest = imported.get('manifest') or {}
+        normalized = read(Path(work) / manifest['normalized']['path']) if manifest.get('normalized') else {}
         return {'status': 'REQUIREMENTS_IMPORTED', 'set_id': set_id, 'origin': 'imported',
+                'count': len(imported.get('requirements') or []),
+                'unrecognized_lines': (normalized.get('counts') or {}).get('unrecognized_lines', 0),
+                'warnings': normalized.get('warnings') or [],
                 'superseded_approvals': project['requirements'].get('superseded_approvals', []),
                 'provenance': requirements.provenance_statement(work, project)}
     if action == 'discover':
@@ -3429,6 +3502,9 @@ def parser():
     d.add_argument('--disposition', choices=['resolved', 'deferred'], required=True)
     u = commands.add_parser('review-site', help='Generate wireframes and API contracts from the approved specification and design plan')
     u.add_argument('--provider', choices=['claude', 'codex'])
+    retry = commands.add_parser('retry-wireframes', help='Authorize a new attempt after a failed wireframe call; the failed call stays counted')
+    retry.add_argument('--by', required=True)
+    retry.add_argument('--note', required=True)
     recover_counter = commands.add_parser('recover-ui-call', help='Release a recorded pre-dispatch wireframe reservation')
     recover_counter.add_argument('--confirm', action='store_true')
     recover_counter.add_argument('--note', required=True)
@@ -3706,6 +3782,7 @@ def main(argv=None, reporter=None):
                     elif args.command == 'decide': result = decision(work, project, args)
                     elif args.command == 'review-site': result = review_site(work, project, args)
                     elif args.command == 'recover-ui-call': result = recover_ui_call(work, project, args)
+                    elif args.command == 'retry-wireframes': result = retry_wireframes(work, project, args)
                     elif args.command == 'reconcile-operation':
                         import reframe_operations as ops
                         reject_instructional_placeholder(args.note, 'Reconciliation note')
@@ -3796,10 +3873,12 @@ def main(argv=None, reporter=None):
                     project['pipeline'].update(status='PROVIDER_REVIEW_REQUIRED', reason=str(error))
                     persist(work, project)
                     raise
-                except kw.RuntimeUnavailable:
+                except kw.RuntimeUnavailable as error:
                     if args.command == 'preview': raise
                     project['stage'] = 'WAITING_FOR_RUNTIME'
                     persist(work, project)
+                    import reframe_states
+                    reframe_states.record_stop(work, error, args.command)
                     raise
                 except Exception as error:
                     # Preserve consumed call counts and remote mutation markers on every failure.

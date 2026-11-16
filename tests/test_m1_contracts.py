@@ -66,6 +66,19 @@ class WorkspaceFixture(unittest.TestCase):
 
 
 class WorkspaceContracts(WorkspaceFixture):
+    def test_a_provider_failure_during_validation_is_a_provider_stop_and_is_recorded(self):
+        import kiro_workflow as kw
+        from unittest.mock import patch
+        self.assertEqual(states.describe(kw.RuntimeUnavailable('anything'))['cause'], 'PROVIDER_UNAVAILABLE')
+        with patch.object(app, 'model_call', side_effect=kw.RuntimeUnavailable('Provider unavailable')), \
+             patch.object(app, 'assessment', side_effect=AssertionError('assessment')):
+            code, result = self.cli('validate')
+        self.assertEqual(code, 2)
+        self.assertEqual((result['cause'], result['recovery']), ('PROVIDER_UNAVAILABLE', 'provider'))
+        recorded = states.last_stop(self.work)
+        self.assertEqual(recorded['cause'], 'PROVIDER_UNAVAILABLE')
+        self.assertEqual(app.read(self.work / 'project.json')['stage'], 'WAITING_FOR_RUNTIME')
+
     def test_a_refused_command_reports_a_cause_and_leaves_project_state_unchanged(self):
         before = (self.work / 'project.json').read_bytes()
         code, result = self.cli('approve', 'validation', '--by', 'Ari', '--note', 'Reviewed')

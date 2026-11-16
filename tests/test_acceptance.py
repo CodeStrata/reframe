@@ -75,6 +75,26 @@ class AcceptanceTests(unittest.TestCase):
         self.assertNotIn('package_acceptance', self.project)
         self.assertIn('--by NAME --note WHY', result['next_step'])
 
+    def test_context_admitted_after_the_build_needs_a_rebuild_before_acceptance(self):
+        import reframe_optional as optional
+        first = self.built()
+        note = self.work / 'package-note.md'
+        note.write_text('# Package review\nShow the rejection reason on the amount screen.\n')
+        record = optional.import_context(self.work, note, 'Owner', 'business owner', 'review-feedback', ['s1'], 'package')
+        optional.decide_context(self.work, record['id'], 'accepted', 'Owner', 'Admitted at the package gate')
+        with self.assertRaisesRegex(Blocked, 'changed after this package was built'):
+            acceptance.accept(self.work, self.project, app, first['sha256'], 'Owner', 'Reviewed the inventory')
+        self.assertNotIn('package_acceptance', self.project)
+        second = app.package(self.work, self.project)
+        self.assertNotEqual(second['archive'], first['archive'])
+        self.assertTrue(Path(first['archive']).is_file(), 'the earlier package stays on disk')
+        import zipfile
+        with zipfile.ZipFile(second['archive']) as bundle:
+            submissions = json.loads(bundle.read('human-context.json'))['submissions']
+        self.assertIn(record['id'], [item['id'] for item in submissions])
+        entry = acceptance.accept(self.work, self.project, app, second['sha256'], 'Owner', 'Reviewed the rebuilt package')
+        self.assertEqual(entry['package_sha256'], second['sha256'])
+
     def test_a_changed_archive_cannot_be_reviewed_or_accepted(self):
         result = self.built()
         Path(result['archive']).write_bytes(Path(result['archive']).read_bytes() + b' ')

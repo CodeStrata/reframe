@@ -127,7 +127,7 @@ class MenuJourneyTests(unittest.TestCase):
             'import', str(journey.root / 'requirements.md'), str(journey.root / 'traceability.yaml'), 'F1',
             'Exported from the AWS console by the analyst', 'Ari',
             str(baseline_note), 'clarification', 'R1', 'operations SME', 'accepted',
-            'review', 'y',
+            'y',                                                      # skip is unavailable: no rule exports
             'none',                                                   # specification review context
             'y', 'Ari', 'Deferred until the business owner replies',  # defer open questions
             'y', 'Ari', 'Reviewed the specification and decisions',   # approve validation
@@ -135,6 +135,7 @@ class MenuJourneyTests(unittest.TestCase):
             'none', 'none', 'design-change', 'Show the rejection reason on the payment screen',
             'none', 'none', 'approve', 'The revised screens show the rejection reason',
             str(package_note), 'review-feedback', 's1', 'business owner', 'accepted',
+            'none',                                                   # the package was rebuilt to carry the note
             'design-change', 'Label the amount field in the currency of the account',
             'none', 'none', 'approve', 'The amount label is correct',
             'none', 'accept', 'Accept this conditional handoff; deferred questions stay blocking',
@@ -142,6 +143,8 @@ class MenuJourneyTests(unittest.TestCase):
         project = journey.reload()
         self.assertEqual(project['stage'], 'PACKAGE_ACCEPTED', text)
         self.assertEqual(project['package']['route'], 'review')
+        self.assertIn('Skip is not available', text)
+        self.assertNotIn('verification_skip', project)
         archive = journey.work / project['package']['path']
         self.assertEqual(project['package_acceptance']['package_sha256'], reframe.sha(archive))
         self.assertEqual(project['package_acceptance']['readiness'], 'BLOCKED_BY_UNRESOLVED_DECISIONS')
@@ -152,7 +155,15 @@ class MenuJourneyTests(unittest.TestCase):
         self.assertEqual(superseded.count('specifications'), 1)
         self.assertIn('validation', project['approvals'], 'design feedback keeps the specification approval')
         packages = sorted((journey.work / 'packages').glob('package-*.zip'))
-        self.assertEqual(len(packages), 2, 'the first package stays on disk and was never accepted')
+        self.assertEqual(len(packages), 3, 'the first package and the one rebuilt for the package note stay on disk')
+        self.assertIn('Rebuilding so the package carries it', ' '.join(text.split()))
+        rebuilt = [path for path in packages if path != archive]
+        notes = []
+        for path in rebuilt:
+            with zipfile.ZipFile(path) as bundle:
+                notes.append(any(item['category'] == 'review-feedback'
+                                 for item in json.loads(bundle.read('human-context.json'))['submissions']))
+        self.assertEqual(sorted(notes), [False, True], 'only the rebuilt package carries the package-gate note')
         events = [json.loads(line) for line in (journey.work / 'acceptance' / 'ledger.jsonl').read_text().splitlines()]
         self.assertEqual([e['event'] for e in events], ['package_accepted'])
         self.assertEqual(events[0]['package_sha256'], reframe.sha(archive))

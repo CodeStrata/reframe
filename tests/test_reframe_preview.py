@@ -137,6 +137,28 @@ class PreviewTests(unittest.TestCase):
         self.assertEqual(state['calls'],1)
         self.assertEqual(self.project['pipeline']['calls'],64)
 
+    def test_a_failed_skip_attempt_records_no_skip_decision(self):
+        def failed(*_args):
+            raise RuntimeError('provider failed before a design')
+        with self.assertRaises(RuntimeError):
+            preview.run(self.work, self.project, self.arguments, app, failed)
+        self.assertNotIn('verification_skip', self.project)
+        self.assertNotIn('verification_skip', app.read(self.work / 'project.json'))
+        (self.findings / 'rules.json').write_text(json.dumps({'rules': ['reject zero amount']}))
+        other = fixtures.PreparationTests('test_missing_sme_decision_blocks_validation_approval')
+        other.setUp()
+        self.addCleanup(other.doCleanups)
+        (other.findings / 'rules.json').write_text(json.dumps({'rules': ['reject zero amount']}))
+        other.assess()
+        other.approve('assessment', '--label', 'a', '--confirm-source-match')
+        available, why = preview.skip_available(other.project, app)
+        self.assertFalse(available)
+        self.assertIn('Choose review instead', why)
+        with self.assertRaisesRegex(Blocked, 'Choose review instead'):
+            preview.run(other.work, other.project, self.arguments, app, self.runtime)
+        self.assertNotIn('verification_skip', app.read(other.work / 'project.json'))
+        self.assertTrue(preview.skip_available(self.project, app)[0])
+
     def test_untrusted_screen_text_is_escaped(self):
         def runtime(*args):
             value=self.runtime(*args);value['screens'][0]['title']='<script>alert(1)</script>';return value

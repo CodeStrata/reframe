@@ -167,7 +167,11 @@ class Terminal:
         lines.append('Completed units  ' + str(summary.get('completed_units', 0)) + '  Remaining units  ' + str(summary.get('remaining_units', 0)))
         lines.append('Wireframe calls  ' + str(summary['wireframe_calls']) + ' with ' + ('no call cap' if summary['wireframe_cap'] is None else 'cap ' + str(summary['wireframe_cap'])))
         lines.append('Skip-draft calls  ' + str(summary['skip_draft_calls'])
-                     + '  Failed attempts  ' + str(summary.get('skip_failures', 0)) + ' of limit ' + str(summary.get('skip_failure_limit', 3)))
+                     + '  Skip-draft failed attempts  ' + str(summary.get('skip_failures', 0)) + ' of limit ' + str(summary.get('skip_failure_limit', 3)))
+        operations = summary.get('operations') or {}
+        if any(operations.get(key) for key in ('failed', 'invalid', 'uncertain')):
+            lines.append('Provider calls  failed ' + str(operations.get('failed', 0)) + '  invalid ' + str(operations.get('invalid', 0))
+                         + '  uncertain ' + str(operations.get('uncertain', 0)) + '  (all stay counted)')
         lines.append(reframe.spend_text(summary))
         if summary.get('next_call_estimate') is not None:
             lines.append('Estimated next billed call  ' + str(summary['next_call_estimate']) + '. This estimate is not measured spend.')

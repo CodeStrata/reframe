@@ -42,7 +42,8 @@ def extract(directory, run, app):
                 'acceptance_criteria':record.get('Acceptance_Criteria'), 'aws_record':record,
                 'evidence_status':'AWS_ASSUMED', 'source_path':item['path'],
                 'source_anchor':f'/{field}/{index}', 'assessment_file_sha256':item['sha256']})
-    require(summaries or rules, 'No supported AWS summaries or business-rule exports found; retain originals and add an importer')
+    require(summaries or rules, 'This assessment has no AWS business-rule export or summary that the skip draft can read. '
+            'The skip draft cannot be built from it. Choose review instead; the sealed originals stay unchanged.')
     return summaries, rules
 
 
@@ -127,6 +128,16 @@ def render(value, rules, summaries):
     return header+'<aside><b>REFRAME</b><p>AWS-based design preview<br>Stakeholder review edition</p>'+nav+'</aside><main>'+body+'</main></html>'
 
 
+def skip_available(project, app):
+    """Whether the selected assessment has rule exports or summaries a skip draft can use, and why not."""
+    try:
+        directory, assessment = app.verified_assessment(project, project['selected'])
+        extract(directory, assessment, app)
+        return True, None
+    except Exception as error:
+        return False, str(error)
+
+
 def run(work, project, args, app, runtime=None):
     """Write the wireframe draft after the owner skips independent verification. A saved draft is reused."""
     require(args.skip_validation, 'Use --skip-validation to explicitly choose AWS-assumed preparation')
@@ -141,10 +152,9 @@ def run(work, project, args, app, runtime=None):
     if recorded:
         require(recorded.get('owner')==args.by.strip() and recorded.get('reason')==args.note.strip()
                 and recorded.get('assessment_sha256')==fingerprint, 'Skip decision differs from the recorded preview')
-    else:
-        project['verification_skip']={'owner':args.by.strip(),'reason':args.note.strip(),
-                                      'assessment_sha256':fingerprint,'at':time.time(),**actor_provenance()}
-        app.persist(work, project)
+    # The skip decision is recorded on the project only when a draft exists. A failed attempt binds nothing.
+    decision = recorded or {'owner':args.by.strip(),'reason':args.note.strip(),
+                            'assessment_sha256':fingerprint,'at':time.time(),**actor_provenance()}
     from reframe_workspace import preview_directory
     destination=preview_directory(work,app.name(args.name))
     destination.mkdir(exist_ok=True,mode=0o700)
@@ -232,6 +242,7 @@ def run(work, project, args, app, runtime=None):
         manifest=app.read(bundle/'checksums.json')
         require(all(sha(bundle/name)==expected for name,expected in manifest.items()), 'Draft output changed; use a new preview name')
         require(sha(archive) == state['archive_sha256'], 'Draft archive changed')
+        project['verification_skip'] = decision
         project['skip_bundle'] = destination.relative_to(work).as_posix()
         app.persist(work, project)
         return {'status':'DRAFT_READY','verification':'SKIPPED_BY_OWNER','rules':len(rules),'screens':len(value['screens']),
@@ -281,6 +292,7 @@ def run(work, project, args, app, runtime=None):
             if path.is_file():path.chmod(0o600);z.write(path,path.name)
     archive.chmod(0o600)
     state.update(status='DRAFT_READY',archive_sha256=sha(archive),bundle_manifest_sha256=sha(bundle/'checksums.json'));app.write(state_path,state)
+    project['verification_skip'] = decision
     project['skip_bundle'] = destination.relative_to(work).as_posix()
     app.persist(work, project)
     return {'status':'DRAFT_READY','verification':'SKIPPED_BY_OWNER','rules':len(rules),'screens':len(value['screens']),

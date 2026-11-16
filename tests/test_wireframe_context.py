@@ -265,6 +265,46 @@ class WireframeContextTests(unittest.TestCase):
         self.assertEqual(calls['count'], 2)
         self.assertEqual(app.read(other.work / 'project.json')['ui_calls'], 1)
 
+    def test_an_authorized_new_attempt_follows_a_failed_wireframe_call(self):
+        inner = self.approved_project()
+
+        def fail(*_args):
+            raise RuntimeError('provider failed before a screen file')
+
+        with patch.object(app, 'model_call', side_effect=fail), \
+             patch.object(app, 'assessment', side_effect=AssertionError('assessment')):
+            with self.assertRaises(RuntimeError):
+                app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _result: None)
+            stopped = []
+            self.assertEqual(app.main(['--workspace', str(inner.work), 'review-site'], reporter=stopped.append), 2)
+        self.assertEqual(stopped[-1]['cause'], 'PROVIDER_FAILURE')
+        self.assertIn('retry-wireframes', stopped[-1]['hint'])
+        status = []
+        app.main(['--workspace', str(inner.work), 'status'], reporter=status.append)
+        self.assertIn('retry-wireframes', status[-1]['next_step'])
+        plan = []
+        app.main(['--workspace', str(inner.work), 'recovery-plan'], reporter=plan.append)
+        self.assertTrue(any('retry-wireframes' in item for item in plan[-1]['requires_authorization']))
+        refused = []
+        self.assertEqual(app.main(['--workspace', str(inner.work), 'retry-wireframes', '--by', 'NAME', '--note', 'WHY'],
+                                  reporter=refused.append), 2)
+        authorized = []
+        self.assertEqual(app.main(['--workspace', str(inner.work), 'retry-wireframes', '--by', 'Architect',
+                                   '--note', 'The provider outage is over'], reporter=authorized.append), 0)
+        saved = app.read(inner.work / 'project.json')
+        self.assertEqual(saved['ui_calls'], 1, 'the failed call stays counted')
+        stage = saved['wireframe_plan']['stages'][0]
+        self.assertEqual(stage['status'], 'pending')
+        self.assertEqual(stage['attempt_history'][0]['status'], 'failed')
+        self.assertTrue(all((inner.work / path).is_file() for path in stage['attempt_history'][0]['receipts']))
+        self.assertFalse((inner.work / 'previews' / 'wireframe-stages' / 'stage-0-failure.json').exists())
+        with patch.object(app, 'model_call', side_effect=lambda *a: inner.screens()), \
+             patch.object(app, 'assessment', side_effect=AssertionError('assessment')):
+            self.assertEqual(app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _r: None), 0)
+        done = app.read(inner.work / 'project.json')
+        self.assertEqual(done['ui_calls'], 2, 'the new attempt is a second counted call')
+        self.assertEqual(done['stage'], 'AWAITING_SPECIFICATIONS_APPROVAL')
+
     def test_only_an_unspent_undispatched_reservation_is_released(self):
         inner = self.approved_project()
         with patch.object(app, 'require_dollar_cap', side_effect=app.Blocked('dollar check stopped before dispatch')), \
