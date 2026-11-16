@@ -100,6 +100,10 @@ class GuidedJourneyTests(unittest.TestCase):
             self.assertEqual(saved['stage'], 'PACKAGED', 'a legacy saved package is shown for review, never accepted')
             self.assertNotIn('package_acceptance', saved)
             # Mode is chosen before design in the guided journey; a saved package's Reimagine export runs directly.
+            future_note = work / 'future.md'
+            future_note.write_text('Show the amount and the receipt on one confirmation step.\n')
+            imported = optional.import_context(work, future_note, 'Ari', 'business owner', 'future-state', ['pay'])
+            optional.decide_context(work, imported['id'], 'accepted', 'Ari', 'Target expectation for the payment journey')
             reports = []
             for command in (['design-export', '--version', 'v1', '--mode', 'reimagine', '--stack', 'java'],
                             ['package-export', '--version', 'v1', '--mode', 'reimagine']):
@@ -157,8 +161,9 @@ class GuidedJourneyTests(unittest.TestCase):
                         if present:
                             self.assertEqual(design['context_dispositions'][0]['disposition'], 'accepted')
                         if mode == 'reimagine':
-                            self.assertEqual(design['proposals'][0]['status'], 'proposed_unapproved')
-                            self.assertIn('Amount', design['proposals'][0]['impacts'])
+                            # The accepted note here is current-state context, not a future-state expectation.
+                            self.assertEqual(design['proposals'], [])
+                            self.assertTrue(design['gaps'])
                         else:
                             self.assertEqual(design['proposals'], [])
                             self.assertFalse((root / 'previews' / version / 'future-state').exists())

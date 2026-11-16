@@ -53,10 +53,12 @@ class OptionalModeTests(unittest.TestCase):
     def test_reimagine_without_context_stays_unapproved(self):
         optional.design_export(self.root, self.project, 'v2', 'reimagine', 'unspecified')
         deltas = json.loads((self.root / 'previews' / 'v2' / 'future-state' / 'deltas.json').read_text())
-        self.assertEqual(deltas['proposals'][0]['status'], 'proposed_unapproved')
+        self.assertEqual(deltas['proposals'], [], 'without a future-state expectation no proposal is invented')
+        self.assertTrue(all('No accepted future-state expectation' in gap['reason'] for gap in deltas['gaps']))
         packaged = optional.package_export(self.root, self.project, 'v2', 'reimagine')
         with zipfile.ZipFile(self.root / packaged['archive']) as archive:
-            self.assertIn('proposed_unapproved', archive.read('deltas.json').decode())
+            self.assertEqual(json.loads(archive.read('deltas.json'))['proposals'], [])
+            self.assertIn('No proposal was invented', archive.read('deltas.json').decode())
             self.assertIn('Do not implement', archive.read('README.md').decode())
 
     def test_conflict_blocks_final_handoff_and_injection_is_only_text(self):
@@ -223,7 +225,7 @@ class OptionalModeTests(unittest.TestCase):
         optional.design_export(self.root, self.project, 'v8', 'reimagine', 'unspecified')
         future = (self.root / 'previews' / 'v8' / 'future-state' / 'index.html').read_text()
         self.assertIn('href="#screen-s1"', future)
-        self.assertIn('proposed_unapproved', future)
+        self.assertIn('No proposal was invented', future)
         packaged = optional.package_export(self.root, self.project, 'v8', 'reimagine')
         with zipfile.ZipFile(self.root / packaged['archive']) as archive:
             names = set(archive.namelist())
@@ -364,17 +366,11 @@ class OptionalModeTests(unittest.TestCase):
     def test_substantive_reimagine_content_uses_evidence(self):
         optional.design_export(self.root, self.project, 'v1', 'reimagine', 'java')
         deltas = json.loads((self.root / 'previews' / 'v1' / 'future-state' / 'deltas.json').read_text())
-        proposal = deltas['proposals'][0]
         future = json.loads((self.root / 'previews' / 'v1' / 'future-state' / 'screens.json').read_text())
-        self.assertEqual(proposal['status'], 'proposed_unapproved')
-        self.assertIn('s1', proposal['evidence'])
-        self.assertTrue(proposal['change'].startswith('Before:'))
-        self.assertIn('After:', proposal['change'])
-        self.assertIn('Amount', proposal['change'])
-        self.assertNotIn('Keep journey', proposal['change'])
-        self.assertNotIn(' future', future['screens'][0]['title'])
-        self.assertIn('Confirm Save', future['screens'][0]['actions'])
-        self.assertIn('proposed_unapproved', (self.root / 'previews' / 'v1' / 'future-state' / 'index.html').read_text())
+        self.assertEqual(deltas['proposals'], [], 'a generic confirmation step is not a redesign')
+        self.assertEqual([gap['target_id'] for gap in deltas['gaps']], ['pay'])
+        self.assertNotIn('Confirm Save', future['screens'][0].get('actions') or [])
+        self.assertIn('No proposal was invented', (self.root / 'previews' / 'v1' / 'future-state' / 'index.html').read_text())
         note = self.root / 'accepted-future.md'
         note.write_text('Combine the amount check and the receipt.\n')
         imported = optional.import_context(self.root, note, 'Ari', 'owner', 'future-state', ['pay'])
@@ -384,5 +380,11 @@ class OptionalModeTests(unittest.TestCase):
         accepted_screens = json.loads((self.root / 'previews' / 'v2' / 'future-state' / 'screens.json').read_text())
         self.assertEqual(accepted['status'], 'proposed_unapproved')
         self.assertIn('Combine the amount check and the receipt.', accepted['change'])
+        self.assertIn('s1', accepted['evidence'])
+        self.assertTrue(accepted['change'].startswith('Before:'))
+        self.assertIn('Amount', accepted['change'])
+        self.assertTrue(accepted['risks'])
+        self.assertTrue(accepted['acceptance_criteria'])
+        self.assertEqual(accepted['source_input']['submission'], imported['id'])
         self.assertIn('Combine the amount check and the receipt.', accepted_screens['screens'][0]['fields'][0])
         self.assertNotEqual(accepted.get('authorization'), 'implementation_requirement')

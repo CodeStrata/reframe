@@ -680,19 +680,15 @@ def _proposals(screens, accepted):
         action = actions[0] if actions else ''
         before = ('Journey ' + name + ' shows ' + (field or 'its recorded fields')
                   + ' and uses ' + (action or 'its recorded action') + '.')
-        if matched:
-            note = ' '.join(matched[0][1].split())
-            after = 'Change ' + (field or name) + ' so that ' + note
-            confirmed = ''
-        elif field or action:
-            after = ('Show ' + (field or 'the recorded field') + ' with an explicit confirmation before '
-                     + (action or 'continue') + ', and keep the recorded state '
-                     + (states[0] if states else 'recorded') + ' visible on the same step.')
-            confirmed = 'Confirm ' + action if action else ''
-        else:
+        if not matched:
+            # A generic step added to every journey is not a redesign. Without a person's future-state
+            # expectation for this journey, the honest result is a named gap, not an invented proposal.
             gaps.append({'id': 'gap-' + str(journey.get('id')), 'target': 'journey', 'target_id': journey.get('id'),
-                         'reason': 'Missing design work: this journey has evidence but no field, action, validation, or interface to change.'})
+                         'reason': 'No accepted future-state expectation names this journey. No proposal was invented.'})
             continue
+        note = ' '.join(matched[0][1].split())
+        after = 'Change ' + (field or name) + ' so that ' + note
+        confirmed = ''
         change = 'Before: ' + before + ' After: ' + after
         proposals.append({
             'id': 'proposal-' + str(journey.get('id')), 'status': 'proposed_unapproved',
@@ -700,6 +696,11 @@ def _proposals(screens, accepted):
             'rationale': 'Recorded journey ' + str(journey.get('id')) + ' uses ' + ', '.join(evidence or ['no screen'])
                          + '. Fields: ' + ', '.join(fields or ['none']) + '. Actions: ' + ', '.join(actions or ['none']) + '.',
             'impacts': fields + actions + [str(item) for item in apis],
+            'risks': (['Changes recorded behavior of ' + (field or name) + '; the current-state rule stays the baseline until approved']
+                      + ['API ' + str(item) + ' may need a new contract version' for item in apis]
+                      + ['Recorded state ' + state + ' must stay reachable' for state in states[:2]]),
+            'source_input': {'submission': matched[0][0]['id'], 'supplied_by': matched[0][0].get('by'),
+                             'category': matched[0][0].get('category')},
             'acceptance_criteria': ['After this delta is authorized, ' + (field or name)
                                     + ' follows the after-state and the recorded validation remains visible. Until then this proposal is not a requirement.'],
             'before': before, 'after': after, 'change': change,
