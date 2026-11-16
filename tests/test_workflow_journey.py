@@ -121,6 +121,8 @@ class WorkflowJourneyTests(unittest.TestCase):
             code = app.main(['--workspace', str(inner.work), 'approve', 'validation', '--by', 'Owner',
                              '--note', 'Reviewed the deferred amount question'], reporter=lambda _result: None)
             self.assertEqual(code, 0)
+            self.assertEqual(app.main(['--workspace', str(inner.work), 'design-plan', '--mode', 'functional-parity',
+                                       '--by', 'Owner'], reporter=lambda _result: None), 0)
             inner.project = app.read(inner.work / 'project.json')
             inner.project['settings']['max_context_bytes'] = 1
             app.persist(inner.work, inner.project)
@@ -134,7 +136,9 @@ class WorkflowJourneyTests(unittest.TestCase):
             protocol = (app.FRAMEWORK / 'prompts/pipeline/wireframes.md').read_text()
             whole = app.wireframe_stages(current, saved['decisions'], 600000, protocol)
             whole[0]['catalog'] = app.wireframe_catalog(current, saved['decisions'])
-            fitted = len(json.dumps(app.wireframe_message(current, whole[0], 1, protocol)).encode())
+            import reframe_design
+            request = {**app.wireframe_message(current, whole[0], 1, protocol), **reframe_design.message_view(inner.work, saved)}
+            fitted = len(json.dumps(request).encode())
             saved['settings']['max_context_bytes'] = fitted - 1
             app.persist(inner.work, saved)
             code = app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _result: None)

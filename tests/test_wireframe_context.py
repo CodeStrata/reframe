@@ -332,7 +332,9 @@ class WireframeContextTests(unittest.TestCase):
         whole = app.wireframe_stages(spec, inner.project['decisions'], 600000, protocol)
         self.assertEqual(len(whole), 1)
         whole[0]['catalog'] = app.wireframe_catalog(spec, inner.project['decisions'])
-        size = len(json.dumps(app.wireframe_message(spec, whole[0], 1, protocol)).encode())
+        import reframe_design
+        request = {**app.wireframe_message(spec, whole[0], 1, protocol), **reframe_design.message_view(inner.work, inner.project)}
+        size = len(json.dumps(request).encode())
         inner.project['settings']['max_context_bytes'] = size - 1
         app.persist(inner.work, inner.project)
         calls = {'count': 0}

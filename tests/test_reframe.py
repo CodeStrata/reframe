@@ -18,6 +18,14 @@ import kiro_workflow as kw
 import pilot
 
 
+def record_design_plan(work, project, mode='functional-parity'):
+    """The fixture's explicit design plan, recorded before detailed design as FR-07 requires."""
+    import reframe_design
+    if not project.get('design_plan'):
+        reframe_design.capture(work, project, mode, 'v1', 'unspecified', 'unspecified', 'unspecified', [], 'Fixture owner')
+        app.persist(work, project)
+
+
 class PreparationTests(unittest.TestCase):
     def test_model_budget_change_retains_consumed_calls_and_does_not_clear_refusal(self):
         self.project['pipeline']={'calls':10,'role':'executor','status':'PROVIDER_REVIEW_REQUIRED'}
@@ -149,7 +157,10 @@ class PreparationTests(unittest.TestCase):
         return app.assessment(self.work, self.project, self.args('assess', '--label', label, '--findings', str(self.findings)))
 
     def approve(self, phase, *extra):
-        return app.approve(self.work, self.project, self.args('approve', phase, '--by', 'Fixture owner', '--note', 'Fixture review', *extra))
+        result = app.approve(self.work, self.project, self.args('approve', phase, '--by', 'Fixture owner', '--note', 'Fixture review', *extra))
+        if phase == 'validation':
+            record_design_plan(self.work, self.project)
+        return result
 
     def baseline(self):
         self.assess()

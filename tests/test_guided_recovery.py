@@ -365,6 +365,8 @@ class ReviewedSpecificationUpgradeTests(BulkAndStatusTests):
         self.assertEqual(approved['pipeline']['calls'], 306)
         self.assertEqual(approved['checkpoints']['units'], units)
         self.assertEqual(approved['approvals']['assessment'], approvals['assessment'])
+        self.assertEqual(app.main(['--workspace', str(inner.work), 'design-plan', '--mode', 'functional-parity',
+                                   '--by', 'Owner'], reporter=lambda _result: None), 0)
         calls = []
 
         def wireframes(provider, run, directory, role, message):

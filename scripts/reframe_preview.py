@@ -186,6 +186,9 @@ def run(work, project, args, app, runtime=None):
                 'Preview generation stopped after 3 failed attempts. A saved valid design is reused without another call.')
         context=context_for(summaries,rules,project['scope'],project['settings']['max_context_bytes'])
         context['protocol']=(app.FRAMEWORK/'prompts/pipeline/transform-preview.md').read_text()
+        if project.get('design_plan'):
+            import reframe_design
+            context.update(reframe_design.message_view(work, project))
         if state.get('validation_error'): context['validation_error']=state['validation_error']
         message=json.dumps(context)
         require(len(message.encode())<=project['settings']['max_context_bytes'],'Preview context too large')
@@ -236,7 +239,8 @@ def run(work, project, args, app, runtime=None):
                 'next_step':'Review the draft with stakeholders. Existing generation reused without model calls.'}
     allowed={'specification.json','rules.json','screens.json','api-contracts.json','implementation-backlog.json',
              'decisions-needed.json','assumptions.json','acceptance-catalog.json','ai-dlc.json','monorepo-layout.txt',
-             'AGENTS.md','SKILL.md','README.md','reframe-notice.md','index.html','rules.html','provenance.json','checksums.json'} | {name+'-prompt.md' for name in SECTIONS} | handoff.NAMES
+             'AGENTS.md','SKILL.md','README.md','reframe-notice.md','index.html','rules.html','provenance.json','checksums.json',
+             'package-manifest.json'} | {name+'-prompt.md' for name in SECTIONS} | handoff.NAMES
     require(all(p.name in allowed and p.is_file() and not p.is_symlink() for p in bundle.iterdir()), 'Unexpected file in draft output directory')
     app.write(bundle/'specification.json',{'scope':project['scope'],'verification':'SKIPPED_BY_OWNER','sections':value['sections'],'questions':value['questions']})
     app.write(bundle/'rules.json',rules)
@@ -264,6 +268,11 @@ def run(work, project, args, app, runtime=None):
     paths=[item['path'] for item in assessment.get('assessment_index', []) if isinstance(item, dict) and isinstance(item.get('path'), str)]
     paths += [rule['source_path'] for rule in rules if isinstance(rule.get('source_path'), str)]
     handoff.write_into(bundle, rules, paths, value['apis'], app.write, directory)
+    import reframe_acceptance
+    app.write(bundle/'package-manifest.json', reframe_acceptance.fr10_manifest(
+        [p.name for p in bundle.iterdir() if p.is_file()] + ['package-manifest.json'], 'skip',
+        {'AWS requirements and traceability, or an explicit provenance statement': 'Skip route: requirements are not part of this draft.'}))
+    app.refuse_packaged_secrets(bundle)
     import reframe_links
     reframe_links.require_valid(bundle, 'skip draft')
     app.write(bundle/'checksums.json',{p.name:sha(p) for p in bundle.iterdir() if p.is_file() and p.name!='checksums.json'})

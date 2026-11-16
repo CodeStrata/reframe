@@ -1304,6 +1304,7 @@ class CheckpointTests(unittest.TestCase):
             app.decision(self.work, self.project, self.args(
                 'decide', '--question', question['id'], '--by', 'SME', '--answer', 'Fixture answer', '--disposition', 'resolved'))
         app.approve(self.work, self.project, self.args('approve', 'validation', '--by', 'Fixture owner', '--note', 'Fixture review'))
+        fixtures.record_design_plan(self.work, self.project)
         screens = fixtures.PreparationTests.screens(self)
         rule_id = saved['rules'][0]['id']
         for screen in screens['screens']:
@@ -1796,6 +1797,7 @@ class CheckpointTests(unittest.TestCase):
             app.decision(self.work, saved, self.args(
                 'decide', '--question', item['id'], '--by', 'SME', '--answer', 'Keep both lengths open', '--disposition', 'resolved'))
         app.approve(self.work, saved, self.args('approve', 'validation', '--by', 'Fixture owner', '--note', 'Fixture review'))
+        fixtures.record_design_plan(self.work, saved)
         screens = fixtures.PreparationTests.screens(self)
         for screen in screens['screens']:
             screen['rule_ids'] = ['R-KEEP']

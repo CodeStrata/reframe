@@ -656,6 +656,15 @@ def spec_scope_ids(work, project):
         screens = read(Path(work) / site['directory'] / 'screens.json')
         for key in ('screens', 'apis', 'journeys'):
             ids |= {item.get('id') for item in screens.get(key) or [] if isinstance(item, dict) and item.get('id')}
+    if project.get('skip_bundle'):
+        bundle = Path(work) / project['skip_bundle'] / 'handoff'
+        for name, key in (('rules.json', None), ('screens.json', None), ('api-contracts.json', None)):
+            path = bundle / name
+            if path.is_file():
+                value = read(path)
+                items = value if isinstance(value, list) else [item for k in ('screens', 'apis', 'journeys') for item in value.get(k) or []]
+                ids |= {item.get('id') for item in items if isinstance(item, dict) and item.get('id')}
+                ids |= {item.get('aws_rule_id') for item in items if isinstance(item, dict) and item.get('aws_rule_id')}
     return ids
 
 
@@ -1257,6 +1266,18 @@ def approve(work, project, args):
         verified_preparation_report(work, project)
         fingerprint = digest({'specification': project['specification']['sha256'], 'decisions': project['decisions']})
         project['stage'] = 'VALIDATION_APPROVED'
+    elif args.phase == 'design':
+        require(project.get('verification_skip') and project.get('skip_bundle'),
+                'Design approval applies to the skip route after its draft is written')
+        import reframe_design as design
+        design.require_plan(project)
+        require_clear_for_final(work, 'design approval', spec_scope_ids(work, project))
+        bundle = work / project['skip_bundle'] / 'handoff'
+        require((bundle / 'checksums.json').is_file(), 'The skip draft has no manifest')
+        manifest = read(bundle / 'checksums.json')
+        require(all(sha(bundle / name) == expected for name, expected in manifest.items()), 'Skip draft changed after it was written')
+        fingerprint = sha(bundle / 'checksums.json')
+        project['stage'] = 'DESIGN_APPROVED'
     elif args.phase == 'verification-skip':
         skip = project.get('verification_skip')
         require(skip, 'No skipped verification is recorded')
@@ -2445,7 +2466,7 @@ def wireframe_message(spec, stage, count, protocol, owned=None):
                 'coverage': [item for item in catalog['coverage'] if item['id'] in stage['coverage']]}}
 
 
-def wireframe_stages(spec, decisions, limit, protocol=None):
+def wireframe_stages(spec, decisions, limit, protocol=None, extra=None):
     """Split a wireframe request into stages that each fit the context budget.
 
     Later stages also receive the ids already owned. Packing leaves room for that list
@@ -2463,7 +2484,7 @@ def wireframe_stages(spec, decisions, limit, protocol=None):
     stages, current = [], {'index': 0, 'sections': [], 'rules': [], 'questions': [], 'evidence': [], 'coverage': [], 'catalog': catalog}
 
     def packed(stage, count):
-        return len(json.dumps(wireframe_message(spec, stage, count, protocol)).encode())
+        return len(json.dumps({**wireframe_message(spec, stage, count, protocol), **(extra or {})}).encode())
 
     for kind, ident in groups:
         trial = {key: list(value) if isinstance(value, list) else value for key, value in current.items()}
@@ -2526,32 +2547,9 @@ def owned_wireframe_records(work, stages, before_index):
 
 def merge_wireframe_responses(parts):
     """Combine stage responses. Identical shared definitions collapse. Conflicts stop for reconciliation."""
-    merged = {'journeys': [], 'screens': [], 'apis': []}
-    definitions = {key: {} for key in merged}
-    references = {key: set() for key in merged}
-    for part in parts:
-        require(isinstance(part, dict), 'Wireframe stage returned an unexpected response')
-        for key in ('journeys', 'screens', 'apis'):
-            value = part.get(key) or []
-            require(isinstance(value, list), 'Wireframe stage returned an unexpected ' + key)
-            for item in value:
-                require(isinstance(item, dict) and isinstance(item.get('id'), str), 'Wireframe stage item needs an id')
-                if wireframe_reference(item):
-                    references[key].add(item['id'])
-                    continue
-                canonical = json.dumps(item, sort_keys=True)
-                previous = definitions[key].get(item['id'])
-                if previous is None:
-                    definitions[key][item['id']] = (canonical, item)
-                    continue
-                require(previous[0] == canonical,
-                        'Wireframe stages gave conflicting ' + key + ' definitions for ' + item['id']
-                        + '. Reconciliation is required. Nothing was renamed or overwritten.')
-    for key in merged:
-        for _canonical, item in definitions[key].values():
-            merged[key].append(item)
-        missing = sorted(references[key] - set(definitions[key]))
-        require(not missing, 'Wireframe stage referenced ' + key + ' without a definition: ' + ', '.join(missing))
+    import reframe_design as design
+    merged = design.merge(list(enumerate(parts)))
+    merged.pop('superseded_definitions', None)
     return merged
 
 
@@ -2659,17 +2657,29 @@ def review_site(work, project, args, runtime=None):
     provider = args.provider or project['providers']['wireframes']
     require(provider in {'claude', 'codex'}, 'Review site provider must be claude or codex')
     protocol = (FRAMEWORK / 'prompts/pipeline/wireframes.md').read_text()
+    import reframe_design as design
+    design_plan = design.require_plan(project)
     limit = wireframe_limit(project)
-    fingerprint = digest({'specification': project['specification']['sha256'], 'decisions': project['decisions'], 'limit': limit})
+    fingerprint = digest({'specification': project['specification']['sha256'], 'decisions': project['decisions'], 'limit': limit,
+                          'design_plan': design.plan_fields(design_plan)})
     plan = project.get('wireframe_plan') if isinstance(project.get('wireframe_plan'), dict) else None
     if not plan or plan.get('fingerprint') != fingerprint:
-        require(not plan or all(stage.get('status') == 'pending' for stage in plan.get('stages') or []),
+        require(not plan or all(stage.get('status') in {'pending', 'validated'} for stage in plan.get('stages') or []),
                 'A wireframe plan is already in progress for different inputs. Finish or recover that plan before replacing it.')
-        stages = wireframe_stages(spec, project['decisions'], limit, protocol)
+        if plan:
+            # A completed plan's receipts are moved aside so the new plan cannot read them as its own.
+            project.setdefault('design_history', []).append({'reason': 'inputs_changed', 'at': time.time(),
+                                                             'wireframe_plan': plan,
+                                                             'stage_receipts': design.archive_stage_receipts(work, plan['fingerprint'])})
+        stages = wireframe_stages(spec, project['decisions'], limit, protocol, design.message_view(work, project))
         for stage in stages:
             stage.pop('catalog', None)
         plan = {'fingerprint': fingerprint, 'limit': limit, 'stages': stages}
         project['wireframe_plan'] = plan
+        design.build_inventory(work, project, spec, stages, fingerprint)
+        persist(work, project)
+    elif not project.get('design_inventory'):
+        design.build_inventory(work, project, spec, plan['stages'], fingerprint)
         persist(work, project)
     stages = plan['stages']
     catalog = wireframe_catalog(spec, project['decisions'])
@@ -2695,11 +2705,14 @@ def review_site(work, project, args, runtime=None):
         if status in {'received', 'complete'} or response_path.is_file():
             stage['status'] = 'received'
             stage['provider_invoked'] = True
+            design.record_owners(work, project, stage['index'], read(response_path))
             persist(work, project)
             continue
         stage['catalog'] = catalog
         owned = owned_wireframe_records(work, stages, stage.get('index') if isinstance(stage.get('index'), int) else 0)
-        message = json.dumps(wireframe_message(spec, stage, len(stages), protocol, owned))
+        request = wireframe_message(spec, stage, len(stages), protocol, owned)
+        request.update(design.message_view(work, project))
+        message = json.dumps(request)
         stage.pop('catalog', None)
         require(len(message.encode()) <= limit, 'Wireframe stage does not fit the context budget. It was not truncated.')
         if status == 'pending':
@@ -2735,17 +2748,20 @@ def review_site(work, project, args, runtime=None):
             raise Blocked('Wireframe call ' + str(stage['call']) + ' returned invalid output and stays counted.')
         write(response_path, screens)
         stage.update(status='received', provider_invoked=True)
+        design.record_owners(work, project, stage['index'], screens)
         persist(work, project)
     parts = []
     for stage in stages:
         response_path, _failure_path = wireframe_stage_files(work, stage.get('index'))
         require(stage.get('status') != 'invalid' and response_path.is_file(),
                 'Wireframe call ' + str(stage.get('call')) + ' has no usable receipt. The counter stays.')
-        parts.append(read(response_path))
+        parts.append((stage['index'], read(response_path)))
     try:
-        screens = merge_wireframe_responses(parts)
+        screens = design.merge(parts, design.load_inventory(work, project)['reconciliations'])
+        superseded_definitions = screens.pop('superseded_definitions', [])
         verify_source(project)
         validate_screens(screens, spec)
+        design.validate_references(screens, spec, design.load_inventory(work, project)['requirement_ids'])
     except Blocked:
         persist(work, project)
         raise
@@ -2754,7 +2770,12 @@ def review_site(work, project, args, runtime=None):
     write(directory / 'api-contracts.json', screens['apis'])
     from reframe_artifacts import openapi_document, provider_usage, render_api_page, render_usage_page
     write(directory / 'openapi.json', openapi_document(screens['apis']))
-    (directory / 'api.html').write_text(render_api_page(screens['apis'], screens=screens['screens'], journeys=screens.get('journeys')))
+    completeness = design.api_completeness(screens['apis'])
+    write(directory / 'api-completeness.json', completeness)
+    write(directory / 'superseded-definitions.json', superseded_definitions)
+    api_page = render_api_page(screens['apis'], screens=screens['screens'], journeys=screens.get('journeys'))
+    marker = '</main>' if '</main>' in api_page else '</body>'
+    (directory / 'api.html').write_text(api_page.replace(marker, design.completeness_html(completeness) + marker, 1))
     (directory / 'index.html').write_text(render_site(spec, screens, project['decisions']))
     (directory / 'usage.html').write_text(render_usage_page(provider_usage([work / 'preparation', directory]), project['settings']))
     for name in ('index.html', 'api.html', 'usage.html'):
@@ -2764,7 +2785,11 @@ def review_site(work, project, args, runtime=None):
     project['site'] = {'directory': str(directory.relative_to(work)), 'specification': project['specification']['sha256'],
                        'decisions': digest(project['decisions']), 'provider': provider,
                        'prompt_sha256': wireframe_prompt_hash(),
-                       'files': {p: sha(directory / p) for p in ('screens.json', 'index.html', 'api-contracts.json', 'openapi.json', 'api.html', 'usage.html')}}
+                       'design_plan': design.plan_fields(design_plan),
+                       'design_inventory': project['design_inventory']['path'],
+                       'files': {p: sha(directory / p) for p in ('screens.json', 'index.html', 'api-contracts.json', 'openapi.json',
+                                                                 'api.html', 'usage.html', 'api-completeness.json',
+                                                                 'superseded-definitions.json')}}
     for stage in stages:
         stage['status'] = 'validated'
     project['stage'] = 'AWAITING_SPECIFICATIONS_APPROVAL'
@@ -2773,9 +2798,39 @@ def review_site(work, project, args, runtime=None):
             'ui_calls': project.get('ui_calls') or 0}
 
 
+def design_feedback(work, project, args):
+    """Route a design-only change to design: keep the specification and its approval, regenerate the design."""
+    import reframe_design as design
+    require(project.get('site') or project.get('skip_bundle'), 'There is no design to revise yet')
+    reject_instructional_placeholder(args.note, 'Feedback note')
+    project.setdefault('design_feedback', []).append({'by': args.by, 'note': args.note, 'at': time.time(),
+                                                       'from_stage': project.get('stage')})
+    design.retire_design(work, project, 'design_feedback')
+    plan = project.get('design_plan')
+    if plan:
+        # The revised design is a new immutable version; the earlier version and its exports stay as they are.
+        import reframe_optional as optional
+        project.setdefault('design_plan_history', []).append(copy.deepcopy(plan))
+        plan['version'] = optional._next_revision(work, plan['version'])
+        plan['revised_by_feedback'] = True
+    if project.get('verification_skip') and not project.get('specification'):
+        project.setdefault('skip_history', []).append(project.pop('skip_bundle', None))
+        project['stage'] = 'ASSESSMENT_APPROVED'
+    else:
+        project['stage'] = 'VALIDATION_APPROVED'
+    persist(work, project)
+    return {'status': project['stage'], 'routed_to': 'design', 'kept': ['specification', 'validation approval', 'decisions'],
+            'next_step': 'reframe --workspace ' + str(work) + (' preview --skip-validation' if project['stage'] == 'ASSESSMENT_APPROVED'
+                                                                else ' review-site')}
+
+
 def feedback(work, project, args):
-    """Save a person's revision note and return the work to the executor."""
+    """Save a person's revision note and return the work to the stage it affects."""
     require(args.by.strip() and args.note.strip(), 'Feedback needs an owner and content')
+    if getattr(args, 'scope', 'specification') == 'design':
+        return design_feedback(work, project, args)
+    import reframe_acceptance
+    reframe_acceptance.withdraw(work, project, 'specification_feedback')
     require(project.get('pipeline'), 'No preparation candidate to revise')
     state = project['pipeline']
     require(project['stage'] != 'PROVIDER_REVIEW_REQUIRED', 'Provider refusals require explicit provider review, not feedback')
@@ -2887,8 +2942,67 @@ def require_skip_acceptance(project):
             'Skip acceptance is stale')
 
 
+def package_skip(work, project):
+    """Register the skip draft ZIP as this run's package. It awaits acceptance and stays labeled unverified."""
+    import reframe_acceptance as acceptance
+    import reframe_versions
+    bundle = work / project['skip_bundle'] / 'handoff'
+    approved(project, 'design', sha(bundle / 'checksums.json'))
+    state = read(work / project['skip_bundle'] / 'preview-state.json')
+    archive = work / state['archive_path'] if state.get('archive_path') else next(
+        path for path in (work / project['skip_bundle'] / 'ai-dlc-draft.zip', work / 'packages' / Path(project['skip_bundle']).name / 'ai-dlc-draft.zip')
+        if path.is_file())
+    require(sha(archive) == state.get('archive_sha256'), 'The skip draft archive changed after it was written')
+    project['package'] = {'path': str(archive.relative_to(work)), 'sha256': sha(archive), 'route': 'skip',
+                          'manifest_sha256': sha(bundle / 'checksums.json'), 'verification': 'SKIPPED_BY_OWNER',
+                          'status': acceptance.AWAITING, 'built_at': time.time()}
+    project['stage'] = acceptance.AWAITING
+    project['package']['version_id'] = reframe_versions.record(work, project, 'skip package registered')
+    persist(work, project)
+    return {'status': acceptance.AWAITING, 'archive': str(archive), 'sha256': sha(archive), 'verification': 'SKIPPED_BY_OWNER'}
+
+
+def package_extras(work, project, destination, spec):
+    """Requirements evidence, human context, approval history, design plan, inventory, and API completeness."""
+    import reframe_optional as optional
+    import reframe_requirements as requirements_module
+    active = requirements_module.active_set(work, project)
+    write(destination / 'requirements-evidence.json', {
+        'provenance': requirements_module.provenance_statement(work, project),
+        'state': active['state'], 'manifest': active['manifest'], 'requirements': active['requirements']})
+    for entry in (active['manifest'] or {}).get('files') or []:
+        shutil.copyfile(work / entry['stored_path'], destination / ('requirements-' + entry['function_id'] + '-'
+                                                                    + Path(entry['stored_path']).name))
+    context = optional.context_status(work)
+    write(destination / 'human-context.json', {
+        'status': context.get('status'), 'gates': optional.gate_records(work),
+        'submissions': [{k: v for k, v in item.items() if k not in {'privacy'}} for item in context.get('submissions') or []],
+        'conflicts': context.get('conflicts') or [],
+        'note': 'Human context is admitted input from named people. It is not source truth or approval.'})
+    write(destination / 'approval-history.json', {'current': project.get('approvals') or {},
+                                                  'superseded': project.get('approval_history') or []})
+    write(destination / 'design-plan.json', project.get('design_plan') or {'state': 'NOT_CAPTURED'})
+    inventory = (project.get('design_inventory') or {}).get('path')
+    if inventory:
+        shutil.copyfile(work / inventory, destination / 'design-inventory.json')
+    site = project.get('site') or {}
+    for name in ('api-completeness.json', 'superseded-definitions.json'):
+        if site.get('directory') and (work / site['directory'] / name).is_file():
+            shutil.copyfile(work / site['directory'] / name, destination / name)
+    plan = project.get('design_plan') or {}
+    if plan.get('mode') == 'reimagine':
+        import reframe_optional as optional_module
+        optional_module.design_export(work, project, plan['version'], 'reimagine', (plan.get('target') or {}).get('language') or 'unspecified')
+        future = work / 'previews' / plan['version'] / 'future-state'
+        for name, target in (('deltas.json', 'deltas.json'), ('index.html', 'future-state.html'), ('screens.json', 'future-screens.json')):
+            if (future / name).is_file():
+                shutil.copyfile(future / name, destination / target)
+
+
 def package(work, project):
     """Write the approved AI-DLC ZIP after the recorded approvals still match."""
+    if project.get('verification_skip') and not project.get('specification') and project.get('skip_bundle'):
+        return package_skip(work, project)
     require_clear_for_final(work, 'the authorized implementation handoff', spec_scope_ids(work, project))
     require_stage_contract(work, 'approval')
     verify_source(project)
@@ -2979,6 +3093,10 @@ def package(work, project):
         'Keep private; inspect all contents before sharing.\n'
         'reframe-notice.md applies only to copied Reframe framework instructions.\n')
     (destination / 'reframe-notice.md').write_text(handoff.framework_notice())
+    package_extras(work, project, destination, spec)
+    import reframe_acceptance as acceptance_module
+    write(destination / 'package-manifest.json', acceptance_module.fr10_manifest(
+        [p.name for p in destination.iterdir() if p.is_file()] + ['package-manifest.json'], 'review'))
     import reframe_links
     reframe_links.require_valid(destination, 'approved package')
     manifest = {p.name: sha(p) for p in destination.iterdir() if p.is_file()}
@@ -3135,6 +3253,11 @@ def requirements_command(work, project, args, client=None):
         if status['status'] != 'GENERATION_REQUESTABLE':
             result.update(cause='REQUIREMENTS_GENERATION_UNAVAILABLE', recovery='capability', reason=status['reason'])
         return result
+    if action == 'none':
+        project['requirements'] = {**(project.get('requirements') or {}), 'state': 'NOT_PROVIDED',
+                                   'decided_by': args.by, 'decided_at': time.time()}
+        persist(work, project)
+        return {'status': 'REQUIREMENTS_NOT_PROVIDED', 'provenance': requirements.provenance_statement(work, project)}
     if action == 'import':
         reject_instructional_placeholder(args.note, 'Import note')
         set_id = requirements.import_files(work, project, args.requirements, args.traceability, args.function,
@@ -3238,11 +3361,12 @@ def parser():
     t.add_argument('--continue-code-analysis', action='store_true', help='Keep current file classifications and acknowledge the code-analysis checkpoint; does not approve assessment findings')
     t.add_argument('--configure-documentation', action='store_true', help='Select all eligible uploaded files for detailed documentation under a recorded full-upload scope')
     a = commands.add_parser('approve')
-    a.add_argument('phase', choices=['assessment', 'validation', 'specifications', 'verification-skip'])
+    a.add_argument('phase', choices=['assessment', 'validation', 'specifications', 'design', 'verification-skip'])
     a.add_argument('--label')
     a.add_argument('--by')
     a.add_argument('--note')
     a.add_argument('--confirm-source-match', action='store_true')
+    a.add_argument('--simulated', action='store_true', help='Mark a test-only approval; never genuine sign-off')
     v = commands.add_parser('validate')
     v.add_argument('--reviewer', choices=['claude-code'], default='claude-code')
     d = commands.add_parser('decide', help='Record one SME decision or one confirmed batch. A deferral is not an answer.')
@@ -3260,6 +3384,21 @@ def parser():
     recover_counter = commands.add_parser('recover-ui-call', help='Release a recorded pre-dispatch wireframe reservation')
     recover_counter.add_argument('--confirm', action='store_true')
     recover_counter.add_argument('--note', required=True)
+    plan_parser = commands.add_parser('design-plan', help='Record the design mode and target constraints before detailed design')
+    plan_parser.add_argument('--mode', required=True, choices=['functional-parity', 'reimagine'])
+    plan_parser.add_argument('--version', default='v1')
+    plan_parser.add_argument('--language', default='unspecified')
+    plan_parser.add_argument('--runtime', default='unspecified')
+    plan_parser.add_argument('--platform', default='unspecified')
+    plan_parser.add_argument('--constraint', action='append', default=[])
+    plan_parser.add_argument('--by', required=True)
+    plan_parser.add_argument('--revise', action='store_true', help='Start a new design version when design work exists')
+    reconcile_parser = commands.add_parser('reconcile-design', help='Record which stage definition of a shared id stands')
+    reconcile_parser.add_argument('--kind', required=True, choices=['journeys', 'screens', 'apis'])
+    reconcile_parser.add_argument('--id', required=True)
+    reconcile_parser.add_argument('--keep-stage', required=True, type=int)
+    reconcile_parser.add_argument('--by', required=True)
+    reconcile_parser.add_argument('--note', required=True)
     commands.add_parser('package-review', help='Show the package inventory, exact hash, approval basis, gaps, and readiness')
     accept_package = commands.add_parser('accept-package', help='Accept one exact package by its SHA-256; recorded outside the archive')
     accept_package.add_argument('--sha256', required=True)
@@ -3274,6 +3413,8 @@ def parser():
     reconcile_op.add_argument('--note', required=True)
     f = commands.add_parser('feedback')
     f.add_argument('--unit', help='Blocked evidence unit to revise; passed units remain sealed')
+    f.add_argument('--scope', choices=['specification', 'design'], default='specification',
+                   help='design keeps the specification and regenerates the design; specification revisits validation')
     f.add_argument('--authorize-correction', action='store_true',
                    help='Record one more targeted correction after the bounded allowance is exhausted')
     f.add_argument('--by', required=True)
@@ -3282,6 +3423,8 @@ def parser():
     requirements = commands.add_parser('requirements', help='AWS requirements: capability, generation job, import, status')
     requirement_commands = requirements.add_subparsers(dest='requirements_command', required=True)
     requirement_commands.add_parser('status')
+    none_parser = requirement_commands.add_parser('none', help='Record that this run continues without a requirements set')
+    none_parser.add_argument('--by', required=True)
     discover = requirement_commands.add_parser('discover', help='Read-only: list the Transform tools and connectors this account reports')
     discover.add_argument('--by', required=True)
     discover.add_argument('--note', required=True)
@@ -3516,6 +3659,20 @@ def main(argv=None, reporter=None):
                             result = optional.approve_delta(work, args.version, args.id, args.by, args.note)
                         else:
                             result = optional.resolve_conflict(work, args.id, args.resolution, args.by, args.note)
+                    elif args.command == 'design-plan':
+                        import reframe_design as design
+                        result = design.capture(work, project, args.mode, args.version, args.language, args.runtime,
+                                                args.platform, args.constraint, args.by, args.revise)
+                        import reframe_versions
+                        reframe_versions.record(work, project, 'design plan')
+                        persist(work, project)
+                    elif args.command == 'reconcile-design':
+                        import reframe_design as design
+                        reject_instructional_placeholder(args.note, 'Reconciliation note')
+                        record = design.reconcile(work, project, args.kind, args.id, args.keep_stage, args.by, args.note)
+                        persist(work, project)
+                        result = {'status': project['stage'], 'reconciliation': record,
+                                  'next_step': 'reframe --workspace ' + str(work) + ' review-site'}
                     elif args.command == 'package-review':
                         import reframe_acceptance as acceptance
                         result = acceptance.review(work, project, sys.modules[__name__])

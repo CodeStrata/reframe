@@ -173,6 +173,7 @@ def accept(work, project, app, package_sha256, by, note, simulated=False):
             'The SHA-256 you accepted does not match the package under review. Nothing was accepted.')
     if project.get('verification_skip'):
         app.require_skip_acceptance(project)
+    app.require_clear_for_final(work, 'package acceptance', app.spec_scope_ids(work, project))
     verify_ledger(work)
     entry = _append(work, {'event': 'package_accepted', 'package': detail['package'], 'package_sha256': detail['sha256'],
                            'manifest_sha256': (project.get('package') or {}).get('manifest_sha256'),
@@ -197,3 +198,29 @@ def withdraw(work, project, reason):
     project.setdefault('acceptance_history', []).append({**accepted, 'superseded_by': entry['entry_sha256'], 'reason': reason})
     project.pop('package_acceptance', None)
     return entry
+
+
+FR10_ITEMS = (
+    ('Package manifest, scope, mode, target constraints, source pin, input fingerprints', ('ai-dlc.json', 'provenance.json', 'design-plan.json')),
+    ('AWS requirements and traceability, or an explicit provenance statement', ('requirements-evidence.json',)),
+    ('Reviewed business specification and requirement/rule coverage', ('specification.json', 'rule-coverage.json')),
+    ('Data, interface, and batch inventories with unresolved semantics', ('field-inventory.json', 'batch-inventory.json', 'api-boundary.json')),
+    ('Wireframes, screen and journey model, API contracts and OpenAPI', ('review.html', 'index.html', 'screens.json', 'api-contracts.json', 'openapi.json')),
+    ('Dependency-ordered backlog with structured references', ('implementation-backlog.json',)),
+    ('Acceptance scenarios with execution status and oracle or gap', ('traceability.json', 'acceptance-catalog.json', 'parallel-validation.json')),
+    ('Human context dispositions, conflicts, decisions, deferrals, deltas, approval history', ('human-context.json', 'decisions.json', 'decisions-needed.json', 'approval-history.json')),
+    ('Implementation boundaries, agent instructions, extraction guidance, next actions', ('AGENTS.md', 'SKILL.md', 'extraction-reading.json', 'governance.json')),
+    ('Content hashes and licensing notices', ('checksums.json', 'reframe-notice.md')),
+)
+
+
+def fr10_manifest(names, route, notes=None):
+    """Which FR-10 logical contents this package carries, by file, and which are explicitly absent."""
+    names = set(names) | {'checksums.json'}
+    rows = []
+    for item, files in FR10_ITEMS:
+        present = [name for name in files if name in names]
+        rows.append({'item': item, 'files': present, 'status': 'present' if present else 'absent',
+                     'note': (notes or {}).get(item)})
+    return {'route': route, 'items': rows, 'absent': [row['item'] for row in rows if row['status'] == 'absent'],
+            'note': 'An absent item is listed, not hidden. Building a package does not accept it.'}

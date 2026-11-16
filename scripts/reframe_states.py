@@ -58,7 +58,7 @@ PATTERNS = (
     ('PROVIDER_UNAVAILABLE', r'auth login|Install and authenticate|not logged in|RuntimeUnavailable|runtime unavailable'),
     ('PROVIDER_FAILURE', r'failed and stays counted|returned invalid output|provider (call|process) failed'),
     ('CONTEXT_CONFLICT', r'context conflict'),
-    ('CONTEXT_LIMIT', r'context budget|exceeds budget|too large|does not fit'),
+    ('CONTEXT_LIMIT', r'context budget|exceeds budget|too large|does not fit|bytes and the limit|allowance is'),
     ('EVIDENCE_MISSING', r'source file and line|Evidence missing|missing evidence|citation|must inspect'),
     ('HUMAN_DECISION_REQUIRED', r'Record SME decisions|approval first|Approve |approve |review site first|Generate the review site'),
     ('AUTHORIZATION_REQUIRED', r'authoriz|--allow-new-assessment|--confirm'),

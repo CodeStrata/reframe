@@ -73,7 +73,7 @@ class GuidedJourneyTests(unittest.TestCase):
         select_workspace(work)
         transcript = []
 
-        answers = ['1', 'continue', 'reimagine', 'v1', 'java', 'none', '0']
+        answers = ['1', 'continue', '0']
 
         class Session:
             def __init__(self, *args, **kwargs):
@@ -94,7 +94,16 @@ class GuidedJourneyTests(unittest.TestCase):
                 patch('reframe_models.call', side_effect=AssertionError('model call')), \
                 patch('reframe_projects._live_aws', side_effect=AssertionError('aws call')):
             code = reframe.main([])
-        self.assertEqual(code, 0)
+            self.assertEqual(code, 0)
+            self.assertIn('Review this package before you decide', stdout.getvalue())
+            saved = json.loads((work / 'project.json').read_text())
+            self.assertEqual(saved['stage'], 'PACKAGED', 'a legacy saved package is shown for review, never accepted')
+            self.assertNotIn('package_acceptance', saved)
+            # Mode is chosen before design in the guided journey; a saved package's Reimagine export runs directly.
+            reports = []
+            for command in (['design-export', '--version', 'v1', '--mode', 'reimagine', '--stack', 'java'],
+                            ['package-export', '--version', 'v1', '--mode', 'reimagine']):
+                self.assertEqual(reframe.main(['--workspace', str(work), *command], reporter=reports.append), 0, reports)
         design = json.loads((work / 'previews' / 'v1' / 'design.json').read_text())
         self.assertEqual(design['mode'], 'reimagine')
         self.assertEqual(design['stack'], 'java')
@@ -118,7 +127,7 @@ class GuidedJourneyTests(unittest.TestCase):
         self.assertEqual(aidlc['stack'], 'java')
         self.assertIn('cpy/AMOUNT.cpy', json.dumps(inventory))
         self.assertIn('1', transcript)
-        self.assertIn('reimagine', transcript)
+        self.assertIn('continue', transcript)
         transcript_path = Path(__file__).resolve().parents[1] / 'guided-session-transcript.txt'
         transcript_path.write_text('\n'.join(transcript) + '\n\n' + stdout.getvalue())
 

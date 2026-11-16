@@ -13,6 +13,13 @@ from reframe_terminal import Terminal
 from rich.console import Console
 
 class GuidedFlowTests(unittest.TestCase):
+    def setUp(self):
+        """Routing tests stub the review-gate helpers; tests/test_flow_gates.py covers the gates themselves."""
+        for name in ('baseline_inputs', 'offer_context', 'ensure_design_plan'):
+            stub = patch('reframe_flow.' + name, return_value=True)
+            stub.start()
+            self.addCleanup(stub.stop)
+
     def test_conflict_prompt_uses_keep_human_statement(self):
         from reframe_flow import finish_guided_design
         import reframe_optional as optional
@@ -26,7 +33,7 @@ class GuidedFlowTests(unittest.TestCase):
             ui = self.ui({'stage': 'PACKAGED', 'settings': {}, 'approvals': {}}, [
                 'functional-parity', 'v1', 'unspecified', str(note), 'Ari', 'architect', 'current-state', 's1', 'rejected',
                 'keep-human-statement', 'Ari', 'Use the human statement',
-            ])
+            ], gates=False)
             ui.yes.return_value = True
             with patch('reframe_setup.workspace', return_value=folder):
                 finish_guided_design(ui, ui.project())
@@ -35,33 +42,70 @@ class GuidedFlowTests(unittest.TestCase):
         self.assertFalse(any('keep-context' in prompt for prompt in prompts))
         resolved = [call.args[0] for call in ui.invoke.call_args_list if call.args[0][0] == 'context' and 'resolve' in call.args[0]]
         self.assertEqual(resolved[0][resolved[0].index('--resolution') + 1], 'keep-human-statement')
-    def ui(self, project, answers):
+    GATE_ANSWERS = (
+        ('Your name for these review records', 'Reviewer'),
+        ('Markdown context for the ', 'none'),
+        ('Business requirements (', 'none'),
+        ('Design mode (functional-parity/reimagine)', 'functional-parity'),
+        ('Design version', 'v1'),
+        ('Target language or stack', 'unspecified'),
+        ('Architecture constraints', 'none'),
+        ('Design decision (', 'pause'),
+        ('Package decision (', 'pause'),
+        ('Request a specification change now', 'pause'),
+    )
+
+    GATE_COMMANDS = {('requirements', 'status'), ('requirements', 'none'), ('context', 'none'), ('design-plan',)}
+
+    def routed(self, ui):
+        """Invoked commands, without the review-gate records that every journey now writes."""
+        calls = [call.args[0] for call in ui.invoke.call_args_list]
+        return [c for c in calls if tuple(c[:2]) not in self.GATE_COMMANDS and tuple(c[:1]) not in self.GATE_COMMANDS]
+
+    def gates(self, ui):
+        """The review-gate commands this run wrote."""
+        calls = [call.args[0] for call in ui.invoke.call_args_list]
+        return [c for c in calls if tuple(c[:2]) in self.GATE_COMMANDS or tuple(c[:1]) in self.GATE_COMMANDS]
+
+    def ui(self, project, answers, gates=True):
+        """Scripted answers for routing; with gates, the review-gate questions get their documented defaults."""
         ui = Mock()
         ui.project.return_value = project
-        ui.ask.side_effect = answers
+        ui.reviewer_name = None
+        ui.last_report = {}
+        scripted = list(answers)
+
+        def ask(prompt, *args, **kwargs):
+            for prefix, answer in self.GATE_ANSWERS if gates else ():
+                if prompt.startswith(prefix):
+                    return answer
+            return scripted.pop(0)
+
+        ui.ask.side_effect = ask
         ui.invoke.return_value = 0
         return ui
 
     def test_skip_never_runs_verification_or_approved_package(self):
         ui = self.ui({'stage':'BLOCKED','approvals':{'assessment':True}},
-                     ['continue','draft','guided-draft','Owner','Demo','claude',
-                      'functional-parity','v1','unspecified','none'])
+                     ['continue','draft','guided-draft','Owner','Demo','claude'])
         ui.yes.return_value = True
         with tempfile.TemporaryDirectory() as root, patch('reframe_setup.workspace', return_value=Path(root)):
             run(ui)
-        commands = [call.args[0][0] for call in ui.invoke.call_args_list]
-        self.assertEqual(commands[0], 'preview')
-        self.assertIn('--skip-validation', ui.invoke.call_args_list[0].args[0])
-        self.assertIn('design-export', commands)
-        self.assertIn('package-export', commands)
+        commands = [c[0] for c in self.routed(ui)]
+        self.assertEqual(commands, ['preview'])
+        self.assertIn('--skip-validation', self.routed(ui)[0])
         self.assertNotIn('validate', commands)
+        self.assertNotIn('approve', commands)
+        self.assertNotIn('package', commands)
+        prompts = [call.args[0] for call in ui.ask.call_args_list]
+        self.assertTrue(any(prompt.startswith('Design decision') for prompt in prompts))
         self.assertNotIn('package', commands)
 
     def test_review_declined_never_approves(self):
         ui = self.ui({'stage':'AWAITING_ASSESSMENT_APPROVAL'}, ['continue'])
         ui.yes.return_value = False
         run(ui)
-        ui.invoke.assert_called_once_with(['assessment-report'])
+        self.assertEqual(self.routed(ui), [['assessment-report']])
 
     def test_rework_limit_resumes_without_a_new_assessment(self):
         project = {'stage': 'REWORK_LIMIT', 'approvals': {'assessment': True},
@@ -70,7 +114,7 @@ class GuidedFlowTests(unittest.TestCase):
         ui = self.ui(project, ['continue'])
         ui.last_report = {'unit': 'U0001', 'next_step': 'reframe feedback --unit U0001 --authorize-correction --by NAME --note REASON'}
         run(ui)
-        commands = [call.args[0] for call in ui.invoke.call_args_list]
+        commands = self.routed(ui)
         self.assertEqual(commands, [['resume']])
         said = ' '.join(str(call.args[0]) for call in ui.say.call_args_list)
         self.assertIn('U0001', said)
@@ -108,26 +152,26 @@ class GuidedFlowTests(unittest.TestCase):
     def test_running_assessment_resumes_without_new_job(self):
         ui = self.ui({'stage':'ASSESSING','active_assessment':'run-1'}, ['continue'])
         run(ui)
-        ui.invoke.assert_called_once_with(['resume','--wait'])
+        self.assertEqual(self.routed(ui), [['resume','--wait']])
 
     def test_failed_setup_stops(self):
         ui = self.ui(None, ['https://github.com/example/new.git'])
         ui.invoke.return_value = 2
         run(ui)
-        ui.invoke.assert_called_once_with(['init', '--guided', '--source', 'https://github.com/example/new.git'])
+        self.assertEqual(self.routed(ui), [['init', '--guided', '--source', 'https://github.com/example/new.git']])
 
     def test_verify_failure_never_falls_back_to_draft(self):
         ui = self.ui({'stage':'ASSESSMENT_APPROVED','approvals':{'assessment':True}}, ['continue','verify'])
         ui.yes.return_value = True
         ui.invoke.return_value = 2
         run(ui)
-        ui.invoke.assert_called_once_with(['validate'])
+        self.assertEqual(self.routed(ui), [['validate']])
 
     def test_validation_gate_does_not_restart_verification(self):
         ui = self.ui({'stage':'AWAITING_VALIDATION_APPROVAL','approvals':{'assessment':True}}, ['continue'])
         ui.yes.return_value = False
         run(ui)
-        ui.invoke.assert_not_called()
+        self.assertEqual(self.routed(ui), [])
 
     def test_demo_flow_cannot_invoke_backend(self):
         ui = Terminal(console=Console(file=io.StringIO()), demo=True)
@@ -138,17 +182,20 @@ class GuidedFlowTests(unittest.TestCase):
     def test_saved_draft_reuses_original_decision_and_provider(self):
         import json
         ui = self.ui({'stage':'ASSESSMENT_APPROVED','approvals':{'assessment':True}},
-                     ['continue','draft','guided-draft','functional-parity','v1','unspecified','none'])
+                     ['continue','draft','guided-draft'])
         ui.yes.return_value = True
         with tempfile.TemporaryDirectory() as root, patch('reframe_setup.workspace', return_value=Path(root)):
             saved = Path(root)/'previews'/'guided-draft'
             saved.mkdir(parents=True)
             (saved/'preview-state.json').write_text(json.dumps({'owner':'Owner','reason':'Accepted risk','provider':'claude'}))
             run(ui)
-        args = ui.invoke.call_args_list[0].args[0]
+        args = self.routed(ui)[0]
         self.assertIn('Accepted risk', args)
         self.assertIn('claude', args)
-        self.assertEqual(ui.ask.call_count, 7)
+        prompts = [call.args[0] for call in ui.ask.call_args_list]
+        self.assertFalse(any('Accountable owner' in prompt or 'Reason for trusting' in prompt for prompt in prompts),
+                         'the saved owner and reason are reused, not asked again')
+        self.assertEqual(ui.ask.call_count, 4)
 
     def test_skip_confirmation_declined_has_no_provider_call(self):
         ui = self.ui({'stage':'ASSESSMENT_APPROVED','approvals':{'assessment':True}},
@@ -156,20 +203,19 @@ class GuidedFlowTests(unittest.TestCase):
         ui.yes.return_value = False
         with tempfile.TemporaryDirectory() as root, patch('reframe_setup.workspace', return_value=Path(root)):
             run(ui)
-        ui.invoke.assert_not_called()
+        self.assertEqual(self.routed(ui), [])
 
     def test_skip_word_generates_the_draft_package(self):
         ui = self.ui({'stage':'ASSESSMENT_APPROVED','approvals':{'assessment':True},
                       'providers':{'wireframes':'claude'}},
-                     ['continue','skip','guided-draft','Owner','Accepted risk','claude',
-                      'reimagine','v1','java','none'])
+                     ['continue','skip','guided-draft','Owner','Accepted risk','claude'])
         ui.yes.return_value = True
         with tempfile.TemporaryDirectory() as root, patch('reframe_setup.workspace', return_value=Path(root)):
             run(ui)
-        args = ui.invoke.call_args_list[0].args[0]
+        args = self.routed(ui)[0]
         self.assertEqual(args[0], 'preview')
         self.assertIn('--skip-validation', args)
-        self.assertEqual(ui.invoke.call_args_list[-1].args[0][0], 'package-export')
+        self.assertEqual(self.routed(ui), [args], 'the skip draft stops at design review; nothing is approved or packaged')
 
     def test_short_review_budget_states_the_count_before_raising_it(self):
         first = {'stage':'ASSESSMENT_APPROVED', 'approvals':{'assessment':True}}
@@ -289,14 +335,14 @@ class GuidedFlowTests(unittest.TestCase):
         ui.yes.return_value = False
         with patch('reframe_flow.open_question_ids', return_value=['Q1']):
             run(ui)
-        ui.invoke.assert_not_called()
+        self.assertEqual(self.routed(ui), [])
 
     def test_review_word_runs_validation(self):
         ui = self.ui({'stage':'ASSESSMENT_APPROVED','approvals':{'assessment':True}}, ['continue','review'])
         ui.yes.return_value = True
         ui.invoke.return_value = 2
         run(ui)
-        ui.invoke.assert_called_once_with(['validate'])
+        self.assertEqual(self.routed(ui), [['validate']])
 
     def test_framework_update_is_recorded_before_approval(self):
         stale = {'stage':'AWAITING_ASSESSMENT_APPROVAL','framework_commit':'old','approvals':{}}
@@ -305,7 +351,7 @@ class GuidedFlowTests(unittest.TestCase):
         ui.yes.return_value = False
         with patch('reframe.git', return_value='new'):
             run(ui)
-        self.assertEqual(ui.invoke.call_args_list[0].args[0],
+        self.assertEqual(self.routed(ui)[0],
                          ['upgrade-framework', '--note', 'Record the controller update'])
         self.assertEqual(ui.invoke.call_args_list[1].args[0], ['assessment-report'])
 
@@ -339,7 +385,7 @@ class GuidedFlowTests(unittest.TestCase):
         self.assertIn('SME and architect review — HTML — ' + str(Path(root) / 'preparation' / 'review.html'), text)
         self.assertIn('Executor candidate — JSON — ' + str(Path(root) / 'preparation' / 'candidate-1.json'), text)
         self.assertIn('Independent reviewer report — JSON — ' + str(Path(root) / 'preparation' / 'review-1.json'), text)
-        ui.invoke.assert_not_called()
+        self.assertEqual(self.routed(ui), [])
 
     def test_skip_names_the_html_wireframes_and_zip(self):
         ui = self.ui({'stage':'ASSESSMENT_APPROVED', 'approvals':{'assessment':True},
@@ -362,7 +408,7 @@ class GuidedFlowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root, patch('reframe_setup.workspace', return_value=Path(root)):
             run(ui)
         text = '\n'.join(lines)
-        self.assertIn('Approved AI-DLC package — ZIP — ' + str(Path(root) / 'packages' / 'package-abc.zip'), text)
+        self.assertIn('AI-DLC package (awaiting acceptance) — ZIP — ' + str(Path(root) / 'packages' / 'package-abc.zip'), text)
         self.assertIn('Package files — HTML, JSON, and Markdown — ' + str(Path(root) / 'packages' / 'package-abc'), text)
 
     def test_initial_flow_blocker_stays_in_console(self):

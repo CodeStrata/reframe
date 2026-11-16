@@ -118,17 +118,23 @@ def draft_rows(name):
 
 
 def package_rows(project):
-    """The approved ZIP and the folder of HTML, JSON, and Markdown beside it."""
+    """The package ZIP, its status, and the folder of HTML, JSON, and Markdown it was built from."""
     work = workspace_path()
-    recorded = (project.get('package') or {}).get('path')
+    package = project.get('package') or {}
+    label = 'AI-DLC package (' + str(package.get('status') or 'awaiting acceptance').replace('_', ' ').lower() + ')'
+    if package.get('route') == 'skip':
+        label = 'Unverified skip-route AI-DLC package (' + str(package.get('status') or '').replace('_', ' ').lower() + ')'
+    recorded = package.get('path')
     if work and recorded:
         archive = work / recorded
+        folder = (work / project['skip_bundle'] / 'handoff') if package.get('route') == 'skip' and project.get('skip_bundle') \
+            else archive.with_suffix('')
         return [
-            ('Approved AI-DLC package', 'ZIP', str(archive)),
-            ('Package files', 'HTML, JSON, and Markdown', str(archive.with_suffix(''))),
+            (label, 'ZIP', str(archive)),
+            ('Package files', 'HTML, JSON, and Markdown', str(folder)),
         ]
     return [
-        ('Approved AI-DLC package', 'ZIP', 'packages/package-<version>.zip'),
+        (label, 'ZIP', 'packages/package-<version>.zip'),
         ('Package files', 'HTML, JSON, and Markdown', 'packages/package-<version>'),
     ]
 
@@ -372,6 +378,198 @@ def finish_guided_design(ui, project):
     ui.say('Draft ' + mode + ' package written for ' + version + '. It stays DRAFT and is not the authorized implementation handoff.')
 
 
+def simulated_flags():
+    """Approvals made by a labeled test actor carry --simulated; they are never genuine sign-off."""
+    import os
+    return ['--simulated'] if os.environ.get('REFRAME_SIMULATED_ACTOR') == '1' else []
+
+
+def reviewer(ui):
+    """The person recording review decisions in this session, asked once."""
+    name = getattr(ui, 'reviewer_name', None)
+    if not name:
+        name = ui.ask('Your name for these review records')
+        require(name.strip(), 'A review record needs your name')
+        ui.reviewer_name = name.strip()
+    return ui.reviewer_name
+
+
+def offer_context(ui, gate):
+    """Optional Markdown at one review gate. None is valid and is recorded; nothing is inferred from a missing file."""
+    work = workspace_path()
+    if work and not offer_open_conflicts(ui, work):
+        return False
+    path = ui.ask('Markdown context for the ' + gate + ' review, or none', 'none')
+    if path.strip() in {'', 'none'}:
+        return ui.invoke(['context', 'none', '--gate', gate, '--by', reviewer(ui)]) == 0
+    category = ui.ask('Context category (clarification/correction/constraint/current-state/future-state/review-feedback)',
+                      'clarification')
+    affected = ui.ask('Affected ids, comma separated, or blank', '')
+    role = ui.ask('Your role for this context', 'reviewer')
+    if ui.invoke(['context', 'import', '--file', path, '--by', reviewer(ui), '--role', role, '--category', category,
+                  '--affected', affected, '--gate', gate]) != 0:
+        ui.say('The context file was not imported. Nothing else changed.')
+        return False
+    imported = (getattr(ui, 'last_report', None) or {}).get('id')
+    disposition = ui.ask('Admit this context as input (accepted) or keep it out (rejected)', 'accepted')
+    require(disposition in {'accepted', 'rejected'}, 'Choose accepted or rejected')
+    if imported and ui.invoke(['context', 'decide', '--id', imported, '--disposition', disposition, '--by', reviewer(ui),
+                               '--note', 'Recorded at the ' + gate + ' review']) != 0:
+        ui.say('The disposition was not recorded. The submission stays proposed.')
+        return False
+    if category == 'future-state' and disposition == 'accepted':
+        ui.say('Accepting this note records input only. It does not authorize a behavior change.')
+    return True
+
+
+def baseline_inputs(ui, project):
+    """After the assessment baseline: requirements (generated, imported, or none) and optional context."""
+    from reframe_optional import gate_records
+    requirements = project.get('requirements') or {}
+    if requirements.get('state') in {None, 'NOT_REQUESTED'}:
+        ui.invoke(['requirements', 'status'])
+        report = getattr(ui, 'last_report', None) or {}
+        requestable = report.get('status') == 'GENERATION_REQUESTABLE'
+        if not requestable:
+            ui.say('Integrated AWS requirements generation is not available: ' + str(report.get('reason') or 'capability not verified')
+                   + ' You can import externally generated requirements, labeled imported, or continue without them.')
+        options = 'generate/import/none' if requestable else 'import/none'
+        choice = ui.ask('Business requirements (' + options + ')', 'generate' if requestable else 'none')
+        require(choice in set(options.split('/')), 'Choose ' + options)
+        if choice == 'generate' and not generate_requirements(ui):
+            return False
+        if choice == 'import':
+            path = ui.ask('Path to requirements.md')
+            trace = ui.ask('Path to traceability.yaml, or none', 'none')
+            function = ui.ask('Business function id for these files')
+            note = ui.ask('Where these files came from')
+            command = ['requirements', 'import', '--requirements', path, '--function', function, '--by', reviewer(ui), '--note', note]
+            if trace.strip() not in {'', 'none'}:
+                command += ['--traceability', trace]
+            if ui.invoke(command) != 0:
+                ui.say('The requirements were not imported. Nothing else changed.')
+                return False
+        if choice == 'none' and ui.invoke(['requirements', 'none', '--by', reviewer(ui)]) != 0:
+            return False
+    work = workspace_path()
+    if not work or 'baseline' not in gate_records(work):
+        if not offer_context(ui, 'baseline'):
+            return False
+    return True
+
+
+def generate_requirements(ui):
+    """Authorize one requirements job, then advance it until retrieval or a person is needed."""
+    functions = ui.ask('Business functions to generate, comma separated (blank to choose from the catalog)', '')
+    note = ui.ask('Reason for this new AWS requirements job')
+    if not ui.yes('Authorize one new AWS requirements job? AWS charges and resources may apply.'):
+        return False
+    if ui.invoke(['requirements', 'authorize-job', '--functions', functions, '--by', reviewer(ui), '--note', note]) != 0:
+        return False
+    for _ in range(20):
+        code = ui.invoke(['requirements', 'resume'])
+        report = getattr(ui, 'last_report', None) or {}
+        status = report.get('status')
+        if code != 0 or status in {'REQUIREMENTS_FAILED', 'REQUIREMENTS_NEEDS_RECONCILIATION'}:
+            ui.say('Requirements generation stopped: ' + str(report.get('reason') or status))
+            return False
+        if status == 'REQUIREMENTS_RETRIEVED':
+            return True
+        if status == 'REQUIREMENTS_WAITING_FOR_HUMAN':
+            catalog = report.get('catalog') or []
+            if not catalog:
+                ui.say(str(report.get('reason')))
+                return False
+            selection = ui.ask('Select business functions from ' + ', '.join(catalog))
+            if ui.invoke(['requirements', 'resume', '--select', selection]) != 0:
+                return False
+    ui.say('The requirements job is still running. /flow continues the same job.')
+    return False
+
+
+def ensure_design_plan(ui, project):
+    """Capture mode and target constraints before any detailed design call."""
+    if project.get('design_plan'):
+        return True
+    mode = ui.ask('Design mode (functional-parity/reimagine)', 'functional-parity')
+    require(mode in {'functional-parity', 'reimagine'}, 'Choose functional-parity or reimagine')
+    version = ui.ask('Design version', 'v1')
+    language = ui.ask('Target language or stack', 'unspecified')
+    constraints = ui.ask('Architecture constraints separated by semicolons, or none', 'none')
+    command = ['design-plan', '--mode', mode, '--version', version, '--language', language, '--by', reviewer(ui)]
+    for item in constraints.split(';'):
+        if item.strip() and item.strip() != 'none':
+            command += ['--constraint', item.strip()]
+    return ui.invoke(command) == 0
+
+
+def design_review(ui, project, skip_route):
+    """Design review: context, Reimagine proposals, then approve or route feedback to design or specification."""
+    plan = project.get('design_plan') or {}
+    if not offer_context(ui, 'design'):
+        return 'stop'
+    if plan.get('mode') == 'reimagine' and not skip_route:
+        if ui.invoke(['design-export', '--version', plan['version'], '--mode', 'reimagine', '--stack',
+                      (plan.get('target') or {}).get('language') or 'unspecified']) == 0:
+            ui.say('Future-state proposals stay proposed_unapproved until a person approves a named delta.')
+            proposal = ui.ask('Approve one future-state delta by id, or none', 'none')
+            if proposal.strip() not in {'', 'none'}:
+                note = ui.ask('Rationale for approving this delta')
+                ui.invoke(['context', 'approve-delta', '--version', plan['version'], '--id', proposal, '--by', reviewer(ui), '--note', note])
+    decision = ui.ask('Design decision (approve/design-change/behavior-change/pause)', 'pause')
+    require(decision in {'approve', 'design-change', 'behavior-change', 'pause'}, 'Choose approve, design-change, behavior-change, or pause')
+    if decision == 'pause':
+        ui.say('Paused for human review. No approval was recorded. Return with /flow.')
+        return 'stop'
+    if decision == 'approve':
+        note = ui.ask('Your rationale for approving this design')
+        phase = 'design' if skip_route else 'specifications'
+        return 'continue' if ui.invoke(['approve', phase, '--by', reviewer(ui), '--note', note] + simulated_flags()) == 0 else 'stop'
+    note = ui.ask('Describe the change you need')
+    scope = 'design' if decision == 'design-change' else 'specification'
+    return 'continue' if ui.invoke(['feedback', '--scope', scope, '--by', reviewer(ui), '--note', note]) == 0 else 'stop'
+
+
+def package_review(ui, project):
+    """Final package review: inventory, exact hash, gaps; then accept that hash or route changes."""
+    say_review(ui, 'Review this package before you decide. It is not accepted until you accept its exact SHA-256.',
+               package_rows(project))
+    if ui.invoke(['package-review']) != 0:
+        return 'stop'
+    report = getattr(ui, 'last_report', None) or {}
+    readiness = report.get('readiness') or {}
+    ui.say('Package ' + str(report.get('package')) + ' SHA-256 ' + str(report.get('sha256')) + ' with '
+           + str(len(report.get('inventory') or [])) + ' files. Verification ' + str(report.get('verification')) + '.')
+    ui.say('Implementation readiness ' + str(readiness.get('state')) + ' with ' + str(readiness.get('blocker_count', 0))
+           + ' recorded blockers. Accepting the package does not make blocked work ready.')
+    if not offer_context(ui, 'package'):
+        return 'stop'
+    decision = ui.ask('Package decision (accept/design-change/behavior-change/pause)', 'pause')
+    require(decision in {'accept', 'design-change', 'behavior-change', 'pause'}, 'Choose accept, design-change, behavior-change, or pause')
+    if decision == 'pause':
+        ui.say('Paused. The package awaits acceptance. Nothing was accepted.')
+        return 'stop'
+    if decision == 'accept':
+        current = ui.project() or project
+        if current.get('verification_skip') and not (current.get('approvals') or {}).get('verification-skip'):
+            ui.say('This package skipped independent verification. The documented policy needs a second person to accept that skip.')
+            second = ui.ask('Second person accepting the verification skip')
+            skip_note = ui.ask('Their rationale for accepting the skip')
+            if ui.invoke(['approve', 'verification-skip', '--by', second, '--note', skip_note] + simulated_flags()) != 0:
+                return 'stop'
+        note = ui.ask('Your rationale for accepting this exact package')
+        if ui.invoke(['accept-package', '--sha256', str(report.get('sha256')), '--by', reviewer(ui), '--note', note]
+                     + simulated_flags()) != 0:
+            return 'stop'
+        accepted = getattr(ui, 'last_report', None) or {}
+        ui.say('Accepted package ' + str(report.get('sha256')) + '. Implementation readiness stays '
+               + str(accepted.get('implementation_readiness')) + '.')
+        return 'done'
+    note = ui.ask('Describe the change you need')
+    scope = 'design' if decision == 'design-change' else 'specification'
+    return 'continue' if ui.invoke(['feedback', '--scope', scope, '--by', reviewer(ui), '--note', note]) == 0 else 'stop'
+
+
 def offer_open_conflicts(ui, work):
     """Show conflicts that already exist, including when this turn imports no context."""
     from reframe_optional import open_conflicts
@@ -465,20 +663,29 @@ def run(ui):
         approved = bool(project.get('approvals', {}).get('assessment'))
         if not record_framework_update(ui, project):
             return
-        if approved and not project.get('approvals', {}).get('validation') and stage != 'AWAITING_VALIDATION_APPROVAL':
-            interrupted = stage in {'WAITING_FOR_RUNTIME', 'RUNNING_EXECUTOR', 'RUNNING_REVIEWER', 'PREPARATION_PLANNED', 'REWORK_LIMIT'} and project.get('pipeline')
+        later = {'AWAITING_VALIDATION_APPROVAL', 'DESIGN_APPROVED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGED', 'PACKAGE_ACCEPTED'}
+        if approved and not project.get('approvals', {}).get('validation') and stage not in later:
+            interrupted = stage in {'WAITING_FOR_RUNTIME', 'RUNNING_EXECUTOR', 'RUNNING_REVIEWER', 'PREPARATION_PLANNED', 'REWORK_LIMIT',
+                                    'REVISION_PENDING'} and project.get('pipeline')
             if interrupted:
                 ui.say('Resuming the saved review. Completed calls stay recorded. No new assessment job is created.')
                 code = ui.invoke(['resume'])
                 updated = ui.project() or {}
             else:
+                if not baseline_inputs(ui, project):
+                    return
                 ui.say('Assessment is approved. skip generates wireframes and the AI-DLC package without a second review. review runs the executor and an independent reviewer.')
                 choice = ui.ask('Next step (skip/review)', 'skip')
                 require(choice in {'skip', 'review', 'draft', 'verify'}, 'Choose skip or review')
             if not interrupted and choice in {'skip', 'draft'}:
                 ui.say('Claude or Codex will generate design content. No executor/reviewer verification or approval is implied.')
+                if not ensure_design_plan(ui, project):
+                    return
                 from reframe import name as safe_name
-                name = safe_name(ui.ask('Draft name (reuse the same name to resume)', 'guided-draft'))
+                retired = [Path(item).name for item in project.get('skip_history') or [] if item]
+                default = 'guided-draft' if not retired else 'guided-draft-' + str(len(retired) + 1)
+                name = safe_name(ui.ask('Draft name (reuse the same name to resume)', default))
+                require(name not in retired, 'That draft was revised after design feedback. Choose a new draft name.')
                 from reframe_workspace import preview_directory
                 saved = preview_directory(workspace(), name) / 'preview-state.json'
                 state = json.loads(saved.read_text()) if saved.exists() else {}
@@ -493,8 +700,10 @@ def run(ui):
                     ui.say('The draft was not written. /flow retries it. No approval was recorded.')
                     return
                 say_review(ui, 'Review these draft files. They are not an approval.', draft_rows(name))
-                finish_guided_design(ui, ui.project() or project)
-                return
+                outcome = design_review(ui, ui.project() or project, skip_route=True)
+                if outcome != 'continue':
+                    return
+                continue
             if not interrupted:
                 if not ui.yes('Run independent verification using the saved model-call budget?'):
                     return
@@ -575,29 +784,48 @@ def run(ui):
                 return
             rows = {'assessment': assessment_rows, 'validation': validation_rows, 'specifications': specification_rows}[phase](project)
             say_review(ui, 'Review these ' + phase + ' files before you approve. Unresolved decisions remain enforced.', rows)
+            if phase == 'specifications':
+                outcome = design_review(ui, project, skip_route=False)
+                if outcome != 'continue':
+                    return
+                continue
+            if phase == 'validation' and not offer_context(ui, 'specification'):
+                return
             if phase == 'validation' and not defer_open_questions(ui, project):
                 return
             if not ui.yes('Have you reviewed the ' + phase + ' outputs and want to record approval now?'):
+                if phase == 'validation' and ui.ask('Request a specification change now? (feedback/pause)', 'pause') == 'feedback':
+                    note = ui.ask('Describe the change you need')
+                    if ui.invoke(['feedback', '--scope', 'specification', '--by', reviewer(ui), '--note', note]) == 0:
+                        continue
+                    return
                 ui.say('Paused for human review. The files listed above are unchanged. Return with /flow; no approval was recorded.')
                 return
-            if ui.invoke(['approve', phase]) != 0:
+            if ui.invoke(['approve', phase] + simulated_flags()) != 0:
                 return
             continue
         if stage == 'VALIDATION_APPROVED':
+            if not ensure_design_plan(ui, project):
+                return
             if ui.invoke(['review-site']) != 0:
                 return
             continue
-        if stage == 'SPECIFICATIONS_APPROVED':
+        if stage in {'SPECIFICATIONS_APPROVED', 'DESIGN_APPROVED'}:
             if ui.invoke(['package']) != 0:
-                ui.say('The approved package was not written. /flow retries it.')
+                ui.say('The package was not written. /flow retries it.')
                 return
-            say_review(ui, 'The approved package is ready to review.', package_rows(ui.project()))
-            finish_guided_design(ui, ui.project() or project)
-            return
+            say_review(ui, 'The package is built and awaits your review. Building it did not accept it.', package_rows(ui.project()))
+            continue
         from reframe_acceptance import built_stage
         if built_stage(stage):
-            say_review(ui, 'The approved package is already written.', package_rows(project))
-            finish_guided_design(ui, project)
+            outcome = package_review(ui, project)
+            if outcome != 'continue':
+                return
+            continue
+        if stage == 'PACKAGE_ACCEPTED':
+            accepted = project.get('package_acceptance') or {}
+            ui.say('The handoff ' + str(accepted.get('package_sha256')) + ' is accepted. Implementation readiness: '
+                   + str(accepted.get('readiness')) + '. Blocked work stays blocked.')
             return
         if not approved:
             command = 'resume' if project.get('active_assessment') else 'assess'
