@@ -172,6 +172,8 @@ class GuidedJourneyTests(unittest.TestCase):
                         with zipfile.ZipFile(root / packaged['archive']) as zipped:
                             self.assertEqual(json.loads(zipped.read('design.json'))['mode'], mode)
                             self.assertEqual(json.loads(zipped.read('manifest.json'))['package_status'], 'DRAFT')
+                            import test_docs_consistency as docs
+                            self.assertEqual(docs.undocumented(zipped.namelist()), [], 'the README package table lists every file')
 
     def test_repository_recognition_refuses_bad_infrastructure_and_counts_jobs(self):
         saved = self.root

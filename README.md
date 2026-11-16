@@ -123,21 +123,29 @@ Confirm the source upload when asked. Reframe starts the AWS Transform job and w
 
 When the findings are downloaded, Reframe lists the files to review, including `assessment-review.html`. Approve them with your name, a short note, and confirmation that the findings match the pinned source.
 
-### 7. Choose skip or review
+### 7. Follow the review gates
 
-| Choice | What runs | What you get |
-| --- | --- | --- |
-| **skip** (default) | Wireframe agent only, using the AWS findings as they are. You record your name and why you trust them. | HTML wireframes and `ai-dlc-draft.zip`, labelled unverified |
-| **review** | Executor and reviewer agents, then your approvals, then the wireframe agent | An approved, checksummed AI-DLC package |
+After assessment approval, menu **1** takes you through these gates in order. Each one waits for a person. Typing `pause` at a gate stops without recording anything; choose **1** again to continue.
 
-On the **review** route, the guide takes you through each step in order:
+1. **Business requirements.** Choose `generate`, `import`, or `none`. `generate` appears only when Reframe has verified that this account can run an AWS Transform requirements job. Otherwise the guide explains why and offers `import` (files exported from AWS, labeled *imported*) or `none`. Reframe never presents imported or missing requirements as generated.
+2. **Baseline context.** Give a Markdown file with clarifications, corrections, or constraints, or answer `none`. `none` is recorded as a valid answer. Admitted context is input from a named person, not source truth or approval.
+3. **Skip or review.**
 
-1. **Validate.** The executor and reviewer check the evidence program by program. The work follows the plan: two calls for each program, two synthesis calls, and extra calls when a program needs correction. A new project has no call cap. A saved run keeps its recorded cap and the calls already used. If that cap is short, the guide states the count and asks before raising it or removing it. The model account's budget is the spend limit, and a billed API key also stops at the saved dollar cap until you raise it. Measured spend and an estimated next call are shown separately. Preparation, wireframe, and skip-draft calls are counted separately. A skip draft stops after three failed generation attempts and reuses a saved valid design without another call.
-2. **Answer SME questions.** Open `preparation/review.html`. Answer each open question with `reframe decide`, or defer it with a named owner. Then approve validation.
-3. **Review the wireframes.** Reframe generates `index.html`, `api.html` and `openapi.json`. To ask for changes, run `reframe feedback`; this sends the work back to the executor and clears the later approvals. When you are happy, approve the specifications.
-4. **Package.** Reframe writes `packages/package-<version>.zip` for the implementation team.
+   | Choice | What runs | What you get |
+   | --- | --- | --- |
+   | **skip** (default) | Wireframe agent only, using the AWS findings as they are. You record your name and why you trust them. | Draft HTML wireframes and a package labeled unverified |
+   | **review** | Executor and reviewer agents check the evidence program by program, then you answer SME questions and approve the specification | A reviewed specification, then wireframes and a package |
 
-After the package exists you can optionally export a **Functional Parity** (current-state) or **Reimagine** (current plus proposed future-state) design as a separate draft package.
+4. **Specification review** (review route only). Open `preparation/review.html`. Add Markdown context or `none`, answer or defer the SME questions, then approve validation. A deferral is not an answer, and the affected work stays blocked.
+5. **Design plan.** Choose Functional Parity or Reimagine, a design version, the target stack, and any architecture constraints. Reframe records this before it generates detailed screens and APIs. Changing the plan later creates a new design version; the earlier one is kept.
+6. **Design review.** Open the wireframes (`index.html`, `api.html`, `openapi.json`). Add Markdown context or `none`. Then `approve`, `design-change` (regenerate the design and keep the specification), or `behavior-change` (return to the specification).
+7. **Package review.** Reframe builds the package and shows its file list, its exact SHA-256, the approvals it rests on, and the implementation blockers. Building it did not accept it. Add Markdown context or `none`, then `accept` that exact hash or ask for changes. On the skip route a second person must also accept the skipped validation.
+
+Accepting the package records your name, rationale, and the archive hash in `acceptance/ledger.jsonl`, outside the archive. Implementation readiness is reported separately and stays blocked while decisions are deferred or conflicts are open.
+
+**Validation calls.** The review route makes two calls for each program, two synthesis calls, and extra calls when a program needs correction. A new project has no call cap. A saved run keeps its recorded cap and the calls already used. If that cap is short, the guide states the count and asks before raising or removing it. A billed API key also stops at the saved dollar cap. Preparation, wireframe, and skip-draft calls are counted separately.
+
+After the package exists you can optionally export a **Functional Parity** or **Reimagine** design as a separate draft package with `reframe design-export` and `reframe package-export`.
 
 ### 8. Check progress and find outputs
 
@@ -151,7 +159,7 @@ reframe status
 git checkout main
 git pull origin main
 uv tool install --force --reinstall --managed-python --python 3.12 --editable .
-reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc upgrade-framework --note WHY
 reframe --workspace /path/to/private-poc status
 reframe --workspace /path/to/private-poc resume
 ```
@@ -159,7 +167,7 @@ reframe --workspace /path/to/private-poc resume
 `upgrade-framework` records this checkout. A prompt migration recorded for an earlier revision does not authorize this one. Run the upgrade command without `--adopt-prompts`. If its response is `Preparation prompts changed. The upgrade was not recorded.`, repeat that same command with `--adopt-prompts` and the same note. Do not add `--adopt-prompts` for any other response. This release does not change the preparation prompts.
 
 ```bash
-reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix" --adopt-prompts
+reframe --workspace /path/to/private-poc upgrade-framework --note WHY --adopt-prompts
 reframe --workspace /path/to/private-poc status
 reframe --workspace /path/to/private-poc resume
 ```
@@ -169,7 +177,7 @@ That records the old and new prompt hashes for the calls and passed units alread
 A run waiting at `AWAITING_VALIDATION_APPROVAL` with a reviewed specification and no validation approval can record this controller revision. `approve validation` checks the framework revision, so record the update before approval:
 
 ```bash
-reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc upgrade-framework --note WHY
 reframe --workspace /path/to/private-poc status
 reframe --workspace /path/to/private-poc decide --open --by NAME --answer WHY --disposition deferred --confirm
 reframe --workspace /path/to/private-poc approve validation --by NAME --note WHY
@@ -182,7 +190,7 @@ The upgrade keeps the specification, its review hash, the checkpoints, the asses
 
 ```bash
 reframe --workspace /path/to/private-poc decide --placeholders --amend --confirm --by NAME --answer RATIONALE --disposition deferred
-reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc upgrade-framework --note WHY
 reframe --workspace /path/to/private-poc approve validation --by NAME --note RATIONALE
 reframe --workspace /path/to/private-poc review-site
 ```
@@ -211,30 +219,87 @@ Inside the workspace folder:
 | `runs/<run>/` | Sealed AWS findings and `assessment-review.html` |
 | `preparation/` | Executor and reviewer output and `review.html` |
 | `previews/` | Wireframe sites, for both the skip and review routes |
-| `packages/` | Draft and approved AI-DLC ZIPs |
+| `packages/` | Draft ZIPs and the built packages (`package-<version>.zip`, `skip-<version>.zip`) |
+| `acceptance/ledger.jsonl` | Hash-chained package acceptances, outside every archive |
+| `requirements/` | Requirements capability, jobs, and imported sets with their original files |
+| `human-review-context/` | Markdown context, gate records, dispositions, and conflicts |
+| `versions/` | Immutable version manifests that approvals are bound to |
+| `last-stop.json` | The most recent stop: cause, recovery class, and next safe command |
 | `reports/index.html` | Links to every report for this run |
 
 ### Running without the menu
 
-Every step is also a command, for scripts or for picking up one step by hand. Approvals need `--by` and `--note`, and nothing is approved by default.
+Every step is also a command, for scripts or for picking up one step by hand. `NAME`, `WHY`, and `RATIONALE` stand for your own values; the CLI refuses them if they are copied unchanged. Approvals need `--by` and `--note`, and nothing is approved by default.
 
 ```bash
-reframe assess --allow-new-assessment --wait
-reframe approve assessment --by "Your name" --note "Reviewed findings" --confirm-source-match
+W=/path/to/private-poc
+reframe --workspace "$W" assess --allow-new-assessment --wait
+reframe --workspace "$W" approve assessment --by NAME --note WHY --confirm-source-match
+
+# Requirements and baseline context (both may be none)
+reframe --workspace "$W" requirements status
+reframe --workspace "$W" requirements import --requirements requirements.md --traceability traceability.yaml --function FUNCTION_ID --by NAME --note WHY
+reframe --workspace "$W" requirements none --by NAME
+reframe --workspace "$W" context import --file notes.md --by NAME --role architect --category clarification --gate baseline
+reframe --workspace "$W" context none --gate baseline --by NAME
 
 # Skip route
-reframe preview --skip-validation --by "Your name" --note "Use the AWS findings" --provider claude --name draft-1
+reframe --workspace "$W" design-plan --mode functional-parity --language java --by NAME
+reframe --workspace "$W" preview --skip-validation --by NAME --note WHY --provider claude --name draft-1
+reframe --workspace "$W" approve design --by NAME --note WHY
 
 # Review route
-reframe validate
-reframe decide --question QUESTION_ID --by "SME name" --answer "Decision" --disposition resolved
-reframe approve validation --by "Architect name" --note "Reviewed report and decisions"
-reframe review-site --provider claude
-reframe approve specifications --by "Business owner" --note "Reviewed the wireframes"
-reframe package
+reframe --workspace "$W" validate
+reframe --workspace "$W" questions --state open --groups
+reframe --workspace "$W" decide --question QUESTION_ID --by NAME --answer RATIONALE --disposition resolved
+reframe --workspace "$W" approve validation --by NAME --note WHY
+reframe --workspace "$W" design-plan --mode reimagine --language java --constraint "Keep the nightly batch window" --by NAME
+reframe --workspace "$W" review-site --provider claude
+reframe --workspace "$W" feedback --scope design --by NAME --note WHY
+reframe --workspace "$W" approve specifications --by NAME --note WHY
+
+# Both routes: build, review, and accept the exact package
+reframe --workspace "$W" package
+reframe --workspace "$W" package-review
+reframe --workspace "$W" approve verification-skip --by NAME --note WHY   # skip route, a second person
+reframe --workspace "$W" accept-package --sha256 PACKAGE_SHA256 --by NAME --note WHY
 ```
 
+When a run stops, `reframe --workspace "$W" status` names the cause, the recovery class, and the next safe command. `reframe --workspace "$W" recovery-plan` is a read-only check of saved hashes, receipts, and the approvals that need renewal. An uncertain provider call is settled with `reconcile-operation`, and conflicting shared screen or API definitions with `reconcile-design`; neither erases a counted call.
+
 The [CLI guide](docs/cli-guide.md) covers every command and flag, including design exports, comparing two assessments and recovering from a blocked run.
+
+## What the package contains
+
+The package is one ZIP. The skip route also keeps its earlier draft ZIP unchanged. Each file below is written by the function named, on the routes marked. A mode export is the optional `package-export` draft.
+
+| File | Contents | Written by | Review | Skip | Mode export |
+| --- | --- | --- | --- | --- | --- |
+| `ai-dlc.json` | Phase, verification, boundaries, workflow status, readiness and blockers | `package()`, `reframe_preview.run()`, `package_skip()`, `reframe_optional.package_export()` | ✓ | ✓ | ✓ |
+| `package-manifest.json` | FR-10 items carried, and any item stated absent | `reframe_acceptance.fr10_manifest()` | ✓ | ✓ | |
+| `checksums.json` | SHA-256 of every file | `package()`, `package_skip()`, `reframe_preview.run()`, `reframe_optional.package_export()` | ✓ | ✓ | ✓ |
+| `provenance.json` | Source pin, framework revision, providers, assessment hash | `package()`, `reframe_preview.run()` | ✓ | ✓ | |
+| `specification.json` | Business specification (reviewed on the review route only) | `package()`, `reframe_preview.run()`, `reframe_optional.package_export()` | ✓ | ✓ | ✓ |
+| `decisions.json`, `approvals.json` | SME decisions and current approvals | `package()` | ✓ | | |
+| `decisions-needed.json`, `assumptions.json`, `rules.json`, `rules.html` | Open questions, the recorded skip decision, imported rule catalog | `reframe_preview.run()` | | ✓ | |
+| `traceability.json`, `assessment-evidence.json` | Rules, tests, coverage, assessment-only evidence | `package()` | ✓ | | |
+| `acceptance-catalog.json` | Acceptance criteria per imported rule, all `NOT RUN` | `reframe_preview.run()` | | ✓ | |
+| `requirements-evidence.json`, `requirements-<function>-*` | Active requirements set and its provenance statement; imported originals unchanged | `package_extras()` | ✓ | ✓ | |
+| `human-context.json` | Context submissions, dispositions, gate records, conflicts | `package_extras()` | ✓ | ✓ | |
+| `approval-history.json` | Current and superseded approvals | `package_extras()` | ✓ | ✓ | |
+| `design-plan.json`, `design-inventory.json` | Mode, target constraints, and the screen/API inventory saved before detail | `package_extras()` | ✓ | plan only | |
+| `api-completeness.json`, `superseded-definitions.json` | API contract gaps; definitions replaced by a recorded reconciliation | `review_site()` via `package_extras()` | ✓ | | |
+| `review.html`, `index.html`, `api.html`, `usage.html` | Wireframes, API reference, usage | `review_site()`, `reframe_preview.run()`, `reframe_optional.package_export()` | ✓ | `index.html` | `api.html`, `usage.html` |
+| `screens.json`, `api-contracts.json`, `openapi.json` | Screen model, API contracts, OpenAPI 3 | `review_site()`, `reframe_preview.run()` | contracts, OpenAPI | screens, contracts | screens, OpenAPI |
+| `current-state.html`, `design.json`, `inventories.json`, `manifest.json`, `context-conflicts.json` | Mode export design and its inputs | `reframe_optional.package_export()` | | | ✓ |
+| `deltas.json`, `future-state.html`, `future-screens.json` | Reimagine proposals, unapproved until a person approves each | `reframe_optional.design_export()` | Reimagine | | Reimagine |
+| `sme-architect-review.html` | The preparation report the approval was bound to | `package()` | ✓ | | |
+| `implementation-backlog.json`, `monorepo-layout.txt`, `*-prompt.md` | Dependency-ordered backlog and section tasks | `package()`, `reframe_preview.run()` | ✓ | ✓ | backlog |
+| `modernization-sequence.json`, `capability-map.json`, `parallel-validation.json`, `field-inventory.json`, `batch-inventory.json`, `api-boundary.json`, `governance.json`, `extraction-reading.json`, `rule-coverage.json`, `legacy-requirements.json` | Handoff records: every step `NOT_STARTED`, every capability unassigned, every comparison `NOT RUN` | `reframe_handoff.write_into()` | ✓ | ✓ | ✓ |
+| `AGENTS.md`, `SKILL.md`, `skill-*.md` | Agent instructions, written into the export | `package()`, `reframe_preview.run()`, `reframe_handoff.write_into()` | ✓ | ✓ | ✓ |
+| `README.md`, `reframe-notice.md` | How to read the package; notice for copied Reframe material | all package writers | ✓ | ✓ | ✓ |
+
+The skill files exist only inside each exported package. The repository does not install a skills directory. The acceptance ledger is never inside an archive, so no hash refers to itself.
 
 ## Deliverables and quality gates
 

@@ -10,6 +10,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
+import test_docs_consistency as docs
 import test_release_acceptance as release
 import test_reframe_checkpoints as checkpoint_fixtures
 import reframe
@@ -78,6 +79,7 @@ class MenuJourneyTests(unittest.TestCase):
         self.assertEqual(record['workflow_status'], 'AWAITING_PACKAGE_ACCEPTANCE')
         self.assertNotEqual(record['implementation_readiness'], 'NO_KNOWN_BLOCKERS', 'a skipped validation stays a blocker')
         self.assertNotIn('ledger.jsonl', names)
+        self.assertEqual(docs.undocumented(names), [], 'the README package table lists every file')
         self.assertEqual(manifest['route'], 'skip')
         self.assertEqual(manifest['absent'], [], 'every FR-10 item is carried or explained')
         notes = {row['item']: row['note'] for row in manifest['items']}
@@ -169,6 +171,7 @@ class MenuJourneyTests(unittest.TestCase):
         self.assertTrue({'design-plan.json', 'design-inventory.json', 'api-completeness.json', 'future-state.html'} <= names)
         self.assertEqual(manifest['absent'], [])
         self.assertNotIn('ledger.jsonl', names)
+        self.assertEqual(docs.undocumented(names), [], 'the README package table lists every file')
         self.assertTrue((journey.work / 'previews' / 'wireframe-stages-archive').is_dir())
         (Path(__file__).resolve().parents[1] / 'acceptance-review-route-transcript.txt').write_text(text + '\n')
 

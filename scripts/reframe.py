@@ -3536,6 +3536,8 @@ def parser():
     c.add_argument('--right', required=True)
     c.add_argument('--semantic', action='store_true')
     c.add_argument('--provider', choices=['claude', 'codex'], default='claude')
+    for action in commands._choices_actions:
+        commands.choices[action.dest].description = commands.choices[action.dest].description or action.help
     return p
 
 

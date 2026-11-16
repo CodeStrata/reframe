@@ -36,8 +36,8 @@ ZIP traversal, symlinks, hidden metadata and encrypted members are
 rejected. The owner reviews completed findings and provenance before:
 
 ```sh
-reframe approve assessment --by 'Assessment owner' --note 'Reviewed findings and scope' --confirm-source-match
-reframe resume
+reframe approve assessment --by NAME --note WHY --confirm-source-match
+reframe --workspace /path/to/private-poc resume
 ```
 
 ## 2. Prepare and challenge
@@ -49,9 +49,9 @@ open questions and the independent review. SME decisions regenerate the report.
 Approval binds to the specification, decisions and exact report bytes.
 
 ```sh
-reframe decide --question QUESTION_ID --by 'SME' --answer 'Recorded decision' --disposition resolved
-reframe approve validation --by 'SME and architect owner' --note 'Reviewed report and decisions'
-reframe resume
+reframe decide --question QUESTION_ID --by NAME --answer RATIONALE --disposition resolved
+reframe approve validation --by NAME --note WHY
+reframe --workspace /path/to/private-poc resume
 ```
 
 ## 3. Business review
@@ -63,8 +63,8 @@ Business, architecture and technical-lead decisions belong in the approval recor
 feedback invalidates downstream approvals and starts a revision.
 
 ```sh
-reframe approve specifications --by 'Business review owner' --note 'Business, architect and technical lead review recorded'
-reframe resume
+reframe approve specifications --by NAME --note WHY
+reframe --workspace /path/to/private-poc resume
 ```
 
 ## 4. Engineering handoff
