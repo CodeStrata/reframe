@@ -232,6 +232,7 @@ class BulkAndStatusTests(unittest.TestCase):
         self.assertIn('API dollar cap', listed)
         self.assertIn('unmeasured', listed)
         self.assertIn('zero-dollar', listed)
+        self.assertIn('blocks the next billed API call', __import__('re').sub(r'[\s\u2502]+', ' ', listed))
 
 
 class ReviewedSpecificationUpgradeTests(BulkAndStatusTests):

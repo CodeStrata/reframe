@@ -442,6 +442,7 @@ class PreparationTests(unittest.TestCase):
         self.assertIn('Awaiting human review',page)
         self.assertIn('COPY-expanded source',page)
         self.assertIn('does not: Rewrite a member',page)
+        self.assertIn('symptom of the earlier failure',page)
         self.assertFalse(self.project['approvals'])
 
     def test_aws_facts_count_export_rows_and_preserve_descriptions_without_model(self):
@@ -609,7 +610,14 @@ class PreparationTests(unittest.TestCase):
         self.assertNotIn('Keep the receipt', first)
         self.assertIn('Keep the receipt', second)
         self.assertIn('lines 4-4', second)
+        self.assertIn('<td>R2</td>', second)
+        self.assertIn('<td>INFERRED</td>', second)
+        self.assertNotIn('<form', output)
+        self.assertIn("form-action 'none'", output)
         page = artifacts.render_api_page(screens['apis'])
+        self.assertIn('Rules: R1', page)
+        self.assertIn('422', page)
+        self.assertIn('zero rejected', page)
         document = artifacts.openapi_document(screens['apis'])
         self.assertEqual(document['openapi'], '3.0.3')
         self.assertEqual(document['paths']['/amount/validate']['post']['x-rule-ids'], ['R1'])
@@ -621,6 +629,44 @@ class PreparationTests(unittest.TestCase):
         self.assertIn('How this application works', output)
         self.assertIn('Check the amount, then show the receipt.', output)
         self.assertNotIn('href="#screen-receipt">Open the payment receipt', output)
+
+    def test_destination_screen_shows_its_open_and_deferred_decisions(self):
+        spec = self.spec()
+        spec['rules'].append({'id': 'R2', 'statement': 'Keep the receipt', 'source_path': 'rule.cbl',
+                              'source_anchor': 'lines 4-4', 'evidence_status': 'INFERRED'})
+        spec['questions'] = [
+            {'id': 'Q-R2', 'question': 'How long is a receipt kept?', 'impact': 'Retention', 'owner': 'SME',
+             'blocks': 'Receipt archive', 'rule_ids': ['R2']},
+            {'id': 'Q-R1', 'question': 'Is zero ever valid?', 'impact': 'Amount', 'owner': 'SME',
+             'blocks': 'Payment', 'rule_ids': ['R1']},
+            {'id': 'Q-NAMED', 'question': 'Who signs the receipt?', 'impact': 'Audit', 'owner': 'Ops', 'blocks': 'Audit'}]
+        screens = self.screens()
+        screens['screens'][0]['actions'] = [{'label': 'Continue', 'screen_id': 'receipt'}]
+        screens['screens'].append({'id': 'receipt', 'title': 'Payment receipt', 'purpose': 'Show the receipt',
+                                   'rule_ids': ['R2'], 'question_ids': ['Q-NAMED'], 'fields': ['Receipt'], 'api_ids': [],
+                                   'actions': [{'label': 'Back', 'screen_id': 's1'}], 'states': ['Shown'],
+                                   'uncertainties': 'Retention period is not recorded'})
+        screens['journeys'][0]['screen_ids'].append('receipt')
+        decisions = {'Q-R2': {'disposition': 'deferred', 'answer': 'Waiting for records management'},
+                     'Q-R1': {'disposition': 'resolved', 'answer': 'Zero is always rejected'}}
+        output = artifacts.render_site(spec, screens, decisions)
+        receipt = output.split('id="screen-receipt"', 1)[1].split('</article>', 1)[0]
+        amount = output.split('id="screen-s1"', 1)[1].split('</article>', 1)[0]
+        self.assertIn('href="#screen-receipt"', amount, 'the action opens the destination screen')
+        self.assertIn('Decisions still open for this screen', receipt)
+        self.assertIn('<td>Q-R2</td>', receipt)
+        self.assertIn('<td>deferred</td>', receipt)
+        self.assertIn('<td>Q-NAMED</td>', receipt)
+        self.assertIn('<td>open</td>', receipt)
+        self.assertIn('A deferral is not an answer', receipt)
+        self.assertIn('Retention period is not recorded', receipt)
+        self.assertNotIn('<details><summary>Open questions', receipt, 'uncertainties are not collapsed')
+        self.assertNotIn('Q-R1', amount, 'a resolved decision is not listed as open')
+        self.assertNotIn('Q-R2', amount, 'another screen does not list this decision')
+        import reframe_design as design
+        with self.assertRaisesRegex(app.Blocked, 'action -> unknown screen nowhere'):
+            design.validate_references({'screens': [dict(screens['screens'][0], actions=[{'label': 'Go', 'screen_id': 'nowhere'}])],
+                                        'apis': screens['apis'], 'journeys': []}, spec)
 
     def test_usage_page_counts_receipts_and_omits_the_session(self):
         receipt = self.work / 'provider-1.json'

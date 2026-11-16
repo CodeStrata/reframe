@@ -258,7 +258,7 @@ def validate_references(screens, spec, requirement_ids=()):
             if ident not in api_ids:
                 problems.append('screen ' + str(screen.get('id')) + ' -> unknown API ' + str(ident))
         for action in screen.get('actions') or []:
-            target = action.get('opens') if isinstance(action, dict) else None
+            target = (action.get('screen_id') or action.get('opens')) if isinstance(action, dict) else None
             if target and target not in screen_ids:
                 problems.append('screen ' + str(screen.get('id')) + ' action -> unknown screen ' + str(target))
         for ident in screen.get('rule_ids') or []:

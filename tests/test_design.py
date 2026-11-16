@@ -117,6 +117,28 @@ class PlanAndRegenerationTests(m1.WorkspaceFixture):
         self.assertEqual(self.project['site']['design_plan']['mode'], 'reimagine')
         self.assertTrue((self.work / self.project['site']['directory'] / 'api-completeness.json').is_file())
 
+    def refused(self, kinds, message):
+        self.approved()
+        design.capture(self.work, self.project, 'functional-parity', 'v1', 'java', '', '', [], 'Architect')
+
+        def runtime(provider, run, directory, role, request):
+            screens = fixtures.PreparationTests.screens(None)
+            rule = json.loads(request)['specification']['rules'][0]['id']
+            for kind in ('screens', 'apis'):
+                for item in screens[kind]:
+                    item['rule_ids'] = ['R999'] if kind in kinds else [rule]
+            return screens
+
+        with self.assertRaisesRegex(Blocked, message):
+            app.review_site(self.work, self.project, argparse.Namespace(provider='claude'), runtime)
+        self.assertNotIn('site', self.project)
+
+    def test_an_api_citing_an_unknown_rule_is_refused(self):
+        self.refused(('apis',), 'Unknown API rule reference')
+
+    def test_a_screen_citing_an_unknown_rule_is_refused(self):
+        self.refused(('screens',), 'Screen has unknown rule reference')
+
     def test_a_changed_plan_regenerates_and_never_returns_the_stale_design(self):
         self.approved()
         design.capture(self.work, self.project, 'functional-parity', 'v1', 'java', '', '', [], 'Architect')

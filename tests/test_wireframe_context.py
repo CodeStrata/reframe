@@ -265,6 +265,36 @@ class WireframeContextTests(unittest.TestCase):
         self.assertEqual(calls['count'], 2)
         self.assertEqual(app.read(other.work / 'project.json')['ui_calls'], 1)
 
+    def test_only_an_unspent_undispatched_reservation_is_released(self):
+        inner = self.approved_project()
+        with patch.object(app, 'require_dollar_cap', side_effect=app.Blocked('dollar check stopped before dispatch')), \
+             patch.object(app, 'model_call', side_effect=AssertionError('provider')):
+            app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _result: None)
+        reserved = app.read(inner.work / 'project.json')
+        self.assertEqual(reserved['wireframe_plan']['stages'][0]['status'], 'reserved')
+        for change in ({'status': 'dispatched'}, {'provider_invoked': True},
+                       {'spent_before': reserved['settings']['model_dollars_spent'] + 1}):
+            tampered = json.loads(json.dumps(reserved))
+            tampered['wireframe_plan']['stages'][0].update(change)
+            app.write(inner.work / 'project.json', tampered)
+            results = []
+            code = app.main(['--workspace', str(inner.work), 'recover-ui-call', '--confirm', '--note', 'Release it'],
+                            reporter=results.append)
+            self.assertEqual(code, 2, change)
+            self.assertIn('The counter was not changed', results[-1]['reason'])
+            self.assertEqual(app.read(inner.work / 'project.json')['ui_calls'], 1, change)
+
+    def test_a_contract_failure_reserves_nothing(self):
+        inner = self.approved_project()
+        with patch.object(app, 'require_stage_contract', side_effect=app.Blocked('stage contract changed')), \
+             patch.object(app, 'model_call', side_effect=AssertionError('provider')):
+            code = app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _result: None)
+        self.assertEqual(code, 2)
+        saved = app.read(inner.work / 'project.json')
+        self.assertEqual(saved.get('ui_calls') or 0, 0)
+        self.assertFalse(any(stage.get('status') == 'reserved' for stage in (saved.get('wireframe_plan') or {}).get('stages') or []))
+        self.assertFalse(any((inner.work / 'previews').glob('business-*')))
+
     def test_restart_after_provider_completion_does_not_recall_or_reduce_the_counter(self):
         inner = self.approved_project()
         calls = {'count': 0}

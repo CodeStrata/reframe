@@ -937,6 +937,7 @@ def review_defects(review):
             'location': finding.get('location') if isinstance(finding.get('location'), str) else '',
             'required_change': required_change,
             'severity': finding.get('severity') if isinstance(finding.get('severity'), str) else '',
+            'area': finding.get('area') if isinstance(finding.get('area'), str) else '',
         })
     return defects
 

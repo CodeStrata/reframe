@@ -387,6 +387,38 @@ class GuidedFlowTests(unittest.TestCase):
         self.assertIn('Independent reviewer report — JSON — ' + str(Path(root) / 'preparation' / 'review-1.json'), text)
         self.assertEqual(self.routed(ui), [])
 
+    def test_specifications_review_names_the_wireframes_and_json(self):
+        ui = self.ui({'stage':'AWAITING_SPECIFICATIONS_APPROVAL', 'approvals':{'assessment':True, 'validation':True},
+                      'site':{'directory':'previews/business-1'}}, ['continue'])
+        lines = self.said(ui)
+        with tempfile.TemporaryDirectory() as root, patch('reframe_setup.workspace', return_value=Path(root)):
+            run(ui)
+        text = '\n'.join(lines)
+        site = Path(root) / 'previews' / 'business-1'
+        for label, kind, name in (('Business review wireframes', 'HTML', 'index.html'), ('Screen content', 'JSON', 'screens.json'),
+                                  ('API contracts', 'JSON', 'api-contracts.json'), ('OpenAPI document', 'JSON', 'openapi.json')):
+            self.assertIn(label + ' — ' + kind + ' — ' + str(site / name), text)
+        self.assertIn('Paused for human review. No approval was recorded.', text)
+        self.assertFalse([call for call in self.routed(ui) if call[0] == 'approve'])
+
+    def test_declining_both_cap_choices_makes_no_model_call(self):
+        first = {'stage':'ASSESSMENT_APPROVED', 'approvals':{'assessment':True}}
+        blocked = {'stage':'PREPARATION_PLANNED', 'approvals':{'assessment':True}, 'pipeline':{
+            'calls':0, 'reason':'Insufficient call budget for remaining checkpoint plan',
+            'minimum_additional_calls':12, 'remaining_calls':4}}
+        ui = self.ui(first, ['continue', 'review'])
+        ui.project.side_effect = [first, first, blocked, blocked]
+        ui.invoke.side_effect = [2]
+        ui.yes.side_effect = [True, False, False]
+        lines = self.said(ui)
+        run(ui)
+        text = '\n'.join(lines)
+        self.assertIn('at least 12 more model calls', text)
+        self.assertIn('No model call was made', text)
+        invoked = [call.args[0] for call in ui.invoke.call_args_list]
+        self.assertEqual(len([call for call in invoked if call[0] == 'validate']), 1, 'only the first planning attempt')
+        self.assertFalse([call for call in invoked if call[0] == 'model-budget'])
+
     def test_skip_names_the_html_wireframes_and_zip(self):
         ui = self.ui({'stage':'ASSESSMENT_APPROVED', 'approvals':{'assessment':True},
                       'providers':{'wireframes':'claude'}},

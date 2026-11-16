@@ -52,6 +52,7 @@ class SavedSizeStagingTests(unittest.TestCase):
         for stage in stages:
             for rule in json.loads(_message(self.spec, stage, len(stages)))['specification']['rules']:
                 sent[rule['id']] = rule['statement']
+                self.assertTrue(rule['source_path'] and rule['source_anchor'], 'evidence links travel with each rule')
         self.assertEqual(sent, {rule['id']: rule['statement'] for rule in self.spec['rules']},
                          'every statement reaches a provider request byte for byte')
 

@@ -3681,6 +3681,10 @@ def main(argv=None, reporter=None):
                         result = package(work, project)
                     elif args.command == 'resume' and project['stage'] in {'AWAITING_ASSESSMENT_APPROVAL', 'AWAITING_VALIDATION_APPROVAL', 'AWAITING_SPECIFICATIONS_APPROVAL', 'PACKAGED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGE_ACCEPTED', 'PROVIDER_REVIEW_REQUIRED', 'BLOCKED', 'REWORK_LIMIT'}:
                         result = {'status': project['stage'], 'next_step': next_step(project)}
+                        saved_reason = (project.get('pipeline') or {}).get('reason')
+                        if project['stage'] in {'BLOCKED', 'REWORK_LIMIT', 'PROVIDER_REVIEW_REQUIRED'} and saved_reason:
+                            # A repeated resume restates the recorded stop instead of hiding it.
+                            result['reason'] = saved_reason
                     elif args.command == 'relocate':
                         import reframe_workspace
                         result = reframe_workspace.relocate(work, project, args.output_parent, sys.modules[__name__])

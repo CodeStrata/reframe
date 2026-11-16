@@ -10,6 +10,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
+import handoff_checks
 import test_docs_consistency as docs
 import test_release_acceptance as release
 import test_reframe_checkpoints as checkpoint_fixtures
@@ -96,6 +97,8 @@ class MenuJourneyTests(unittest.TestCase):
         draft = journey.work / project['package']['draft_archive']
         self.assertNotEqual(draft, archive)
         self.assertEqual(reframe.sha(draft), project['package']['draft_sha256'], 'the reviewed draft ZIP is unchanged')
+        handoff_checks.check(self, draft)
+        handoff_checks.check(self, archive)
         self.assertIn('Building it did not accept it', text)
         self.assertIn('Implementation readiness', text)
         self.assertEqual(self.state['calls'], ['wireframes'])
@@ -172,6 +175,7 @@ class MenuJourneyTests(unittest.TestCase):
         self.assertEqual(manifest['absent'], [])
         self.assertNotIn('ledger.jsonl', names)
         self.assertEqual(docs.undocumented(names), [], 'the README package table lists every file')
+        handoff_checks.check(self, archive)
         self.assertTrue((journey.work / 'previews' / 'wireframe-stages-archive').is_dir())
         (Path(__file__).resolve().parents[1] / 'acceptance-review-route-transcript.txt').write_text(text + '\n')
 

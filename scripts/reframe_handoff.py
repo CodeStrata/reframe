@@ -281,7 +281,7 @@ def validation_plan(rules):
         'oracle': ORACLE,
         'rules': [{
             'rule_id': rule['id'],
-            'cases': [{'name': case, 'status': 'NOT RUN'} for case in CASES],
+            'cases': [{'name': case, 'status': 'NOT RUN', 'oracle': ORACLE} for case in CASES],
         } for rule in rules],
     }
 
