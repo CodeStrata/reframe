@@ -1170,8 +1170,13 @@ def approve(work, project, args):
         approved(project, 'validation', digest({'specification': project['specification']['sha256'], 'decisions': project['decisions']}))
         project['stage'] = 'SPECIFICATIONS_APPROVED'
     project['approvals'][args.phase] = {'sha256': fingerprint, 'by': args.by, 'note': args.note, 'at': time.time()}
+    if getattr(args, 'simulated', False):
+        project['approvals'][args.phase]['simulated'] = True
     if args.phase == 'validation':
         project['approvals'][args.phase]['report_sha256'] = project['preparation_report']['sha256']
+    import reframe_versions
+    reframe_versions.record(work, project, 'approve ' + args.phase)
+    reframe_versions.bind_approval(project, args.phase)
     persist(work, project)
     return {'status': project['stage'], 'approved_sha256': fingerprint}
 
@@ -1289,6 +1294,7 @@ def decision(work, project, args):
         'approvals': copy.deepcopy(project.get('approvals') or {}),
         'batches': copy.deepcopy(project.get('decision_batches') or []),
         'history': copy.deepcopy(project.get('decision_history') or []),
+        'approval_history': copy.deepcopy(project.get('approval_history') or []),
         'stage': project.get('stage'),
         'site': copy.deepcopy(project.get('site')),
         'report': copy.deepcopy(project.get('preparation_report')),
@@ -1307,14 +1313,9 @@ def decision(work, project, args):
         batches.append({'batch_id': fingerprint, 'question_ids': list(targets), 'disposition': disposition,
                         'by': owner, 'rationale': rationale, 'at': stamp, 'amend': amend,
                         'specification_sha256': project['specification']['sha256']})
-        for phase in ('validation', 'specifications'):
-            superseded = project['approvals'].get(phase)
-            if isinstance(superseded, dict):
-                project.setdefault('approval_history', []).append({
-                    'phase': phase, 'at': stamp, 'reason': 'decision_amendment',
-                    'approval': copy.deepcopy(superseded),
-                })
-            project['approvals'].pop(phase, None)
+        import reframe_versions
+        reframe_versions.supersede(project, ('validation', 'specifications', 'design', 'package'),
+                                   'decision_amendment', stamp)
         project.pop('site', None)
         require_anchored_export(work, project)
         project['stage'] = 'AWAITING_VALIDATION_APPROVAL'
@@ -1326,6 +1327,7 @@ def decision(work, project, args):
         project['approvals'] = snapshot['approvals']
         project['decision_batches'] = snapshot['batches']
         project['decision_history'] = snapshot['history']
+        project['approval_history'] = snapshot['approval_history']
         project['stage'] = snapshot['stage']
         if snapshot['site'] is None:
             project.pop('site', None)
@@ -2647,11 +2649,17 @@ def feedback(work, project, args):
     project.setdefault('feedback', []).append({'by': args.by, 'note': args.note, 'at': time.time()})
     require(state['round'] < project['settings']['max_rounds'], 'Revision limit exhausted; start a new workspace')
     state.update(round=state['round'] + 1, role='executor', status='RUNNING')
+    stamp = time.time()
+    if project.get('decisions'):
+        project.setdefault('decision_history', []).append({
+            'reason': 'specification_feedback', 'at': stamp,
+            'specification_sha256': (project.get('specification') or {}).get('sha256'),
+            'previous': copy.deepcopy(project['decisions'])})
     for key in ('specification', 'site', 'package', 'preparation_report'):
         project.pop(key, None)
     project['decisions'] = {}
-    project['approvals'].pop('validation', None)
-    project['approvals'].pop('specifications', None)
+    import reframe_versions
+    reframe_versions.supersede(project, ('validation', 'specifications', 'design', 'package'), 'specification_feedback', stamp)
     project['stage'] = 'REVISION_PENDING'
     persist(work, project)
     return {'status': project['stage']}
@@ -3096,6 +3104,14 @@ def main(argv=None, reporter=None):
                 result['preparation'] = {'units':len(plan['units']), 'reviewed_units':len(capsules),
                     'calls_consumed':project['pipeline']['calls'], 'total_cap':project['settings'].get('max_model_calls'),
                     'call_cap_set': project['settings'].get('max_model_calls') is not None}
+            import reframe_states
+            stop_record = reframe_states.last_stop(work)
+            if stop_record:
+                result['last_stop'] = {k: v for k, v in stop_record.items() if k != 'reason'}
+            if isinstance(project.get('last_cancellation'), dict):
+                result['last_cancellation'] = project['last_cancellation']
+            result['summary'] = reframe_states.summary(work, project, result['questions'], budget_summary(project, work),
+                                                       implementation_readiness(project))
         elif getattr(args, 'detach', False):
             require((work / 'project.json').is_file(), 'Initialize first')
             with locked(work) as project:
@@ -3195,6 +3211,8 @@ def main(argv=None, reporter=None):
                         persist(work, project)
                 except KeyboardInterrupt:
                     # Retain budgets and phase markers while still holding the project lock.
+                    import reframe_states
+                    reframe_states.record_cancellation(project, args.command)
                     persist(work, project)
                     raise
                 except ProviderSafetyRefusal as error:
@@ -3208,17 +3226,24 @@ def main(argv=None, reporter=None):
                     project['stage'] = 'WAITING_FOR_RUNTIME'
                     persist(work, project)
                     raise
-                except Exception:
+                except Exception as error:
                     # Preserve consumed call counts and remote mutation markers on every failure.
                     persist(work, project)
+                    if isinstance(error, Blocked):
+                        import reframe_states
+                        reframe_states.record_stop(work, error, args.command)
                     raise
         if args.command in {'preview', 'assessment-report', 'review-site', 'package'} and 'work' in locals():
             from reframe_workspace import report_index
             result['reports'] = str(report_index(work))
         if project is not None and 'next_step' not in result:
             result['next_step'] = next_step(project)
+        stopped = result.get('status') in {'BLOCKED', 'REWORK_LIMIT', 'CONTEXT_LIMIT', 'CORRECTION_INVALID', 'ASSESSMENT_FAILED', 'NEEDS_RECONCILIATION'}
+        if stopped and 'cause' not in result:
+            import reframe_states
+            result.update(reframe_states.describe(result.get('reason') or result.get('status')))
         emit(result)
-        return 2 if result.get('status') in {'BLOCKED', 'REWORK_LIMIT', 'CONTEXT_LIMIT', 'CORRECTION_INVALID', 'ASSESSMENT_FAILED', 'NEEDS_RECONCILIATION'} else 0
+        return 2 if stopped else 0
     except KeyboardInterrupt:
         result = {'status': 'CANCELLED', 'reason': 'Cancelled by user. Saved work is retained.',
                   'last_action': 'Last action cancelled; saved progress retained',
@@ -3228,7 +3253,8 @@ def main(argv=None, reporter=None):
         emit(result)
         return 130
     except (Blocked, OSError, ValueError, KeyError, EOFError, subprocess.SubprocessError) as error:
-        result = {'status': 'BLOCKED', 'reason': str(error)}
+        import reframe_states
+        result = {'status': 'BLOCKED', 'reason': str(error), **reframe_states.describe(error)}
         if getattr(error, 'hint', None): result['hint'] = error.hint
         emit(result)
         return 2
