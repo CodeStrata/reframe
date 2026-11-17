@@ -74,6 +74,7 @@ class FakeTransform:
         self.questions = []
         self.stopped = None
         self.plan_before_questions = False
+        self.running_while_asking = False
         self.replies = []
         self.task = task if task is not None else {
             'taskId': 'T1', 'status': 'AWAITING_HUMAN_INPUT', 'title': 'Select business functions to reimagine',
@@ -120,9 +121,10 @@ class FakeTransform:
                     if number < len(self.replies):
                         chat.append({'messageId': 'u-' + str(number), 'messageOrigin': 'USER', 'createdAt': '2026-11-17 02:2' + str(number) + '5',
                                      'text': self.replies[number]})
-                steps = ([{'stepName': step, 'status': 'NOT_STARTED'} for step in self.plan_steps]
-                         if self.plan_before_questions else [])
-                results.append({'job': {'jobId': 'job-req-1', 'statusDetails': {'status': 'EXECUTING'}}, 'plan': {'steps': steps},
+                steps = ([{'stepName': step, 'status': 'IN_PROGRESS' if self.running_while_asking else 'NOT_STARTED'}
+                          for step in self.plan_steps] if self.plan_before_questions else [])
+                waiting = 'AWAITING_HUMAN_INPUT' if self.running_while_asking else 'EXECUTING'
+                results.append({'job': {'jobId': 'job-req-1', 'statusDetails': {'status': waiting}}, 'plan': {'steps': steps},
                                 'tasks': {'hitlTasks': []}, 'messages': {'messages': chat}})
             elif name == 'get_job_status':
                 status = 'SUCCEEDED' if self.selected else 'IN_PROGRESS'
@@ -322,6 +324,16 @@ class RequirementsTests(unittest.TestCase):
         self.command('resume', client=client)
         self.assertEqual(self.command('resume', client=client)['status'], 'REQUIREMENTS_RETRIEVED')
         self.assertEqual(client.replies, ['Yes, proceed with this plan.'])
+
+    def test_aws_awaiting_input_is_read_from_chat_even_while_a_parent_step_shows_in_progress(self):
+        client = FakeTransform()
+        client.plan_before_questions = client.running_while_asking = True
+        client.questions = ['Please select the business function(s) to Re-Imagine before continuing.']
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Generate F1 for the pilot', client=client)
+        waiting = self.command('resume', client=client)
+        self.assertEqual(waiting['status'], 'REQUIREMENTS_WAITING_FOR_HUMAN')
+        self.assertIn('select the business function', waiting['reason'])
 
     def test_a_new_job_is_named_like_the_assessment_runs(self):
         client = FakeTransform()

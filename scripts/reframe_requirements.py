@@ -423,9 +423,10 @@ def step(work, project, client, selected=None, plan=None, reply=None, by=None, a
         job['state'] = 'STEPS_COMPLETE'
         _save(job_path(work, label), job)
         return retrieve(work, project, client, job)
-    elif job['state'] != 'WAITING_FOR_HUMAN' and not any(
-            str(item.get('status')).upper() in {'IN_PROGRESS', 'RUNNING'} for item in steps):
-        # Nothing runs and no task waits: AWS may be asking in chat, e.g. "Proceed with this plan?".
+    elif job['state'] != 'WAITING_FOR_HUMAN' and (status == 'AWAITING_HUMAN_INPUT' or not any(
+            str(item.get('status')).upper() in {'IN_PROGRESS', 'RUNNING'} for item in steps)):
+        # No task waits and nothing runs, or AWS says it awaits input: it may be asking in chat, e.g.
+        # "Proceed with this plan?" or "Please select the business function(s) to Re-Imagine".
         _answer_chat(work, record, client, job, identity, snapshot, plan, reply, by)
     _save(job_path(work, label), job)
     return job

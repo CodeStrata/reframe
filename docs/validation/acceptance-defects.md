@@ -237,3 +237,7 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 **AWS asks after the plan exists.** Once the plan was generated, AWS asked "Proceed with this plan?" and started no step until it was answered. Reframe only read chat before a plan existed, and a waiting state could outlive a question answered elsewhere.
 - **Fix:** each poll works the state out afresh. When no task waits and no step runs, an unanswered AWS chat turn stops the job for an answer.
 - **Test:** `test_requirements::test_a_question_after_the_plan_exists_waits_and_is_answered_once`.
+
+**Function selection happens in chat while a parent step shows in progress.** After the catalog review, AWS's job status was `AWAITING_HUMAN_INPUT`, with "Please select the business function(s) to Re-Imagine before continuing." in chat and no task form. The parent step "Discover business functions" still showed `IN_PROGRESS`, so Reframe did not read the chat.
+- **Fix:** AWS's own `AWAITING_HUMAN_INPUT` job status now overrides the running-step check.
+- **Test:** `test_requirements::test_aws_awaiting_input_is_read_from_chat_even_while_a_parent_step_shows_in_progress`.
