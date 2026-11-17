@@ -33,6 +33,39 @@ def _references(spec):
     return refs
 
 
+def resolve_requirement_ids(spec, requirements):
+    """Record full requirement ids. A unique original id is accepted; an unknown or ambiguous one is refused."""
+    from pilot import Blocked
+    full = {item['id'] for item in requirements}
+    by_original = {}
+    for item in requirements:
+        by_original.setdefault(item.get('original_id'), set()).add(item['id'])
+    unknown = []
+
+    def resolve(ident):
+        if ident in full:
+            return ident
+        matches = by_original.get(ident) or set()
+        if len(matches) == 1:
+            return next(iter(matches))
+        unknown.append(ident)
+        return ident
+
+    holders = [section for section in (spec.get('sections') or {}).values() if isinstance(section, dict)]
+    holders += [item for item in (spec.get('work_items') or []) + (spec.get('tests') or []) if isinstance(item, dict)]
+    for holder in holders:
+        if isinstance(holder.get('requirement_ids'), list):
+            holder['requirement_ids'] = [resolve(ident) for ident in holder['requirement_ids']]
+    excluded = spec.get('excluded_requirements')
+    if isinstance(excluded, dict):
+        spec['excluded_requirements'] = {resolve(ident): reason for ident, reason in excluded.items()}
+        unknown += [ident for ident, reason in excluded.items() if not (isinstance(reason, str) and reason.strip())]
+    if unknown:
+        raise Blocked('Unknown, ambiguous, or unexplained requirement ids: ' + ', '.join(sorted({str(i) for i in unknown})[:20])
+                      + '. Cite an id or a unique original_id from admitted_inputs, and give each exclusion a reason.')
+    return spec
+
+
 def requirement_coverage(spec, requirement_ids):
     """One row per requirement: mapped, gap, or excluded with a recorded reason."""
     refs = _references(spec)

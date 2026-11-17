@@ -9,6 +9,7 @@ import test_requirements as req_fixtures
 import reframe as app
 import reframe_optional as optional
 import reframe_requirements as requirements
+import reframe_coverage
 import reframe_setup
 import reframe_states as states
 from pilot import Blocked
@@ -251,6 +252,63 @@ class RequirementsRevalidationTests(m1.WorkspaceFixture):
         self.assertEqual(set(limits), {900000}, 'synthesis calls use the recorded ceiling')
         self.assertEqual([e['to'] for e in self.project['events'] if e.get('event') == 'validation_allowance_changed'],
                          [{'requirements_context_bytes': 200000, 'synthesis_context_bytes': 900000}])
+
+    def test_synthesis_cites_requirements_and_the_reviewer_gets_no_controller_views(self):
+        self.import_requirements()
+        reviewed = []
+
+        def runtime(provider, run, directory, role, message):
+            context = json.loads(message)
+            if 'unit_id' in context:
+                return self.runtime(provider, run, directory, role, message)
+            if role == 'reviewer':
+                self.seen.append((role, context))
+                reviewed.append(context['candidate'])
+                return {'kind': 'review', 'decision': 'PASS', 'report': 'Mappings checked', 'findings': []}
+            reply = self.runtime(provider, run, directory, role, message)
+            spec = reply['specification']
+            for holder in list(spec['sections'].values()) + spec['work_items'] + spec['tests']:
+                holder['requirement_ids'] = ['PAY-001']
+            spec['excluded_requirements'] = {'PAY-003': 'Rejection logging is outside the selected scope'}
+            return reply
+
+        result = app.pipeline(self.work, self.project, self.args('validate'), runtime)
+        self.assertEqual(result['status'], 'AWAITING_VALIDATION_APPROVAL')
+        spec = app.read(app.spec_path(self.work, self.project))
+        self.assertEqual(spec['sections']['architecture']['requirement_ids'], ['aws-req:F1:PAY-001'],
+                         'a unique original id is recorded as the full id')
+        coverage = {row['id']: row['disposition'] for row in spec['requirement_coverage']}
+        self.assertEqual(coverage, {'aws-req:F1:PAY-001': 'mapped', 'aws-req:F1:PAY-002': 'gap',
+                                    'aws-req:F1:PAY-003': 'excluded'})
+        for view in ('requirement_coverage', 'admitted_inputs', 'test_templates'):
+            self.assertIn(view, spec, 'the saved candidate keeps its controller views')
+            self.assertNotIn(view, reviewed[-1], 'the reviewer is not sent views the controller derives')
+        self.assertEqual(reviewed[-1]['controller_views_omitted'], ['admitted_inputs', 'requirement_coverage', 'test_templates'])
+
+    def test_an_unknown_or_unexplained_requirement_id_is_refused(self):
+        records = [{'id': 'aws-req:F1:PAY-001', 'original_id': 'PAY-001'}, {'id': 'aws-req:F2:PAY-001', 'original_id': 'PAY-001'}]
+        for spec in ({'sections': {'ui': {'requirement_ids': ['PAY-404']}}},
+                     {'sections': {'ui': {'requirement_ids': ['PAY-001']}}},
+                     {'excluded_requirements': {'aws-req:F1:PAY-001': ' '}}):
+            with self.assertRaises(Blocked):
+                reframe_coverage.resolve_requirement_ids(spec, records)
+        spec = reframe_coverage.resolve_requirement_ids({'work_items': [{'requirement_ids': ['aws-req:F2:PAY-001']}]}, records)
+        self.assertEqual(spec['work_items'][0]['requirement_ids'], ['aws-req:F2:PAY-001'])
+
+    def test_feedback_does_not_reuse_an_unreviewed_candidate_from_the_replaced_round(self):
+        self.validated_and_approved()
+        self.import_requirements()
+        state = self.project['pipeline']
+        state['calls'] += 1
+        stale = app.read(app.spec_path(self.work, self.project))
+        app.write(self.work / 'preparation' / ('reply-' + str(state['calls']) + '.json'), {'kind': 'candidate', 'specification': stale})
+        self.allowance(extra_rounds=1)
+        self.feedback()
+        self.seen.clear()
+        app.pipeline(self.work, self.project, self.args('resume'), self.runtime)
+        executors = [ctx for role, ctx in self.seen if role == 'executor' and 'unit_id' not in ctx]
+        self.assertEqual(len(executors), 1, 'the executor is asked again instead of reusing the replaced reply')
+        self.assertIn('admitted_inputs', executors[0])
 
 
 if __name__ == '__main__':

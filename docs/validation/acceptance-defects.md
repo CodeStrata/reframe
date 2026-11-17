@@ -290,3 +290,17 @@ The generic reader split every list entry into its own block, so 397 of 398 requ
   - Extra rounds apply to synthesis only, so the evidence-unit limit stays.
   - Each change is an audited event with the calls already used.
 - **Test:** `test_context_validation::test_a_validation_allowance_only_rises_and_is_used_by_validation`.
+
+**Requirement coverage could never be recorded.** The live revalidation executor (call 307) checked the specification against all 398 AWS requirements and raised 14 source-grounded questions, but cited none of them: all 398 were coverage gaps. Coverage counts only `requirement_ids` listed on sections, work items and tests, and neither the preparation prompts nor the controller asked for them.
+- **Prompt change (a recorded prompt migration, not a controller-only fix):**
+  - the executor prompt asks for `requirement_ids` on each section, work item and test, and for `excluded_requirements` with reasons;
+  - the reviewer prompt checks those mappings. A wrong mapping is a defect; an unmapped requirement is a reported gap.
+- **Controller:**
+  - a unique `original_id` (for example REQ-F-001) is recorded as the full id, which keeps the executor's output small;
+  - an unknown or ambiguous id, or an exclusion without a reason, makes the candidate invalid.
+- **Reviewer context:** the reviewer no longer receives `admitted_inputs`, `requirement_coverage` or `test_templates` inside the candidate. The controller derives these from the candidate's ids, and the requirements themselves are already in the reviewer's context. The live reviewer context was 925,524 bytes, over its allowance, before any review call.
+- **Reuse after feedback:** a candidate reply saved before specification feedback was reused as the next round's candidate without a call. The live run had exactly that: an unreviewed candidate from call 307. Feedback now marks earlier replies as belonging to the replaced round.
+- **Tests (`test_context_validation`):**
+  - `test_synthesis_cites_requirements_and_the_reviewer_gets_no_controller_views`;
+  - `test_an_unknown_or_unexplained_requirement_id_is_refused`;
+  - `test_feedback_does_not_reuse_an_unreviewed_candidate_from_the_replaced_round`.

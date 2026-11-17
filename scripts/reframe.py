@@ -1998,8 +1998,21 @@ def attach_admitted_inputs(work, project, spec):
         'note': 'Recorded by the controller. Requirements are producer claims and human context is admitted input; '
                 'neither is source verification.'}
     import reframe_coverage
+    reframe_coverage.resolve_requirement_ids(spec, inputs['requirements'])
     reframe_coverage.annotate(spec, [item['id'] for item in inputs['requirements']])
     return spec['admitted_inputs']
+
+
+CONTROLLER_VIEWS = ('admitted_inputs', 'requirement_coverage', 'test_templates')
+
+
+def reviewer_view(candidate):
+    """The candidate without views the controller derives from its structured ids. The saved candidate keeps them."""
+    view = {key: value for key, value in candidate.items() if key not in CONTROLLER_VIEWS}
+    omitted = [key for key in CONTROLLER_VIEWS if key in candidate]
+    if omitted:
+        view['controller_views_omitted'] = omitted
+    return view
 
 
 def pipeline(work, project, args, runtime=None):
@@ -2223,7 +2236,8 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                     'Return kind review. A source read is only for one claim you cannot check from the candidate. '
                     'Do not inventory the repository. PASS when the specification keeps the reviewed rules and '
                     'SME questions and does not claim runtime equivalence. REWORK only for a contradicted claim.')
-        prior_reply = next((area / f'reply-{n}.json' for n in range(state['calls'], 0, -1)
+        # Replies saved before specification feedback belong to the replaced round and are not reused.
+        prior_reply = next((area / f'reply-{n}.json' for n in range(state['calls'], state.get('replies_superseded_through', 0), -1)
                             if (area / f'reply-{n}.json').exists()), None)
         if role == 'executor' and prior_reply is not None:
             prior = read(prior_reply)
@@ -2267,7 +2281,8 @@ def legacy_pipeline(work, project, args, runtime=model_call):
         if role == 'reviewer':
             candidate_path = area / f'{artifact_prefix}candidate-{number}.json'
             require(sha(candidate_path) == state['candidate_sha256'], 'Candidate changed after handoff')
-            context['candidate'] = read(candidate_path)
+            candidate = read(candidate_path)
+            context['candidate'] = reviewer_view(candidate)
         if state.get('previous_review'):
             context['previous_review'] = state['previous_review']
         # Reviewed units are larger than one program. Synthesis may use the model window above the per-unit cap.
@@ -2405,7 +2420,7 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                                             'review_sha256': sha(area / f'{artifact_prefix}review-{number}.json'), 'review_path': f'preparation/{artifact_prefix}review-{number}.json'}
                 if capsules:
                     project['specification']['checkpoints_sha256'] = digest(capsules)
-                admitted_set = (context['candidate'].get('admitted_inputs') or {}).get('requirements_set') or {}
+                admitted_set = (candidate.get('admitted_inputs') or {}).get('requirements_set') or {}
                 project['specification']['requirements_set_id'] = admitted_set.get('set_id')
                 state['status'] = 'PASS'
                 project['stage'] = 'AWAITING_VALIDATION_APPROVAL'
@@ -3067,8 +3082,9 @@ def feedback(work, project, args):
             'Revision limit exhausted. reframe validation-allowance --extra-rounds 1 --by NAME --note WHY records one more '
             'synthesis round, or start a new workspace')
     state.update(round=state['round'] + 1, role='executor', status='RUNNING')
-    # The last review belongs to the candidate this feedback replaces; the new round starts from the feedback.
+    # The last review and any unreviewed reply belong to the candidate this feedback replaces.
     state.pop('previous_review', None)
+    state['replies_superseded_through'] = state['calls']
     stamp = time.time()
     if project.get('decisions'):
         project.setdefault('decision_history', []).append({

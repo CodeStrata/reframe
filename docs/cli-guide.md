@@ -729,7 +729,11 @@ design, and package approvals. The run returns to `AWAITING_VALIDATION_APPROVAL`
 earlier specification, because it was validated without that set. `reframe feedback --scope specification` revalidates
 it: passed evidence units stay sealed, and synthesis and review run again with the requirements as their own evidence
 layer. A specification that passes records the requirements set it was validated against, and approving it clears
-the revalidation flag.
+the revalidation flag. Synthesis cites requirements in `requirement_ids` on sections, work items and
+tests, by full id or a unique `original_id`. The controller records the full id and refuses an unknown or ambiguous one.
+A requirement is mapped only when all three cite it, is excluded only with a reason in `excluded_requirements`, and is
+otherwise a gap. The reviewer receives the candidate without the views the controller derives from those ids
+(`admitted_inputs`, `requirement_coverage`, `test_templates`); the saved candidate keeps them.
 
 When the revision limit is spent or the requirements do not fit, the run owner can record a larger allowance:
 
