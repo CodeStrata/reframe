@@ -144,3 +144,16 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 **Result of the repeat discovery with the fix.**
 - The workspace lists one connector, of type `mainframe_modernization|s3|2`.
 - No Reimagine (Neptune) connector is present, so the status remains `REQUIREMENTS_GENERATION_UNAVAILABLE`, now based on observed evidence.
+
+## Reimagine connector from the CLI (#206)
+
+**Test expectation changed by this change.** `test_requirements.FakeTransform` reported a synthetic connector type, `NEPTUNE_REIMAGINE`, which the old substring check counted as a reimagine connector.
+- Discovery now counts only the type AWS accepted and listed for this account, `mainframe_modernization|reimagine|1`, and only when AWS reports it `ACTIVE`.
+- The fixture now reports that type.
+- The synthetic type is still covered, now as a type that is refused, in `test_reimagine_connector::test_discovery_counts_only_an_active_connector_of_the_observed_type`.
+
+**Evidence for the observed values.** All of it is read-only, from 2026-11-16:
+- **CloudTrail:** two successful `CreateConnector` requests (2026-11-15) used this type and the six configuration keys.
+- **AWS validation:** AWS's own validation error lists the valid properties for the type.
+- **Role:** the IAM policy the AWS console generated for an activated reimagine connector.
+- **Live plan run:** the read-only `requirements connector` run against the saved workspace's stack produced a configuration identical to both accepted console requests.

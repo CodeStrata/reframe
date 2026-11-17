@@ -130,6 +130,8 @@ Menu **1** runs these gates in order after assessment approval. Each waits for a
 W=/path/to/private-poc
 reframe --workspace "$W" requirements status
 reframe --workspace "$W" requirements import --requirements requirements.md --traceability traceability.yaml --function FUNCTION_ID --by NAME --note WHY
+reframe --workspace "$W" requirements connector --neptune-stack STACK --by NAME --note WHY
+reframe --workspace "$W" requirements connector --neptune-stack STACK --create --name NAME --copy-source --by NAME --note WHY
 reframe --workspace "$W" requirements discover --by NAME --note WHY
 reframe --workspace "$W" context import --file notes.md --by NAME --role architect --category clarification --affected R1 --gate baseline
 reframe --workspace "$W" context none --gate specification --by NAME
@@ -142,7 +144,20 @@ reframe --workspace "$W" package-review
 reframe --workspace "$W" accept-package --sha256 PACKAGE_SHA256 --by NAME --note WHY
 ```
 
-`requirements discover` is read-only: it lists the Transform tools and connectors this account reports. `requirements authorize-job` and `requirements resume` drive one AWS requirements job for selected business functions, only after that capability is verified. A requirements step is never marked complete from an import, a mock, or a capability blocker.
+`requirements discover` is read-only: it lists the Transform tools and connectors this account reports. AWS generates requirements only in the "Assess and reimagine" and "Reimagine" job plans, which need the reimagine connector (`mainframe_modernization|reimagine|1`): an S3 bucket plus an Amazon Neptune Serverless knowledge graph. The assessment's S3 connector cannot serve them.
+
+`requirements connector` sets that connector up from the CLI, using a stack built from AWS's `neptune-kg-setup.yaml` template:
+- **Without `--create`, it only reads.** It reads the stack outputs and the Neptune cluster, checks them against AWS's requirements (Serverless, engine 1.4.5.1 or later, IAM authentication, encryption, two subnets), and shows what it would create and what Neptune bills while it runs.
+- **`--create` creates and activates the connector.** It:
+  1. creates one IAM role scoped to the stack's bucket and cluster, with the permissions the AWS console grants this connector type (or uses `--role-arn`);
+  2. creates the connector with the six configuration values from the stack outputs;
+  3. activates it;
+  4. checks that AWS records the same type and configuration.
+- **Each creation happens at most once.** An intent saved without a receipt stops for reconciliation. Rerun with `--role-arn` or `--attach-connector` to record what exists.
+- **Nothing else changes.** The command never changes the project stage, the assessment's S3 connector, or the stack, and it deletes nothing.
+- **A different bucket needs `--copy-source`.** When the stack's bucket differs from the project bucket, `--copy-source` puts the assessment's own archive (checksum checked) in the stack's bucket. The requirements job then names that copy, and it refuses to start without one.
+
+`discover` counts a connector only when it has this exact type and AWS reports it `ACTIVE`. A requirements job answers its connector-selection task with this connector, and only when the task's own schema asks for a connector id and type. `requirements authorize-job` and `requirements resume` drive one AWS requirements job for selected business functions, only after that capability is verified. A requirements step is never marked complete from an import, a mock, or a capability blocker.
 
 `design-plan --revise` starts a new design version when design work exists. The earlier site and its stage receipts are kept, and the next `review-site` makes a new provider call instead of reusing a stale design. When two stages define a shared screen, journey, or API differently, `review-site` stops and names every conflict. `reconcile-design` records which stage's definition stands; the other is kept as superseded. Nothing is renamed.
 
@@ -197,7 +212,7 @@ Every command takes `--workspace`. `reframe --help` and `reframe COMMAND --help`
 | `reframe --workspace "$W" reconcile-operation` | Record the outcome of an uncertain provider call; it stays counted |
 | `reframe --workspace "$W" feedback` | Send specification or design feedback back for a new version |
 | `reframe --workspace "$W" package` | Build the AI-DLC package; it then awaits a separate acceptance |
-| `reframe --workspace "$W" requirements` (`status`, `none`, `discover`, `authorize-job`, `resume`, `import`) | AWS requirements: capability, generation job, import, status |
+| `reframe --workspace "$W" requirements` (`status`, `none`, `discover`, `connector`, `authorize-job`, `resume`, `import`) | AWS requirements: capability, generation job, import, status |
 | `reframe --workspace "$W" context` (`import`, `none`, `status`, `decide`, `approve-delta`, `resolve`) | Import or decide optional human context |
 | `reframe --workspace "$W" design-export` | Write an opt-in current-state or reimagine draft beside the review site |
 | `reframe --workspace "$W" package-export` | Write an opt-in draft package beside the approved package |

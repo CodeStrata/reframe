@@ -43,6 +43,8 @@ DOCUMENTED = {
 ITEMS = tuple(DOCUMENTED)
 GENERATE_STEP = 'generate requirements'
 FUNCTION_TERM = 'business function'
+# Task component the official AWS Transform MCP server names for choosing a job's connector.
+CONNECTOR_TASK = 'CreateOrSelectConnectors'
 REQUIREMENTS_FILE = 'requirements.md'
 TRACEABILITY_FILES = ('traceability.yaml', 'traceability.yml')
 # Tools this adapter already calls on AWS Transform for assessments.
@@ -169,9 +171,11 @@ def discover(work, project, client, by, note):
         listing = client.calls([('list_resources', {'workspaceId': workspace, 'resource': connector_kind})])[-1]
         connectors = listing.get('connectors') or listing.get('items') or []
         summary = [{'id': item.get('connectorId') or item.get('id'), 'type': item.get('connectorType') or item.get('type'),
-                    'status': item.get('status')} for item in connectors if isinstance(item, dict)]
-        reimagine = [item for item in summary if 'neptune' in str(item.get('type')).casefold()
-                     or 'reimagine' in str(item.get('type')).casefold()]
+                    'status': item.get('status') or ((item.get('accountConnection') or {}).get('awsAccountConnection') or {})
+                    .get('status')} for item in connectors if isinstance(item, dict)]
+        # Only the observed reimagine type counts, and only once AWS has activated it.
+        from reframe_reimagine import CONNECTOR_TYPE
+        reimagine = [item for item in summary if item.get('type') == CONNECTOR_TYPE and item.get('status') == 'ACTIVE']
         observed = {'resource_kind': connector_kind, 'connectors': summary, 'reimagine_connectors': reimagine}
         if reimagine:
             _observe(record, 'connector', observed, fixture)
@@ -294,6 +298,8 @@ def step(work, project, client, selected=None):
         else:
             source = (job['baseline'].get('uploaded_source') or {}).get('uri')
             require(source, 'The assessment baseline has no recorded source upload to reuse')
+            from reframe_reimagine import job_source
+            source = job_source(project, source)
             arguments = {'workspaceId': _identity(project, {'job_id': None})['workspaceId'], 'jobName': label,
                          'objective': ('Assess and reimagine the source archive at ' + source + ' for the business functions '
                                        'selected in this job, and generate requirements with traceability. '
@@ -332,6 +338,8 @@ def step(work, project, client, selected=None):
     waiting = [task for task in tasks if isinstance(task, dict) and task.get('status') in
                {'AWAITING_HUMAN_INPUT', 'PENDING_HUMAN_INPUT', 'AWAITING_APPROVAL'}]
     for task in waiting:
+        if _answer_connector(work, project, client, job, task, identity):
+            continue
         if not _answer_selection(work, project, client, job, task, identity, selected):
             job.update(state='WAITING_FOR_HUMAN', reason='AWS presents a human task this adapter does not answer: '
                        + str(task.get('title') or task.get('uxComponentId') or task.get('taskId')))
@@ -364,6 +372,32 @@ def _selection_options(task):
         if isinstance(prop.get('enum'), list):
             return name, [str(v) for v in prop['enum']], False
     return None, [], False
+
+
+def _answer_connector(work, project, client, job, task, identity):
+    """Answer a connector task with the recorded, active reimagine connector, and only when its schema asks for that."""
+    entry = project.get('requirements_connector') or {}
+    if task.get('uxComponentId') != CONNECTOR_TASK or entry.get('status') != 'ACTIVE':
+        return False
+    task_id = task.get('taskId')
+    directory = job_path(work, job['label']).parent
+    receipt = directory / ('connector-receipt-' + str(task_id) + '.json')
+    if receipt.is_file():
+        return True
+    record = client.calls([(ADAPTER_TOOLS['job_state'], identity),
+                           (ADAPTER_TOOLS['get_resource'], {**identity, 'resource': 'task', 'taskId': task_id})])[-1]
+    detail = record.get('task') or {}
+    schema = detail.get('_outputSchema') or {}
+    content = {'connectorId': entry['connector_id'], 'connectorType': entry['connector_type']}
+    if not set(schema.get('required') or []) <= set(content) or not set(content) <= set(schema.get('properties') or content):
+        return False
+    _save(directory / ('connector-task-' + str(task_id) + '.json'), record)
+    _save(directory / ('connector-intent-' + str(task_id) + '.json'), {'task_id': task_id, 'content': content})
+    response = client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['complete_task'], {
+        **identity, 'taskId': task_id, 'content': json.dumps(content), 'action': 'APPROVE'})])[-1]
+    _save(receipt, response)
+    job['events'].append({'event': 'connector_selected', 'at': time.time(), 'connector_type': entry['connector_type']})
+    return True
 
 
 def _answer_selection(work, project, client, job, task, identity, selected):
