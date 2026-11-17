@@ -245,3 +245,7 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 **Selecting business functions in chat while the review form is open.** AWS's review form ("Review business functions discovery results") gives no schema for the selection. AWS's documentation says the chat prompts for the selection.
 - **Change:** when the open form is not one Reframe can answer and a person gives `--reply`, the reply now goes to AWS's open chat question, once.
 - **Test:** `test_requirements::test_a_chat_reply_is_sent_while_an_unrecognized_form_is_open`.
+
+**Display-only AWS forms.** During extraction, AWS presented "Business rule extraction results" (`MainframeBreResultComponent`). Its schema says `displayOnly: true`, and AWS submits the empty response itself. Reframe stopped and waited for an answer.
+- **Fix:** display-only forms are recorded once as seen, and need no answer.
+- **Test:** `test_requirements::test_a_display_only_aws_task_needs_no_answer`.

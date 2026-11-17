@@ -625,6 +625,12 @@ def _answer_task(work, record, client, job, task, identity, answer, by):
     _save(directory / ('task-' + str(task_id) + '.json'), detail)
     body = detail.get('task') or {}
     schema = body.get('_outputSchema') or {}
+    if schema.get('displayOnly') is True:
+        # AWS renders it and submits the empty response itself; there is nothing to answer.
+        if not any(event.get('task_id') == task_id for event in job['events']):
+            job['events'].append({'event': 'aws_display_only_task_seen', 'at': time.time(), 'task_id': task_id,
+                                  'title': body.get('title') or task.get('title')})
+        return True
     job['open_task'] = {'task_id': task_id, 'title': body.get('title') or task.get('title'),
                         'ux_component': body.get('uxComponentId') or task.get('uxComponentId'), 'schema': schema,
                         'saved': 'task-' + str(task_id) + '.json'}

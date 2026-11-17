@@ -507,6 +507,16 @@ class RequirementsTests(unittest.TestCase):
         self.assertEqual(sent[0], {'assetLocation': 's3://fixture-bucket/reframe/run-1/source.zip'})
         self.assertEqual(len([content for content in sent if 'assetLocation' in content]), 1)
 
+    def test_a_display_only_aws_task_needs_no_answer(self):
+        client = FakeTransform(task={'taskId': 'B1', 'status': 'AWAITING_HUMAN_INPUT', 'title': 'Business rule extraction results',
+                                     'uxComponentId': 'MainframeBreResultComponent',
+                                     '_outputSchema': {'type': 'object', 'displayOnly': True, 'properties': {}, 'required': []}})
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Pilot', client=client)
+        result = self.command('resume', client=client)
+        self.assertEqual(result['status'], 'REQUIREMENTS_GENERATING')
+        self.assertFalse(any(name == 'complete_task' for name, _ in client.calls_seen))
+
     def test_without_a_selection_the_catalog_from_the_schema_is_shown(self):
         client = FakeTransform()
         self.discover(client)
