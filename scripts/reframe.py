@@ -3524,6 +3524,12 @@ def requirements_command(work, project, args, client=None):
         return {'status': 'REQUIREMENTS_JOB_AUTHORIZED', 'label': job['label'], 'run_id': job['run_id'],
                 'evidence_level': job['evidence_level'],
                 'next_step': 'reframe --workspace ' + str(work) + ' requirements resume'}
+    if action == 'stop':
+        reject_instructional_placeholder(args.note, 'Stop note')
+        job = requirements.stop_job(work, project, client or transform_client(project, work), args.by, args.note)
+        persist(work, project)
+        return {'status': 'REQUIREMENTS_STOPPED', 'job': job['label'], 'job_id': job.get('job_id'),
+                'service_status': job.get('service_status'), 'reason': job['reason']}
     if args.reply:
         reject_instructional_placeholder(args.reply, 'Reply to AWS')
     selected = [item.strip() for item in (args.select or '').split(',') if item.strip()]
@@ -3688,7 +3694,9 @@ def parser():
                                              '(Neptune) connector requirements generation needs')
     linked.add_argument('--neptune-stack', required=True, help="CloudFormation stack from AWS's neptune-kg-setup.yaml")
     linked.add_argument('--create', action='store_true', help='Create the role and connector; without it nothing is created')
-    linked.add_argument('--name', help='Display name for a new connector')
+    linked.add_argument('--replace', action='store_true',
+                        help='Create the project-named pair in place of a recorded connector that is named otherwise; '
+                             'the old one is kept and recorded, never deleted')
     linked.add_argument('--role-arn', help='Use this existing connector role instead of creating one')
     linked.add_argument('--attach-connector', help='Record an existing reimagine connector instead of creating one')
     linked.add_argument('--copy-source', action='store_true',
@@ -3699,6 +3707,9 @@ def parser():
     authorize.add_argument('--functions', default='')
     authorize.add_argument('--by', required=True)
     authorize.add_argument('--note', required=True)
+    halt = requirement_commands.add_parser('stop', help='Stop the active requirements job in AWS, once; nothing is deleted')
+    halt.add_argument('--by', required=True)
+    halt.add_argument('--note', required=True)
     advance = requirement_commands.add_parser('resume', help='Advance the authorized requirements job by one step')
     advance.add_argument('--select', default='')
     advance.add_argument('--plan', help="Answer AWS's plan menu with one option it lists, exactly as named")

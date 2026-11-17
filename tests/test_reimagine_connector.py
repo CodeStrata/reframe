@@ -90,7 +90,7 @@ class FakeConnectors:
             elif name == 'get_resource':
                 created = self.created or {}
                 connection = {'status': 'ACTIVE', 'accountId': ACCOUNT, 'roleArn': self.role} if self.role else {'status': 'PENDING'}
-                results.append({'connectorId': arguments['connectorId'],
+                results.append({'connectorId': arguments['connectorId'], 'connectorName': created.get('connectorName'),
                                 'connectorType': self.reported_type or created.get('connectorType'),
                                 'connectorConfiguration': created.get('configuration'),
                                 'accountConnection': {'awsAccountConnection': connection}})
@@ -139,8 +139,8 @@ class ReimagineConnectorTests(unittest.TestCase):
 
     def test_create_makes_one_role_and_one_connector_and_keeps_the_assessment_state(self):
         client = FakeConnectors()
-        first, aws = self.connector('--create', '--name', 'carddemo-reimagine', client=client)
-        again, aws_again = self.connector('--create', '--name', 'carddemo-reimagine', client=client)
+        first, aws = self.connector('--create', client=client)
+        again, aws_again = self.connector('--create', client=client)
         self.assertEqual(first['status'], 'REIMAGINE_CONNECTOR_ACTIVE')
         self.assertEqual(again['status'], 'REIMAGINE_CONNECTOR_ACTIVE')
         self.assertEqual(aws.mutations(), [('iam', 'create-role'), ('iam', 'put-role-policy')])
@@ -163,7 +163,7 @@ class ReimagineConnectorTests(unittest.TestCase):
 
     def test_the_role_is_scoped_to_the_stack_and_trusts_only_this_accounts_connectors(self):
         aws = FakeAws()
-        self.connector('--create', '--name', 'carddemo-reimagine', aws=aws, client=FakeConnectors())
+        self.connector('--create', aws=aws, client=FakeConnectors())
         create = next(args for args in aws.seen if args[:2] == ('iam', 'create-role'))
         self.assertEqual(create[create.index('--path') + 1], '/service-role/')
         trust = json.loads(create[create.index('--assume-role-policy-document') + 1])['Statement'][0]
@@ -184,28 +184,28 @@ class ReimagineConnectorTests(unittest.TestCase):
     def test_an_existing_role_is_used_and_no_role_is_created(self):
         role = 'arn:aws:iam::' + ACCOUNT + ':role/service-role/owner-made'
         client = FakeConnectors()
-        result, aws = self.connector('--create', '--name', 'carddemo-reimagine', '--role-arn', role, client=client)
+        result, aws = self.connector('--create', '--role-arn', role, client=client)
         self.assertEqual(aws.mutations(), [])
         self.assertEqual(next(args for name, args in client.seen if name == 'accept_connector')['roleArn'], role)
         self.assertFalse(self.project['requirements_connector']['role_created_by_reframe'])
         self.assertEqual(result['status'], 'REIMAGINE_CONNECTOR_ACTIVE')
         with self.assertRaisesRegex(Blocked, 'another AWS account'):
-            self.connector('--create', '--name', 'x', '--role-arn', 'arn:aws:iam::111111111111:role/other', client=client)
+            self.connector('--create', '--role-arn', 'arn:aws:iam::111111111111:role/other', client=client)
 
     def test_a_connector_aws_records_differently_is_refused_and_not_activated(self):
         client = FakeConnectors(reported_type='mainframe_modernization|s3|2')
         with self.assertRaisesRegex(Blocked, 'connector type mainframe_modernization\\|s3\\|2'):
-            self.connector('--create', '--name', 'carddemo-reimagine', client=client)
+            self.connector('--create', client=client)
         self.assertNotIn('accept_connector', client.names())
         self.assertNotEqual((self.project.get('requirements_connector') or {}).get('status'), 'ACTIVE')
 
     def test_an_inactive_connector_is_recorded_pending_and_the_rerun_creates_nothing(self):
         client = FakeConnectors(activates=False)
-        pending, _ = self.connector('--create', '--name', 'carddemo-reimagine', client=client)
+        pending, _ = self.connector('--create', client=client)
         self.assertEqual(pending['status'], 'REIMAGINE_CONNECTOR_ACTIVATION_PENDING')
         self.assertIn('Rerun the same command', pending['next_step'])
         client.activates = True
-        active, aws = self.connector('--create', '--name', 'carddemo-reimagine', client=client)
+        active, aws = self.connector('--create', client=client)
         self.assertEqual(active['status'], 'REIMAGINE_CONNECTOR_ACTIVE')
         self.assertEqual(client.names().count('create_connector'), 1)
         self.assertEqual(aws.mutations(), [])
@@ -213,10 +213,10 @@ class ReimagineConnectorTests(unittest.TestCase):
     def test_an_uncertain_connector_creation_is_never_sent_again(self):
         folder = reimagine.folder(self.work)
         folder.mkdir(parents=True, exist_ok=True)
-        (folder / 'reimagine-connector-intent.json').write_text('{}')
+        (folder / 'connector-fixture-bucket-reimagine-intent.json').write_text('{}')
         client = FakeConnectors()
         with self.assertRaises(Blocked) as raised:
-            self.connector('--create', '--name', 'carddemo-reimagine', client=client)
+            self.connector('--create', client=client)
         self.assertEqual(states.describe(raised.exception)['cause'], 'UNCERTAIN_DISPATCH')
         self.assertNotIn('create_connector', client.names())
         plan = json.loads((folder / 'plan.json').read_text())
@@ -241,7 +241,7 @@ class ReimagineConnectorTests(unittest.TestCase):
             with self.subTest(message=message):
                 client = FakeConnectors()
                 with self.assertRaisesRegex(Blocked, message):
-                    self.connector('--create', '--name', 'carddemo-reimagine', aws=aws, client=client)
+                    self.connector('--create', aws=aws, client=client)
                 self.assertEqual(aws.mutations(), [])
                 self.assertEqual(client.seen, [])
 
@@ -264,7 +264,7 @@ class ReimagineConnectorTests(unittest.TestCase):
         archive = self.source_archive()
         other = FakeAws(stack(bucket='fixture-kg-bucket'))
         connectors = FakeConnectors()
-        result, _ = self.connector('--create', '--name', 'carddemo-reimagine', aws=other, client=connectors)
+        result, _ = self.connector('--create', aws=other, client=connectors)
         self.assertFalse(result['same_bucket_as_project'])
         self.assertIn('--copy-source', result['next_step'])
         transform = base.FakeTransform()
@@ -275,10 +275,10 @@ class ReimagineConnectorTests(unittest.TestCase):
         self.assertNotIn('create_job', [name for name, _ in transform.calls_seen])
         archive.write_bytes(b'changed after upload')
         with self.assertRaisesRegex(Blocked, 'differs from the one the assessment uploaded'):
-            self.connector('--create', '--name', 'carddemo-reimagine', '--copy-source', aws=FakeAws(stack(bucket='fixture-kg-bucket')),
+            self.connector('--create', '--copy-source', aws=FakeAws(stack(bucket='fixture-kg-bucket')),
                            client=connectors)
         self.source_archive()
-        copied, aws = self.connector('--create', '--name', 'carddemo-reimagine', '--copy-source',
+        copied, aws = self.connector('--create', '--copy-source',
                                      aws=FakeAws(stack(bucket='fixture-kg-bucket')), client=connectors)
         copy = next(args for args in aws.seen if args[:2] == ('s3', 'cp'))
         self.assertTrue(copy[3].startswith('s3://fixture-kg-bucket/reframe/'))
@@ -298,7 +298,7 @@ class ReimagineConnectorTests(unittest.TestCase):
         waiting = self.command('resume', client=transform)
         self.assertEqual(waiting['status'], 'REQUIREMENTS_WAITING_FOR_HUMAN')
         self.assertNotIn('complete_task', [name for name, _ in transform.calls_seen])
-        self.connector('--create', '--name', 'carddemo-reimagine', client=FakeConnectors())
+        self.connector('--create', client=FakeConnectors())
         self.command('resume', client=transform)
         answer = next(arguments for name, arguments in transform.calls_seen if name == 'complete_task')
         self.assertEqual(json.loads(answer['content']),
@@ -322,6 +322,40 @@ class ReimagineConnectorTests(unittest.TestCase):
                          {'AWS_PROFILE': 'fixture-profile', 'AWS_REGION': 'us-east-1'})
         self.assertNotIn('env', self.project['settings']['transform'])
 
+
+    def test_names_follow_the_project_name_and_the_role_is_tagged_with_it(self):
+        client = FakeConnectors()
+        result, aws = self.connector('--create', client=client)
+        self.assertEqual(client.created['connectorName'], 'fixture-bucket-reimagine')
+        create = next(args for args in aws.seen if args[:2] == ('iam', 'create-role'))
+        self.assertEqual(create[create.index('--role-name') + 1], 'fixture-bucket-rmg')
+        self.assertIn('Key=ReframeProject,Value=fixture-bucket', create)
+        self.assertIn('Key=Purpose,Value=reimagine-connector', create)
+        self.assertEqual(self.project['requirements_connector']['connector_name'], 'fixture-bucket-reimagine')
+
+    def test_a_connector_named_otherwise_is_replaced_only_on_request_and_kept_on_record(self):
+        old = {'connector_id': 'old-reimagine', 'connector_name': 'carddemo-reimagine', 'connector_type': reimagine.CONNECTOR_TYPE,
+               'stack': 'fixture-kg', 'bucket': 'fixture-bucket', 'status': 'ACTIVE', 'source': None,
+               'role_arn': 'arn:aws:iam::' + ACCOUNT + ':role/service-role/reframe-reimagine-fixture-kg', 'role_created_by_reframe': True}
+        self.project['requirements_connector'] = dict(old)
+        app.persist(self.work, self.project)
+        with self.assertRaises(Blocked):
+            self.connector('--create', client=FakeConnectors())
+        with self.assertRaises(Blocked):
+            self.connector('--replace', client=FakeConnectors())
+        client = FakeConnectors()
+        replaced, aws = self.connector('--create', '--replace', client=client)
+        self.assertEqual(replaced['status'], 'REIMAGINE_CONNECTOR_ACTIVE')
+        self.assertEqual(aws.mutations(), [('iam', 'create-role'), ('iam', 'put-role-policy')])
+        self.assertEqual(client.names().count('create_connector'), 1)
+        self.assertEqual(self.project['requirements_connector']['connector_name'], 'fixture-bucket-reimagine')
+        history = self.project['requirements_connector_history']
+        self.assertEqual([(entry['connector_id'], entry['replaced_by']) for entry in history], [('old-reimagine', 'Owner')])
+        with self.assertRaises(Blocked):
+            self.connector('--create', '--replace', client=client)
+        again, aws_again = self.connector('--create', client=client)
+        self.assertEqual((again['status'], aws_again.mutations(), client.names().count('create_connector')),
+                         ('REIMAGINE_CONNECTOR_ACTIVE', [], 1))
 
 if __name__ == '__main__':
     unittest.main()

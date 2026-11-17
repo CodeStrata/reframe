@@ -131,7 +131,8 @@ W=/path/to/private-poc
 reframe --workspace "$W" requirements status
 reframe --workspace "$W" requirements import --requirements requirements.md --traceability traceability.yaml --function FUNCTION_ID --by NAME --note WHY
 reframe --workspace "$W" requirements connector --neptune-stack STACK --by NAME --note WHY
-reframe --workspace "$W" requirements connector --neptune-stack STACK --create --name NAME --copy-source --by NAME --note WHY
+reframe --workspace "$W" requirements connector --neptune-stack STACK --create --copy-source --by NAME --note WHY
+reframe --workspace "$W" requirements stop --by NAME --note WHY
 reframe --workspace "$W" requirements discover --by NAME --note WHY
 reframe --workspace "$W" context import --file notes.md --by NAME --role architect --category clarification --affected R1 --gate baseline
 reframe --workspace "$W" context none --gate specification --by NAME
@@ -154,6 +155,9 @@ reframe --workspace "$W" accept-package --sha256 PACKAGE_SHA256 --by NAME --note
   3. activates it;
   4. checks that AWS records the same type and configuration.
 - **Each creation happens at most once.** An intent saved without a receipt stops for reconciliation. Rerun with `--role-arn` or `--attach-connector` to record what exists.
+- **Names follow the project name.** Reframe gives a project's bucket, Transform workspace and S3 connector one name, N, and the S3 connector's role N-role. The reimagine connector is N-reimagine. Its role is N-rmg, because IAM role names are capped at 64 characters. The role is tagged `ManagedBy=reframe`, `ReframeProject=N`, `Purpose=reimagine-connector` and `NeptuneStack=STACK`. Requirements jobs are named `RUN-` plus 16 hex characters, as assessment runs are.
+- **`--replace` swaps a connector recorded under other names.** It creates the N-reimagine connector and N-rmg role. The old pair stays in AWS and in `requirements_connector_history`; Reframe deletes nothing.
+- **`requirements stop` stops the active requirements job in AWS, once.** It records who stopped it and why, and checks that the server lists `control_job` with a `stop` action. It deletes nothing, and `resume` does not continue a stopped job.
 - **Nothing else changes.** The command never changes the project stage, the assessment's S3 connector, or the stack, and it deletes nothing.
 - **A different bucket needs `--copy-source`.** When the stack's bucket differs from the project bucket, `--copy-source` puts the assessment's own archive (checksum checked) in the stack's bucket. The requirements job then names that copy, and it refuses to start without one.
 

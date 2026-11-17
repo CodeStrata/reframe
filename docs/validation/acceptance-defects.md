@@ -194,3 +194,18 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
   - `test_requirements::test_an_aws_question_after_the_plan_waits_for_a_persons_own_reply`;
   - `test_requirements::test_a_new_job_is_named_like_the_assessment_runs`.
 - **Fixture change:** `FakeTransform` now serves a sequence of AWS questions, each answered by one `send_message`.
+
+**Consistent, traceable names (owner request, 2026-11-17).** The first live connector and job were named outside the project's scheme. The role was `reframe-reimagine-<stack>`, the connector was given by `--name`, and the job was `requirements-N`.
+- **The scheme now:** every name derives from the project name N, Reframe's bucket, workspace and S3 connector name.
+  - connector: `N-reimagine`;
+  - role: `N-rmg` (IAM caps role names at 64 characters), tagged `ReframeProject=N` and `Purpose=reimagine-connector`;
+  - jobs: `RUN-` plus 16 hex characters.
+- **`--name` is removed.**
+- **`--replace` creates the named pair in place of a recorded one named otherwise.** The old pair is kept in `requirements_connector_history`. Nothing is deleted.
+- **`requirements stop` stops an active job once,** recorded with who stopped it and why.
+- **Receipts are keyed by resource name,** so a renamed resource gets its own create-once record.
+- **Tests:**
+  - `test_reimagine_connector::test_names_follow_the_project_name_and_the_role_is_tagged_with_it`;
+  - `test_reimagine_connector::test_a_connector_named_otherwise_is_replaced_only_on_request_and_kept_on_record`;
+  - `test_requirements::test_stop_ends_the_job_once_and_resume_does_not_continue_it`.
+- **Fixture changes:** the connector tests no longer pass `--name`. `FakeConnectors` returns the connector name. `FakeTransform` lists `control_job` and answers it.

@@ -257,6 +257,41 @@ def new_run_id():
     return 'RUN-' + uuid.uuid4().hex[:16]
 
 
+def stop_job(work, project, client, by, note):
+    """Stop the active requirements job in AWS once, recorded with who stopped it and why. Nothing is deleted."""
+    require(str(by).strip() and str(note).strip(), 'Stopping a requirements job needs a named owner and a note')
+    label = (project.get('requirements') or {}).get('active_job')
+    require(label, 'No requirements job is authorized')
+    job = json.loads(job_path(work, label).read_text())
+    require(job.get('job_id'), 'The requirements job was never created in AWS; nothing to stop')
+    require(job['state'] not in {'RETRIEVED', 'FAILED', 'STOPPED'}, 'The requirements job already ended: ' + job['state'])
+    directory = job_path(work, label).parent
+    intent, receipt = directory / 'stop-intent.json', directory / 'stop-receipt.json'
+    identity = _identity(project, job)
+    if not receipt.is_file():
+        require(not intent.is_file(), 'The stop request outcome is uncertain. Check the job in AWS; Reframe never sends it again.')
+        schema = _tool_catalog(client).get('control_job') or {}
+        actions = ((schema.get('properties') or {}).get('action') or {}).get('enum') or []
+        require('stop' in actions and set(schema.get('required') or []) <= {'workspaceId', 'jobId', 'action'},
+                'The Transform server does not list control_job with a stop action; nothing is guessed')
+        _save(intent, {'by': by, 'note': note, 'at': time.time()})
+        response = client.calls([('control_job', {**identity, 'action': 'stop'})])[0]
+        _save(receipt, response if isinstance(response, dict) else {'result': response})
+    snapshot = client.calls([(ADAPTER_TOOLS['job_status'], identity)])[-1]
+    _save(directory / 'job-status.json', snapshot)
+    import kiro_workflow as kw
+    detail = kw.nested_job(snapshot)
+    details = detail.get('statusDetails') or {}
+    job['service_status'] = str(detail.get('status') or (details.get('status') if isinstance(details, dict) else details)
+                                or 'UNKNOWN').upper()
+    job.update(state='STOPPED', reason='Stopped in AWS by ' + by + ': ' + note,
+               stopped={'by': by, 'note': note, 'at': time.time(), **actor_provenance()})
+    job['events'].append({'event': 'job_stopped', 'at': time.time(), 'by': by})
+    _save(job_path(work, label), job)
+    project['requirements'].update(state='STOPPED')
+    return job
+
+
 def _baseline_run(project):
     """The selected assessment's run record."""
     from reframe import read
@@ -287,7 +322,7 @@ def step(work, project, client, selected=None, plan=None, reply=None, by=None):
     require(label, 'No requirements job is authorized')
     job = json.loads(job_path(work, label).read_text())
     record = capability(work)
-    if job['state'] in {'RETRIEVED', 'FAILED'}:
+    if job['state'] in {'RETRIEVED', 'FAILED', 'STOPPED'}:
         return job
     directory = job_path(work, label).parent
     if not job['job_id']:

@@ -112,9 +112,23 @@ def stack_plan(project, stack, identity):
                                    'including when no job uses it.'}}
 
 
-def role_name(plan):
-    """One IAM role name per stack, within IAM's 64-character limit."""
-    return ('reframe-reimagine-' + plan['stack'])[:64].rstrip('-')
+def project_name(project):
+    """The one name Reframe gives a project's resources: its bucket, Transform workspace, and S3 connector."""
+    name = str((project.get('aws') or {}).get('bucket') or '').strip()
+    require(name, 'The project has no recorded resource name (its S3 bucket); run setup first')
+    return name
+
+
+def connector_name(project):
+    """The reimagine connector's name: the project name and its purpose."""
+    return project_name(project) + '-reimagine'
+
+
+def role_name(project):
+    """The reimagine connector role's name: the project name and a short suffix that fits IAM's 64 characters."""
+    name = project_name(project) + '-rmg'
+    require(len(name) <= 64, 'The project name leaves no room for the connector role name within IAM\'s 64 characters')
+    return name
 
 
 def role_documents(plan):
@@ -187,16 +201,17 @@ def _role(work, project, plan, args):
         require(re.fullmatch(r'arn:[a-z-]+:iam::\d{12}:role/[\w+=,.@/-]+', args.role_arn), 'Enter an IAM role ARN')
         require(args.role_arn.split(':')[4] == plan['account'], 'The connector role is in another AWS account')
         return args.role_arn, False
-    name = role_name(plan)
+    name = role_name(project)
     trust, permissions = role_documents(plan)
-    created = _once(work, 'reimagine-role', lambda: app.aws(
+    created = _once(work, 'role-' + name, lambda: app.aws(
         project, 'iam', 'create-role', '--role-name', name, '--path', ROLE_PATH,
         '--assume-role-policy-document', json.dumps(trust),
         '--description', 'AWS Transform reimagine connector for stack ' + plan['stack'] + ' (created by Reframe)',
-        '--tags', 'Key=ManagedBy,Value=reframe', 'Key=NeptuneStack,Value=' + plan['stack'], '--output', 'json'))
+        '--tags', 'Key=ManagedBy,Value=reframe', 'Key=ReframeProject,Value=' + project_name(project),
+        'Key=Purpose,Value=reimagine-connector', 'Key=NeptuneStack,Value=' + plan['stack'], '--output', 'json'))
     arn = (created.get('Role') or {}).get('Arn')
     require(arn, 'The role receipt has no ARN; reconcile in IAM and rerun with --role-arn')
-    _once(work, 'reimagine-role-policy', lambda: app.aws(
+    _once(work, 'role-policy-' + name, lambda: app.aws(
         project, 'iam', 'put-role-policy', '--role-name', name, '--policy-name', 'reframe-reimagine-connector',
         '--policy-document', json.dumps(permissions)) or {'put': name})
     return arn, True
@@ -224,33 +239,49 @@ def connector(work, project, args, client):
     identity = app.aws(project, 'sts', 'get-caller-identity', '--output', 'json')
     plan = stack_plan(project, args.neptune_stack, identity)
     recorded = project.get('requirements_connector') or {}
-    require(not recorded or recorded.get('stack') == plan['stack'],
-            'A reimagine connector is already recorded for stack ' + str(recorded.get('stack')) + '; nothing is replaced')
-    saved = _load(folder(work) / 'plan.json')
-    require(not saved or not recorded or saved['configuration'] == plan['configuration'],
-            'Stack ' + plan['stack'] + ' outputs changed after its connector was created. Reconcile; nothing is replaced.')
+    name = connector_name(project)
+    named = recorded.get('connector_name') == name
+    if getattr(args, 'replace', False):
+        require(args.create and recorded and not named,
+                'Nothing to replace: --replace needs --create and a recorded connector whose names differ from '
+                + name + ' and ' + role_name(project))
+    else:
+        require(not recorded or named,
+                'The recorded reimagine connector does not follow the project names (' + name + ', '
+                + role_name(project) + '). Rerun with --replace to create that pair; the old one is kept, never deleted.')
+        require(not recorded or recorded.get('stack') == plan['stack'],
+                'A reimagine connector is already recorded for stack ' + str(recorded.get('stack')) + '; nothing is replaced')
+        saved = _load(folder(work) / 'plan.json')
+        require(not saved or not recorded or saved['configuration'] == plan['configuration'],
+                'Stack ' + plan['stack'] + ' outputs changed after its connector was created. Reconcile; nothing is replaced.')
     _save(folder(work) / 'plan.json', plan)
     same_bucket = plan['bucket'] == project['aws'].get('bucket')
     summary = {'stack': plan['stack'], 'connector_type': CONNECTOR_TYPE, 'bucket': plan['bucket'],
-               'same_bucket_as_project': same_bucket, 'neptune': plan['neptune'], 'role': args.role_arn or role_name(plan)}
+               'same_bucket_as_project': same_bucket, 'neptune': plan['neptune'], 'connector_name': name,
+               'role': args.role_arn or role_name(project)}
     if not args.create:
         return {'status': 'REIMAGINE_CONNECTOR_PLANNED', **summary,
-                'creates': ([] if args.role_arn else ['IAM role ' + role_name(plan)]) + ['Transform connector ' + CONNECTOR_TYPE],
+                'creates': ([] if args.role_arn else ['IAM role ' + role_name(project)])
+                           + ['Transform connector ' + name + ' (' + CONNECTOR_TYPE + ')'],
                 'next_step': 'Add --create to create and activate it. No AWS resource was created.'}
-    if not args.attach_connector:
-        require(str(args.name or '').strip(), 'Name the connector with --name')
+    if getattr(args, 'replace', False):
+        # The old pair stays in AWS and in this history; Reframe deletes nothing.
+        project.setdefault('requirements_connector_history', []).append(
+            {**recorded, 'replaced_at': time.time(), 'replaced_by': args.by, 'replace_note': args.note})
+        recorded = {'source': recorded.get('source') if recorded.get('bucket') == plan['bucket'] else None}
     role_arn, role_created = _role(work, project, plan, args)
     if args.attach_connector:
         connector_id = args.attach_connector
     else:
-        response = _once(work, 'reimagine-connector', lambda: client.calls([('create_connector', {
-            'workspaceId': workspace, 'connectorName': args.name.strip(), 'connectorType': CONNECTOR_TYPE,
+        response = _once(work, 'connector-' + name, lambda: client.calls([('create_connector', {
+            'workspaceId': workspace, 'connectorName': name, 'connectorType': CONNECTOR_TYPE,
             'configuration': plan['configuration'], 'awsAccountId': plan['account'],
-            'description': 'Reimagine connector for Neptune stack ' + plan['stack']})])[0])
+            'description': 'Reimagine connector for Reframe project ' + project_name(project) + ', Neptune stack '
+                           + plan['stack']})])[0])
         connector_id = response.get('connectorId')
         require(connector_id, 'The connector receipt has no identity; reconcile in Transform and rerun with --attach-connector')
-    entry = {'connector_id': connector_id, 'connector_type': CONNECTOR_TYPE, 'stack': plan['stack'], 'bucket': plan['bucket'],
-             'role_arn': role_arn, 'role_created_by_reframe': role_created, 'by': args.by, 'note': args.note,
+    entry = {'connector_id': connector_id, 'connector_name': None if args.attach_connector else name,
+             'connector_type': CONNECTOR_TYPE, 'stack': plan['stack'], 'bucket': plan['bucket'], 'role_arn': role_arn, 'role_created_by_reframe': role_created, 'by': args.by, 'note': args.note,
              'at': recorded.get('at') or time.time(), 'status': recorded.get('status') or 'CREATED',
              'source': recorded.get('source')}
     project['requirements_connector'] = entry
@@ -259,6 +290,7 @@ def connector(work, project, args, client):
         client.calls([('accept_connector', {'workspaceId': workspace, 'connectorId': connector_id, 'roleArn': role_arn})])
         record, active = _readiness(client, workspace, connector_id, plan, role_arn)
     _save(folder(work) / 'readiness.json', record)
+    entry['connector_name'] = entry['connector_name'] or record.get('connectorName')
     entry['status'] = 'ACTIVE' if active else 'ACTIVATION_PENDING'
     if args.copy_source and not same_bucket:
         entry['source'] = copy_source(work, project, plan)

@@ -48,6 +48,8 @@ How would you like to proceed?"""
 SCHEMAS = {  # Synthetic fixture schemas. They are not copied from AWS.
     'create_job': {'type': 'object', 'required': ['workspaceId', 'jobName', 'objective'],
                    'properties': {'workspaceId': {}, 'jobName': {}, 'objective': {}, 'intent': {}, 'orchestratorAgent': {}}},
+    'control_job': {'type': 'object', 'required': ['workspaceId', 'jobId', 'action'],
+                    'properties': {'workspaceId': {}, 'jobId': {}, 'action': {'enum': ['start', 'stop']}}},
     'load_instructions': {'type': 'object', 'properties': {'workspaceId': {}, 'jobId': {}}},
     'get_job_status': {'type': 'object', 'properties': {'workspaceId': {}, 'jobId': {}, 'detailed': {}}},
     'send_message': {'type': 'object', 'properties': {'workspaceId': {}, 'jobId': {}, 'text': {}, 'skipPolling': {}}},
@@ -70,6 +72,7 @@ class FakeTransform:
         self.connector = connector
         self.connector_status = 'ACTIVE'
         self.questions = []
+        self.stopped = None
         self.replies = []
         self.task = task if task is not None else {
             'taskId': 'T1', 'status': 'AWAITING_HUMAN_INPUT', 'title': 'Select business functions to reimagine',
@@ -98,9 +101,14 @@ class FakeTransform:
             elif name == 'get_resource' and arguments.get('resource') == 'connector':
                 results.append({'connectorId': arguments['connectorId'], 'connectorType': self.connector,
                                 'accountConnection': {'awsAccountConnection': {'status': self.connector_status}}})
+            elif name == 'control_job':
+                self.stopped = arguments['action']
+                results.append({'status': 'ACCEPTED'})
             elif name == 'send_message':
                 self.replies.append(arguments['text'])
                 results.append({'messageId': 'm-reply'})
+            elif name == 'get_job_status' and self.stopped:
+                results.append({'job': {'jobId': 'job-req-1', 'statusDetails': {'status': 'STOPPED'}}, 'plan': {'steps': []}})
             elif name == 'get_job_status' and len(self.replies) < len(self.questions):
                 chat = []
                 for number, text in enumerate(self.questions[:len(self.replies) + 1]):
@@ -291,6 +299,23 @@ class RequirementsTests(unittest.TestCase):
         self.command('resume', client=client)
         create = [arguments for name, arguments in client.calls_seen if name == 'create_job']
         self.assertEqual(create[0]['jobName'], authorized['run_id'])
+
+    def test_stop_ends_the_job_once_and_resume_does_not_continue_it(self):
+        client = FakeTransform()
+        client.questions = [PLAN_MENU]
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Generate F1 for the pilot', client=client)
+        self.command('resume', client=client)
+        stopped = self.command('stop', '--by', 'Owner', '--note', 'Replace with a project-named job', client=client)
+        self.assertEqual((stopped['status'], stopped['service_status']), ('REQUIREMENTS_STOPPED', 'STOPPED'))
+        self.assertEqual([arguments['action'] for name, arguments in client.calls_seen if name == 'control_job'], ['stop'])
+        with self.assertRaises(Blocked):
+            self.command('stop', '--by', 'Owner', '--note', 'Again', client=client)
+        self.assertEqual(self.command('resume', '--plan', 'Assess and reimagine', '--by', 'Owner', client=client)['status'],
+                         'REQUIREMENTS_STOPPED')
+        self.assertEqual(client.replies, [])
+        renewed = self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Project-named job', client=client)
+        self.assertEqual(renewed['label'], 'requirements-2')
 
     def test_an_uncertain_plan_reply_is_never_sent_again(self):
         client = FakeTransform()
