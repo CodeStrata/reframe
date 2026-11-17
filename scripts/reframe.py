@@ -3454,8 +3454,12 @@ def semantic_compare(work, project, args, runtime=model_call):
 
 
 def transform_client(project, work):
-    """The Transform MCP client for this project's saved settings."""
-    return kw.Transform(project['settings']['transform'], Path(work))
+    """The Transform MCP client for this project's saved settings, signed in with the saved AWS profile and region."""
+    config = dict(project['settings']['transform'])
+    config['env'] = {**(config.get('env') or {}),
+                     **{variable: project['aws'][key] for key, variable in (('profile', 'AWS_PROFILE'), ('region', 'AWS_REGION'))
+                        if (project.get('aws') or {}).get(key)}}
+    return kw.Transform(config, Path(work))
 
 
 def requirements_command(work, project, args, client=None):
@@ -3506,6 +3510,12 @@ def requirements_command(work, project, args, client=None):
         record = requirements.discover(work, project, client or transform_client(project, work), args.by, args.note)
         persist(work, project)
         return {'status': 'CAPABILITY_RECORDED', **requirements.generation_status(record)}
+    if action == 'connector':
+        import reframe_reimagine as reimagine
+        reject_instructional_placeholder(args.note, 'Connector note')
+        result = reimagine.connector(work, project, args, client or (transform_client(project, work) if args.create else None))
+        persist(work, project)
+        return result
     if action == 'authorize-job':
         reject_instructional_placeholder(args.note, 'Authorization note')
         functions = [item.strip() for item in args.functions.split(',') if item.strip()]
@@ -3670,6 +3680,17 @@ def parser():
     discover = requirement_commands.add_parser('discover', help='Read-only: list the Transform tools and connectors this account reports')
     discover.add_argument('--by', required=True)
     discover.add_argument('--note', required=True)
+    linked = requirement_commands.add_parser('connector', help='Plan, and with --create make and activate, the reimagine '
+                                             '(Neptune) connector requirements generation needs')
+    linked.add_argument('--neptune-stack', required=True, help="CloudFormation stack from AWS's neptune-kg-setup.yaml")
+    linked.add_argument('--create', action='store_true', help='Create the role and connector; without it nothing is created')
+    linked.add_argument('--name', help='Display name for a new connector')
+    linked.add_argument('--role-arn', help='Use this existing connector role instead of creating one')
+    linked.add_argument('--attach-connector', help='Record an existing reimagine connector instead of creating one')
+    linked.add_argument('--copy-source', action='store_true',
+                        help="Copy the assessment's source archive into the stack bucket when it differs from the project bucket")
+    linked.add_argument('--by', required=True)
+    linked.add_argument('--note', required=True)
     authorize = requirement_commands.add_parser('authorize-job', help='Authorize one new requirements job for selected functions')
     authorize.add_argument('--functions', default='')
     authorize.add_argument('--by', required=True)

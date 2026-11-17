@@ -15,6 +15,7 @@ import reframe as app
 import reframe_requirements as requirements
 import reframe_states as states
 from pilot import Blocked
+from reframe_reimagine import CONNECTOR_TYPE
 
 REQUIREMENTS_MD = """# Payment authorization
 
@@ -52,7 +53,7 @@ class FakeTransform:
     """Offline transport. fixture=True makes every observation offline-fixture evidence."""
     fixture = True
 
-    def __init__(self, plan_steps=('Analyze code', 'Extract business logic', 'Generate requirements'), connector='NEPTUNE_REIMAGINE',
+    def __init__(self, plan_steps=('Analyze code', 'Extract business logic', 'Generate requirements'), connector=CONNECTOR_TYPE,
                  task=None, fail_create=False):
         self.calls_seen = []
         self.plan_steps = list(plan_steps)
