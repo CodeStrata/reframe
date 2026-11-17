@@ -168,3 +168,10 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 - **Fix:** for each listed connector of the reimagine type with no status, discovery now reads that connector with `get_resource`, which is read-only, and takes the status from `accountConnection.awsAccountConnection.status`.
 - **Test expectation changed by this change.** `test_requirements.FakeTransform` had returned the listing with a `status` field and under `connectors`. It now returns the live shape, and serves the connector record from `get_resource`.
 - **Verified:** with the live-shaped fake, 10 tests fail on the code before this fix.
+
+**Defect found on the first live requirements job (2026-11-17).** AWS rejected `create_job` with HTTP 400, because the value at `orchestratorAgent` was null. The MCP schema marks that field optional, but the live service requires it. The assessment path already knew this (`kiro_workflow.select_orchestrator`); the requirements path did not send one.
+- **Fix:** a requirements job now reuses the orchestrator that the baseline assessment discovered and recorded. If there is none, it runs the same unique-mainframe-orchestrator discovery, so no name is guessed. The orchestrator used is saved on the job record.
+- **Tests:**
+  - `test_requirements::test_a_new_job_reuses_the_orchestrator_the_baseline_assessment_recorded` is new, and fails without the fix.
+  - `test_fixture_generation_selects_from_the_schema_and_preserves_originals` now also asserts that the orchestrator is sent.
+  - `FakeTransform` answers the orchestrator listing in the shape `select_orchestrator` already filters on.

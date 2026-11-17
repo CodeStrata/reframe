@@ -311,6 +311,13 @@ def step(work, project, client, selected=None):
                                        'selected in this job, and generate requirements with traceability. '
                                        'Source commit ' + str(job['baseline']['source_commit']) + '.'),
                          'intent': 'Generate business requirements for selected business functions; preserve human selection tasks.'}
+            # The live service rejects a job without an orchestrator although the schema marks it optional.
+            # Reuse the one the baseline assessment recorded, else the one mainframe orchestrator AWS lists.
+            import kiro_workflow as kw
+            baseline = ((_baseline_run(project).get('settings') or {}).get('transform') or {}).get('orchestrator_agent')
+            arguments['orchestratorAgent'] = kw.select_orchestrator(
+                {'settings': {'transform': {'orchestrator_agent': baseline} if baseline else {}}, 'events': job['events']}, client)
+            job['orchestrator_agent'] = arguments['orchestratorAgent']
             _check_schema(record, ADAPTER_TOOLS['create_job'], arguments)
             job.update(state='CREATING', create_pending=True)
             _save(job_path(work, label), job)

@@ -77,6 +77,9 @@ class FakeTransform:
                 if self.fail_create:
                     raise Blocked('AWS MCP transport failed; inspect the private mcp-error.json and reconcile uncertain creation')
                 results.append({'job': {'jobId': 'job-req-1'}})
+            elif name == 'list_resources' and arguments.get('resource') == 'agents':
+                results.append({'items': [{'name': 'fixture-mainframe-orchestrator', 'type': 'ORCHESTRATOR_AGENT',
+                                           'jobOrchestrator': True, 'ownerType': 'INTERNAL_AGENT'}]})
             elif name == 'list_resources' and arguments.get('resource') == 'connectors':
                 # The live listing shape: no status on the items.
                 results.append({'items': [{'connectorId': 'c1', 'connectorName': 'fixture', 'connectorType': self.connector}]})
@@ -177,6 +180,19 @@ class RequirementsTests(unittest.TestCase):
         self.assertFalse(connector['account_verified'])
         self.assertEqual(result['status'], 'REQUIREMENTS_GENERATION_UNAVAILABLE')
 
+    def test_a_new_job_reuses_the_orchestrator_the_baseline_assessment_recorded(self):
+        record = self.project['assessments'][self.project['selected']]
+        run = app.read(Path(record['directory']) / 'run.json')
+        run.setdefault('settings', {}).setdefault('transform', {})['orchestrator_agent'] = 'baseline-orchestrator'
+        app.write(Path(record['directory']) / 'run.json', run)
+        client = FakeTransform()
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Generate F1 for the pilot', client=client)
+        self.command('resume', client=client)
+        create = [arguments for name, arguments in client.calls_seen if name == 'create_job']
+        self.assertEqual(create[0]['orchestratorAgent'], 'baseline-orchestrator')
+        self.assertNotIn('agents', [arguments.get('resource') for name, arguments in client.calls_seen if name == 'list_resources'])
+
     def test_fixture_generation_selects_from_the_schema_and_preserves_originals(self):
         client = FakeTransform()
         discovered = self.discover(client)
@@ -187,7 +203,8 @@ class RequirementsTests(unittest.TestCase):
         create = [arguments for name, arguments in client.calls_seen if name == 'create_job']
         self.assertEqual(len(create), 1)
         self.assertIn('s3://fixture-bucket/reframe/run-1/source.zip', create[0]['objective'])
-        completed = [json.loads(arguments['content']) for name, arguments in client.calls_seen if name == 'complete_task']
+        self.assertEqual(create[0]['orchestratorAgent'], 'fixture-mainframe-orchestrator')
+        completed =[json.loads(arguments['content']) for name, arguments in client.calls_seen if name == 'complete_task']
         self.assertEqual(completed, [{'functions': ['F1']}])
         second = self.command('resume', client=client)
         self.assertEqual(second['status'], 'REQUIREMENTS_RETRIEVED')
