@@ -700,9 +700,15 @@ def retrieve(work, project, client, job):
     listing = kw.list_assessment_exports(directory, client, identity)
     wanted = [item for item in listing['assets'] if Path(item['assetKey']).name.casefold() in
               {REQUIREMENTS_FILE, *TRACEABILITY_FILES}]
-    require(wanted, 'The finished job lists no requirements.md or traceability.yaml. Nothing was imported.')
     target = directory / 'downloads'
     target.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not wanted:
+        # Live reimagine jobs deliver the documented files inside spec_gen/spec_gen_specs_<timestamp>.zip.
+        archives = sorted((item for item in listing['assets'] if Path(item['assetKey']).parent.name == 'spec_gen'
+                           and Path(item['assetKey']).name.startswith('spec_gen_specs') and item['assetKey'].endswith('.zip')),
+                          key=lambda item: str(item.get('createdTimestamp') or item['assetKey']))
+        require(archives, 'The finished job lists no requirements.md, traceability.yaml, or spec_gen archive. Nothing was imported.')
+        return _retrieve_archive(work, project, client, job, identity, archives[-1], target)
     originals = []
     for index, item in enumerate(wanted):
         filename = str(index) + '-' + Path(item['assetKey']).name
@@ -715,6 +721,43 @@ def retrieve(work, project, client, job):
         require(path.is_file() and not path.is_symlink(), 'Requirements download did not produce ' + item['assetKey'])
         function_id = _function_from_key(item['assetKey'], job['selected_functions'])
         originals.append({'function_id': function_id, 'original_path': item['assetKey'], 'data': path.read_bytes()})
+    return _seal_retrieved(work, project, job, originals)
+
+
+ARCHIVE_MEMBER_LIMIT = 50 * 1024 * 1024
+
+
+def _retrieve_archive(work, project, client, job, identity, item, target):
+    """Download AWS's spec_gen archive once, keep its bytes and hash, and take the documented files from inside it."""
+    import zipfile
+    path = target / Path(item['assetKey']).name
+    if path.exists():
+        path.unlink()  # Never mistake an earlier failed download for this one.
+    client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['get_resource'], {
+        **identity, 'resource': 'asset', 'assetKey': item['assetKey'], 'connectorId': item['connectorId'],
+        'savePath': str(target), 'fileName': path.name})])
+    require(path.is_file() and not path.is_symlink(), 'Requirements archive download did not produce ' + item['assetKey'])
+    job['archive'] = {'asset_key': item['assetKey'], 'stored': str(path.relative_to(work)), 'sha256': _sha(path.read_bytes()),
+                      'bytes': path.stat().st_size}
+    originals = []
+    with zipfile.ZipFile(path) as archive:
+        for member in archive.infolist():
+            name = Path(member.filename)
+            if member.is_dir() or name.name.casefold() not in {REQUIREMENTS_FILE, *TRACEABILITY_FILES}:
+                continue
+            require(not name.is_absolute() and '..' not in name.parts, 'Unsafe path in the requirements archive: ' + member.filename)
+            require(member.file_size <= ARCHIVE_MEMBER_LIMIT, 'A requirements file in the archive exceeds 50 MB: ' + member.filename)
+            # A chat selection names no function id; AWS's own folder for the function identifies it.
+            function_id = (_function_from_key(member.filename, job['selected_functions']) if job['selected_functions']
+                           else name.parent.name)
+            originals.append({'function_id': function_id, 'original_path': item['assetKey'] + '!/' + member.filename,
+                              'data': archive.read(member)})
+    require(originals, 'The spec_gen archive holds no requirements.md or traceability.yaml. Nothing was imported.')
+    return _seal_retrieved(work, project, job, originals)
+
+
+def _seal_retrieved(work, project, job, originals):
+    """Record retrieved originals as the job's requirements set and mark generation verified for live jobs."""
     set_id = record_set(work, project, originals, origin='aws-generated', evidence_level=job['evidence_level'],
                         producing_job_id=job['job_id'], functions=job['selected_functions'],
                         service_status=job.get('completion'))

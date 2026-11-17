@@ -76,6 +76,7 @@ class FakeTransform:
         self.plan_before_questions = False
         self.running_while_asking = False
         self.form_while_asking = None
+        self.archive_members = None
         self.replies = []
         self.task = task if task is not None else {
             'taskId': 'T1', 'status': 'AWAITING_HUMAN_INPUT', 'title': 'Select business functions to reimagine',
@@ -141,6 +142,16 @@ class FakeTransform:
             elif name == 'complete_task':
                 self.selected = json.loads(arguments['content'])
                 results.append({'status': 'ACCEPTED'})
+            elif name == 'list_resources' and self.archive_members is not None:
+                results.append({'connectorId': 'c1', 'folders': [], 'artifacts': [], 'assets': [
+                    {'assetKey': 'transform-output/job-req-1/spec_gen/spec_gen_specs_20261117_045719.zip', 'sizeInBytes': 10},
+                    {'assetKey': 'transform-output/job-req-1/results/analyze_code_results.zip', 'sizeInBytes': 10}]})
+            elif name == 'get_resource' and arguments.get('resource') == 'asset' and self.archive_members is not None:
+                import zipfile
+                with zipfile.ZipFile(Path(arguments['savePath'], arguments['fileName']), 'w') as archive:
+                    for member, body in self.archive_members.items():
+                        archive.writestr(member, body)
+                results.append({'saved': True})
             elif name == 'list_resources':
                 results.append({'connectorId': 'c1', 'folders': [], 'artifacts': [], 'assets': [
                     {'assetKey': 'transform-output/job-req-1/F1/requirements.md', 'sizeInBytes': 10},
@@ -392,6 +403,33 @@ class RequirementsTests(unittest.TestCase):
         result = self.command('resume', '--plan', 'Assess and reimagine', '--by', 'Owner', client=client)
         self.assertEqual(result['status'], 'REQUIREMENTS_NEEDS_RECONCILIATION')
         self.assertNotIn('send_message', [name for name, _ in client.calls_seen])
+
+    def test_requirements_are_taken_from_the_spec_gen_archive_with_its_hash_kept(self):
+        client = FakeTransform()
+        client.archive_members = {'spec/coverage-summary/coverage-report.html': '<html></html>',
+                                  'spec/Domain/F1/requirements.md': REQUIREMENTS_MD, 'spec/Domain/F1/traceability.yaml': TRACEABILITY_YAML}
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Pilot', client=client)
+        self.command('resume', client=client)
+        done = self.command('resume', client=client)
+        self.assertEqual(done['status'], 'REQUIREMENTS_RETRIEVED')
+        manifest = app.read(self.work / self.project['requirements']['manifest'])
+        self.assertEqual(sorted(entry['original_path'] for entry in manifest['files']), [
+            'transform-output/job-req-1/spec_gen/spec_gen_specs_20261117_045719.zip!/spec/Domain/F1/requirements.md',
+            'transform-output/job-req-1/spec_gen/spec_gen_specs_20261117_045719.zip!/spec/Domain/F1/traceability.yaml'])
+        self.assertEqual(manifest['function_ids'], ['F1'])
+        job = app.read(self.work / 'requirements' / 'jobs' / 'requirements-1' / 'job.json')
+        self.assertEqual(len(job['archive']['sha256']), 64)
+
+    def test_an_archive_member_with_an_unsafe_path_is_refused(self):
+        client = FakeTransform()
+        client.archive_members = {'../escape/requirements.md': REQUIREMENTS_MD}
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Pilot', client=client)
+        self.command('resume', client=client)
+        with self.assertRaises(Blocked):
+            self.command('resume', client=client)
+        self.assertNotIn('manifest', self.project.get('requirements') or {})
 
     def test_fixture_generation_selects_from_the_schema_and_preserves_originals(self):
         client = FakeTransform()

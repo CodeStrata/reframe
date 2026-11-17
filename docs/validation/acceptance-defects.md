@@ -249,3 +249,10 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 **Display-only AWS forms.** During extraction, AWS presented "Business rule extraction results" (`MainframeBreResultComponent`). Its schema says `displayOnly: true`, and AWS submits the empty response itself. Reframe stopped and waited for an answer.
 - **Fix:** display-only forms are recorded once as seen, and need no answer.
 - **Test:** `test_requirements::test_a_display_only_aws_task_needs_no_answer`.
+
+**Live requirements are delivered in an archive.** The live job delivered its requirements inside `transform-output/<job>/spec_gen/spec_gen_specs_<timestamp>.zip`, at `spec/<Domain>/<Function>/requirements.md` and `traceability.yaml`, plus a coverage report. The owner's earlier console job used the same layout. Retrieval looked only for loose files.
+- **Fix:** when no loose files are listed, retrieval downloads the newest `spec_gen` archive and records its asset key, SHA-256 and size on the job. It takes only the documented files, refusing unsafe paths and members over 50 MB, and records each file's original path as `<archive key>!/<member>`.
+- **Function id:** a chat selection carries no function id, so AWS's own folder for the function is used.
+- **Tests:**
+  - `test_requirements_are_taken_from_the_spec_gen_archive_with_its_hash_kept`;
+  - `test_an_archive_member_with_an_unsafe_path_is_refused`.
