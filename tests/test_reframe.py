@@ -18,6 +18,14 @@ import kiro_workflow as kw
 import pilot
 
 
+def record_design_plan(work, project, mode='functional-parity'):
+    """The fixture's explicit design plan, recorded before detailed design as FR-07 requires."""
+    import reframe_design
+    if not project.get('design_plan'):
+        reframe_design.capture(work, project, mode, 'v1', 'unspecified', 'unspecified', 'unspecified', [], 'Fixture owner')
+        app.persist(work, project)
+
+
 class PreparationTests(unittest.TestCase):
     def test_model_budget_change_retains_consumed_calls_and_does_not_clear_refusal(self):
         self.project['pipeline']={'calls':10,'role':'executor','status':'PROVIDER_REVIEW_REQUIRED'}
@@ -149,7 +157,10 @@ class PreparationTests(unittest.TestCase):
         return app.assessment(self.work, self.project, self.args('assess', '--label', label, '--findings', str(self.findings)))
 
     def approve(self, phase, *extra):
-        return app.approve(self.work, self.project, self.args('approve', phase, '--by', 'Fixture owner', '--note', 'Fixture review', *extra))
+        result = app.approve(self.work, self.project, self.args('approve', phase, '--by', 'Fixture owner', '--note', 'Fixture review', *extra))
+        if phase == 'validation':
+            record_design_plan(self.work, self.project)
+        return result
 
     def baseline(self):
         self.assess()
@@ -228,7 +239,7 @@ class PreparationTests(unittest.TestCase):
             self.assertTrue(json.loads(archive.read('extraction-reading.json'))['source_stays_pinned'])
             self.assertEqual(json.loads(archive.read('rule-coverage.json'))['status'], 'COMPLETE')
             self.assertEqual(json.loads(archive.read('capability-map.json'))['acceptance'], 'PROPOSAL')
-        self.assertEqual(self.project['stage'], 'PACKAGED')
+        self.assertEqual(self.project['stage'], 'AWAITING_PACKAGE_ACCEPTANCE')
         with zipfile.ZipFile(result['archive']) as archive:
             self.assertEqual(json.loads(archive.read('provenance.json'))['pins']['prompt_hash'], app.preparation_protocol_hash())
 
@@ -315,7 +326,7 @@ class PreparationTests(unittest.TestCase):
         app.approve(self.work, self.project, self.args(
             'approve', 'verification-skip', '--by', 'Second owner', '--note', 'Verification was skipped'))
         result = app.package(self.work, self.project)
-        self.assertEqual(result['status'], 'PACKAGED')
+        self.assertEqual(result['status'], 'AWAITING_PACKAGE_ACCEPTANCE')
         with zipfile.ZipFile(result['archive']) as archive:
             self.assertEqual(json.loads(archive.read('provenance.json'))['verification'], 'SKIPPED_BY_OWNER')
             self.assertEqual(json.loads(archive.read('ai-dlc.json'))['verification'], 'SKIPPED_BY_OWNER')
@@ -431,6 +442,7 @@ class PreparationTests(unittest.TestCase):
         self.assertIn('Awaiting human review',page)
         self.assertIn('COPY-expanded source',page)
         self.assertIn('does not: Rewrite a member',page)
+        self.assertIn('symptom of the earlier failure',page)
         self.assertFalse(self.project['approvals'])
 
     def test_aws_facts_count_export_rows_and_preserve_descriptions_without_model(self):
@@ -598,7 +610,14 @@ class PreparationTests(unittest.TestCase):
         self.assertNotIn('Keep the receipt', first)
         self.assertIn('Keep the receipt', second)
         self.assertIn('lines 4-4', second)
+        self.assertIn('<td>R2</td>', second)
+        self.assertIn('<td>INFERRED</td>', second)
+        self.assertNotIn('<form', output)
+        self.assertIn("form-action 'none'", output)
         page = artifacts.render_api_page(screens['apis'])
+        self.assertIn('Rules: R1', page)
+        self.assertIn('422', page)
+        self.assertIn('zero rejected', page)
         document = artifacts.openapi_document(screens['apis'])
         self.assertEqual(document['openapi'], '3.0.3')
         self.assertEqual(document['paths']['/amount/validate']['post']['x-rule-ids'], ['R1'])
@@ -610,6 +629,44 @@ class PreparationTests(unittest.TestCase):
         self.assertIn('How this application works', output)
         self.assertIn('Check the amount, then show the receipt.', output)
         self.assertNotIn('href="#screen-receipt">Open the payment receipt', output)
+
+    def test_destination_screen_shows_its_open_and_deferred_decisions(self):
+        spec = self.spec()
+        spec['rules'].append({'id': 'R2', 'statement': 'Keep the receipt', 'source_path': 'rule.cbl',
+                              'source_anchor': 'lines 4-4', 'evidence_status': 'INFERRED'})
+        spec['questions'] = [
+            {'id': 'Q-R2', 'question': 'How long is a receipt kept?', 'impact': 'Retention', 'owner': 'SME',
+             'blocks': 'Receipt archive', 'rule_ids': ['R2']},
+            {'id': 'Q-R1', 'question': 'Is zero ever valid?', 'impact': 'Amount', 'owner': 'SME',
+             'blocks': 'Payment', 'rule_ids': ['R1']},
+            {'id': 'Q-NAMED', 'question': 'Who signs the receipt?', 'impact': 'Audit', 'owner': 'Ops', 'blocks': 'Audit'}]
+        screens = self.screens()
+        screens['screens'][0]['actions'] = [{'label': 'Continue', 'screen_id': 'receipt'}]
+        screens['screens'].append({'id': 'receipt', 'title': 'Payment receipt', 'purpose': 'Show the receipt',
+                                   'rule_ids': ['R2'], 'question_ids': ['Q-NAMED'], 'fields': ['Receipt'], 'api_ids': [],
+                                   'actions': [{'label': 'Back', 'screen_id': 's1'}], 'states': ['Shown'],
+                                   'uncertainties': 'Retention period is not recorded'})
+        screens['journeys'][0]['screen_ids'].append('receipt')
+        decisions = {'Q-R2': {'disposition': 'deferred', 'answer': 'Waiting for records management'},
+                     'Q-R1': {'disposition': 'resolved', 'answer': 'Zero is always rejected'}}
+        output = artifacts.render_site(spec, screens, decisions)
+        receipt = output.split('id="screen-receipt"', 1)[1].split('</article>', 1)[0]
+        amount = output.split('id="screen-s1"', 1)[1].split('</article>', 1)[0]
+        self.assertIn('href="#screen-receipt"', amount, 'the action opens the destination screen')
+        self.assertIn('Decisions still open for this screen', receipt)
+        self.assertIn('<td>Q-R2</td>', receipt)
+        self.assertIn('<td>deferred</td>', receipt)
+        self.assertIn('<td>Q-NAMED</td>', receipt)
+        self.assertIn('<td>open</td>', receipt)
+        self.assertIn('A deferral is not an answer', receipt)
+        self.assertIn('Retention period is not recorded', receipt)
+        self.assertNotIn('<details><summary>Open questions', receipt, 'uncertainties are not collapsed')
+        self.assertNotIn('Q-R1', amount, 'a resolved decision is not listed as open')
+        self.assertNotIn('Q-R2', amount, 'another screen does not list this decision')
+        import reframe_design as design
+        with self.assertRaisesRegex(app.Blocked, 'action -> unknown screen nowhere'):
+            design.validate_references({'screens': [dict(screens['screens'][0], actions=[{'label': 'Go', 'screen_id': 'nowhere'}])],
+                                        'apis': screens['apis'], 'journeys': []}, spec)
 
     def test_usage_page_counts_receipts_and_omits_the_session(self):
         receipt = self.work / 'provider-1.json'

@@ -8,26 +8,30 @@ import json
 import os
 import re
 import shutil
+import time
 import zipfile
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 
-from pilot import Blocked, require
+from pilot import Blocked, actor_provenance, require
 import reframe_handoff as handoff
 
 MODES = ('functional-parity', 'reimagine')
-CATEGORIES = ('current-state', 'future-state', 'clarification')
+CATEGORIES = ('current-state', 'future-state', 'clarification', 'correction', 'constraint', 'review-feedback')
+GATES = ('baseline', 'specification', 'design', 'package', 'unspecified')
 DISPOSITIONS = ('proposed', 'accepted', 'rejected', 'superseded')
 TEXT_SUFFIXES = {'.md', '.txt', '.json'}
 MAX_BYTES = 1_000_000
 
 
 def _read(path):
+    """Read one JSON file."""
     return json.loads(Path(path).read_text())
 
 
 def _write(path, value):
+    """Write JSON privately through a temporary file and rename it into place."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = path.with_name(path.name + '.tmp')
@@ -37,10 +41,12 @@ def _write(path, value):
 
 
 def _digest(value):
+    """SHA-256 of the canonical JSON form of a value."""
     return sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
 def _version(value):
+    """Accept a short design version label that is not reserved for the review path."""
     require(bool(re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_-]{0,40}', value or '')), 'Use a short version label')
     require(value.casefold() not in {'business-1', 'flow-review'}, 'That version name is reserved for the existing review path')
     return value
@@ -68,19 +74,23 @@ def _mode_root(work, version):
 
 
 def context_dir(work):
+    """The folder that holds human review context for this workspace."""
     return Path(work) / 'human-review-context'
 
 
 def _now():
+    """The current UTC time in ISO format, to the second."""
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 def _quarantine(folder, name, reason):
+    """Record a refused context file with its reason. Nothing in it is executed."""
     record = {'file': name, 'reason': reason, 'executed': False}
     _write(folder / 'quarantine' / (_submission_id(name.encode()) + '.json'), record)
 
 
 def _context_fingerprint(work):
+    """A hash of every submission disposition and conflict state."""
     manifest = context_status(work)
     items = [(item.get('id'), item.get('disposition')) for item in manifest.get('submissions') or []]
     conflicts = [(item.get('id'), item.get('status'), item.get('resolution')) for item in manifest.get('conflicts') or []]
@@ -88,6 +98,7 @@ def _context_fingerprint(work):
 
 
 def _scan(data, label):
+    """Refuse an export when the data matches a secret pattern."""
     from reframe import SECRET_PATTERNS
     for kind, pattern in SECRET_PATTERNS:
         if pattern.search(data):
@@ -107,17 +118,36 @@ def context_status(work):
 
 
 def _submission_id(content):
+    """A stable submission id from the content hash."""
     return 'ctx-' + sha256(content).hexdigest()[:16]
 
 
 def _contradiction(text):
+    """The id named on a "Contradicts:" line, if the text has one."""
     match = re.search(r'(?im)^contradicts:\s*(\S+)\s*$', text)
     return match.group(1) if match else None
 
 
-def import_context(work, source, by, role, category, affected):
+def context_file_problem(work, source):
+    """Why a context file would be refused before anything is stored, or None. Checked as soon as a path is typed."""
+    path = Path(source).expanduser()
+    if not path.is_file():
+        return 'No file was found at that path.'
+    raw = path.read_bytes().replace(b'\x00', b'')
+    if any(item['id'] == _submission_id(raw) for item in context_status(work).get('submissions') or []):
+        return 'This context file is already imported. Its earlier record stands; nothing new was recorded.'
+    from reframe import SECRET_PATTERNS
+    for kind, pattern in SECRET_PATTERNS:
+        if pattern.search(raw):
+            return ('The file contains text that looks like a ' + kind + '. Nothing was stored. '
+                    'Remove the value and import the file again.')
+    return None
+
+
+def import_context(work, source, by, role, category, affected, gate='unspecified'):
     """Store one Markdown, text, or JSON document as untrusted data."""
-    require(category in CATEGORIES, 'Context category must be current-state, future-state, or clarification')
+    require(category in CATEGORIES, 'Context category must be one of: ' + ', '.join(CATEGORIES))
+    require(gate in GATES, 'Context gate must be one of: ' + ', '.join(GATES))
     require(by.strip() and role.strip(), 'Context needs the name and role supplied by the user')
     path = Path(source)
     require(path.is_file(), 'Context file was not found')
@@ -130,6 +160,12 @@ def import_context(work, source, by, role, category, affected):
         _quarantine(folder, path.name, 'unsupported or oversize')
         raise Blocked('Context file was quarantined; only Markdown, text, and JSON up to 1 MB are imported')
     raw = path.read_bytes().replace(b'\x00', b'')
+    from reframe import SECRET_PATTERNS
+    for kind, pattern in SECRET_PATTERNS:
+        # A credential-shaped value is never stored, so it cannot reach a review page or a package.
+        if pattern.search(raw):
+            raise Blocked('Context file was not imported: it contains text that looks like a ' + kind
+                          + '. Nothing was stored. Remove the value and import the file again.')
     try:
         text = raw.decode('utf-8')
         parsed = json.loads(text) if suffix == '.json' else None
@@ -145,12 +181,12 @@ def import_context(work, source, by, role, category, affected):
     else:
         contradicts = _contradiction(text)
     submission = {
-        'id': _submission_id(raw), 'by': by.strip(), 'role': role.strip(), 'category': category,
+        **actor_provenance(), 'id': _submission_id(raw), 'by': by.strip(), 'role': role.strip(), 'category': category,
         'affected': affected, 'disposition': 'proposed', 'identity_proof': False,
         'extraction': 'extracted', 'executed': False, 'source_name': path.name,
         'sha256': sha256(raw).hexdigest(), 'recorded_at': _now(),
         'version': 1, 'privacy': 'private', 'layer': 'human-provided context',
-        'verified_source_behavior': False,
+        'verified_source_behavior': False, 'gate': gate,
     }
     manifest = context_status(work)
     if manifest['status'] == 'not_provided':
@@ -172,6 +208,10 @@ def import_context(work, source, by, role, category, affected):
         conflict = {
             'id': 'conflict-' + submission['id'], 'submission_id': submission['id'], 'contradicts': contradicts,
             'status': 'open', 'preserves': 'both the cited evidence and this human statement',
+            'statement': text[:2000], 'statement_sha256': submission['sha256'],
+            'evidence': {'cited': contradicts, 'kept': True},
+            'affected': [item for item in affected if item] if isinstance(affected, list) else [],
+            'detection': 'explicit contradicts marker in the submission; Reframe does not detect all contradictions',
         }
         manifest['conflicts'].append(conflict)
         _write(folder / 'conflicts' / (conflict['id'] + '.json'), conflict)
@@ -192,7 +232,7 @@ def decide_context(work, submission_id, disposition, by, note):
     found['note'] = note.strip()
     found['decided_at'] = _now()
     _write(context_dir(work) / 'decisions' / (submission_id + '.json'), {
-        'id': submission_id, 'disposition': disposition, 'by': by.strip(), 'note': note.strip(),
+        **actor_provenance(), 'id': submission_id, 'disposition': disposition, 'by': by.strip(), 'note': note.strip(),
         'layer': 'human-provided context', 'verified_source_behavior': False,
     })
     if disposition in {'rejected', 'superseded'}:
@@ -212,8 +252,15 @@ def resolve_conflict(work, conflict_id, resolution, by, note):
     manifest = context_status(work)
     found = next((item for item in manifest.get('conflicts') or [] if item.get('id') == conflict_id), None)
     require(found and found.get('status') == 'open', 'Open conflict was not found')
+    if found.get('resolution'):
+        # An earlier deferral keeps its person and reason; the new record does not replace them.
+        found.setdefault('history', []).append({key: found[key] for key in (
+            'resolution', 'resolved_by', 'resolution_note', 'resolved_at', 'simulated') if key in found})
+        found.pop('simulated', None)
     found['resolution'] = resolution
+    found['resolved_at'] = time.time()
     found['resolved_by'] = by.strip()
+    found.update(actor_provenance())
     found['resolution_note'] = note.strip()
     found['status'] = 'open' if resolution == 'needs-more-evidence' else 'resolved'
     found['verified_source_behavior'] = False
@@ -223,6 +270,7 @@ def resolve_conflict(work, conflict_id, resolution, by, note):
 
 
 def _atomic_write(path, data):
+    """Write bytes privately through a temporary file and rename it into place."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = path.with_name(path.name + '.partial')
@@ -235,11 +283,70 @@ def _atomic_write(path, data):
 
 
 def open_conflicts(work):
+    """Conflicts that are still open."""
     manifest = context_status(work)
     return [item for item in manifest.get('conflicts') or [] if item.get('status') == 'open']
 
 
+def conflicts_affecting(work, ids):
+    """Open conflicts that touch the given ids. A conflict with no affected ids has unknown impact and affects everything."""
+    scope = {str(item) for item in ids or []}
+    found = []
+    for conflict in open_conflicts(work):
+        affected = set(conflict.get('affected') or [])
+        if not affected:
+            found.append(conflict)
+            continue
+        if conflict.get('contradicts'):
+            affected.add(str(conflict['contradicts']))
+        if affected & scope:
+            found.append(conflict)
+    return found
+
+
+def record_gate(work, gate, by, provided, submission_id=None):
+    """Record what a review gate received: a submission id, or an explicit 'none'. None is valid and is not approval."""
+    require(gate in GATES and gate != 'unspecified', 'Name the review gate')
+    require(str(by).strip(), 'Name the person recording the gate')
+    folder = context_dir(work)
+    path = folder / 'gates.json'
+    gates = _read(path) if path.is_file() else {}
+    entry = {'gate': gate, 'by': str(by).strip(), 'at': _now(), 'provided': bool(provided), **actor_provenance()}
+    if submission_id:
+        entry['submission_id'] = submission_id
+    gates.setdefault(gate, []).append(entry)
+    _write(path, gates)
+    return entry
+
+
+def gate_records(work):
+    """Every gate record, including explicit none entries."""
+    path = context_dir(work) / 'gates.json'
+    return _read(path) if path.is_file() else {}
+
+
+def admitted(work, limit=60000):
+    """Accepted context submissions with their text and provenance, for validation. Refuses rather than truncates."""
+    manifest = context_status(work)
+    items = []
+    for item in manifest.get('submissions') or []:
+        if item.get('disposition') != 'accepted':
+            continue
+        text = (context_dir(work) / 'extracted' / (item['id'] + '.txt')).read_text(errors='replace')
+        items.append({'id': item['id'], 'category': item.get('category'), 'gate': item.get('gate', 'unspecified'),
+                      'affected': item.get('affected') or [], 'supplied_by': item.get('by'), 'role': item.get('role'),
+                      'sha256': item.get('sha256'), 'text': text,
+                      'status': 'ADMITTED_HUMAN_INPUT', 'verified_source_behavior': False})
+    size = len(json.dumps(items).encode())
+    if size > limit:
+        from reframe_states import stop
+        stop('Admitted human context is ' + str(size) + ' bytes; the validation allowance is ' + str(limit)
+             + '. Nothing was truncated. Reject or supersede a submission, or raise the allowance.', 'CONTEXT_LIMIT')
+    return items
+
+
 def _active(work, category):
+    """Accepted submissions in one category, with their extracted text."""
     manifest = context_status(work)
     chosen = []
     for item in manifest.get('submissions') or []:
@@ -250,16 +357,19 @@ def _active(work, category):
 
 
 def _page(title, body):
+    """A self-contained HTML page with no scripts, external assets, or form submission."""
     return ('<!doctype html><html lang="en"><meta charset="utf-8">'
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; form-action \'none\'; base-uri \'none\'">'
             '<title>' + html.escape(title) + '</title><body>' + body + '</body></html>')
 
 
 def _file_sha(path):
+    """SHA-256 of a file."""
     return sha256(Path(path).read_bytes()).hexdigest()
 
 
 def _require_hash(path, expected, label):
+    """Stop when a completed file is missing or no longer matches its recorded hash."""
     require(Path(path).is_file() and expected and _file_sha(path) == expected,
             'Completed version integrity failure. The recorded hash does not match ' + label
             + '. The version was not overwritten.')
@@ -282,6 +392,7 @@ def _design_source(work, project):
 
 
 def _read_if(path):
+    """Read a JSON file when it exists."""
     return _read(path) if Path(path).is_file() else None
 
 
@@ -336,6 +447,7 @@ def _bundle_records(source):
 
 
 def _remember_path(paths, value):
+    """Add a non-empty path once."""
     if isinstance(value, str) and value and value not in paths:
         paths.append(value)
 
@@ -389,10 +501,13 @@ def _pinned_inventory_paths(project):
 
 
 def _verification_record(project):
+    """Which verification this design rests on: a recorded skip, an independent review, or only assessment approval."""
     skip = project.get('verification_skip')
     if skip:
+        # A skip made by a labeled simulated actor stays labeled wherever the owner is copied.
         return {'kind': 'recorded_skip', 'status': 'SKIPPED_BY_OWNER',
-                'owner': skip.get('owner'), 'reason': skip.get('reason')}
+                'owner': skip.get('owner'), 'reason': skip.get('reason'),
+                **({'simulated': True} if skip.get('simulated') else {})}
     approvals = project.get('approvals') or {}
     if approvals.get('validation'):
         return {'kind': 'independent_review', 'status': 'INDEPENDENTLY_REVIEWED'}
@@ -402,6 +517,7 @@ def _verification_record(project):
 
 
 def _output_names(mode):
+    """The files one design mode writes."""
     names = [
         'design.json', 'current-state/index.html', 'current-state/screens.json',
         'current-state/api.html', 'current-state/usage.html', 'current-state/openapi.json',
@@ -412,10 +528,12 @@ def _output_names(mode):
 
 
 def _output_hashes(root, mode):
+    """SHA-256 of each file a design mode wrote."""
     return {name: _file_sha(Path(root) / name) for name in _output_names(mode)}
 
 
 def _verify_outputs(root, mode, record):
+    """Check every recorded output hash of a completed design before it is reused."""
     outputs = record.get('outputs') or {}
     if outputs:
         for name in _output_names(mode):
@@ -426,6 +544,7 @@ def _verify_outputs(root, mode, record):
 
 
 def _next_revision(work, version):
+    """The next unused vN design version after the given one."""
     match = re.fullmatch(r'v(\d+)', version or '')
     number = int(match.group(1)) + 1 if match else 2
     while (Path(work) / 'previews' / ('v' + str(number))).exists():
@@ -434,6 +553,7 @@ def _next_revision(work, version):
 
 
 def _selection(work, project, mode, stack, screens, spec, provenance):
+    """The inputs a design export depends on: source, assessment, mode, stack, context, and approvals."""
     source = project.get('source') or {}
     return {
         'repository': source.get('repository'),
@@ -451,6 +571,7 @@ def _selection(work, project, mode, stack, screens, spec, provenance):
 
 
 def _same_selection(saved, selection):
+    """True when a saved design was made from the same inputs."""
     recorded = saved.get('selection')
     if not isinstance(recorded, dict):
         return (saved.get('mode') == selection['mode']
@@ -590,6 +711,17 @@ def _apply_current_context(work, spec, screens):
                           'layer': 'human-provided context'})
 
 
+def _plain_note(text):
+    """A note's statement without Markdown headings, bullets, or the Contradicts line."""
+    lines = []
+    for line in str(text).splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#') or re.match(r'(?i)^contradicts:', stripped):
+            continue
+        lines.append(re.sub(r'^[-*+]\s+|^\d+[.)]\s+', '', stripped))
+    return ' '.join(' '.join(lines).split())
+
+
 def _proposals(screens, accepted):
     """Build evidence-linked proposals. Accepted input stays unapproved until a delta approval."""
     proposals, gaps = [], []
@@ -606,7 +738,9 @@ def _proposals(screens, accepted):
             actions.extend(action for action in screen.get('actions') or [] if isinstance(action, str))
             apis.extend(screen.get('api_ids') or [])
         evidence = [screen.get('id') for screen in related if screen.get('id')]
-        matched = [(item, text) for item, text in accepted if journey.get('id') in (item.get('affected') or [])]
+        # A note may name the journey, one of its screens, or an API those screens use.
+        targets = {journey.get('id')} | set(evidence) | {str(item) for item in apis}
+        matched = [(item, text) for item, text in accepted if targets & set(item.get('affected') or [])]
         if not (fields or actions or apis or evidence):
             gaps.append({'id': 'gap-' + str(journey.get('id')), 'target': 'journey', 'target_id': journey.get('id'),
                          'reason': 'Recorded journey has no field, action, validation, or interface to change.'})
@@ -617,19 +751,17 @@ def _proposals(screens, accepted):
         action = actions[0] if actions else ''
         before = ('Journey ' + name + ' shows ' + (field or 'its recorded fields')
                   + ' and uses ' + (action or 'its recorded action') + '.')
-        if matched:
-            note = ' '.join(matched[0][1].split())
-            after = 'Change ' + (field or name) + ' so that ' + note
-            confirmed = ''
-        elif field or action:
-            after = ('Show ' + (field or 'the recorded field') + ' with an explicit confirmation before '
-                     + (action or 'continue') + ', and keep the recorded state '
-                     + (states[0] if states else 'recorded') + ' visible on the same step.')
-            confirmed = 'Confirm ' + action if action else ''
-        else:
+        if not matched:
+            # A generic step added to every journey is not a redesign. Without a person's future-state
+            # expectation for this journey, the honest result is a named gap, not an invented proposal.
             gaps.append({'id': 'gap-' + str(journey.get('id')), 'target': 'journey', 'target_id': journey.get('id'),
-                         'reason': 'Missing design work: this journey has evidence but no field, action, validation, or interface to change.'})
+                         'reason': 'No accepted future-state expectation names this journey, its screens ('
+                                   + ', '.join(evidence or ['none']) + '), or its APIs (' + (', '.join(str(item) for item in apis) or 'none')
+                                   + '). No proposal was invented.'})
             continue
+        note = _plain_note(matched[0][1])
+        after = 'Change ' + (field or name) + ' so that ' + note
+        confirmed = ''
         change = 'Before: ' + before + ' After: ' + after
         proposals.append({
             'id': 'proposal-' + str(journey.get('id')), 'status': 'proposed_unapproved',
@@ -637,6 +769,11 @@ def _proposals(screens, accepted):
             'rationale': 'Recorded journey ' + str(journey.get('id')) + ' uses ' + ', '.join(evidence or ['no screen'])
                          + '. Fields: ' + ', '.join(fields or ['none']) + '. Actions: ' + ', '.join(actions or ['none']) + '.',
             'impacts': fields + actions + [str(item) for item in apis],
+            'risks': (['Changes recorded behavior of ' + (field or name) + '; the current-state rule stays the baseline until approved']
+                      + ['API ' + str(item) + ' may need a new contract version' for item in apis]
+                      + ['Recorded state ' + state + ' must stay reachable' for state in states[:2]]),
+            'source_input': {'submission': matched[0][0]['id'], 'supplied_by': matched[0][0].get('by'),
+                             'category': matched[0][0].get('category')},
             'acceptance_criteria': ['After this delta is authorized, ' + (field or name)
                                     + ' follows the after-state and the recorded validation remains visible. Until then this proposal is not a requirement.'],
             'before': before, 'after': after, 'change': change,
@@ -650,6 +787,7 @@ def _proposals(screens, accepted):
 
 
 def _write_future(work, version, screens):
+    """Write Reimagine proposals and gaps from accepted future-state context. Nothing is approved."""
     accepted = _active(work, 'future-state')
     proposals, gaps = _proposals(screens, accepted)
     folder = Path(work) / 'previews' / version / 'future-state'
@@ -674,9 +812,15 @@ def _write_future(work, version, screens):
     scope = 'Future-state draft. Unapproved proposals are not requirements.'
     if gaps:
         scope += ' Missing design work: ' + '; '.join(item['reason'] for item in gaps)
-    page = render_site({'scope': scope, 'rules': [], 'sections': {}, 'questions': [], 'tests': []}, future, {})
+    page = render_site({'scope': scope, 'rules': [], 'sections': {}, 'questions': [], 'tests': []}, future, {}, companions=False)
     (folder / 'index.html').write_text(page)
     (folder / 'index.html').chmod(0o600)
+    # The screens link to their services on api.html; the reference pages are the current-state ones.
+    for name in ('api.html', 'usage.html', 'openapi.json'):
+        companion = folder.parent / 'current-state' / name
+        if companion.is_file():
+            shutil.copyfile(companion, folder / name)
+            (folder / name).chmod(0o600)
     _write(folder / 'screens.json', future)
     return proposals, gaps
 
@@ -700,13 +844,14 @@ def approve_delta(work, version, proposal_id, by, note):
     found['authorization'] = 'implementation_requirement'
     found['approved_by'] = by
     found['approval_note'] = note
+    found.update(actor_provenance())
     _write(deltas_path, deltas)
     design_path = root / 'design.json'
     design = _read(design_path) if design_path.is_file() else {}
     for item in design.get('proposals') or []:
         if item.get('id') == proposal_id:
             item.update(status='implementation_requirement', authorization='implementation_requirement',
-                        approved_by=by, approval_note=note)
+                        approved_by=by, approval_note=note, **actor_provenance())
     if design_path.is_file():
         _write(design_path, design)
     future_screens = root / 'future-state' / 'screens.json'
@@ -722,7 +867,7 @@ def approve_delta(work, version, proposal_id, by, note):
         page = render_site({
             'scope': 'Approved delta ' + proposal_id + '. Status implementation_requirement for the named change only.',
             'rules': [], 'sections': {}, 'questions': [], 'tests': [],
-        }, future, {})
+        }, future, {}, companions=False)
         html_path = root / 'future-state' / 'index.html'
         html_path.write_text(page)
         html_path.chmod(0o600)
@@ -778,6 +923,12 @@ def package_export(work, project, version, mode):
             info.compress_type = zipfile.ZIP_DEFLATED
             zipped.writestr(info, files[name])
     archive.chmod(0o600)
+    import reframe_links
+    try:
+        reframe_links.require_valid(archive, 'mode package')
+    except Blocked:
+        archive.unlink()
+        raise
     status = 'DRAFT_READY' if not conflicts else 'DRAFT_BLOCKED_FOR_APPROVAL'
     design_path = Path(work) / 'previews' / version / 'design.json'
     _write(completion_path, {
@@ -845,7 +996,16 @@ def _mode_package_files(work, project, version, mode, current_html, conflicts):
     version_root = Path(work) / 'previews' / version
     current_dir = version_root / 'current-state'
     files['screens.json'] = (current_dir / 'screens.json').read_bytes()
-    files['api.html'] = (current_dir / 'api.html').read_bytes()
+    # The packaged current-state page is current-state.html, so companion links point there.
+    for name in ('api.html', 'usage.html'):
+        page = current_dir / name
+        if page.is_file():
+            data = page.read_bytes()
+        else:
+            # A design exported before usage pages were written still gets one, so its links resolve.
+            from reframe_artifacts import render_usage_page
+            data = render_usage_page([], project.get('settings') or {}).encode()
+        files[name] = data.replace(b'href="index.html', b'href="current-state.html')
     openapi = current_dir / 'openapi.json'
     files['openapi.json'] = openapi.read_bytes() if openapi.is_file() else (json.dumps(openapi_document(
         screens.get('apis') or [], title='Draft review APIs',
@@ -890,6 +1050,7 @@ def _mode_package_files(work, project, version, mode, current_html, conflicts):
 
 
 def _readme(mode):
+    """The README for a draft mode package."""
     return ('# Draft ' + mode + ' package\n\nThis is not the approved single AI-DLC package. '
             'Do not implement a proposed_unapproved item as a requirement. '
             'Tests and implementation are NOT RUN. No application has been built.\n'
@@ -927,6 +1088,7 @@ def canonical_repository(url):
 
 
 def _same_repository(left, right):
+    """True when two repository references name the same repository."""
     first, second = canonical_repository(left), canonical_repository(right)
     if first.get('canonical') and second.get('canonical'):
         return first['canonical'] == second['canonical']

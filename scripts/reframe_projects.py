@@ -12,6 +12,7 @@ from pilot import Blocked, require
 
 
 def _config_dir():
+    """The private Reframe configuration folder."""
     from reframe_setup import config_dir
     return config_dir()
 
@@ -22,6 +23,7 @@ def index_path():
 
 
 def _load_index():
+    """The saved workspace index, or an empty one when it is missing or unreadable."""
     path = index_path()
     if not path.is_file():
         return {'workspaces': []}
@@ -35,6 +37,7 @@ def _load_index():
 
 
 def _save_index(value):
+    """Write the workspace index privately."""
     path = index_path()
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     path.write_text(json.dumps(value, indent=2) + '\n')
@@ -112,6 +115,7 @@ def saved_targets(project):
 
 
 def _names(value):
+    """A policy field as a list of strings."""
     if value is None:
         return []
     if isinstance(value, str):
@@ -122,6 +126,7 @@ def _names(value):
 
 
 def _statements(document):
+    """The statements of an IAM policy document as a list."""
     if not isinstance(document, dict):
         return []
     statements = document.get('Statement') or document.get('statement') or []
@@ -164,6 +169,7 @@ def transform_trusts(document, account):
 
 
 def _aws_command(saved, args, region):
+    """AWS CLI arguments for the saved profile and region."""
     command = []
     if saved.get('profile'):
         command += ['--profile', saved['profile']]
@@ -251,6 +257,7 @@ def verify_saved_infrastructure(project, aws_call=None, client=None):
 
 
 def _live_aws(command):
+    """Run one AWS CLI infrastructure probe and return its JSON output."""
     completed = subprocess.run(['aws', *command, '--output', 'json'], capture_output=True, text=True)
     if completed.returncode != 0:
         raise Blocked('Infrastructure probe failed. No new resources were created.')
@@ -260,6 +267,7 @@ def _live_aws(command):
 
 
 def _live_transform(project):
+    """A Transform client configured from the saved project settings."""
     from kiro_workflow import Transform
     config = ((project.get('settings') or {}).get('transform') or {}).copy()
     config.setdefault('env', {})

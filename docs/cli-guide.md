@@ -35,9 +35,10 @@ reframe init
 
 If the command is not found, ensure uv's tool executable directory is on PATH
 (`uv tool update-shell` can guide that setup), then reopen the terminal. The editable
-installation is required in this POC: the CLI loads versioned prompts and source
-contracts from its Git checkout. Keep that checkout available and unchanged during
-an active run. This is not yet a standalone distributable wheel.
+install is the usual choice for this POC; keep that checkout clean and unchanged during an
+active run. A wheel built from the same revision also works outside any checkout: prompts,
+contracts, guides, and the license are installed under `share/reframe`, and the framework
+revision is recorded as a content hash of those files instead of a Git commit.
 
 `init` guides you through the private workspace, a GitHub URL or local checkout you type yourself, the source revision, business scope, AWS profile and region, executor runtime and HTML provider. It does not fill in a sample repository and it does not ask you to name the sandbox bucket. It saves choices outside Git and checks required executables, Claude login,
 AWS credentials and selected runtime authentication. AWS profile access is checked
@@ -65,7 +66,7 @@ After setup, stay on menu **1**. Confirm the upload when asked. That is the job.
 The same result from the shell, after assessment approval:
 
 ```bash
-reframe preview --skip-validation --by "Your name" --note "Use the AWS findings for wireframes and the AI-DLC draft" --provider claude --name guided-draft
+reframe preview --skip-validation --by NAME --note WHY --provider claude --name guided-draft
 ```
 
 `review`, and the commands a script would run for that route, are separate. They do not produce the skip ZIP:
@@ -73,7 +74,7 @@ reframe preview --skip-validation --by "Your name" --note "Use the AWS findings 
 ```bash
 reframe assess --source <same-github-url-or-local-path>
 reframe status
-reframe resume
+reframe --workspace /path/to/private-poc resume
 reframe approve assessment
 reframe validate --reviewer claude-code
 reframe approve validation
@@ -110,6 +111,98 @@ stops progression.
 For unattended use, supply the explicit flags below: new assessments require
 `--allow-new-assessment`; approvals require `--by`, `--note` and, for assessment,
 `--confirm-source-match`. There is no default approval in noninteractive mode.
+
+## The review gates
+
+Menu **1** runs these gates in order after assessment approval. Each waits for a person, and `pause` at any gate records nothing. The same steps as commands are below. `NAME`, `WHY`, and `RATIONALE` stand for your own values; the CLI refuses them if they are copied unchanged.
+
+| Gate | Menu answer | Command | What it records |
+| --- | --- | --- | --- |
+| Business requirements | `generate`, `import`, or `none` | `requirements status`, `requirements import`, `requirements none` | The active set and its provenance. `generate` is offered only when the account's capability is verified; otherwise import or none, never a generated label |
+| Baseline context | Markdown file or `none` | `context import --gate baseline`, `context none --gate baseline` | A gate record, the submission, its disposition, and any conflict |
+| Skip or review | `skip` or `review` | `preview --skip-validation` or `validate` | The skip decision, or the independent review |
+| Specification review (review route) | context, deferral, approval | `questions`, `decide`, `approve validation` | SME decisions, a deferral batch, a validation approval bound to the report |
+| Design plan | mode, version, stack, constraints | `design-plan` | The plan, before any detailed design call |
+| Design review | `approve`, `design-change`, `behavior-change` | `approve design` (skip) or `approve specifications` (review), `feedback --scope design` or `--scope specification` | An approval bound to the design version, or a new design or specification version |
+| Package review | `accept`, `design-change`, `behavior-change` | `package`, `package-review`, `accept-package --sha256` | A ledger entry for the exact archive, outside the archive |
+
+```bash
+W=/path/to/private-poc
+reframe --workspace "$W" requirements status
+reframe --workspace "$W" requirements import --requirements requirements.md --traceability traceability.yaml --function FUNCTION_ID --by NAME --note WHY
+reframe --workspace "$W" requirements discover --by NAME --note WHY
+reframe --workspace "$W" context import --file notes.md --by NAME --role architect --category clarification --affected R1 --gate baseline
+reframe --workspace "$W" context none --gate specification --by NAME
+reframe --workspace "$W" questions --owner SME --state open --groups
+reframe --workspace "$W" design-plan --mode reimagine --version v1 --language java --constraint "Keep the nightly batch window" --by NAME
+reframe --workspace "$W" design-plan --mode functional-parity --version v1 --language cobol --by NAME --revise
+reframe --workspace "$W" reconcile-design --kind screens --id sign-on --keep-stage 2 --by NAME --note WHY
+reframe --workspace "$W" package
+reframe --workspace "$W" package-review
+reframe --workspace "$W" accept-package --sha256 PACKAGE_SHA256 --by NAME --note WHY
+```
+
+`requirements discover` is read-only: it lists the Transform tools and connectors this account reports. `requirements authorize-job` and `requirements resume` drive one AWS requirements job for selected business functions, only after that capability is verified. A requirements step is never marked complete from an import, a mock, or a capability blocker.
+
+`design-plan --revise` starts a new design version when design work exists. The earlier site and its stage receipts are kept, and the next `review-site` makes a new provider call instead of reusing a stale design. When two stages define a shared screen, journey, or API differently, `review-site` stops and names every conflict. `reconcile-design` records which stage's definition stands; the other is kept as superseded. Nothing is renamed.
+
+`package` writes the archive and the status `AWAITING_PACKAGE_ACCEPTANCE`. `package-review` shows the file list with hashes, the approvals it rests on, the gaps, and the implementation blockers. `accept-package` needs the exact SHA-256 shown, a name, and a rationale, and it refuses while a conflict that affects the package is open. On the skip route a second person first records `approve verification-skip`. Acceptance is appended to `acceptance/ledger.jsonl`, outside the archive, and it is not deployment approval.
+
+### When a run stops
+
+Every stop records a cause and a recovery class in `last-stop.json`, and `status` shows both with the next safe command. Only automatic recovery continues without a person.
+
+```bash
+reframe --workspace /path/to/private-poc status
+reframe --workspace /path/to/private-poc recovery-plan
+reframe --workspace /path/to/private-poc reconcile-operation --id OPERATION_ID --resolution failed --by NAME --note WHY
+reframe --workspace /path/to/private-poc recover-ui-call --confirm --note WHY
+reframe --workspace /path/to/private-poc retry-wireframes --by NAME --note WHY
+```
+
+`recovery-plan` changes nothing. It verifies the saved source, evidence, specification, review, and decision hashes and the provider receipts. It states which saved outputs are reusable, incompatible, or superseded, which approvals need renewal, and which steps need your authorization. `reconcile-operation` settles a provider call whose outcome is uncertain; the call stays counted either way. `recover-ui-call` releases only a wireframe reservation recorded before dispatch with no provider receipt. After a wireframe call fails or returns invalid output, `retry-wireframes` authorizes one new attempt: the failed call stays counted, its receipt is archived, and the next `review-site` makes a new counted call. Menu 1 offers the same choice.
+
+## Command reference
+
+Every command takes `--workspace`. `reframe --help` and `reframe COMMAND --help` print these descriptions.
+
+| Command | Purpose |
+| --- | --- |
+| `reframe --workspace "$W" init` | Pin GitHub/local source and save private settings |
+| `reframe --workspace "$W" setup` | Check AWS, connect Transform, create or attach assessment resources |
+| `reframe --workspace "$W" assess` | Start or attach an AWS Transform assessment job; a new job needs explicit authorization |
+| `reframe --workspace "$W" resume` | Continue saved work from its recorded phase; never creates an assessment |
+| `reframe --workspace "$W" status` | Show phase, approvals, blockers, usage, readiness, and the next step |
+| `reframe --workspace "$W" relocate` | Move verified private outputs into <source-repo>_assessment |
+| `reframe --workspace "$W" prepare-plan` | Plan bounded evidence units without model calls |
+| `reframe --workspace "$W" preview` | Generate AWS-assumed draft wireframes and AI-DLC package without independent validation |
+| `reframe --workspace "$W" model-budget` | Record an approved call allowance or model dollar cap |
+| `reframe --workspace "$W" recover-provider` | Record review of a reasoning-extraction refusal before an evidence-only retry |
+| `reframe --workspace "$W" assessment-report` | Generate a private HTML index of sealed assessment evidence |
+| `reframe --workspace "$W" upgrade-framework` | Record a controller update before candidate handoff; preserve approved evidence |
+| `reframe --workspace "$W" scope` | Record explicit scope for an existing uploaded assessment |
+| `reframe --workspace "$W" tasks` | Inspect current AWS assessment checkpoints without approving them |
+| `reframe --workspace "$W" approve` | Record a named person's approval of one gate; never inferred |
+| `reframe --workspace "$W" validate` | Run independent executor and reviewer validation of the evidence |
+| `reframe --workspace "$W" decide` | Record one SME decision or one confirmed batch. A deferral is not an answer. |
+| `reframe --workspace "$W" review-site` | Generate wireframes and API contracts from the approved specification and design plan |
+| `reframe --workspace "$W" retry-wireframes` | Authorize a new attempt after a failed wireframe call; the failed call stays counted |
+| `reframe --workspace "$W" recover-ui-call` | Release a recorded pre-dispatch wireframe reservation |
+| `reframe --workspace "$W" design-plan` | Record the design mode and target constraints before detailed design |
+| `reframe --workspace "$W" reconcile-design` | Record which stage definition of a shared id stands |
+| `reframe --workspace "$W" questions` | List SME questions by owner, state, rule, function, or blocked work |
+| `reframe --workspace "$W" package-review` | Show the package inventory, exact hash, approval basis, gaps, and readiness |
+| `reframe --workspace "$W" accept-package` | Accept one exact package by its SHA-256; recorded outside the archive |
+| `reframe --workspace "$W" recovery-plan` | Read-only plan: verify hashes and receipts, classify saved outputs, list needed authorizations |
+| `reframe --workspace "$W" reconcile-operation` | Record the outcome of an uncertain provider call; it stays counted |
+| `reframe --workspace "$W" feedback` | Send specification or design feedback back for a new version |
+| `reframe --workspace "$W" package` | Build the AI-DLC package; it then awaits a separate acceptance |
+| `reframe --workspace "$W" requirements` (`status`, `none`, `discover`, `authorize-job`, `resume`, `import`) | AWS requirements: capability, generation job, import, status |
+| `reframe --workspace "$W" context` (`import`, `none`, `status`, `decide`, `approve-delta`, `resolve`) | Import or decide optional human context |
+| `reframe --workspace "$W" design-export` | Write an opt-in current-state or reimagine draft beside the review site |
+| `reframe --workspace "$W" package-export` | Write an opt-in draft package beside the approved package |
+| `reframe --workspace "$W" register-project` | Record project identity locally without an AWS job |
+| `reframe --workspace "$W" compare` | Diff two sealed assessments by file content |
 
 ## Advanced and scripted usage
 
@@ -271,7 +364,7 @@ service tasks before confirming:
 
 ```bash
 ./reframe --workspace /path/to/private-poc approve assessment --label run-a \
-  --by "Assessment owner" --note "Reviewed ingestion, scope and provenance" --confirm-source-match
+  --by NAME --note WHY --confirm-source-match
 ```
 
 ## 4. Validate and prepare
@@ -304,12 +397,12 @@ Record one SME answer, or one confirmed batch:
 
 ```bash
 ./reframe --workspace /path/to/private-poc decide --question <question-id> \
-  --by "Business SME" --answer "Decision and rationale" --disposition resolved
+  --by NAME --answer RATIONALE --disposition resolved
 ./reframe --workspace /path/to/private-poc decide --open \
-  --by "Business SME" --answer "Reason the open questions stay deferred" \
+  --by NAME --answer RATIONALE \
   --disposition deferred --confirm
 ./reframe --workspace /path/to/private-poc approve validation \
-  --by "Accountable architect" --note "Reviewed evidence, decisions and excluded scope"
+  --by NAME --note WHY
 ```
 
 The batch command checks every selected id, the specification hash, the disposition, the owner, and the rationale before it writes. It asks for `--confirm` after showing the count and scope. Saved decisions stay in place. `--amend --confirm` is the reviewed path that replaces a saved decision and keeps the previous answer. One batch writes once and regenerates the preparation report once. Repeating it does not add a second audit record.
@@ -327,18 +420,21 @@ Open the printed `index.html`. It opens on the journeys the wireframe model name
 
 ```bash
 ./reframe --workspace /path/to/private-poc feedback \
-  --by "Business owner" --note "Describe the required change"
+  --by NAME --note WHY
 ./reframe --workspace /path/to/private-poc validate
 ```
 
-Feedback preserves previous files, creates a new candidate round and invalidates
-validation/business approvals and decisions. Reapprove the revised candidate, then
-regenerate the site. Rework and explicit feedback share the saved round/call limits.
+Feedback with the default `--scope specification` preserves previous files, creates a new
+candidate round, and moves the validation and business approvals to the approval history as
+superseded. Saved decisions and their history stay. Reapprove the revised candidate, then
+regenerate the site. `--scope design` keeps the specification and its approval, retires the
+current design, and starts the next design-plan version; the next `review-site` generates a new
+design. Rework and explicit feedback share the saved round/call limits.
 To approve an unchanged site:
 
 ```bash
 ./reframe --workspace /path/to/private-poc approve specifications \
-  --by "Business owner" --note "Reviewed the exact HTML version and scope"
+  --by NAME --note WHY
 ```
 
 Approvals record artifact hashes, owner, rationale and time. Changed specifications,
@@ -355,14 +451,23 @@ The private ZIP contains specifications, rule/test traceability, decisions, appr
 HTML, ten implementation prompts, dependency-ordered backlog, proposed monorepo layout,
 provenance and checksums. It excludes raw AWS results, source archives, provider
 receipts and workspace settings. Tests remain NOT RUN. This prepares a future
-monorepo/buildout; it does not create or deploy application code.
+monorepo/buildout; it does not create or deploy application code. The README table
+"What the package contains" lists every file, the function that writes it, and its routes.
+
+Building the package sets `AWAITING_PACKAGE_ACCEPTANCE`. It is not accepted until a person
+reviews it and accepts its exact hash:
+
+```bash
+./reframe --workspace /path/to/private-poc package-review
+./reframe --workspace /path/to/private-poc accept-package --sha256 PACKAGE_SHA256 --by NAME --note WHY
+```
 
 ## Optional design modes
 
 These commands are off unless you run them. They do not replace `previews/business-1`, a skip draft, or the single package from `reframe package`.
 
 ```bash
-reframe context import --file notes.md --by "Your name" --role architect --category current-state
+reframe context import --file notes.md --by NAME --role architect --category current-state
 reframe design-export --version v1 --mode functional-parity
 reframe design-export --version v2 --mode reimagine
 reframe package-export --version v1 --mode functional-parity
@@ -405,7 +510,7 @@ stops instead of truncating or claiming full coverage.
 
 Run `PYTHONPATH=tests python -m unittest discover -s tests`. Optional MCP transport tests need the
 SDK. Tests use synthetic findings and provider/AWS fixtures, not live services.
-Pull requests into `main`, and pushes to `main`, run that suite in GitHub Actions on Python 3.12.
+Pull requests into `develop` or `main`, and pushes to either branch, run that suite in GitHub Actions on Python 3.12.
 The workflow installs this project, checks `reframe --help`, builds the distribution, and scans the
 checkout with pinned gitleaks. It does not call AWS or a model provider.
 For live acceptance, verify actual provider flags/behavior, AWS authentication,
@@ -435,7 +540,7 @@ Stop the local watcher before updating Reframe; the AWS job remains intact. Menu
 git checkout main
 git pull origin main
 uv tool install --force --reinstall --managed-python --python 3.12 --editable .
-reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc upgrade-framework --note WHY
 reframe --workspace /path/to/private-poc status
 reframe --workspace /path/to/private-poc resume
 ```
@@ -445,7 +550,7 @@ A prompt migration recorded for an earlier revision does not authorize this fram
 `approve validation` checks the framework revision. A run at `AWAITING_VALIDATION_APPROVAL` with a reviewed specification and no validation approval records a controller-only update when the preparation prompts are unchanged. The specification, review hash, checkpoints, assessment approval, decisions, and call count stay in place. A checkout that changes the preparation prompts is refused, including with `--adopt-prompts`. The reviewed specification stays bound to the saved prompt hash. Use the matching checkout or start a new workspace.
 
 ```bash
-reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc upgrade-framework --note WHY
 reframe --workspace /path/to/private-poc status
 reframe --workspace /path/to/private-poc decide --open --by NAME --answer WHY --disposition deferred --confirm
 reframe --workspace /path/to/private-poc approve validation --by NAME --note WHY
@@ -458,7 +563,7 @@ reframe --workspace /path/to/private-poc review-site
 
 ```bash
 reframe --workspace /path/to/private-poc decide --placeholders --amend --confirm --by NAME --answer RATIONALE --disposition deferred
-reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix"
+reframe --workspace /path/to/private-poc upgrade-framework --note WHY
 reframe --workspace /path/to/private-poc approve validation --by NAME --note RATIONALE
 reframe --workspace /path/to/private-poc review-site
 ```
@@ -468,7 +573,7 @@ Do not lower `ui_calls` because `screens.json` is missing. The saved empty `prev
 The amendment stores the previous answers, the batch, and the superseded validation approval, and it clears that approval. The run returns to `AWAITING_VALIDATION_APPROVAL`, so `upgrade-framework` can record a controller revision whose preparation prompts are unchanged. A prompt change is still refused. `review-site` checks each stage against the context budget before reserving its call. Stages keep screen and API references that point at other stages. A repeated screen, API, or journey id is rejected. The merged model is validated against the complete specification. A saved provider receipt is reused on restart, without a second call and without reducing the counter. Do not `resume` into preparation, and do not start an assessment.
 
 ```bash
-reframe --workspace /path/to/private-poc upgrade-framework --note "Record the reviewed controller fix" --adopt-prompts
+reframe --workspace /path/to/private-poc upgrade-framework --note WHY --adopt-prompts
 reframe --workspace /path/to/private-poc status
 reframe --workspace /path/to/private-poc resume
 ```
@@ -525,7 +630,7 @@ totals, archive expansion and collected text are each bounded by that value.
 Set a smaller limit explicitly when a run should stop earlier:
 
 ```bash
-reframe resume --max-assessment-bytes 100000000 --wait
+reframe --workspace /path/to/private-poc resume --max-assessment-bytes 100000000 --wait
 ```
 
 The limit change is recorded. This does not increase model context limits or
@@ -568,7 +673,7 @@ private reasoning, scratchpads or call plans. Historical free-form notes remain 
 private receipts but are not replayed to providers. After inspecting a recorded
 `reasoning_extraction` refusal and correcting the output contract, an authorized
 operator can record the review with `reframe recover-provider --receipt
-provider-N.json --by "Owner" --note "Reviewed correction"`, then resume. This keeps
+provider-N.json --by NAME --note WHY`, then resume. This keeps
 the original refusal, hashes the reviewed receipt and revised protocol, and retains
 approval and consumed calls. A refusal of the revised request stops again; this
 command cannot repeatedly clear it. It does not disable provider safeguards.
@@ -578,9 +683,9 @@ command cannot repeatedly clear it. It does not disable provider safeguards.
 With the run owner's authorization, use:
 
 ```bash
-reframe model-budget --max-calls 64 --by "Run owner" --note "Approved additional assessment coverage"
-reframe model-budget --max-dollars 50 --by "Run owner" --note "Approved model spend for this estate"
-reframe resume
+reframe --workspace /path/to/private-poc model-budget --max-calls 64 --by NAME --note WHY
+reframe --workspace /path/to/private-poc model-budget --max-dollars 50 --by NAME --note WHY
+reframe --workspace /path/to/private-poc resume
 ```
 
 A new project has no model-call cap. `max_model_calls` is null until you set one. A saved run keeps its recorded cap, its calls, and its dollar cap. The guide asks before raising a cap or removing it with `reframe model-budget --clear-call-cap`. Removing the cap does not restart the assessment or discard completed work. A call cap is enforced only when it is set. Tracked API spend and the API dollar cap are shown separately from an estimated next call. A cap of 0 is a real API budget and blocks the next billed API call. Subscription and other provider usage are unmeasured, and that absence is not a zero-dollar charge. A billed API key stops at the saved dollar cap until you raise it. A logged-in Claude subscription is not charged to that ledger. Repeated identical results, a provider failure, and a lack of progress pause with the completed work saved.
@@ -658,8 +763,8 @@ reconciliation. These reads remain attached to the unit and consume the same bud
 A blocked unit can receive owner-attributed feedback without reopening passed units:
 
 ```bash
-reframe feedback --unit U0001 --by "Run owner" --note "Clarification for the missing evidence"
-reframe resume
+reframe --workspace /path/to/private-poc feedback --unit U0001 --by NAME --note WHY
+reframe --workspace /path/to/private-poc resume
 ```
 
 This remains bounded by the unit revision limit and total call cap. Feedback does
@@ -674,7 +779,7 @@ coverage gaps remain necessary.
 Menu **1** calls this **skip**. It is the path to the wireframes and the AI-DLC ZIP. An engineer who trusts the completed AWS assessment can also run it directly:
 
 ```bash
-reframe preview --skip-validation --by "Assessment owner" --note "Accept AWS findings as assumptions for design review" --provider codex
+reframe preview --skip-validation --by NAME --note WHY --provider codex
 ```
 
 Menu **1** offers the HTML provider saved at setup. That default is Codex unless you typed `claude` during setup. Use `--provider claude` here to generate the same structured draft with Claude instead.

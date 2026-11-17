@@ -1,0 +1,65 @@
+{
+  "audited_on": "2026-11-15",
+  "main_commit": "e57d72a3e8e04b0fcdd712fb94af1fbf5a5083d7",
+  "feature_branch": "feature/complete-modernization-workflow",
+  "feature_base_commit": "e57d72a3e8e04b0fcdd712fb94af1fbf5a5083d7",
+  "feature_is_uncommitted": true,
+  "files": {
+    "pyproject.toml": {
+      "feature_sha256": "4e073cb06c990e123ea3f510143d5e8b03f0313b9056bfb249f8393512eb372e",
+      "main_sha256": "4e073cb06c990e123ea3f510143d5e8b03f0313b9056bfb249f8393512eb372e"
+    },
+    "scripts/reframe.py": {
+      "feature_sha256": "c39df28d78082c54f116774f9715b906567313e0ce3ca6274a2006a1c9555dae",
+      "main_sha256": "f07a1637d41d1e07dd4e7650035f717863db77255bb4da4c9f01cf9ae79865ff"
+    },
+    "scripts/reframe_flow.py": {
+      "feature_sha256": "a978d6e0c181f01167fe14a16b5bcf98856e9ba8a66152ee9cd49fa6ddd3bdb0",
+      "main_sha256": "a978d6e0c181f01167fe14a16b5bcf98856e9ba8a66152ee9cd49fa6ddd3bdb0"
+    },
+    "scripts/reframe_setup.py": {
+      "feature_sha256": "f8e5d37565f4960c4caa85a98aff16971184b4b3f74d4db52a3555423473afbd",
+      "main_sha256": "f8e5d37565f4960c4caa85a98aff16971184b4b3f74d4db52a3555423473afbd"
+    },
+    "scripts/reframe_terminal.py": {
+      "feature_sha256": "34300be6ac06aa0600578b7b2db0adcb4a0f17182d7a32a72bc3e5dcf9506390",
+      "main_sha256": "7b369fc18da78b1cf25382cc98aac696c096471b3b64e8bee3c643945161132b"
+    },
+    "scripts/reframe_checkpoints.py": {
+      "feature_sha256": "6816d3aec23255015e1ee0b9b7c097e746c72815bd91c4f10db6b429afbd9ebb",
+      "main_sha256": "6816d3aec23255015e1ee0b9b7c097e746c72815bd91c4f10db6b429afbd9ebb"
+    },
+    "scripts/reframe_optional.py": {
+      "feature_sha256": "13f6aa18fc562b4f7c5706bd7809112a546dfd46d7dc1f010f13d08ed349df52",
+      "main_sha256": "13f6aa18fc562b4f7c5706bd7809112a546dfd46d7dc1f010f13d08ed349df52"
+    },
+    "scripts/reframe_projects.py": {
+      "feature_sha256": "79775b9a91de2e9e9b3b07d48208bdadf280bd4fd3c1e375a8f4ec02d6980778",
+      "main_sha256": "79775b9a91de2e9e9b3b07d48208bdadf280bd4fd3c1e375a8f4ec02d6980778"
+    },
+    "scripts/reframe_artifacts.py": {
+      "feature_sha256": "c4a2d05f332b812f5eeac8317b0a7ad87aa41315f85897d2835fa641d0da514f",
+      "main_sha256": "adec215ed42f620ace30e9712f0eb162ff984dd0c75b47691b9054739ad67c79"
+    },
+    "scripts/reframe_handoff.py": {
+      "feature_sha256": "87e955e72e16edc58ee80657b18a797e9959bf7e5bcf89795b6bbcec13e2870f",
+      "main_sha256": "87e955e72e16edc58ee80657b18a797e9959bf7e5bcf89795b6bbcec13e2870f"
+    },
+    "scripts/reframe_preview.py": {
+      "feature_sha256": "277b424892d47b7a0c8ecf0705aeaf99c3b5841ad0a667bc98ab81aba3474296",
+      "main_sha256": "277b424892d47b7a0c8ecf0705aeaf99c3b5841ad0a667bc98ab81aba3474296"
+    },
+    "scripts/kiro_workflow.py": {
+      "feature_sha256": "873842c0ded242f61c764513f831f97f92745591b8e15f51817d19a396845353",
+      "main_sha256": "873842c0ded242f61c764513f831f97f92745591b8e15f51817d19a396845353"
+    },
+    "tests/test_workflow_journey.py": {
+      "feature_sha256": "46338e6af1645e81c891162a5a97a9b906db0b7a286d6b011690be08610fa6ee",
+      "main_sha256": null
+    },
+    "tests/test_wireframe_context.py": {
+      "feature_sha256": "ece0e292acc3eb3e8ca25aae5171c0066ce08aa250a4d094ec4624078b7ba175",
+      "main_sha256": "5573b7fe0668afa4bcd8cb55d1a0135526a0d7d6c1729c64a27e9a45f9157a63"
+    }
+  }
+}

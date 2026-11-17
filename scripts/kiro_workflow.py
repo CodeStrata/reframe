@@ -17,9 +17,9 @@ import uuid
 import zipfile
 from pathlib import Path
 
-from pilot import Blocked, git, require, save, sha, tracked_file
+from pilot import Blocked, framework_root, git, require, save, sha, tracked_file
 
-FRAMEWORK = Path(__file__).resolve().parent.parent
+FRAMEWORK = framework_root(__file__)
 DEFAULTS = {
     'kiro_command': ['kiro-cli'], 'executor_model': None, 'reviewer_model': None, 'wireframes_model': None,
     'max_model_calls': None, 'max_rounds': 2, 'call_timeout_seconds': 600,
@@ -200,7 +200,15 @@ def collect_assessment(run, directory, location):
 
 
 class RuntimeUnavailable(Blocked):
-    pass
+    """The provider runtime could not complete a call. pre_dispatch is True only when no provider process started."""
+    pre_dispatch = False
+
+
+def not_started(message):
+    """A runtime failure raised before any provider process started."""
+    error = RuntimeUnavailable(message)
+    error.pre_dispatch = True
+    return error
 
 
 def blocked_cause(error):
@@ -247,6 +255,25 @@ class Transform:
             if blocked is not None: raise blocked from error
             private_save(self.directory / 'mcp-error.json', {'type': type(error).__name__, 'detail': str(error)})
             raise Blocked('AWS MCP transport failed; inspect the private mcp-error.json and reconcile uncertain creation') from error
+
+    def tools(self):
+        """Read-only listing of the server's tools and input schemas. No tool is called."""
+        async def listing():
+            ClientSession, StdioServerParameters, stdio_client = mcp_transport(self.directory)
+            command = self.config.get('command', ['uvx', 'awslabs.aws-transform-mcp-server@latest'])
+            require(isinstance(command, list) and command, 'MCP command must be an argv array')
+            env = dict(os.environ)
+            env.update(self.config.get('env', {}))
+            parameters = StdioServerParameters(command=command[0], args=command[1:], env=env)
+            with (self.directory / 'mcp-server.log').open('a') as errlog:
+                async with stdio_client(parameters, errlog=errlog) as (reader, writer):
+                    async with ClientSession(reader, writer) as session:
+                        await session.initialize()
+                        found = (await session.list_tools()).tools
+            return [{'name': tool.name, 'description': getattr(tool, 'description', None),
+                     'inputSchema': getattr(tool, 'input_schema', None) or getattr(tool, 'inputSchema', {}) or {}}
+                    for tool in found]
+        return asyncio.run(asyncio.wait_for(listing(), timeout=self.config.get('timeout_seconds', 180)))
 
     async def _calls(self, requests):
         """Open the Transform MCP server, call each named tool, and unwrap the reply."""
@@ -1040,7 +1067,7 @@ def kiro_call(run, directory, role, message):
     config = run['settings']
     executable = config['kiro_command'][0]
     if not shutil.which(executable) or not os.environ.get('KIRO_API_KEY'):
-        raise RuntimeUnavailable('Kiro headless setup requires kiro-cli and KIRO_API_KEY; configure them and resume')
+        raise not_started('Kiro headless setup requires kiro-cli and KIRO_API_KEY; configure them and resume')
     runtime = directory / 'runtime' / role
     agents = runtime / '.kiro' / 'agents'
     agents.mkdir(parents=True, exist_ok=True, mode=0o700)

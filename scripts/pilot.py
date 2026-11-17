@@ -19,6 +19,15 @@ class Blocked(Exception):
     pass
 
 
+def actor_provenance():
+    """Marks a record made by a labeled simulated actor. Empty for a real person.
+
+    Acceptance runs set REFRAME_SIMULATED_ACTOR=1. Such records are test records, never genuine sign-off.
+    """
+    import os
+    return {'simulated': True} if os.environ.get('REFRAME_SIMULATED_ACTOR') == '1' else {}
+
+
 def require(condition, message):
     """Stop the operation when a condition is false."""
     if not condition:
@@ -37,8 +46,55 @@ def save(path, value):
     temporary.replace(path)
 
 
+INSTALL_MARKER = 'reframe-install.json'
+RESOURCE_DIRS = ('prompts', 'contracts', 'docs', 'infrastructure')
+
+
+def framework_root(module_file):
+    """The checkout beside the scripts, or the packaged resources of an installed wheel."""
+    checkout = Path(module_file).resolve().parent.parent
+    if (checkout / 'prompts').is_dir():
+        return checkout
+    import sysconfig
+    for base in (Path(sys.prefix), Path(sysconfig.get_path('data'))):
+        candidate = base / 'share' / 'reframe'
+        if (candidate / INSTALL_MARKER).is_file() and (candidate / 'prompts').is_dir():
+            return candidate
+    return checkout
+
+
+def installed_framework(root):
+    """True for an installed resource root, which has the install marker and no Git checkout."""
+    root = Path(root)
+    return (root / INSTALL_MARKER).is_file() and not (root / '.git').exists()
+
+
+def installed_revision(root):
+    """Version plus a content hash of the installed modules and resources. Any edit changes it."""
+    digest = hashlib.sha256()
+    modules = Path(__file__).resolve().parent
+    files = sorted([*modules.glob('reframe*.py'), modules / 'kiro_workflow.py', modules / 'pilot.py'])
+    for name in RESOURCE_DIRS:
+        files += sorted(p for p in (Path(root) / name).rglob('*') if p.is_file())
+    for path in files:
+        if path.is_file():
+            digest.update(path.name.encode() + b'\0' + path.read_bytes() + b'\0')
+    try:
+        from importlib.metadata import version
+        release = version('reframe')
+    except Exception:
+        release = 'unknown'
+    return 'installed-' + release + '-' + digest.hexdigest()[:24]
+
+
 def git(root, *args):
-    """Run one git command in a checkout and return its output."""
+    """Run one git command in a checkout and return its output.
+
+    An installed framework has no Git checkout: its HEAD is the content-hash revision, and it is always clean
+    because any change to its files changes that revision.
+    """
+    if installed_framework(root) and args in {('rev-parse', 'HEAD'), ('status', '--porcelain')}:
+        return installed_revision(root) if args[0] == 'rev-parse' else ''
     result = subprocess.run(['git', '-C', str(root), *args], capture_output=True, text=True)
     require(result.returncode == 0, 'Source Git inspection failed: ' + result.stderr.strip())
     return result.stdout.strip()
@@ -113,7 +169,7 @@ def charge(task, state, role, command):
 def init(args):
     """Create a task manifest and state outside the source checkout."""
     workspace, source = Path(args.workspace).resolve(), Path(args.source).resolve()
-    framework = Path(__file__).resolve().parent.parent
+    framework = framework_root(__file__)
     require(workspace.is_dir() and source.is_dir(), 'Workspace and source directories must exist')
     require(not workspace.is_relative_to(source), 'Evidence workspace must be outside the source checkout')
     require(not workspace.is_relative_to(framework), 'Operational evidence must be outside the public framework checkout')

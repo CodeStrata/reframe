@@ -341,6 +341,32 @@ def _rules_panel(screen, rules, esc):
             + table + '</tbody></table></div>')
 
 
+def _decisions_panel(screen, questions, decisions, esc):
+    """Questions this screen depends on that are still open or deferred, shown on the screen itself.
+
+    A question belongs to a screen when the screen lists its id or they share a structured rule id.
+    """
+    rule_ids = set(screen.get('rule_ids') or [])
+    named = set(screen.get('question_ids') or [])
+    rows = []
+    for question in questions or []:
+        if not isinstance(question, dict) or not question.get('id'):
+            continue
+        if question['id'] not in named and not rule_ids & set(question.get('rule_ids') or []):
+            continue
+        decision = decisions.get(question['id']) if isinstance(decisions.get(question['id']), dict) else {}
+        state = decision.get('disposition') or 'open'
+        if state == 'resolved':
+            continue
+        rows.append('<tr><td>' + esc(question['id']) + '</td><td>' + esc(question.get('question', '')) + '</td><td>'
+                    + esc(state) + '</td><td>' + esc(question.get('blocks', '')) + '</td></tr>')
+    if not rows:
+        return ''
+    return ('<h2>Decisions still open for this screen</h2><p class="notice">A deferral is not an answer. '
+            'Work these decisions block stays blocked.</p><table class="decisions"><thead><tr><th>Question</th><th>Question text</th>'
+            '<th>State</th><th>Blocks</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table>')
+
+
 def _services(screen, apis):
     """Contracts the model attached to this screen."""
     wanted = set(screen.get('api_ids') or [])
@@ -478,8 +504,9 @@ def render_site(spec, screens, decisions, title='Modernization review', companio
                         + ('<h2>Where you can go</h2>' if buttons else '')
                         + ''.join(buttons) + ('<p class="stay">Stays on this screen: ' + ', '.join(stays) + '</p>' if stays else '')
                         + '<h2>Services this step uses</h2>' + (service_links or '<p class="stay">No service is linked to this screen.</p>')
-                        + _rules_panel(screen, rules, esc) + '<h2>What can happen</h2><ul>' + outcomes + '</ul><details><summary>Open questions</summary><p>'
-                        + esc(screen['uncertainties']) + '</p></details></article>')
+                        + _rules_panel(screen, rules, esc) + '<h2>What can happen</h2><ul>' + outcomes + '</ul>'
+                        + _decisions_panel(screen, spec.get('questions'), decisions or {}, esc)
+                        + '<h2>Uncertainties</h2><p>' + esc(screen['uncertainties']) + '</p></article>')
     return _page(esc(title), '<aside>' + ''.join(navigation) + '</aside><main>' + ''.join(articles) + '</main>')
 
 
