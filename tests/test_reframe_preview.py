@@ -43,6 +43,49 @@ class PreviewTests(unittest.TestCase):
             {'id':'Q1','question':'Confirm design','owner':'Architect','impact':'Unapproved design','blocks':'Implementation'}])
         return value
 
+    def test_skip_draft_cites_catalog_ids_and_never_names_the_assessment_file_as_source(self):
+        def citing(provider, run, directory, role, message):
+            value = self.runtime(provider, run, directory, role, message)
+            for section in value['sections'].values():
+                section['specification'] += ' Applies R1.'
+            return value
+
+        preview.run(self.work, self.project, self.arguments, app, citing)
+        bundle = self.work / 'previews' / 'transform-direct' / 'handoff'
+        rule = app.read(bundle / 'rules.json')[0]
+        self.assertIsNone(rule['source_path'], 'an AWS-assumed rule cites no source line')
+        self.assertEqual((rule['assessment_path'], rule['assessment_anchor']), ('rules.json', '/all_rules/0'))
+        self.assertNotIn('source_anchor', rule)
+        spec = app.read(bundle / 'specification.json')
+        text = json.dumps(spec['sections'])
+        self.assertIn('Applies ' + rule['id'] + '.', text)
+        self.assertNotRegex(text, r'(?<![\w-])R1(?![\w-])', 'the specification uses one id form: the catalog id')
+        self.assertEqual(spec['rule_citations'], {'replaced': {'R1': rule['id']}, 'ambiguous_aws_rule_ids': []})
+        reply = app.read(next((self.work / 'previews' / 'transform-direct').glob('design-reply-*.json')))
+        self.assertIn('Applies R1.', json.dumps(reply['sections']), 'the provider reply is kept as returned')
+        self.assertIn('no source line checked', (bundle / 'rules.html').read_text())
+
+    def test_catalog_citations_replace_only_unambiguous_ids_with_a_letter_and_a_digit(self):
+        rules = [{'id': 'AWS-a', 'aws_rule_id': 'BR-1'}, {'id': 'AWS-b', 'aws_rule_id': 'R2'}, {'id': 'AWS-c', 'aws_rule_id': 'R2'},
+                 {'id': 'AWS-d', 'aws_rule_id': '7'}]
+        sections = {'data': {'specification': 'BR-1, BR-10, R2 and 7 apply.', 'implementation_prompt': 'Use BR-1.'}}
+        cited, record = preview.catalog_citations(sections, rules)
+        self.assertEqual(cited['data']['specification'], 'AWS-a, BR-10, R2 and 7 apply.')
+        self.assertEqual(cited['data']['implementation_prompt'], 'Use AWS-a.')
+        self.assertEqual(preview.catalog_citations({'ui': {'specification': 'x', 'rule_ids': ['R2', 'BR-1', 'AWS-d']}}, rules)[0]['ui']['rule_ids'],
+                         ['R2', 'AWS-a', 'AWS-d'], 'a structured citation is mapped the same way')
+        self.assertEqual(record, {'replaced': {'BR-1': 'AWS-a'}, 'ambiguous_aws_rule_ids': ['R2']})
+        self.assertEqual(sections['data']['specification'], 'BR-1, BR-10, R2 and 7 apply.', 'the input is not changed')
+
+    def test_a_bundle_without_journeys_gets_a_journey_labeled_synthetic(self):
+        import reframe_optional as optional
+        screens = optional._screen_object([{'id': 's1', 'title': 'Amount', 'states': ['Ready']}], self.work)
+        journey = screens['journeys'][0]
+        self.assertTrue(journey['synthetic'])
+        self.assertNotEqual(journey['id'], 'recorded')
+        self.assertIn('synthetic', journey['name'])
+        self.assertEqual(journey['screen_ids'], ['s1'])
+
     def test_failed_preview_attempts_stay_bounded_and_a_valid_design_is_reused(self):
         self.project['settings']['max_model_dollars'] = 100
         calls = {'count': 0}
@@ -250,7 +293,8 @@ class PreviewTests(unittest.TestCase):
         run['assessment_index'].append({'path':path.name,'sha256':sha(path)})
         _,rules=preview.extract(directory,run,app)
         job=next(r for r in rules if r['program']=='JOB1')
-        self.assertEqual(job['source_anchor'],'/rules/0')
+        self.assertEqual((job['assessment_path'],job['assessment_anchor']),('job.json','/rules/0'))
+        self.assertIsNone(job['source_path'])
         self.assertEqual(job['evidence_status'],'AWS_ASSUMED')
 
     def test_export_refresh_reuses_verified_design_without_model_call(self):

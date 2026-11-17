@@ -358,6 +358,21 @@ class GuidedFlowTests(unittest.TestCase):
                          'the update names the person who recorded it')
         self.assertEqual(ui.invoke.call_args_list[1].args[0], ['assessment-report'])
 
+    def test_each_framework_update_asks_who_records_it(self):
+        stale = {'stage':'AWAITING_ASSESSMENT_APPROVAL','framework_commit':'old','approvals':{}}
+        ui = self.ui(stale, ['continue', 'Record the controller update'])
+        ui.reviewer_name = 'Reviewer'
+        scripted = ui.ask.side_effect
+        ui.ask.side_effect = lambda prompt, *a, **k: 'Pat' if prompt.startswith('Who records this Reframe update') \
+            else scripted(prompt, *a, **k)
+        ui.project.side_effect = [stale, stale]
+        ui.yes.return_value = False
+        with patch('reframe.git', return_value='new'):
+            run(ui)
+        self.assertEqual(self.routed(ui)[0], ['upgrade-framework', '--note', 'Record the controller update', '--by', 'Pat'],
+                         'the person recording this update is asked, not taken from the session')
+        self.assertTrue(any(call.args[0].startswith('Who records this Reframe update?') for call in ui.ask.call_args_list))
+
     def said(self, ui):
         lines = []
         ui.say.side_effect = lines.append

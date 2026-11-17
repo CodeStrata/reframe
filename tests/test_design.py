@@ -149,6 +149,17 @@ class PlanAndRegenerationTests(m1.WorkspaceFixture):
         self.assertEqual(result['stage'], 'VALIDATION_APPROVED')
         self.assertNotIn('APPROVED', result['status'])
 
+    def test_skip_route_design_feedback_names_only_what_the_run_keeps(self):
+        self.approved()
+        self.project.pop('specification')
+        self.project['verification_skip'] = {'by': 'Owner', 'reason': 'Fixture skip'}
+        self.project['skip_bundle'] = 'previews/skip-fixture'
+        result = app.feedback(self.work, self.project, argparse.Namespace(scope='design', by='Owner', note='Label the amount',
+                                                                          unit=None, authorize_correction=False))
+        self.assertEqual(result['stage'], 'ASSESSMENT_APPROVED')
+        self.assertEqual(result['kept'], ['assessment approval', 'skip decision', 'decisions'])
+        self.assertNotIn('specification', result['kept'], 'a skip-route run has no specification to keep')
+
     def test_a_changed_plan_regenerates_and_never_returns_the_stale_design(self):
         self.approved()
         design.capture(self.work, self.project, 'functional-parity', 'v1', 'java', '', '', [], 'Architect')

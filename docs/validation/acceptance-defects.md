@@ -112,7 +112,7 @@ The re-test was **PASS WITH DEFECTS** for offline (L2) acceptance: no blockers, 
 
 ## Test expectations changed by a fix
 
-No expectation was weakened. These four changed because the fix changed correct behavior:
+No expectation was weakened. These six changed because the fix changed correct behavior:
 
 | Test | Before | After | Fix |
 | --- | --- | --- | --- |
@@ -120,11 +120,24 @@ No expectation was weakened. These four changed because the fix changed correct 
 | `test_reframe_optional::test_malformed_context_and_unknown_enum_stay_local` | A credential-shaped note imported, refused at package export | Refused at import with nothing stored; package-time scans stay covered by `test_package_safeguards` and `test_reframe::test_package_refuses_secret_and_writes_no_zip` | R3-3 |
 | `test_guided_flow::test_each_approval_asks_who_approves_and_a_yes_is_not_a_name` | One "y" for the session name was refused at once | It is asked again; three refusals still stop | R3-5 |
 | `test_guided_flow::test_framework_update_is_recorded_before_approval` | `upgrade-framework --note …` | Adds `--by` with the session name | R5-2 |
+| `test_release_acceptance::test_skip_journey_preserves_the_bundle_and_rejects_a_changed_version` | The packaged rule's `source_path` appears in `rules.json` | `source_path` is empty; its `assessment_path` appears in `rules.json` | N9 (#200) |
+| `test_reframe_preview::test_jcl_rules_format_is_imported_with_its_original_pointer` | `source_anchor` is `/rules/0` | `assessment_path` and `assessment_anchor` carry the AWS record; `source_path` is empty | N9 (#200) |
 
-## Remaining defects (not fixed on the accepted candidate)
+## After the merge: R6-1 and N9 (#199, #200)
 
-| # | Severity | Defect |
-| --- | --- | --- |
-| R6-1 | minor | On the skip route, the "DESIGN FEEDBACK RECORDED" result says it kept "specification, validation approval, decisions"; a skip-route run has neither of the first two. The framework update is attributed to the session name without a per-update "who" prompt; the record is labeled and audited. |
-| N9 | minor | Skip-route traceability: specification sections cite `R1` while the catalog uses `AWS-…`; AWS-assumed findings carry `source_path: rules.json`; the synthetic Reimagine journey is named `recorded`. |
-| — | observation | After a design change, menu 1 asks the route (skip/pause) and the draft name again; the defaults are correct. `upgrade-framework` on a run waiting at assessment approval suggests `resume` as its next step. |
+Both minor defects left on the accepted candidate are fixed on `fix/skip-route-defects`. Each regression test fails on `d0e6e5b`, the `develop` merge of `05e219e`.
+
+| # | Defect | Fix | Regression test |
+| --- | --- | --- | --- |
+| R6-1 (#199) | On the skip route, the design feedback result said it kept "specification, validation approval, decisions"; a skip-route run has neither of the first two | A skip-route result lists the assessment approval, the skip decision, and decisions. The review route is unchanged. | `test_design::test_skip_route_design_feedback_names_only_what_the_run_keeps` |
+| R6-1 (#199) | A framework update was attributed to the session name without asking | Menu 1 asks who records each update, offers the session name, and passes the answer as `--by` | `test_guided_flow::test_each_framework_update_asks_who_records_it` |
+| N9 (#200) | Skip-route sections cited the AWS id `R1` while the catalog uses `AWS-…` | Section text and section `rule_ids` cite the catalog id when an AWS id names exactly one catalog rule and carries a letter and a digit. Ambiguous ids are listed in `specification.json` `rule_citations`, never guessed. The provider's reply is saved unchanged. | `test_reframe_preview::test_skip_draft_cites_catalog_ids_and_never_names_the_assessment_file_as_source`, `test_catalog_citations_replace_only_unambiguous_ids_with_a_letter_and_a_digit` |
+| N9 (#200) | AWS-assumed findings named the assessment file in `source_path` | They carry `assessment_path` and `assessment_anchor`, with `source_path` empty. Screen rule tables and `rules.html` say no source line was checked. | the first N9 test |
+| N9 (#200) | A bundle without journeys got a journey named `recorded` | It is `synthetic-all-screens`, named and flagged as synthetic | `test_reframe_preview::test_a_bundle_without_journeys_gets_a_journey_labeled_synthetic` |
+
+Drafts saved before this fix keep their files. A new draft or design version uses the new fields.
+
+## Remaining observations
+
+- After a design change, menu 1 asks for the route (skip/pause) and the draft name again; the defaults are correct.
+- `upgrade-framework` on a run waiting at assessment approval suggests `resume` as its next step.

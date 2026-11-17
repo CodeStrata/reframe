@@ -411,9 +411,11 @@ def _screen_object(raw, source):
     if not screens.get('journeys'):
         ids = [item.get('id') for item in screens.get('screens') or [] if isinstance(item, dict) and item.get('id')]
         if ids:
+            # The bundle recorded no journey. This one only groups its screens, and says so.
             screens['journeys'] = [{
-                'id': 'recorded', 'name': 'Recorded screens',
-                'summary': 'Screens saved in this bundle.', 'screen_ids': ids,
+                'id': 'synthetic-all-screens', 'name': 'All saved screens (synthetic, not a designed journey)',
+                'summary': 'Reframe grouped the screens saved in this bundle. The design recorded no journey.',
+                'screen_ids': ids, 'synthetic': True,
             }]
     from reframe_preview import normalize_design
     return normalize_design(screens)

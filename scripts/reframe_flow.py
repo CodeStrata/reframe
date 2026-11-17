@@ -15,7 +15,7 @@ def record_framework_update(ui, project):
         return True
     ui.say('Reframe was updated after this run was saved. Record that update before approval. The findings stay unchanged.')
     note = ui.ask('Note for this Reframe update')
-    if ui.invoke(['upgrade-framework', '--note', note, '--by', reviewer(ui)]) != 0:
+    if ui.invoke(['upgrade-framework', '--note', note, '--by', approver(ui, 'records this Reframe update')]) != 0:
         report = getattr(ui, 'last_report', None) or {}
         ui.say(str(report.get('hint') or report.get('reason') or 'The update was not recorded. /flow retries it before approval, skip, or review.'))
         return False
