@@ -333,7 +333,9 @@ def step(work, project, client, selected=None):
     _save(directory / 'job-status.json', snapshot)
     import kiro_workflow as kw
     detail = kw.nested_job(snapshot)
-    status = str(detail.get('status') or 'UNKNOWN').upper()
+    # The live job reports its status under statusDetails, as the assessment path already reads it.
+    details = detail.get('statusDetails') or {}
+    status = str(detail.get('status') or (details.get('status') if isinstance(details, dict) else details) or 'UNKNOWN').upper()
     steps = [item for item in (snapshot.get('plan') or {}).get('steps') or [] if isinstance(item, dict)]
     names = [str(item.get('stepName') or '') for item in steps]
     job['service_status'] = status

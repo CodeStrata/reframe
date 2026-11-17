@@ -193,6 +193,25 @@ class RequirementsTests(unittest.TestCase):
         self.assertEqual(create[0]['orchestratorAgent'], 'baseline-orchestrator')
         self.assertNotIn('agents', [arguments.get('resource') for name, arguments in client.calls_seen if name == 'list_resources'])
 
+    def test_the_job_status_is_read_from_status_details_as_aws_returns_it(self):
+        client = FakeTransform()
+        original = client.calls
+
+        def calls(requests):
+            results = original(requests)
+            for result in results:
+                job = result.get('job') if isinstance(result, dict) else None
+                if isinstance(job, dict) and 'status' in job:
+                    job['statusDetails'] = {'status': job.pop('status')}
+            return results
+        client.calls = calls
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Generate F1 for the pilot', client=client)
+        self.assertEqual(self.command('resume', client=client)['completion']['service_job_status'], 'IN_PROGRESS')
+        finished = self.command('resume', client=client)
+        self.assertEqual(finished['completion']['service_job_status'], 'SUCCEEDED')
+        self.assertTrue(finished['completion']['job_terminal'])
+
     def test_fixture_generation_selects_from_the_schema_and_preserves_originals(self):
         client = FakeTransform()
         discovered = self.discover(client)

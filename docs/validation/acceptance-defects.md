@@ -175,3 +175,7 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
   - `test_requirements::test_a_new_job_reuses_the_orchestrator_the_baseline_assessment_recorded` is new, and fails without the fix.
   - `test_fixture_generation_selects_from_the_schema_and_preserves_originals` now also asserts that the orchestrator is sent.
   - `FakeTransform` answers the orchestrator listing in the shape `select_orchestrator` already filters on.
+
+**Defect found on the same live job.** The live `get_job_status` reports the job status under `job.statusDetails.status` (for example `ASSESSING`). The requirements step read only `job.status`, so it reported `UNKNOWN` and could never see a job finish or fail.
+- **Fix:** the requirements step now reads `statusDetails` the same way the assessment path does (`kiro_workflow`).
+- **Test:** `test_requirements::test_the_job_status_is_read_from_status_details_as_aws_returns_it` fails without the fix.
