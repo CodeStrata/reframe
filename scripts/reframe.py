@@ -3454,8 +3454,12 @@ def semantic_compare(work, project, args, runtime=model_call):
 
 
 def transform_client(project, work):
-    """The Transform MCP client for this project's saved settings."""
-    return kw.Transform(project['settings']['transform'], Path(work))
+    """The Transform MCP client for this project's saved settings, signed in with the saved AWS profile and region."""
+    config = dict(project['settings']['transform'])
+    config['env'] = {**(config.get('env') or {}),
+                     **{variable: project['aws'][key] for key, variable in (('profile', 'AWS_PROFILE'), ('region', 'AWS_REGION'))
+                        if (project.get('aws') or {}).get(key)}}
+    return kw.Transform(config, Path(work))
 
 
 def requirements_command(work, project, args, client=None):

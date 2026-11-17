@@ -323,6 +323,13 @@ class ReimagineConnectorTests(unittest.TestCase):
                 self.discover(transform)
                 self.assertEqual(self.command('status').get('missing') or [], expected)
 
+    def test_the_transform_client_uses_the_saved_aws_profile_like_the_aws_cli_calls(self):
+        with patch.dict('os.environ', {'AWS_PROFILE': 'shell-profile'}):
+            client = app.transform_client(self.project, self.work)
+        self.assertEqual({key: client.config['env'][key] for key in ('AWS_PROFILE', 'AWS_REGION')},
+                         {'AWS_PROFILE': 'fixture-profile', 'AWS_REGION': 'us-east-1'})
+        self.assertNotIn('env', self.project['settings']['transform'])
+
 
 if __name__ == '__main__':
     unittest.main()

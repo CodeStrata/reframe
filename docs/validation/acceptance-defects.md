@@ -157,3 +157,9 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 - **AWS validation:** AWS's own validation error lists the valid properties for the type.
 - **Role:** the IAM policy the AWS console generated for an activated reimagine connector.
 - **Live plan run:** the read-only `requirements connector` run against the saved workspace's stack produced a configuration identical to both accepted console requests.
+
+**Defect found during the first live `--create` (2026-11-16).** The requirements commands (`discover`, `job`, `connector`) started the Transform MCP server without the project's saved AWS profile and region. The assessment runs and `reframe_projects._live_transform` already pass both.
+- **What happened:** the IAM role was created through `aws --profile <saved profile>`, while the connector request went to an MCP server that had no usable sign-in. The server refused the request locally with `NOT_CONFIGURED`, before calling AWS.
+- **Fix:** `transform_client` now passes `AWS_PROFILE` and `AWS_REGION` from `project['aws']`, overriding the shell. The saved settings are unchanged.
+- **Test:** `test_reimagine_connector::test_the_transform_client_uses_the_saved_aws_profile_like_the_aws_cli_calls` fails without the fix.
+- **Saved state:** the connector intent from that attempt stays on disk. Reframe still treats it as uncertain until AWS confirms that no connector was created.
