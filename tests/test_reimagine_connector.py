@@ -341,8 +341,9 @@ class ReimagineConnectorTests(unittest.TestCase):
         app.persist(self.work, self.project)
         with self.assertRaises(Blocked):
             self.connector('--create', client=FakeConnectors())
-        with self.assertRaises(Blocked):
-            self.connector('--replace', client=FakeConnectors())
+        preview, aws = self.connector('--replace')
+        self.assertEqual((preview['status'], preview['connector_name'], aws.mutations()),
+                         ('REIMAGINE_CONNECTOR_PLANNED', 'fixture-bucket-reimagine', []))
         client = FakeConnectors()
         replaced, aws = self.connector('--create', '--replace', client=client)
         self.assertEqual(replaced['status'], 'REIMAGINE_CONNECTOR_ACTIVE')

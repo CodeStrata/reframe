@@ -242,11 +242,10 @@ def connector(work, project, args, client):
     name = connector_name(project)
     named = recorded.get('connector_name') == name
     if getattr(args, 'replace', False):
-        require(args.create and recorded and not named,
-                'Nothing to replace: --replace needs --create and a recorded connector whose names differ from '
+        require(recorded and not named, 'Nothing to replace: no recorded connector is named other than '
                 + name + ' and ' + role_name(project))
     else:
-        require(not recorded or named,
+        require(not args.create or not recorded or named,
                 'The recorded reimagine connector does not follow the project names (' + name + ', '
                 + role_name(project) + '). Rerun with --replace to create that pair; the old one is kept, never deleted.')
         require(not recorded or recorded.get('stack') == plan['stack'],

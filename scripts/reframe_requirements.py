@@ -275,9 +275,9 @@ def stop_job(work, project, client, by, note):
         require('stop' in actions and set(schema.get('required') or []) <= {'workspaceId', 'jobId', 'action'},
                 'The Transform server does not list control_job with a stop action; nothing is guessed')
         _save(intent, {'by': by, 'note': note, 'at': time.time()})
-        response = client.calls([('control_job', {**identity, 'action': 'stop'})])[0]
+        response = client.calls([(ADAPTER_TOOLS['job_state'], identity), ('control_job', {**identity, 'action': 'stop'})])[-1]
         _save(receipt, response if isinstance(response, dict) else {'result': response})
-    snapshot = client.calls([(ADAPTER_TOOLS['job_status'], identity)])[-1]
+    snapshot = client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['job_status'], identity)])[-1]
     _save(directory / 'job-status.json', snapshot)
     import kiro_workflow as kw
     detail = kw.nested_job(snapshot)

@@ -309,6 +309,8 @@ class RequirementsTests(unittest.TestCase):
         stopped = self.command('stop', '--by', 'Owner', '--note', 'Replace with a project-named job', client=client)
         self.assertEqual((stopped['status'], stopped['service_status']), ('REQUIREMENTS_STOPPED', 'STOPPED'))
         self.assertEqual([arguments['action'] for name, arguments in client.calls_seen if name == 'control_job'], ['stop'])
+        names = [name for name, _ in client.calls_seen]
+        self.assertEqual(names[names.index('control_job') - 1], 'load_instructions')
         with self.assertRaises(Blocked):
             self.command('stop', '--by', 'Owner', '--note', 'Again', client=client)
         self.assertEqual(self.command('resume', '--plan', 'Assess and reimagine', '--by', 'Owner', client=client)['status'],
