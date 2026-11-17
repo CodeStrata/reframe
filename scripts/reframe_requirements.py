@@ -396,9 +396,9 @@ def step(work, project, client, selected=None, plan=None, reply=None, by=None, a
     if steps and job['evidence_level'] == 'live':
         _observe(record, 'service_plan', {'plan_steps': names}, False)
         _save(root(work) / 'capability.json', record)
-    if not steps and _answer_chat(work, record, client, job, identity, snapshot, plan, reply, by):
-        _save(job_path(work, label), job)
-        return job
+    # Each poll works the waiting state out afresh, so a question answered elsewhere does not stay open here.
+    job.update(state='GENERATING', reason=None)
+    job.pop('question', None)
     container = snapshot.get('tasks') or {}
     tasks = container.get('hitlTasks', []) if isinstance(container, dict) else container if isinstance(container, list) else []
     waiting = [task for task in tasks if isinstance(task, dict) and task.get('status') in
@@ -423,8 +423,10 @@ def step(work, project, client, selected=None, plan=None, reply=None, by=None, a
         job['state'] = 'STEPS_COMPLETE'
         _save(job_path(work, label), job)
         return retrieve(work, project, client, job)
-    elif job['state'] not in {'WAITING_FOR_HUMAN'}:
-        job['state'] = 'GENERATING'
+    elif job['state'] != 'WAITING_FOR_HUMAN' and not any(
+            str(item.get('status')).upper() in {'IN_PROGRESS', 'RUNNING'} for item in steps):
+        # Nothing runs and no task waits: AWS may be asking in chat, e.g. "Proceed with this plan?".
+        _answer_chat(work, record, client, job, identity, snapshot, plan, reply, by)
     _save(job_path(work, label), job)
     return job
 
@@ -444,7 +446,7 @@ def _open_question(snapshot):
     text = str(latest.get('text') or '').strip()
     answered = any(m.get('messageOrigin') != 'SYSTEM' and str(m.get('createdAt', '')) > str(latest.get('createdAt', ''))
                    for m in messages)
-    # A FINAL_RESPONSE ends AWS's turn; with no plan yet it waits for an answer, unless it says to wait.
+    # A FINAL_RESPONSE ends AWS's turn; while nothing runs it waits for an answer, unless it says to wait.
     if answered or not text or 'please wait' in text.casefold():
         return None
     options = [(number, label.strip()) for number, label in PLAN_OPTION.findall(text)]

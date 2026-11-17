@@ -73,6 +73,7 @@ class FakeTransform:
         self.connector_status = 'ACTIVE'
         self.questions = []
         self.stopped = None
+        self.plan_before_questions = False
         self.replies = []
         self.task = task if task is not None else {
             'taskId': 'T1', 'status': 'AWAITING_HUMAN_INPUT', 'title': 'Select business functions to reimagine',
@@ -119,7 +120,9 @@ class FakeTransform:
                     if number < len(self.replies):
                         chat.append({'messageId': 'u-' + str(number), 'messageOrigin': 'USER', 'createdAt': '2026-11-17 02:2' + str(number) + '5',
                                      'text': self.replies[number]})
-                results.append({'job': {'jobId': 'job-req-1', 'statusDetails': {'status': 'EXECUTING'}}, 'plan': {'steps': []},
+                steps = ([{'stepName': step, 'status': 'NOT_STARTED'} for step in self.plan_steps]
+                         if self.plan_before_questions else [])
+                results.append({'job': {'jobId': 'job-req-1', 'statusDetails': {'status': 'EXECUTING'}}, 'plan': {'steps': steps},
                                 'tasks': {'hitlTasks': []}, 'messages': {'messages': chat}})
             elif name == 'get_job_status':
                 status = 'SUCCEEDED' if self.selected else 'IN_PROGRESS'
@@ -304,6 +307,21 @@ class RequirementsTests(unittest.TestCase):
         self.assertIn('English only', waiting['reason'])
         self.command('resume', '--reply', 'English only', '--by', 'Owner', client=client)
         self.assertEqual(client.replies, ['English only'])
+
+    def test_a_question_after_the_plan_exists_waits_and_is_answered_once(self):
+        client = FakeTransform()
+        client.plan_before_questions = True
+        client.questions = ['Perfect! Your plan has been generated. Review the plan in the job panel.\n\nProceed with this plan?']
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Generate F1 for the pilot', client=client)
+        waiting = self.command('resume', client=client)
+        self.assertEqual(waiting['status'], 'REQUIREMENTS_WAITING_FOR_HUMAN')
+        self.assertIn('Proceed with this plan?', waiting['reason'])
+        self.command('resume', '--reply', 'Yes, proceed with this plan.', '--by', 'Delegate', client=client)
+        self.assertEqual(client.replies, ['Yes, proceed with this plan.'])
+        self.command('resume', client=client)
+        self.assertEqual(self.command('resume', client=client)['status'], 'REQUIREMENTS_RETRIEVED')
+        self.assertEqual(client.replies, ['Yes, proceed with this plan.'])
 
     def test_a_new_job_is_named_like_the_assessment_runs(self):
         client = FakeTransform()

@@ -233,3 +233,7 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 - **Tests:**
   - `test_an_other_aws_task_is_answered_once_only_with_content_that_fits_its_schema`;
   - `test_the_source_location_form_gets_this_jobs_recorded_source`.
+
+**AWS asks after the plan exists.** Once the plan was generated, AWS asked "Proceed with this plan?" and started no step until it was answered. Reframe only read chat before a plan existed, and a waiting state could outlive a question answered elsewhere.
+- **Fix:** each poll works the state out afresh. When no task waits and no step runs, an unanswered AWS chat turn stops the job for an answer.
+- **Test:** `test_requirements::test_a_question_after_the_plan_exists_waits_and_is_answered_once`.
