@@ -79,9 +79,9 @@ class WireframeContextTests(unittest.TestCase):
              patch.object(app, 'pipeline', side_effect=AssertionError('checkpoint')):
             code = app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _result: None)
         self.assertEqual(code, 0)
-        self.assertEqual(calls, ['wireframes'])
+        self.assertEqual(calls, ['wireframes', 'wireframes'], 'the design plan call, then one detail call')
         saved = app.read(inner.work / 'project.json')
-        self.assertEqual(saved['ui_calls'], 1)
+        self.assertEqual(saved['ui_calls'], 2)
         self.assertEqual(saved['stage'], 'AWAITING_SPECIFICATIONS_APPROVAL')
         self.assertEqual(saved['pipeline']['calls'], inner.project['pipeline']['calls'])
 
@@ -192,8 +192,8 @@ class WireframeContextTests(unittest.TestCase):
         self.assertEqual(code, 2)
         reserved = app.read(inner.work / 'project.json')
         self.assertEqual(reserved['ui_calls'], 1)
-        self.assertEqual(reserved['wireframe_plan']['stages'][0]['status'], 'reserved')
-        self.assertFalse(reserved['wireframe_plan']['stages'][0]['provider_invoked'])
+        self.assertEqual(reserved['wireframe_plan']['planner']['status'], 'reserved')
+        self.assertFalse(reserved['wireframe_plan']['planner']['provider_invoked'])
         self.assertEqual(reserved['settings']['model_dollars_spent'], spent)
         released = []
         code = app.main(['--workspace', str(inner.work), 'recover-ui-call', '--confirm',
@@ -201,8 +201,8 @@ class WireframeContextTests(unittest.TestCase):
         self.assertEqual(code, 0, released[-1] if released else '')
         recovered = app.read(inner.work / 'project.json')
         self.assertEqual(recovered['ui_calls'], 0)
-        self.assertEqual(recovered['wireframe_plan']['stages'][0]['status'], 'pending')
-        self.assertNotIn('call', recovered['wireframe_plan']['stages'][0])
+        self.assertEqual(recovered['wireframe_plan']['planner']['status'], 'pending')
+        self.assertNotIn('call', recovered['wireframe_plan']['planner'])
         self.assertEqual(recovered['settings']['model_dollars_spent'], spent)
         self.assertEqual(recovered['events'][0]['event'], 'older')
         self.assertEqual(recovered['events'][-1]['event'], 'wireframe_counter_recovered')
@@ -223,10 +223,10 @@ class WireframeContextTests(unittest.TestCase):
                 app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _result: None)
             failed = app.read(inner.work / 'project.json')
             self.assertEqual(failed['ui_calls'], 1)
-            self.assertEqual(failed['wireframe_plan']['stages'][0]['status'], 'failed')
-            self.assertTrue(failed['wireframe_plan']['stages'][0]['provider_invoked'])
+            self.assertEqual(failed['wireframe_plan']['planner']['status'], 'failed')
+            self.assertTrue(failed['wireframe_plan']['planner']['provider_invoked'])
             self.assertFalse((inner.work / 'previews' / 'business-1' / 'screens.json').exists())
-            self.assertTrue((inner.work / 'previews' / 'wireframe-stages' / 'stage-0-failure.json').is_file())
+            self.assertTrue((inner.work / 'previews' / 'wireframe-stages' / 'stage-planner-failure.json').is_file())
             spent = failed['settings']['model_dollars_spent']
             held = []
             code = app.main(['--workspace', str(inner.work), 'recover-ui-call', '--confirm',
@@ -257,9 +257,9 @@ class WireframeContextTests(unittest.TestCase):
             self.assertEqual(code, 2)
             saved = app.read(other.work / 'project.json')
             self.assertEqual(saved['ui_calls'], 1)
-            self.assertEqual(saved['wireframe_plan']['stages'][0]['status'], 'invalid')
+            self.assertEqual(saved['wireframe_plan']['planner']['status'], 'invalid')
             self.assertFalse((other.work / 'previews' / 'business-1' / 'screens.json').exists())
-            self.assertTrue((other.work / 'previews' / 'wireframe-stages' / 'stage-0.json').is_file())
+            self.assertTrue((other.work / 'previews' / 'wireframe-stages' / 'stage-planner.json').is_file())
             code = app.main(['--workspace', str(other.work), 'resume'], reporter=lambda _result: None)
         self.assertEqual(code, 2)
         self.assertEqual(calls['count'], 2)
@@ -293,16 +293,16 @@ class WireframeContextTests(unittest.TestCase):
                                    '--note', 'The provider outage is over'], reporter=authorized.append), 0)
         saved = app.read(inner.work / 'project.json')
         self.assertEqual(saved['ui_calls'], 1, 'the failed call stays counted')
-        stage = saved['wireframe_plan']['stages'][0]
+        stage = saved['wireframe_plan']['planner']
         self.assertEqual(stage['status'], 'pending')
         self.assertEqual(stage['attempt_history'][0]['status'], 'failed')
         self.assertTrue(all((inner.work / path).is_file() for path in stage['attempt_history'][0]['receipts']))
-        self.assertFalse((inner.work / 'previews' / 'wireframe-stages' / 'stage-0-failure.json').exists())
+        self.assertFalse((inner.work / 'previews' / 'wireframe-stages' / 'stage-planner-failure.json').exists())
         with patch.object(app, 'model_call', side_effect=lambda *a: inner.screens()), \
              patch.object(app, 'assessment', side_effect=AssertionError('assessment')):
             self.assertEqual(app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _r: None), 0)
         done = app.read(inner.work / 'project.json')
-        self.assertEqual(done['ui_calls'], 2, 'the new attempt is a second counted call')
+        self.assertEqual(done['ui_calls'], 3, 'the new plan attempt and the detail call are counted after the failed one')
         self.assertEqual(done['stage'], 'AWAITING_SPECIFICATIONS_APPROVAL')
 
     def test_only_an_unspent_undispatched_reservation_is_released(self):
@@ -311,11 +311,11 @@ class WireframeContextTests(unittest.TestCase):
              patch.object(app, 'model_call', side_effect=AssertionError('provider')):
             app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _result: None)
         reserved = app.read(inner.work / 'project.json')
-        self.assertEqual(reserved['wireframe_plan']['stages'][0]['status'], 'reserved')
+        self.assertEqual(reserved['wireframe_plan']['planner']['status'], 'reserved')
         for change in ({'status': 'dispatched'}, {'provider_invoked': True},
                        {'spent_before': reserved['settings']['model_dollars_spent'] + 1}):
             tampered = json.loads(json.dumps(reserved))
-            tampered['wireframe_plan']['stages'][0].update(change)
+            tampered['wireframe_plan']['planner'].update(change)
             app.write(inner.work / 'project.json', tampered)
             results = []
             code = app.main(['--workspace', str(inner.work), 'recover-ui-call', '--confirm', '--note', 'Release it'],
@@ -355,19 +355,19 @@ class WireframeContextTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _result: None)
         interrupted = app.read(inner.work / 'project.json')
-        self.assertEqual(interrupted['ui_calls'], 1)
+        self.assertEqual(interrupted['ui_calls'], 2, 'the design plan call and the detail call')
         self.assertEqual(interrupted['wireframe_plan']['stages'][0]['status'], 'received')
         self.assertTrue((inner.work / 'previews' / 'wireframe-stages' / 'stage-0.json').is_file())
-        self.assertFalse((inner.work / 'previews' / 'business-1' / 'screens.json').exists())
+        self.assertFalse((inner.work / 'previews' / 'business-2' / 'screens.json').exists())
         with patch.object(app, 'model_call', side_effect=provider), \
              patch.object(app, 'assessment', side_effect=AssertionError('assessment')):
             code = app.main(['--workspace', str(inner.work), 'resume'], reporter=lambda _result: None)
         self.assertEqual(code, 0)
-        self.assertEqual(calls['count'], 1)
+        self.assertEqual(calls['count'], 2, 'resume made no new call')
         resumed = app.read(inner.work / 'project.json')
-        self.assertEqual(resumed['ui_calls'], 1)
+        self.assertEqual(resumed['ui_calls'], 2)
         self.assertEqual(resumed['wireframe_plan']['stages'][0]['status'], 'validated')
-        self.assertTrue((inner.work / 'previews' / 'business-1' / 'screens.json').is_file())
+        self.assertTrue((inner.work / 'previews' / 'business-2' / 'screens.json').is_file())
 
     def test_ambiguous_legacy_counter_is_not_recovered(self):
         inner = self.approved_project()
@@ -390,10 +390,164 @@ class WireframeContextTests(unittest.TestCase):
             code = app.main(['--workspace', str(inner.work), 'review-site'], reporter=reports.append)
         self.assertEqual(code, 0)
         continued = app.read(inner.work / 'project.json')
-        self.assertEqual(continued['ui_calls'], 2)
+        self.assertEqual(continued['ui_calls'], 3, 'the legacy count stays; the plan call and one detail call follow')
         self.assertFalse(any((inner.work / 'previews' / 'business-1').iterdir()))
-        self.assertTrue((inner.work / 'previews' / 'business-2' / 'screens.json').is_file())
-        self.assertEqual(continued['settings']['model_dollars_spent'], 1.27)
+        self.assertTrue((inner.work / 'previews' / 'business-3' / 'screens.json').is_file())
+        self.assertEqual(round(continued['settings']['model_dollars_spent'], 2), 1.29)
+
+    def two_stage_project(self):
+        inner = self.approved_project()
+        spec = app.read(inner.work / inner.project['specification']['path'])
+        protocol = (app.FRAMEWORK / 'prompts/pipeline/wireframes.md').read_text()
+        import reframe_design
+        whole = app.wireframe_stages(spec, inner.project['decisions'], 600000, protocol)
+        whole[0]['catalog'] = app.wireframe_catalog(spec, inner.project['decisions'])
+        size = len(json.dumps({**app.wireframe_message(spec, whole[0], 1, protocol),
+                               **reframe_design.message_view(inner.work, inner.project)}).encode())
+        inner.project['settings']['max_context_bytes'] = size + size // 16
+        app.persist(inner.work, inner.project)
+        return inner
+
+    PLAN = {'journeys': [{'id': 'amount', 'title': 'Amount', 'stage': 1, 'screen_ids': ['s1']},
+                         {'id': 'audit', 'title': 'Audit', 'stage': 2, 'screen_ids': ['s2']}],
+            'screens': [{'id': 's1', 'title': 'Amount', 'stage': 1, 'rule_ids': ['R1'], 'api_ids': ['validate-amount'],
+                         'actions': [{'label': 'Continue', 'screen_id': 's2'}]},
+                        {'id': 's2', 'title': 'Audit', 'stage': 2, 'rule_ids': ['R1']}],
+            'apis': [{'id': 'validate-amount', 'title': 'Validate', 'stage': 1, 'rule_ids': ['R1']}],
+            'shared_components': [], 'gaps': [{'id': 'g1', 'question_id': 'Q1', 'note': 'Amount owner undecided'}]}
+
+    def test_the_plan_is_saved_and_hashed_and_the_first_detail_request_carries_it(self):
+        inner = self.two_stage_project()
+        sent = []
+
+        def provider(_provider, _run, _directory, _role, message):
+            request = json.loads(message)
+            sent.append(request)
+            if request['stage'].get('planner'):
+                return json.loads(json.dumps(self.PLAN))
+            raise RuntimeError('stop before any detail reply exists')
+
+        with patch.object(app, 'model_call', side_effect=provider), \
+             patch.object(app, 'assessment', side_effect=AssertionError('assessment')):
+            with self.assertRaises(RuntimeError):
+                app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _result: None)
+        saved = app.read(inner.work / 'project.json')
+        import reframe_design
+        inventory = app.read(inner.work / saved['design_inventory']['path'])
+        self.assertEqual([request['stage'].get('planner') for request in sent], [True, None], 'the plan call came first')
+        self.assertEqual(inventory['planned_sha256'], reframe_design._digest(inventory['planned']))
+        self.assertEqual(inventory['owners'], {'journeys': {'amount': 1, 'audit': 2}, 'screens': {'s1': 1, 's2': 2},
+                                               'apis': {'validate-amount': 1}})
+        self.assertEqual(inventory['planner']['call'], 1)
+        self.assertTrue((inner.work / inventory['planner']['receipt']).is_file())
+        self.assertEqual({link['id'] for link in next(item for item in inventory['planned']['screens'] if item['id'] == 's1')['depends_on']},
+                         {'validate-amount', 's2'})
+        self.assertEqual(inventory['planned']['gaps'], [{'id': 'g1', 'question_id': 'Q1', 'note': 'Amount owner undecided'}])
+        self.assertTrue(len(inventory['stage_assignments']) >= 2)
+        first = sent[1]
+        self.assertEqual(first['stage']['index'], 1)
+        self.assertEqual({(item['kind'], item['id']) for item in first['define']},
+                         {('journeys', 'amount'), ('screens', 's1'), ('apis', 'validate-amount')})
+        self.assertEqual({(item['kind'], item['id'], item['owner_stage']) for item in first['owned']},
+                         {('journeys', 'audit', 2), ('screens', 's2', 2)})
+        self.assertFalse((inner.work / 'previews' / 'wireframe-stages' / 'stage-0.json').exists(), 'no detail reply exists yet')
+
+    def test_a_detail_stage_that_adds_an_unplanned_id_stops_for_a_new_design_version(self):
+        inner = self.two_stage_project()
+
+        def provider(_provider, _run, _directory, _role, message):
+            request = json.loads(message)
+            if request['stage'].get('planner'):
+                return json.loads(json.dumps(self.PLAN))
+            model = inner.screens()
+            model['screens'].append({'id': 'surprise', 'title': 'Unplanned', 'purpose': 'Not in the plan', 'rule_ids': ['R1'],
+                                     'fields': ['x'], 'actions': ['Close'], 'states': ['Shown'], 'api_ids': [],
+                                     'uncertainties': 'Unproven'})
+            return model
+
+        reports = []
+        with patch.object(app, 'model_call', side_effect=provider), \
+             patch.object(app, 'assessment', side_effect=AssertionError('assessment')):
+            code = app.main(['--workspace', str(inner.work), 'review-site'], reporter=reports.append)
+        self.assertEqual(code, 2)
+        self.assertEqual(reports[-1]['cause'], 'HUMAN_DECISION_REQUIRED')
+        self.assertIn('unplanned screens surprise', reports[-1]['reason'])
+        self.assertIn('design-plan --revise', reports[-1]['hint'])
+        saved = app.read(inner.work / 'project.json')
+        self.assertEqual(saved['ui_calls'], 2, 'the plan call and the detail call stay counted')
+        self.assertTrue((inner.work / 'previews' / 'wireframe-stages' / 'stage-0.json').is_file(), 'the reply is kept')
+        self.assertNotIn('site', saved)
+        with patch.object(app, 'model_call', side_effect=AssertionError('provider')), \
+             patch.object(app, 'assessment', side_effect=AssertionError('assessment')):
+            self.assertEqual(app.main(['--workspace', str(inner.work), 'review-site'], reporter=reports.append), 2)
+        self.assertIn('unplanned screens surprise', reports[-1]['reason'], 'resume does not merge it or call again')
+        self.assertEqual(app.main(['--workspace', str(inner.work), 'design-plan', '--mode', 'functional-parity',
+                                   '--version', 'v2', '--by', 'Owner', '--revise'], reporter=reports.append), 0)
+        revised = app.read(inner.work / 'project.json')
+        self.assertTrue(revised['design_history'][-1]['stage_receipts'], 'the earlier receipts are kept')
+        self.assertNotIn('wireframe_plan', revised)
+        sent = []
+
+        def planned_only(_provider, _run, _directory, _role, message):
+            request = json.loads(message)
+            sent.append(request['stage'].get('planner'))
+            if request['stage'].get('planner'):
+                return json.loads(json.dumps(self.PLAN))
+            model = inner.screens()
+            model['screens'][0]['actions'] = [{'label': 'Continue', 'screen_id': 's2'}]
+            if request['stage']['index'] == 2:
+                return {'journeys': [{'id': 'audit', 'name': 'Audit', 'summary': 'Read the audit.', 'screen_ids': ['s2']}],
+                        'screens': [{'id': 's2', 'title': 'Audit', 'purpose': 'Show the audit', 'rule_ids': ['R1'],
+                                     'fields': ['Result'], 'actions': ['Close'], 'states': ['Shown'], 'api_ids': [],
+                                     'uncertainties': 'Unproven'}], 'apis': []}
+            return model
+
+        with patch.object(app, 'model_call', side_effect=planned_only), \
+             patch.object(app, 'assessment', side_effect=AssertionError('assessment')):
+            self.assertEqual(app.main(['--workspace', str(inner.work), 'review-site'], reporter=reports.append), 0, reports[-1])
+        self.assertTrue(sent[0], 'the new design version is planned again before its detail calls')
+
+    def test_an_invalid_plan_stays_counted_and_can_be_retried(self):
+        inner = self.two_stage_project()
+
+        def provider(_provider, _run, _directory, _role, message):
+            plan = json.loads(json.dumps(self.PLAN))
+            plan['screens'][0]['requirement_ids'] = ['aws-req:fake:UNKNOWN-999']
+            return plan
+
+        reports = []
+        with patch.object(app, 'model_call', side_effect=provider), \
+             patch.object(app, 'assessment', side_effect=AssertionError('assessment')):
+            self.assertEqual(app.main(['--workspace', str(inner.work), 'review-site'], reporter=reports.append), 2)
+        self.assertIn('unknown requirement aws-req:fake:UNKNOWN-999', reports[-1]['reason'])
+        saved = app.read(inner.work / 'project.json')
+        self.assertEqual((saved['ui_calls'], saved['wireframe_plan']['planner']['status']), (1, 'invalid'))
+        self.assertTrue(all(stage['status'] == 'pending' for stage in saved['wireframe_plan']['stages']), 'no detail call was made')
+        self.assertNotIn('planned', app.read(inner.work / saved['design_inventory']['path']))
+        self.assertEqual(app.main(['--workspace', str(inner.work), 'retry-wireframes', '--by', 'Architect',
+                                   '--note', 'Plan again without the unknown requirement'], reporter=reports.append), 0)
+        self.assertEqual(app.read(inner.work / 'project.json')['wireframe_plan']['planner']['status'], 'pending')
+
+    def test_a_changed_saved_plan_is_refused(self):
+        inner = self.two_stage_project()
+
+        def provider(_provider, _run, _directory, _role, message):
+            if json.loads(message)['stage'].get('planner'):
+                return json.loads(json.dumps(self.PLAN))
+            raise RuntimeError('stop after the plan')
+
+        with patch.object(app, 'model_call', side_effect=provider), \
+             patch.object(app, 'assessment', side_effect=AssertionError('assessment')):
+            with self.assertRaises(RuntimeError):
+                app.main(['--workspace', str(inner.work), 'review-site'], reporter=lambda _result: None)
+        saved = app.read(inner.work / 'project.json')
+        path = inner.work / saved['design_inventory']['path']
+        inventory = app.read(path)
+        inventory['planned']['screens'][0]['owner_stage'] = 2
+        app.write(path, inventory)
+        import reframe_design
+        with self.assertRaisesRegex(app.Blocked, 'planned design inventory changed'):
+            reframe_design.verified_plan(inner.work, saved)
 
     def test_staged_generation_keeps_cross_references_and_rejects_conflicting_ids(self):
         inner = self.approved_project()
@@ -405,13 +559,26 @@ class WireframeContextTests(unittest.TestCase):
         import reframe_design
         request = {**app.wireframe_message(spec, whole[0], 1, protocol), **reframe_design.message_view(inner.work, inner.project)}
         size = len(json.dumps(request).encode())
-        inner.project['settings']['max_context_bytes'] = size - 1
+        # Packing keeps an eighth of a small budget for the planned id lists, so this budget still forces two stages.
+        inner.project['settings']['max_context_bytes'] = size + size // 16
         app.persist(inner.work, inner.project)
+        self.assertGreater(len(app.wireframe_stages(spec, inner.project['decisions'], size + size // 16, protocol,
+                                                    reframe_design.message_view(inner.work, inner.project))), 1)
         calls = {'count': 0}
 
         def provider(_provider, _run, _directory, _role, message):
             calls['count'] += 1
             index = json.loads(message)['stage']['index']
+            if index == 0:
+                return {'journeys': [{'id': 'amount', 'title': 'Amount', 'stage': 1, 'screen_ids': ['s1']},
+                                     {'id': 'audit', 'title': 'Audit', 'stage': 2, 'screen_ids': ['s2']}],
+                        'screens': [{'id': 's1', 'title': 'Amount', 'stage': 1, 'rule_ids': ['R1'],
+                                     'api_ids': ['validate-amount', 'audit-amount'],
+                                     'actions': [{'label': 'Continue', 'screen_id': 's2'}]},
+                                    {'id': 's2', 'title': 'Audit', 'stage': 2, 'rule_ids': ['R1'], 'api_ids': ['audit-amount']}],
+                        'apis': [{'id': 'validate-amount', 'title': 'Validate', 'stage': 1, 'rule_ids': ['R1']},
+                                 {'id': 'audit-amount', 'title': 'Audit', 'stage': 2, 'rule_ids': ['R1']}],
+                        'shared_components': [{'kind': 'apis', 'id': 'audit-amount', 'used_by': ['amount', 'audit']}]}
             if index == 1:
                 model = inner.screens()
                 model['screens'][0]['actions'] = [{'label': 'Continue', 'screen_id': 's2'}]

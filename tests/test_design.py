@@ -152,10 +152,12 @@ class PlanAndRegenerationTests(m1.WorkspaceFixture):
 
         def runtime(provider, run, directory, role, request):
             screens = fixtures.PreparationTests.screens(None)
-            rule = json.loads(request)['specification']['rules'][0]['id']
+            message = json.loads(request)
+            rule = message['specification']['rules'][0]['id']
+            # The plan is valid; the detail stage then cites an unknown rule.
             for kind in ('screens', 'apis'):
                 for item in screens[kind]:
-                    item['rule_ids'] = ['R999'] if kind in kinds else [rule]
+                    item['rule_ids'] = ['R999'] if kind in kinds and not message['stage'].get('planner') else [rule]
             return screens
 
         with self.assertRaisesRegex(Blocked, message):
@@ -171,7 +173,8 @@ class PlanAndRegenerationTests(m1.WorkspaceFixture):
 
         def runtime(provider, run, directory, role, request):
             screens = self.wireframes([])(provider, run, directory, role, request)
-            screens['screens'][0]['requirement_ids'] = ['aws-req:fake:UNKNOWN-999']
+            if not json.loads(request)['stage'].get('planner'):
+                screens['screens'][0]['requirement_ids'] = ['aws-req:fake:UNKNOWN-999']
             return screens
 
         with self.assertRaisesRegex(Blocked, 'Unknown requirement reference: aws-req:fake:UNKNOWN-999'):
@@ -216,7 +219,9 @@ class PlanAndRegenerationTests(m1.WorkspaceFixture):
         self.assertEqual(self.project['design_history'][-1]['site']['directory'], first_site)
         self.assertTrue(self.project['design_history'][-1]['stage_receipts'])
         app.review_site(self.work, self.project, argparse.Namespace(provider='claude'), self.wireframes(calls))
-        self.assertEqual(len(calls), 2, 'the new plan made a new provider call instead of reading the old receipt')
+        detail = [call for call in calls if not call['stage'].get('planner')]
+        self.assertEqual(len(detail), 2, 'the new plan made a new provider call instead of reading the old receipt')
+        self.assertEqual(len(calls) - len(detail), 2, 'each design version is planned once')
         self.assertEqual(calls[-1]['design_plan']['target']['language'], 'cobol')
         self.assertNotEqual(self.project['site']['directory'], first_site)
 
