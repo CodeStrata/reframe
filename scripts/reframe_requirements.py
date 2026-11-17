@@ -175,6 +175,12 @@ def discover(work, project, client, by, note):
                     .get('status')} for item in connectors if isinstance(item, dict)]
         # Only the observed reimagine type counts, and only once AWS has activated it.
         from reframe_reimagine import CONNECTOR_TYPE
+        for item in summary:
+            # The live listing carries no status; AWS reports it only on the connector record (read-only).
+            if item.get('type') == CONNECTOR_TYPE and item.get('status') is None and item.get('id'):
+                detail = client.calls([('get_resource', {'resource': 'connector', 'workspaceId': workspace,
+                                                         'connectorId': item['id']})])[0]
+                item['status'] = ((detail.get('accountConnection') or {}).get('awsAccountConnection') or {}).get('status')
         reimagine = [item for item in summary if item.get('type') == CONNECTOR_TYPE and item.get('status') == 'ACTIVE']
         observed = {'resource_kind': connector_kind, 'connectors': summary, 'reimagine_connectors': reimagine}
         if reimagine:

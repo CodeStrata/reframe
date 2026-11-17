@@ -163,3 +163,8 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 - **Fix:** `transform_client` now passes `AWS_PROFILE` and `AWS_REGION` from `project['aws']`, overriding the shell. The saved settings are unchanged.
 - **Test:** `test_reimagine_connector::test_the_transform_client_uses_the_saved_aws_profile_like_the_aws_cli_calls` fails without the fix.
 - **Saved state:** the connector intent from that attempt stays on disk. Reframe still treats it as uncertain until AWS confirms that no connector was created.
+
+**Defect found on the first live discovery after creation (2026-11-17).** The live `list_resources` connector listing returns only `connectorId`, `connectorName` and `connectorType`, under `items`. It carries no status, so discovery never counted an active reimagine connector.
+- **Fix:** for each listed connector of the reimagine type with no status, discovery now reads that connector with `get_resource`, which is read-only, and takes the status from `accountConnection.awsAccountConnection.status`.
+- **Test expectation changed by this change.** `test_requirements.FakeTransform` had returned the listing with a `status` field and under `connectors`. It now returns the live shape, and serves the connector record from `get_resource`.
+- **Verified:** with the live-shaped fake, 10 tests fail on the code before this fix.

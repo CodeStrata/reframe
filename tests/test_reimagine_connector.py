@@ -310,15 +310,7 @@ class ReimagineConnectorTests(unittest.TestCase):
                                                  ('NEPTUNE_REIMAGINE', 'ACTIVE', ['connector'])):
             with self.subTest(connector_type=connector_type, status=status):
                 transform = base.FakeTransform(connector=connector_type)
-                original = transform.calls
-
-                def calls(requests, original=original, status=status):
-                    results = original(requests)
-                    for result in results:
-                        for item in result.get('connectors') or []:
-                            item['status'] = status
-                    return results
-                transform.calls = calls
+                transform.connector_status = status
                 (self.work / 'requirements' / 'capability.json').unlink(missing_ok=True)
                 self.discover(transform)
                 self.assertEqual(self.command('status').get('missing') or [], expected)

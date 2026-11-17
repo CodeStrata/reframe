@@ -58,6 +58,7 @@ class FakeTransform:
         self.calls_seen = []
         self.plan_steps = list(plan_steps)
         self.connector = connector
+        self.connector_status = 'ACTIVE'
         self.task = task if task is not None else {
             'taskId': 'T1', 'status': 'AWAITING_HUMAN_INPUT', 'title': 'Select business functions to reimagine',
             '_outputSchema': {'type': 'object', 'properties': {'functions': {'type': 'array', 'items': {'enum': ['F1', 'F2']}}}}}
@@ -77,7 +78,11 @@ class FakeTransform:
                     raise Blocked('AWS MCP transport failed; inspect the private mcp-error.json and reconcile uncertain creation')
                 results.append({'job': {'jobId': 'job-req-1'}})
             elif name == 'list_resources' and arguments.get('resource') == 'connectors':
-                results.append({'connectors': [{'connectorId': 'c1', 'connectorType': self.connector, 'status': 'ACTIVE'}]})
+                # The live listing shape: no status on the items.
+                results.append({'items': [{'connectorId': 'c1', 'connectorName': 'fixture', 'connectorType': self.connector}]})
+            elif name == 'get_resource' and arguments.get('resource') == 'connector':
+                results.append({'connectorId': arguments['connectorId'], 'connectorType': self.connector,
+                                'accountConnection': {'awsAccountConnection': {'status': self.connector_status}}})
             elif name == 'get_job_status':
                 status = 'SUCCEEDED' if self.selected else 'IN_PROGRESS'
                 steps = [{'stepName': step, 'status': ('SUCCEEDED' if self.selected or step != 'Generate requirements' else 'PENDING')}
