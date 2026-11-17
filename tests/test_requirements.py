@@ -88,6 +88,8 @@ class FakeTransform:
         results = []
         for name, arguments in requests:
             self.calls_seen.append((name, arguments))
+            if name == 'get_job_status' and arguments.get('detailed') is not True:
+                raise AssertionError('get_job_status without detailed=True sends a chat message to the job')
             if name == 'create_job':
                 if self.fail_create:
                     raise Blocked('AWS MCP transport failed; inspect the private mcp-error.json and reconcile uncertain creation')

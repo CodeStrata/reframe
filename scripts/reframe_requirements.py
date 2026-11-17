@@ -277,7 +277,9 @@ def stop_job(work, project, client, by, note):
         _save(intent, {'by': by, 'note': note, 'at': time.time()})
         response = client.calls([(ADAPTER_TOOLS['job_state'], identity), ('control_job', {**identity, 'action': 'stop'})])[-1]
         _save(receipt, response if isinstance(response, dict) else {'result': response})
-    snapshot = client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['job_status'], identity)])[-1]
+    # Only the detailed form is a read: without it the server sends a chat message that restarts the job's agent.
+    snapshot = client.calls([(ADAPTER_TOOLS['job_state'], identity),
+                             (ADAPTER_TOOLS['job_status'], {**identity, 'detailed': True})])[-1]
     _save(directory / 'job-status.json', snapshot)
     import kiro_workflow as kw
     detail = kw.nested_job(snapshot)

@@ -214,3 +214,8 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 - **Defect:** the old connector had already been moved to `requirements_connector_history` before the new one existed.
 - **Fix:** the old record moves to history only once the new connector exists. `test_a_connector_named_otherwise_is_replaced_only_on_request_and_kept_on_record` now covers a refused creation.
 - **What renaming needs:** the old connector must be removed first. Reframe never deletes, and the Transform MCP tools offer no connector delete, so the owner removes it in the AWS Transform console.
+
+**Live stop (2026-11-17): a status read that was not a read.** `requirements stop` sent `control_job` stop once, and AWS stopped `requirements-2`. Its follow-up `get_job_status` omitted `detailed: true`. Without that flag, the Transform MCP server does not just read: it posts "What is the current status and what are the next steps needed from the user?" into the job chat. AWS restarted the job's agent to answer it.
+- **Effect:** the job stayed `STOPPED`, with no plan, steps or tasks, but the question and the agent's answer remain in the job's chat history.
+- **Fix:** the stop path now passes `detailed: true`, as every other Reframe status call already does.
+- **Guard:** `test_requirements.FakeTransform` now fails any `get_job_status` call without `detailed: true`, so every requirements test checks this.
