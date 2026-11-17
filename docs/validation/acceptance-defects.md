@@ -241,3 +241,7 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 **Function selection happens in chat while a parent step shows in progress.** After the catalog review, AWS's job status was `AWAITING_HUMAN_INPUT`, with "Please select the business function(s) to Re-Imagine before continuing." in chat and no task form. The parent step "Discover business functions" still showed `IN_PROGRESS`, so Reframe did not read the chat.
 - **Fix:** AWS's own `AWAITING_HUMAN_INPUT` job status now overrides the running-step check.
 - **Test:** `test_requirements::test_aws_awaiting_input_is_read_from_chat_even_while_a_parent_step_shows_in_progress`.
+
+**Selecting business functions in chat while the review form is open.** AWS's review form ("Review business functions discovery results") gives no schema for the selection. AWS's documentation says the chat prompts for the selection.
+- **Change:** when the open form is not one Reframe can answer and a person gives `--reply`, the reply now goes to AWS's open chat question, once.
+- **Test:** `test_requirements::test_a_chat_reply_is_sent_while_an_unrecognized_form_is_open`.

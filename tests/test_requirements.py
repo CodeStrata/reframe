@@ -75,6 +75,7 @@ class FakeTransform:
         self.stopped = None
         self.plan_before_questions = False
         self.running_while_asking = False
+        self.form_while_asking = None
         self.replies = []
         self.task = task if task is not None else {
             'taskId': 'T1', 'status': 'AWAITING_HUMAN_INPUT', 'title': 'Select business functions to reimagine',
@@ -125,7 +126,8 @@ class FakeTransform:
                           for step in self.plan_steps] if self.plan_before_questions else [])
                 waiting = 'AWAITING_HUMAN_INPUT' if self.running_while_asking else 'EXECUTING'
                 results.append({'job': {'jobId': 'job-req-1', 'statusDetails': {'status': waiting}}, 'plan': {'steps': steps},
-                                'tasks': {'hitlTasks': []}, 'messages': {'messages': chat}})
+                                'tasks': {'hitlTasks': [self.form_while_asking] if self.form_while_asking else []},
+                                'messages': {'messages': chat}})
             elif name == 'get_job_status':
                 status = 'SUCCEEDED' if self.selected else 'IN_PROGRESS'
                 steps = [{'stepName': step, 'status': ('SUCCEEDED' if self.selected or step != 'Generate requirements' else 'PENDING')}
@@ -134,7 +136,8 @@ class FakeTransform:
                 results.append({'job': {'jobId': 'job-req-1', 'status': status}, 'plan': {'steps': steps},
                                 'tasks': {'hitlTasks': tasks}})
             elif name == 'get_resource' and arguments.get('resource') == 'task':
-                results.append({'task': self.task})
+                results.append({'task': self.form_while_asking if self.form_while_asking and len(self.replies) < len(self.questions)
+                                else self.task})
             elif name == 'complete_task':
                 self.selected = json.loads(arguments['content'])
                 results.append({'status': 'ACCEPTED'})
@@ -334,6 +337,21 @@ class RequirementsTests(unittest.TestCase):
         waiting = self.command('resume', client=client)
         self.assertEqual(waiting['status'], 'REQUIREMENTS_WAITING_FOR_HUMAN')
         self.assertIn('select the business function', waiting['reason'])
+
+    def test_a_chat_reply_is_sent_while_an_unrecognized_form_is_open(self):
+        client = FakeTransform()
+        client.plan_before_questions = client.running_while_asking = True
+        client.form_while_asking = {'taskId': 'R2', 'status': 'AWAITING_HUMAN_INPUT', 'title': 'Review business functions discovery results',
+                                    'uxComponentId': 'MainframeAssessmentBusinessProcessDiscoveryComponent'}
+        client.questions = ['Please select the business function(s) to Re-Imagine before continuing.']
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Generate F1 for the pilot', client=client)
+        waiting = self.command('resume', client=client)
+        self.assertEqual(waiting['open_task']['title'], 'Review business functions discovery results')
+        self.assertEqual(client.replies, [])
+        sent = self.command('resume', '--reply', 'Reimagine F1.', '--by', 'Owner', client=client)
+        self.assertEqual((sent['status'], client.replies), ('REQUIREMENTS_PLAN_PENDING', ['Reimagine F1.']))
+        self.assertFalse(any(name == 'complete_task' for name, _ in client.calls_seen))
 
     def test_a_new_job_is_named_like_the_assessment_runs(self):
         client = FakeTransform()

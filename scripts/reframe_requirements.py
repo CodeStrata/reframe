@@ -411,6 +411,9 @@ def step(work, project, client, selected=None, plan=None, reply=None, by=None, a
         if _answer_selection(work, project, client, job, task, identity, selected):
             continue
         if not _answer_task(work, record, client, job, task, identity, answer, by):
+            # AWS may take the answer in chat instead of the form (e.g. the business-function selection).
+            if reply and job['state'] == 'WAITING_FOR_HUMAN':
+                _answer_chat(work, record, client, job, identity, snapshot, plan, reply, by)
             _save(job_path(work, label), job)
             return job
     generate = next((item for item in steps if str(item.get('stepName')).casefold() == GENERATE_STEP), None)
