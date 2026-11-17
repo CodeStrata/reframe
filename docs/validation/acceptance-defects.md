@@ -179,3 +179,10 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 **Defect found on the same live job.** The live `get_job_status` reports the job status under `job.statusDetails.status` (for example `ASSESSING`). The requirements step read only `job.status`, so it reported `UNKNOWN` and could never see a job finish or fail.
 - **Fix:** the requirements step now reads `statusDetails` the same way the assessment path does (`kiro_workflow`).
 - **Test:** `test_requirements::test_the_job_status_is_read_from_status_details_as_aws_returns_it` fails without the fix.
+
+**Plan menu on the live requirements job (2026-11-17).** The live job started with AWS asking in chat which plan to run: "Assess and reimagine", "Reimagine", or a custom plan. The requirements adapter had no way to answer, and reported the job as generating.
+- **What it does now:** it stops with `WAITING_FOR_HUMAN` and lists AWS's options. `requirements resume --plan NAME --by NAME` sends one listed option, once, as AWS numbered and worded it. The request is saved before sending and the result after, and the choice is recorded with the person.
+- **Tests:**
+  - `test_requirements::test_a_plan_menu_waits_for_a_named_choice_and_is_answered_once_with_the_listed_option`;
+  - `test_requirements::test_an_uncertain_plan_reply_is_never_sent_again`.
+- **Fixture change:** the synthetic `send_message` schema gained `skipPolling`, which the live schema lists.

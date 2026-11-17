@@ -35,12 +35,22 @@ PAY-002:
   rules: [R9]
 """
 
+PLAN_MENU = """To begin, tell me what you want to do. Write an objective or select an option:
+
+1. Assess and reimagine: Identify boundaries and business functions, then generate requirements.
+
+2. Reimagine: Generate requirements for an already scoped application.
+
+3. See list of all capabilities to create a custom job plan
+
+How would you like to proceed?"""
+
 SCHEMAS = {  # Synthetic fixture schemas. They are not copied from AWS.
     'create_job': {'type': 'object', 'required': ['workspaceId', 'jobName', 'objective'],
                    'properties': {'workspaceId': {}, 'jobName': {}, 'objective': {}, 'intent': {}, 'orchestratorAgent': {}}},
     'load_instructions': {'type': 'object', 'properties': {'workspaceId': {}, 'jobId': {}}},
     'get_job_status': {'type': 'object', 'properties': {'workspaceId': {}, 'jobId': {}, 'detailed': {}}},
-    'send_message': {'type': 'object', 'properties': {'workspaceId': {}, 'jobId': {}, 'text': {}}},
+    'send_message': {'type': 'object', 'properties': {'workspaceId': {}, 'jobId': {}, 'text': {}, 'skipPolling': {}}},
     'complete_task': {'type': 'object', 'properties': {'workspaceId': {}, 'jobId': {}, 'taskId': {}, 'content': {}, 'action': {}}},
     'list_resources': {'type': 'object', 'properties': {'workspaceId': {}, 'jobId': {}, 'resource': {'enum': ['artifacts', 'connectors']},
                                                          'pathPrefix': {}}},
@@ -59,6 +69,8 @@ class FakeTransform:
         self.plan_steps = list(plan_steps)
         self.connector = connector
         self.connector_status = 'ACTIVE'
+        self.menu = None
+        self.plan_reply = None
         self.task = task if task is not None else {
             'taskId': 'T1', 'status': 'AWAITING_HUMAN_INPUT', 'title': 'Select business functions to reimagine',
             '_outputSchema': {'type': 'object', 'properties': {'functions': {'type': 'array', 'items': {'enum': ['F1', 'F2']}}}}}
@@ -86,6 +98,14 @@ class FakeTransform:
             elif name == 'get_resource' and arguments.get('resource') == 'connector':
                 results.append({'connectorId': arguments['connectorId'], 'connectorType': self.connector,
                                 'accountConnection': {'awsAccountConnection': {'status': self.connector_status}}})
+            elif name == 'send_message':
+                self.plan_reply = arguments['text']
+                results.append({'messageId': 'm-reply'})
+            elif name == 'get_job_status' and self.menu and not self.plan_reply:
+                results.append({'job': {'jobId': 'job-req-1', 'statusDetails': {'status': 'EXECUTING'}}, 'plan': {'steps': []},
+                                'tasks': {'hitlTasks': []}, 'messages': {'messages': [
+                                    {'messageId': 'm-menu', 'messageOrigin': 'SYSTEM', 'createdAt': '2026-11-17 02:20:43',
+                                     'processingInfo': {'messageType': 'FINAL_RESPONSE'}, 'text': self.menu}]}})
             elif name == 'get_job_status':
                 status = 'SUCCEEDED' if self.selected else 'IN_PROGRESS'
                 steps = [{'stepName': step, 'status': ('SUCCEEDED' if self.selected or step != 'Generate requirements' else 'PENDING')}
@@ -211,6 +231,40 @@ class RequirementsTests(unittest.TestCase):
         finished = self.command('resume', client=client)
         self.assertEqual(finished['completion']['service_job_status'], 'SUCCEEDED')
         self.assertTrue(finished['completion']['job_terminal'])
+
+    def test_a_plan_menu_waits_for_a_named_choice_and_is_answered_once_with_the_listed_option(self):
+        client = FakeTransform()
+        client.menu = PLAN_MENU
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Generate F1 for the pilot', client=client)
+        waiting = self.command('resume', client=client)
+        self.assertEqual(waiting['status'], 'REQUIREMENTS_WAITING_FOR_HUMAN')
+        self.assertIn('Assess and reimagine, Reimagine, See list of all capabilities to create a custom job plan', waiting['reason'])
+        with self.assertRaises(Blocked):
+            self.command('resume', '--plan', 'Assess only', '--by', 'Owner', client=client)
+        with self.assertRaises(Blocked):
+            self.command('resume', '--plan', 'Assess and reimagine', client=client)
+        self.assertNotIn('send_message', [name for name, _ in client.calls_seen])
+        sent = self.command('resume', '--plan', 'assess and reimagine', '--by', 'Owner', client=client)
+        self.assertEqual(sent['status'], 'REQUIREMENTS_PLAN_PENDING')
+        self.assertEqual(client.plan_reply, '1. Assess and reimagine')
+        job = app.read(self.work / 'requirements' / 'jobs' / 'requirements-1' / 'job.json')
+        self.assertEqual((job['plan_choice']['option'], job['plan_choice']['by']), ('Assess and reimagine', 'Owner'))
+        self.command('resume', '--plan', 'Reimagine', '--by', 'Owner', client=client)
+        finished = self.command('resume', client=client)
+        self.assertEqual(finished['status'], 'REQUIREMENTS_RETRIEVED')
+        self.assertEqual([name for name, _ in client.calls_seen].count('send_message'), 1)
+
+    def test_an_uncertain_plan_reply_is_never_sent_again(self):
+        client = FakeTransform()
+        client.menu = PLAN_MENU
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Generate F1 for the pilot', client=client)
+        self.command('resume', client=client)
+        app.write(self.work / 'requirements' / 'jobs' / 'requirements-1' / 'plan-intent.json', {'reply_to': 'm-menu'})
+        result = self.command('resume', '--plan', 'Assess and reimagine', '--by', 'Owner', client=client)
+        self.assertEqual(result['status'], 'REQUIREMENTS_NEEDS_RECONCILIATION')
+        self.assertNotIn('send_message', [name for name, _ in client.calls_seen])
 
     def test_fixture_generation_selects_from_the_schema_and_preserves_originals(self):
         client = FakeTransform()

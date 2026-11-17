@@ -3524,7 +3524,8 @@ def requirements_command(work, project, args, client=None):
         return {'status': 'REQUIREMENTS_JOB_AUTHORIZED', 'label': job['label'], 'evidence_level': job['evidence_level'],
                 'next_step': 'reframe --workspace ' + str(work) + ' requirements resume'}
     selected = [item.strip() for item in (args.select or '').split(',') if item.strip()]
-    job = requirements.step(work, project, client or transform_client(project, work), selected or None)
+    job = requirements.step(work, project, client or transform_client(project, work), selected or None,
+                            plan=args.plan, by=args.by)
     if job.get('state') == 'RETRIEVED':
         import reframe_versions
         reframe_versions.record(work, project, 'requirements retrieved')
@@ -3697,6 +3698,8 @@ def parser():
     authorize.add_argument('--note', required=True)
     advance = requirement_commands.add_parser('resume', help='Advance the authorized requirements job by one step')
     advance.add_argument('--select', default='')
+    advance.add_argument('--plan', help="Answer AWS's plan menu with one option it lists, exactly as named")
+    advance.add_argument('--by', help='Who chose the plan (required with --plan)')
     imported = requirement_commands.add_parser('import', help='Import externally generated requirements, labeled imported')
     imported.add_argument('--requirements', required=True)
     imported.add_argument('--traceability')

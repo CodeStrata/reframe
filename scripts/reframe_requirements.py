@@ -275,7 +275,7 @@ def _check_schema(record, tool, arguments):
     require(not set(arguments) - allowed, 'Unrecognized arguments for ' + tool + '; nothing is guessed')
 
 
-def step(work, project, client, selected=None):
+def step(work, project, client, selected=None, plan=None, by=None):
     """Advance the active requirements job by one saved step. A finished job is not rerun."""
     label = (project.get('requirements') or {}).get('active_job')
     require(label, 'No requirements job is authorized')
@@ -348,6 +348,9 @@ def step(work, project, client, selected=None):
     if steps and job['evidence_level'] == 'live':
         _observe(record, 'service_plan', {'plan_steps': names}, False)
         _save(root(work) / 'capability.json', record)
+    if not steps and _answer_plan(work, record, client, job, identity, snapshot, plan, by):
+        _save(job_path(work, label), job)
+        return job
     container = snapshot.get('tasks') or {}
     tasks = container.get('hitlTasks', []) if isinstance(container, dict) else container if isinstance(container, list) else []
     waiting = [task for task in tasks if isinstance(task, dict) and task.get('status') in
@@ -374,6 +377,62 @@ def step(work, project, client, selected=None):
         job['state'] = 'GENERATING'
     _save(job_path(work, label), job)
     return job
+
+
+PLAN_OPTION = re.compile(r'^\s*(\d+)\.\s+([^:\n]+?)\s*(?::|$)', re.M)
+
+
+def _plan_menu(snapshot):
+    """AWS's latest chat message when it is a numbered plan menu no one has answered: (message, options) or None."""
+    messages = [m for m in ((snapshot.get('messages') or {}).get('messages') or []) if isinstance(m, dict)]
+    system = [m for m in messages if m.get('messageOrigin') == 'SYSTEM'
+              and (m.get('processingInfo') or {}).get('messageType') == 'FINAL_RESPONSE']
+    if not system:
+        return None
+    latest = max(system, key=lambda m: str(m.get('createdAt', '')))
+    options = [(number, label.strip()) for number, label in PLAN_OPTION.findall(str(latest.get('text') or ''))]
+    answered = any(m.get('messageOrigin') != 'SYSTEM' and str(m.get('createdAt', '')) > str(latest.get('createdAt', ''))
+                   for m in messages)
+    return (latest, options) if len(options) >= 2 and not answered else None
+
+
+def _answer_plan(work, record, client, job, identity, snapshot, plan, by):
+    """Answer AWS's plan menu once, only with an option it lists, chosen by a named person. True when this step ends here."""
+    menu = _plan_menu(snapshot)
+    if not menu:
+        return False
+    message, options = menu
+    labels = [label for _, label in options]
+    directory = job_path(work, job['label']).parent
+    intent, receipt = directory / 'plan-intent.json', directory / 'plan-receipt.json'
+    if receipt.is_file():
+        if json.loads(receipt.read_text()).get('reply_to') == message.get('messageId'):
+            return False
+        job.update(state='WAITING_FOR_HUMAN', plan_options=labels,
+                   reason='AWS asks for a plan again; Reframe sends one plan reply per job. Options: ' + ', '.join(labels))
+        return True
+    if intent.is_file():
+        job.update(state='NEEDS_RECONCILIATION', reason='The plan reply outcome is uncertain. Check the job chat; '
+                                                        'Reframe never sends it again.')
+        return True
+    if not plan:
+        job.update(state='WAITING_FOR_HUMAN', plan_options=labels,
+                   reason='AWS asks which plan to run. Choose one with requirements resume --plan NAME --by NAME: '
+                          + ', '.join(labels))
+        return True
+    require(str(by or '').strip(), 'A plan choice needs a named person: add --by')
+    chosen = next(((number, label) for number, label in options if label.casefold() == plan.strip().casefold()), None)
+    require(chosen, 'AWS does not offer that plan. Options: ' + ', '.join(labels))
+    require(message.get('messageId'), 'The plan menu has no message identity; inspect the job chat privately')
+    arguments = {**identity, 'text': chosen[0] + '. ' + chosen[1], 'skipPolling': True}
+    _check_schema(record, ADAPTER_TOOLS['send_message'], arguments)
+    _save(intent, {'reply_to': message['messageId'], 'text': arguments['text'], 'by': by, 'at': time.time()})
+    response = client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['send_message'], arguments)])[-1]
+    _save(receipt, {'reply_to': message['messageId'], 'text': arguments['text'], 'response': response})
+    job['plan_choice'] = {'option': chosen[1], 'by': by, 'at': time.time(), **actor_provenance()}
+    job['events'].append({'event': 'plan_chosen', 'at': time.time(), 'option': chosen[1], 'by': by})
+    job.update(state='PLAN_PENDING', reason='Plan "' + chosen[1] + '" sent; resume to follow the job.')
+    return True
 
 
 def _selection_options(task):

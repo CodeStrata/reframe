@@ -159,6 +159,15 @@ reframe --workspace "$W" accept-package --sha256 PACKAGE_SHA256 --by NAME --note
 
 `discover` counts a connector only when it has this exact type and AWS reports it `ACTIVE`. A requirements job answers its connector-selection task with this connector, and only when the task's own schema asks for a connector id and type. `requirements authorize-job` and `requirements resume` drive one AWS requirements job for selected business functions, only after that capability is verified. A requirements step is never marked complete from an import, a mock, or a capability blocker.
 
+**When AWS asks which plan to run.** A new requirements job often starts with AWS's agent asking, in the job chat, which plan to run, as a numbered menu. Reframe never chooses one. `requirements resume` stops as `WAITING_FOR_HUMAN` and lists AWS's options. A person then answers once:
+
+```bash
+reframe --workspace "$W" requirements resume --plan "Assess and reimagine" --by NAME
+```
+
+- **The choice must match one of AWS's listed options.** Reframe sends it as AWS numbered and worded it, records who chose it, and sends one plan reply per job.
+- **If the reply's outcome is uncertain,** the job stops as `NEEDS_RECONCILIATION` and nothing is resent.
+
 `design-plan --revise` starts a new design version when design work exists. The earlier site and its stage receipts are kept, and the next `review-site` makes a new provider call instead of reusing a stale design. When two stages define a shared screen, journey, or API differently, `review-site` stops and names every conflict. `reconcile-design` records which stage's definition stands; the other is kept as superseded. Nothing is renamed.
 
 `package` writes the archive and the status `AWAITING_PACKAGE_ACCEPTANCE`. `package-review` shows the file list with hashes, the approvals it rests on, the gaps, and the implementation blockers. `accept-package` needs the exact SHA-256 shown, a name, and a rationale, and it refuses while a conflict that affects the package is open. On the skip route a second person first records `approve verification-skip`. Acceptance is appended to `acceptance/ledger.jsonl`, outside the archive, and it is not deployment approval.
