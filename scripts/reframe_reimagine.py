@@ -263,11 +263,9 @@ def connector(work, project, args, client):
                 'creates': ([] if args.role_arn else ['IAM role ' + role_name(project)])
                            + ['Transform connector ' + name + ' (' + CONNECTOR_TYPE + ')'],
                 'next_step': 'Add --create to create and activate it. No AWS resource was created.'}
-    if getattr(args, 'replace', False):
-        # The old pair stays in AWS and in this history; Reframe deletes nothing.
-        project.setdefault('requirements_connector_history', []).append(
-            {**recorded, 'replaced_at': time.time(), 'replaced_by': args.by, 'replace_note': args.note})
-        recorded = {'source': recorded.get('source') if recorded.get('bucket') == plan['bucket'] else None}
+    replacing = recorded if getattr(args, 'replace', False) else None
+    if replacing:
+        recorded = {'source': replacing.get('source') if replacing.get('bucket') == plan['bucket'] else None}
     role_arn, role_created = _role(work, project, plan, args)
     if args.attach_connector:
         connector_id = args.attach_connector
@@ -283,6 +281,10 @@ def connector(work, project, args, client):
              'connector_type': CONNECTOR_TYPE, 'stack': plan['stack'], 'bucket': plan['bucket'], 'role_arn': role_arn, 'role_created_by_reframe': role_created, 'by': args.by, 'note': args.note,
              'at': recorded.get('at') or time.time(), 'status': recorded.get('status') or 'CREATED',
              'source': recorded.get('source')}
+    if replacing:
+        # Only now that the new connector exists: the old pair stays in AWS and in this history; nothing is deleted.
+        project.setdefault('requirements_connector_history', []).append(
+            {**replacing, 'replaced_at': time.time(), 'replaced_by': args.by, 'replace_note': args.note})
     project['requirements_connector'] = entry
     record, active = _readiness(client, workspace, connector_id, plan, role_arn)
     if not active:

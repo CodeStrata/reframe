@@ -209,3 +209,8 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
   - `test_reimagine_connector::test_a_connector_named_otherwise_is_replaced_only_on_request_and_kept_on_record`;
   - `test_requirements::test_stop_ends_the_job_once_and_resume_does_not_continue_it`.
 - **Fixture changes:** the connector tests no longer pass `--name`. `FakeConnectors` returns the connector name. `FakeTransform` lists `control_job` and answers it.
+
+**Live replace (2026-11-17): AWS allows one reimagine connector per workspace.** `create_connector` for `N-reimagine` returned HTTP 400: the workspace had exceeded the quota for connectors of this type (1). The project-named role `N-rmg` was created. The connector was not.
+- **Defect:** the old connector had already been moved to `requirements_connector_history` before the new one existed.
+- **Fix:** the old record moves to history only once the new connector exists. `test_a_connector_named_otherwise_is_replaced_only_on_request_and_kept_on_record` now covers a refused creation.
+- **What renaming needs:** the old connector must be removed first. Reframe never deletes, and the Transform MCP tools offer no connector delete, so the owner removes it in the AWS Transform console.

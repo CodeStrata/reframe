@@ -70,8 +70,9 @@ class FakeAws:
 class FakeConnectors:
     """Transform fixture: creates one connector, echoes its record, and activates it on accept."""
 
-    def __init__(self, reported_type=None, activates=True):
+    def __init__(self, reported_type=None, activates=True, refuse=None):
         self.seen = []
+        self.refuse = refuse
         self.created = None
         self.role = None
         self.reported_type = reported_type
@@ -81,6 +82,8 @@ class FakeConnectors:
         results = []
         for name, arguments in requests:
             self.seen.append((name, arguments))
+            if name == 'create_connector' and self.refuse:
+                raise Blocked(self.refuse)
             if name == 'create_connector':
                 self.created = arguments
                 results.append({'connectorId': 'fixture-reimagine', 'verificationLink': 'https://example.invalid/verify'})
@@ -344,10 +347,14 @@ class ReimagineConnectorTests(unittest.TestCase):
         preview, aws = self.connector('--replace')
         self.assertEqual((preview['status'], preview['connector_name'], aws.mutations()),
                          ('REIMAGINE_CONNECTOR_PLANNED', 'fixture-bucket-reimagine', []))
+        with self.assertRaises(Blocked):
+            self.connector('--create', '--replace', client=FakeConnectors(refuse='quota of 1 connector for this type'))
+        self.assertEqual((self.project['requirements_connector'], self.project.get('requirements_connector_history')), (old, None))
+        (reimagine.folder(self.work) / 'connector-fixture-bucket-reimagine-intent.json').unlink()
         client = FakeConnectors()
         replaced, aws = self.connector('--create', '--replace', client=client)
         self.assertEqual(replaced['status'], 'REIMAGINE_CONNECTOR_ACTIVE')
-        self.assertEqual(aws.mutations(), [('iam', 'create-role'), ('iam', 'put-role-policy')])
+        self.assertEqual(aws.mutations(), [])
         self.assertEqual(client.names().count('create_connector'), 1)
         self.assertEqual(self.project['requirements_connector']['connector_name'], 'fixture-bucket-reimagine')
         history = self.project['requirements_connector_history']
