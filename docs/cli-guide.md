@@ -159,14 +159,17 @@ reframe --workspace "$W" accept-package --sha256 PACKAGE_SHA256 --by NAME --note
 
 `discover` counts a connector only when it has this exact type and AWS reports it `ACTIVE`. A requirements job answers its connector-selection task with this connector, and only when the task's own schema asks for a connector id and type. `requirements authorize-job` and `requirements resume` drive one AWS requirements job for selected business functions, only after that capability is verified. A requirements step is never marked complete from an import, a mock, or a capability blocker.
 
-**When AWS asks which plan to run.** A new requirements job often starts with AWS's agent asking, in the job chat, which plan to run, as a numbered menu. Reframe never chooses one. `requirements resume` stops as `WAITING_FOR_HUMAN` and lists AWS's options. A person then answers once:
+**When AWS asks a question in the job chat.** A new requirements job starts with AWS's agent asking questions in the job chat. First comes a numbered plan menu, then, for example, "Does this objective match your goals?". There is no plan until they are answered. Reframe never answers for you. `requirements resume` stops as `WAITING_FOR_HUMAN` and shows the question. A person answers it once:
 
 ```bash
 reframe --workspace "$W" requirements resume --plan "Assess and reimagine" --by NAME
+reframe --workspace "$W" requirements resume --reply "Yes, proceed." --by NAME
 ```
 
-- **The choice must match one of AWS's listed options.** Reframe sends it as AWS numbered and worded it, records who chose it, and sends one plan reply per job.
-- **If the reply's outcome is uncertain,** the job stops as `NEEDS_RECONCILIATION` and nothing is resent.
+- **`--plan`** answers a numbered menu. It must match one of AWS's listed options, and Reframe sends it as AWS numbered and worded it.
+- **`--reply`** answers any other question with the person's own words.
+- **Each AWS question is answered at most once.** Every answer is recorded with who gave it. If an answer's outcome is uncertain, the job stops as `NEEDS_RECONCILIATION` and nothing is resent.
+- **Job names:** every requirements job gets a `RUN-` plus 16-hex-character identity, as assessment runs do, and that is its AWS job name.
 
 `design-plan --revise` starts a new design version when design work exists. The earlier site and its stage receipts are kept, and the next `review-site` makes a new provider call instead of reusing a stale design. When two stages define a shared screen, journey, or API differently, `review-site` stops and names every conflict. `reconcile-design` records which stage's definition stands; the other is kept as superseded. Nothing is renamed.
 

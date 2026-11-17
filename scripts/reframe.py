@@ -3521,17 +3521,20 @@ def requirements_command(work, project, args, client=None):
         functions = [item.strip() for item in args.functions.split(',') if item.strip()]
         job = requirements.authorize_job(work, project, functions, args.by, args.note)
         persist(work, project)
-        return {'status': 'REQUIREMENTS_JOB_AUTHORIZED', 'label': job['label'], 'evidence_level': job['evidence_level'],
+        return {'status': 'REQUIREMENTS_JOB_AUTHORIZED', 'label': job['label'], 'run_id': job['run_id'],
+                'evidence_level': job['evidence_level'],
                 'next_step': 'reframe --workspace ' + str(work) + ' requirements resume'}
+    if args.reply:
+        reject_instructional_placeholder(args.reply, 'Reply to AWS')
     selected = [item.strip() for item in (args.select or '').split(',') if item.strip()]
     job = requirements.step(work, project, client or transform_client(project, work), selected or None,
-                            plan=args.plan, by=args.by)
+                            plan=args.plan, reply=args.reply, by=args.by)
     if job.get('state') == 'RETRIEVED':
         import reframe_versions
         reframe_versions.record(work, project, 'requirements retrieved')
     persist(work, project)
-    return {'status': 'REQUIREMENTS_' + job['state'], 'job': job['label'], 'job_id': job.get('job_id'),
-            'completion': job.get('completion'), 'catalog': job.get('catalog'), 'reason': job.get('reason'),
+    return {'status': 'REQUIREMENTS_' + job['state'], 'job': job['label'], 'run_id': job.get('run_id'), 'job_id': job.get('job_id'),
+            'question': job.get('question'), 'completion': job.get('completion'), 'catalog': job.get('catalog'), 'reason': job.get('reason'),
             'evidence_level': job.get('evidence_level')}
 
 
@@ -3699,7 +3702,8 @@ def parser():
     advance = requirement_commands.add_parser('resume', help='Advance the authorized requirements job by one step')
     advance.add_argument('--select', default='')
     advance.add_argument('--plan', help="Answer AWS's plan menu with one option it lists, exactly as named")
-    advance.add_argument('--by', help='Who chose the plan (required with --plan)')
+    advance.add_argument('--reply', help="Answer AWS's open job-chat question in your own words")
+    advance.add_argument('--by', help='Who is answering (required with --plan or --reply)')
     imported = requirement_commands.add_parser('import', help='Import externally generated requirements, labeled imported')
     imported.add_argument('--requirements', required=True)
     imported.add_argument('--traceability')

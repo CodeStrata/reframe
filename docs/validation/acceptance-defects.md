@@ -186,3 +186,11 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
   - `test_requirements::test_a_plan_menu_waits_for_a_named_choice_and_is_answered_once_with_the_listed_option`;
   - `test_requirements::test_an_uncertain_plan_reply_is_never_sent_again`.
 - **Fixture change:** the synthetic `send_message` schema gained `skipPolling`, which the live schema lists.
+
+**Follow-up on the same live job (2026-11-17).**
+- **AWS asked a second question.** After the plan choice, AWS's agent asked "Does this objective match your goals?" and built no plan until it was answered. Reframe reported the job as generating. It now stops as `WAITING_FOR_HUMAN` on any unanswered AWS question: a latest chat message that ends with "?" and has no reply after it. It shows the question, and a person answers with `--reply TEXT --by NAME` (or `--plan` for a numbered menu), once per AWS message.
+- **Job names.** Requirements jobs were named after their local label (`requirements-N`). Assessment runs are named `RUN-` plus 16 hex characters. A requirements job now gets a `run_id` in the same form, and that is its AWS job name. The job created before this fix keeps its name, because the Transform tools offer no rename.
+- **Tests:**
+  - `test_requirements::test_an_aws_question_after_the_plan_waits_for_a_persons_own_reply`;
+  - `test_requirements::test_a_new_job_is_named_like_the_assessment_runs`.
+- **Fixture change:** `FakeTransform` now serves a sequence of AWS questions, each answered by one `send_message`.
