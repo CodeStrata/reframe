@@ -118,10 +118,14 @@ def screen_action_valid(action, ids):
             and action['screen_id'] in ids)
 
 
-def validate_screens(value, spec):
-    """Reject a screen or API contract that is incomplete or cites an unknown rule."""
+def validate_screens(value, spec, requirement_ids=()):
+    """Reject a screen or API contract that is incomplete or cites an unknown rule or requirement."""
     require(isinstance(value, dict) and isinstance(value.get('screens'), list) and value['screens'], 'Screens required')
     rules = {r['id'] for r in spec['rules']}
+    for item in value['screens'] + (value.get('apis') if isinstance(value.get('apis'), list) else []):
+        unknown = [ident for ident in (item.get('requirement_ids') or []) if ident not in set(requirement_ids)] \
+            if isinstance(item, dict) else []
+        require(not unknown, 'Unknown requirement reference: ' + ', '.join(map(str, unknown)))
     require(isinstance(value.get('apis'), list), 'Structured API contracts required; use an empty list only when no APIs are proposed')
     operations = set()
     for api in value['apis']:

@@ -137,6 +137,22 @@ Both minor defects left on the accepted candidate are fixed on `fix/skip-route-d
 
 Drafts saved before this fix keep their files. A new draft or design version uses the new fields.
 
+## Independent review of `develop` at `d0e6e5b`
+
+The owner reopened seven stories after an independent review of the merged `develop`. Six are fixed on `fix/develop-audit`; each regression test fails on `65206cd`, the commit it builds on. #183 is handled in its own pull request because it adds a planner call before wireframe detail.
+
+| Story | Finding | Fix | Regression test |
+| --- | --- | --- | --- |
+| #161, #171 | Importing the same requirements twice rewrote the sealed manifest and normalized records, so the earlier version failed verification | A set is named by its files, origin, job, source pin, assessment, importer, and normalizer version. The same inputs reuse the sealed set and write nothing; a stored file or manifest is never overwritten | `test_requirements::test_an_identical_import_reuses_the_sealed_set_and_both_versions_verify`; guard: `test_a_changed_import_is_a_new_set_and_never_rewrites_the_earlier_one` |
+| #171, #188, #191 | A requirements import after the package was built superseded approvals but left the old package acceptable; `PACKAGE_ACCEPTED` was reachable without the new requirement | A changed set withdraws any acceptance (the ledger keeps it) and retires the package to `package_history`. On the review route it sends the run back to validation like specification feedback (`REVISION_PENDING`, a new round); on the skip route it supersedes the design approval and returns to the draft's design review. A package records its inputs (requirements set, specification, draft, design version, decisions, approval basis), and acceptance refuses a package whose inputs or required approvals changed | `test_acceptance::test_a_requirements_import_after_the_build_retires_the_package_and_refuses_its_acceptance`, `test_a_requirements_import_after_acceptance_withdraws_it_and_keeps_the_ledger`, `test_a_package_whose_approval_basis_was_superseded_cannot_be_accepted`, `test_a_package_records_its_inputs_and_a_changed_input_blocks_acceptance`; `test_menu_journeys::test_a_requirements_import_after_skip_acceptance_returns_to_design_review_and_refuses_the_old_package` |
+| #191 | Mode exports did not depend on the requirements set | A design export's selection includes the set, and a draft mode package is refused after the set changes. Mode packages stay drafts | `test_reframe_optional::test_a_mode_package_is_refused_after_the_requirements_set_changes` |
+| #184 | An unknown screen `requirement_ids` entry passed both validators | Screens and APIs follow one contract: `rule_ids` name a rule, finding, or requirement; `requirement_ids` name a requirement in the active set. Both the model-output check and the merged-design check enforce it before the site is written | `test_design::test_a_screen_citing_an_unknown_requirement_is_refused_before_the_site_is_written`, `RequirementReferenceTests` (3) |
+| #190 | Readiness read an unpopulated `design_coverage`, so an API contract gap could leave `NO_KNOWN_BLOCKERS` | Readiness reads the review site's sealed `api-completeness.json`, or the skip draft's contracts, and lists each gap as an `api_contract` blocker in readiness, the package's `ai-dlc.json`, and package review. A site without the report names that as a gap | `test_acceptance::test_an_api_contract_gap_alone_keeps_the_package_from_no_known_blockers` |
+
+One expectation changed because the fix changed correct behavior: `test_requirements::test_an_import_after_a_reviewed_specification_supersedes_its_approvals` now gives its fixture the validation run a specification always has, and also asserts the return to `REVISION_PENDING`.
+
+A set imported before this change keeps its folder and id. Importing the same files again afterwards gets a new id, because the importer and pin are now part of the name, and counts as a change.
+
 ## Remaining observations
 
 - After a design change, menu 1 asks for the route (skip/pause) and the draft name again; the defaults are correct.

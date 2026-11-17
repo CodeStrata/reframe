@@ -2872,8 +2872,9 @@ def review_site(work, project, args, runtime=None):
         screens = design.merge(parts, design.load_inventory(work, project)['reconciliations'])
         superseded_definitions = screens.pop('superseded_definitions', [])
         verify_source(project)
-        validate_screens(screens, spec)
-        design.validate_references(screens, spec, design.load_inventory(work, project)['requirement_ids'])
+        requirement_ids = design.load_inventory(work, project)['requirement_ids']
+        validate_screens(screens, spec, requirement_ids)
+        design.validate_references(screens, spec, requirement_ids)
     except Blocked:
         persist(work, project)
         raise
@@ -2937,6 +2938,41 @@ def design_feedback(work, project, args):
     return {'status': 'DESIGN_FEEDBACK_RECORDED', 'stage': project['stage'], 'routed_to': 'design', 'kept': kept,
             'next_step': 'reframe --workspace ' + str(work) + (' preview --skip-validation' if project['stage'] == 'ASSESSMENT_APPROVED'
                                                                 else ' review-site')}
+
+
+def revision_possible(project):
+    """Stop before anything changes when validation cannot run again."""
+    require(project.get('pipeline'), 'No preparation candidate to revise')
+    require(project['pipeline']['round'] < project['settings']['max_rounds'], 'Revision limit exhausted; start a new workspace')
+
+
+def route_to_revision(project, by, note, reason, **extra):
+    """Send the run back to validation. Earlier decisions, approvals, and the package stay in history; files stay on disk."""
+    revision_possible(project)
+    state = project['pipeline']
+    project.setdefault('feedback', []).append({'by': by, 'note': note, 'at': time.time(), **extra, **actor_provenance()})
+    state.update(round=state['round'] + 1, role='executor', status='RUNNING')
+    stamp = time.time()
+    if project.get('decisions'):
+        project.setdefault('decision_history', []).append({
+            'reason': reason, 'at': stamp,
+            'specification_sha256': (project.get('specification') or {}).get('sha256'),
+            'previous': copy.deepcopy(project['decisions'])})
+    retire_package(project, reason, stamp)
+    for key in ('specification', 'site', 'preparation_report'):
+        project.pop(key, None)
+    project['decisions'] = {}
+    import reframe_versions
+    reframe_versions.supersede(project, ('validation', 'specifications', 'design', 'package'), reason, stamp)
+    project['stage'] = 'REVISION_PENDING'
+
+
+def retire_package(project, reason, stamp=None):
+    """Keep the current package as history so it can no longer be accepted. The archive stays on disk."""
+    package = project.pop('package', None)
+    if package:
+        project.setdefault('package_history', []).append({**package, 'status': 'SUPERSEDED', 'superseded_reason': reason,
+                                                          'superseded_at': stamp or time.time()})
 
 
 def feedback(work, project, args):
@@ -3007,21 +3043,7 @@ def feedback(work, project, args):
                 'correction_authorizations': state['invalid_candidate_authorizations'],
                 'next_step': 'reframe resume'}
 
-    project.setdefault('feedback', []).append({'by': args.by, 'note': args.note, 'at': time.time(), **actor_provenance()})
-    require(state['round'] < project['settings']['max_rounds'], 'Revision limit exhausted; start a new workspace')
-    state.update(round=state['round'] + 1, role='executor', status='RUNNING')
-    stamp = time.time()
-    if project.get('decisions'):
-        project.setdefault('decision_history', []).append({
-            'reason': 'specification_feedback', 'at': stamp,
-            'specification_sha256': (project.get('specification') or {}).get('sha256'),
-            'previous': copy.deepcopy(project['decisions'])})
-    for key in ('specification', 'site', 'package', 'preparation_report'):
-        project.pop(key, None)
-    project['decisions'] = {}
-    import reframe_versions
-    reframe_versions.supersede(project, ('validation', 'specifications', 'design', 'package'), 'specification_feedback', stamp)
-    project['stage'] = 'REVISION_PENDING'
+    route_to_revision(project, args.by, args.note, 'specification_feedback')
     persist(work, project)
     return {'status': 'SPECIFICATION_FEEDBACK_RECORDED', 'stage': project['stage'], 'routed_to': 'specification',
             'note': 'Earlier approvals moved to the approval history as superseded. Validation runs again.'}
@@ -3135,7 +3157,8 @@ def package_skip(work, project):
                           'context_fingerprint': context_fingerprint,
                           'manifest_sha256': sha(destination / 'checksums.json'), 'verification': 'SKIPPED_BY_OWNER',
                           'draft_archive': str(draft.relative_to(work)), 'draft_sha256': sha(draft),
-                          'status': acceptance.AWAITING, 'built_at': time.time()}
+                          'status': acceptance.AWAITING, 'built_at': time.time(),
+                          'inputs': acceptance.package_inputs(project)}
     project['stage'] = acceptance.AWAITING
     project['last_local_action'] = {'kind': 'package_built', 'at': time.time()}
     project['package']['version_id'] = reframe_versions.record(work, project, 'skip package built')
@@ -3341,7 +3364,8 @@ def package(work, project):
                           'context_fingerprint': context_fingerprint,
                           'manifest_sha256': sha(destination / 'checksums.json'),
                           'verification': 'SKIPPED_BY_OWNER' if project.get('verification_skip') else 'INDEPENDENTLY_REVIEWED',
-                          'status': acceptance.AWAITING, 'built_at': time.time()}
+                          'status': acceptance.AWAITING, 'built_at': time.time(),
+                          'inputs': acceptance.package_inputs(project)}
     project['stage'] = acceptance.AWAITING
     project['last_local_action'] = {'kind': 'package_built', 'at': time.time()}
     project['package']['version_id'] = reframe_versions.record(work, project, 'package built')

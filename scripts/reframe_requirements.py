@@ -432,7 +432,8 @@ def _function_from_key(key, functions):
 
 def record_set(work, project, originals, origin, evidence_level, producing_job_id=None, functions=None,
                service_status=None, by=None, note=None):
-    """Seal original files unchanged, normalize them, and make the set the project's requirements evidence."""
+    """Seal original files unchanged, normalize them, and make the set the project's requirements evidence.
+    The same inputs reuse the sealed set; a changed set is a new set, and the work that rested on the old one goes back."""
     require(originals, 'A requirements set needs at least one file')
     source = project.get('source') or {}
     files = []
@@ -442,38 +443,92 @@ def record_set(work, project, originals, origin, evidence_level, producing_job_i
         require(name.casefold() in {REQUIREMENTS_FILE, *TRACEABILITY_FILES}, 'Unsupported requirements file name: ' + name)
         files.append({'function_id': item['function_id'], 'kind': 'traceability' if name.casefold() in TRACEABILITY_FILES else 'requirements',
                       'original_path': item['original_path'], 'sha256': _sha(data), 'bytes': len(data)})
-    set_id = _digest({'files': files, 'origin': origin, 'job': producing_job_id})[:16]
+    pin = {'repository': source.get('repository'), 'commit': source.get('commit')}
+    assessment = project['assessments'][project['selected']]['sha256'] if project.get('selected') else None
+    imported_by = {'by': by, 'note': note} if by else None
+    # Everything that defines the set's contents and provenance names it. recorded_at does not.
+    set_id = _digest({'files': files, 'origin': origin, 'job': producing_job_id, 'source': pin, 'assessment_sha256': assessment,
+                      'imported_by': imported_by, 'normalizer': NORMALIZER_VERSION})[:16]
     folder = root(work) / 'sets' / set_id
-    for item, entry in zip(originals, files):
-        stored = folder / 'originals' / entry['function_id'] / Path(entry['original_path']).name
-        _store_bytes(stored, item['data'])
-        entry['stored_path'] = str(stored.relative_to(work))
-    normalized = normalize(work, project, files)
-    _save(folder / 'normalized.json', normalized)
-    manifest = {'set_id': set_id, 'origin': origin, 'evidence_level': evidence_level,
-                'generated_by_reframe': origin == 'aws-generated',
-                'source': {'repository': source.get('repository'), 'commit': source.get('commit')},
-                'assessment_sha256': project['assessments'][project['selected']]['sha256'] if project.get('selected') else None,
-                'producing_job_id': producing_job_id, 'function_ids': sorted({f['function_id'] for f in files}),
-                'service_status': service_status, 'files': files, 'recorded_at': time.time(),
-                'normalized': {'path': str((folder / 'normalized.json').relative_to(work)),
-                               'sha256': _sha((folder / 'normalized.json').read_bytes())}}
-    if by:
-        manifest['imported_by'] = {'by': by, 'note': note, **actor_provenance()}
-    _save(folder / 'manifest.json', manifest)
-    previous = (project.get('requirements') or {}).get('manifest')
-    history = (project.get('requirements') or {}).get('history') or []
-    if previous and previous != str((folder / 'manifest.json').relative_to(work)):
+    manifest_path = folder / 'manifest.json'
+    record = project.get('requirements') or {}
+    if record.get('manifest') == str(manifest_path.relative_to(work)):
+        verify_set(work, json.loads(manifest_path.read_text()))
+        return set_id
+    downstream = _downstream(project)
+    if downstream == 'review':
+        import reframe
+        reframe.revision_possible(project)
+    if manifest_path.is_file():
+        verify_set(work, json.loads(manifest_path.read_text()))
+    else:
+        for item, entry in zip(originals, files):
+            stored = folder / 'originals' / entry['function_id'] / Path(entry['original_path']).name
+            _store_bytes(stored, item['data'])
+            entry['stored_path'] = str(stored.relative_to(work))
+        normalized = folder / 'normalized.json'
+        _store_bytes(normalized, json.dumps(normalize(work, project, files), indent=2, sort_keys=True).encode())
+        manifest = {'set_id': set_id, 'origin': origin, 'evidence_level': evidence_level,
+                    'generated_by_reframe': origin == 'aws-generated', 'source': pin, 'assessment_sha256': assessment,
+                    'producing_job_id': producing_job_id, 'function_ids': sorted({f['function_id'] for f in files}),
+                    'service_status': service_status, 'files': files, 'recorded_at': time.time(),
+                    'normalizer': NORMALIZER_VERSION,
+                    'normalized': {'path': str(normalized.relative_to(work)), 'sha256': _sha(normalized.read_bytes())}}
+        if by:
+            manifest['imported_by'] = {'by': by, 'note': note, **actor_provenance()}
+        _store_bytes(manifest_path, json.dumps(manifest, indent=2, sort_keys=True).encode())
+    previous = record.get('manifest')
+    history = record.get('history') or []
+    if previous:
         history = history + [previous]
-    project['requirements'] = {**(project.get('requirements') or {}), 'state': 'RETRIEVED' if origin == 'aws-generated' else 'IMPORTED',
-                               'manifest': str((folder / 'manifest.json').relative_to(work)), 'set_id': set_id,
+    project['requirements'] = {**record, 'state': 'RETRIEVED' if origin == 'aws-generated' else 'IMPORTED',
+                               'manifest': str(manifest_path.relative_to(work)), 'set_id': set_id,
                                'origin': origin, 'evidence_level': evidence_level, 'history': history}
-    if project.get('specification'):
-        import reframe_versions as versions
-        moved = versions.supersede(project, ('validation', 'specifications', 'design', 'package'), 'requirements_' + origin)
-        project['requirements']['requires_revalidation'] = True
-        project['requirements']['superseded_approvals'] = moved
+    if downstream:
+        _route_downstream(work, project, downstream, set_id, previous, by, note, 'requirements_' + origin)
     return set_id
+
+
+# Part of a set's identity: a change to how files are read makes a new set rather than rewriting an old one.
+NORMALIZER_VERSION = 1
+
+
+def verify_set(work, manifest):
+    """Every stored file and the normalized records still match the sealed manifest."""
+    normalized_path = Path(work) / manifest['normalized']['path']
+    require(_sha(normalized_path.read_bytes()) == manifest['normalized']['sha256'], 'Normalized requirements changed after sealing')
+    for entry in manifest['files']:
+        require(_sha((Path(work) / entry['stored_path']).read_bytes()) == entry['sha256'],
+                'Stored requirement file changed: ' + entry['stored_path'])
+
+
+def _downstream(project):
+    """Which reviewed work rests on the current requirements: the review route, the skip route, or nothing yet."""
+    if project.get('specification'):
+        return 'review'
+    if project.get('skip_bundle') or project.get('package') or (project.get('approvals') or {}).get('design'):
+        return 'skip'
+    return None
+
+
+def _route_downstream(work, project, downstream, set_id, previous, by, note, reason):
+    """Return reviewed work to the earliest stage the new set affects. Earlier records stay as history."""
+    import reframe
+    import reframe_acceptance
+    import reframe_versions as versions
+    reframe_acceptance.withdraw(work, project, reason)
+    if downstream == 'review':
+        before = len(project.get('approval_history') or [])
+        reframe.route_to_revision(project, by or 'requirements ' + reason, note or 'Requirements set changed',
+                                  reason, requirements_set=set_id, previous_requirements=previous)
+        moved = [item['phase'] for item in (project.get('approval_history') or [])[before:]]
+        project['requirements'].update(requires_revalidation=True, superseded_approvals=moved)
+        return
+    # The skip draft was built without this set. Its design approval and package rested on the old one.
+    moved = versions.supersede(project, ('design', 'package'), reason)
+    reframe.retire_package(project, reason)
+    project['stage'] = 'ASSESSMENT_APPROVED'
+    project['requirements'].update(requires_design_review=True, superseded_approvals=moved)
 
 
 def import_files(work, project, requirements_file, traceability_file, function_id, by, origin_note, job_id=None):
@@ -677,12 +732,9 @@ def active_set(work, project):
     if not record.get('manifest'):
         return {'state': record.get('state') or 'NOT_REQUESTED', 'requirements': [], 'manifest': None}
     manifest = json.loads((Path(work) / record['manifest']).read_text())
-    normalized_path = Path(work) / manifest['normalized']['path']
-    require(_sha(normalized_path.read_bytes()) == manifest['normalized']['sha256'], 'Normalized requirements changed after sealing')
-    for entry in manifest['files']:
-        require(_sha((Path(work) / entry['stored_path']).read_bytes()) == entry['sha256'], 'Stored requirement file changed: ' + entry['stored_path'])
+    verify_set(work, manifest)
     return {'state': record.get('state'), 'manifest': manifest,
-            'requirements': json.loads(normalized_path.read_text())['requirements']}
+            'requirements': json.loads((Path(work) / manifest['normalized']['path']).read_text())['requirements']}
 
 
 def provenance_statement(work, project):

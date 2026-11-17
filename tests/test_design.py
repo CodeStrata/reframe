@@ -57,6 +57,35 @@ class MergeTests(unittest.TestCase):
                                                     'journeys': []}, spec, ['aws-req:F1:PAY-001']))
 
 
+class RequirementReferenceTests(unittest.TestCase):
+    SPEC = {'rules': [{'id': 'R1'}]}
+
+    def design(self, kind, ids):
+        screen = dict(SIGN_ON, requirement_ids=ids if kind == 'screen' else [])
+        api = {'id': 'a1', 'rule_ids': ['R1'], 'requirement_ids': ids if kind == 'api' else []}
+        return {'screens': [dict(screen, api_ids=['a1'])], 'apis': [api], 'journeys': []}
+
+    def test_unknown_screen_and_api_requirements_are_refused_by_the_merged_check(self):
+        for kind in ('screen', 'api'):
+            with self.assertRaisesRegex(Blocked, 'unknown requirement aws-req:fake:UNKNOWN-999'):
+                design.validate_references(self.design(kind, ['aws-req:fake:UNKNOWN-999']), self.SPEC, ['aws-req:F1:PAY-001'])
+
+    def test_a_rule_id_is_not_accepted_as_a_requirement_id(self):
+        with self.assertRaisesRegex(Blocked, 'unknown requirement R1'):
+            design.validate_references(self.design('screen', ['R1']), self.SPEC, ['aws-req:F1:PAY-001'])
+
+    def test_namespaced_requirements_in_the_active_set_resolve_in_both_checks(self):
+        from reframe_artifacts import validate_screens
+        value = self.design('screen', ['aws-req:F1:PAY-001'])
+        self.assertTrue(design.validate_references(value, self.SPEC, ['aws-req:F1:PAY-001']))
+        with self.assertRaisesRegex(Blocked, 'Unknown requirement reference'):
+            validate_screens(value, self.SPEC)
+        try:
+            validate_screens(value, self.SPEC, ['aws-req:F1:PAY-001'])
+        except Blocked as error:
+            self.assertNotIn('requirement', str(error), 'a known requirement is not what is refused')
+
+
 class ApiCompletenessTests(unittest.TestCase):
     def test_each_missing_part_is_named_not_invented(self):
         report = design.api_completeness([
@@ -135,6 +164,19 @@ class PlanAndRegenerationTests(m1.WorkspaceFixture):
 
     def test_an_api_citing_an_unknown_rule_is_refused(self):
         self.refused(('apis',), 'Unknown API rule reference')
+
+    def test_a_screen_citing_an_unknown_requirement_is_refused_before_the_site_is_written(self):
+        self.approved()
+        design.capture(self.work, self.project, 'functional-parity', 'v1', 'java', '', '', [], 'Architect')
+
+        def runtime(provider, run, directory, role, request):
+            screens = self.wireframes([])(provider, run, directory, role, request)
+            screens['screens'][0]['requirement_ids'] = ['aws-req:fake:UNKNOWN-999']
+            return screens
+
+        with self.assertRaisesRegex(Blocked, 'Unknown requirement reference: aws-req:fake:UNKNOWN-999'):
+            app.review_site(self.work, self.project, argparse.Namespace(provider='claude'), runtime)
+        self.assertNotIn('site', self.project)
 
     def test_a_screen_citing_an_unknown_rule_is_refused(self):
         self.refused(('screens',), 'Screen has unknown rule reference')

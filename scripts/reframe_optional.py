@@ -563,6 +563,7 @@ def _selection(work, project, mode, stack, screens, spec, provenance):
         'assessment_sha256': provenance.get('assessment_sha256'),
         'verification': _verification_record(project),
         'context_fingerprint': _context_fingerprint(work),
+        'requirements_set': (project.get('requirements') or {}).get('set_id'),
         'mode': mode,
         'stack': (stack or '').strip() or 'unspecified',
         'inputs': _digest({
@@ -579,6 +580,9 @@ def _same_selection(saved, selection):
         return (saved.get('mode') == selection['mode']
                 and (saved.get('stack') or 'unspecified') == selection['stack']
                 and saved.get('context_fingerprint') == selection['context_fingerprint'])
+    if 'requirements_set' not in recorded and selection.get('requirements_set') is None:
+        # Exports saved before requirements were part of the selection had none.
+        selection = {key: value for key, value in selection.items() if key != 'requirements_set'}
     return recorded == selection
 
 
@@ -898,6 +902,9 @@ def package_export(work, project, version, mode):
     mode_record = _read(Path(work) / 'previews' / version / 'mode.json')
     require(mode_record.get('context_fingerprint') == _context_fingerprint(work),
             'Human context changed this design version. Re-export it before packaging')
+    recorded_set = (mode_record.get('selection') or {}).get('requirements_set')
+    require(recorded_set == (project.get('requirements') or {}).get('set_id'),
+            'The requirements set changed after this design version was exported. Re-export it before packaging')
     completion_path = Path(work) / 'previews' / version / 'completion.json'
     archive = Path(work) / 'packages' / version / mode / 'ai-dlc-package.zip'
     if completion_path.is_file():
