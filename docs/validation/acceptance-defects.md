@@ -219,3 +219,7 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 - **Effect:** the job stayed `STOPPED`, with no plan, steps or tasks, but the question and the agent's answer remain in the job's chat history.
 - **Fix:** the stop path now passes `detailed: true`, as every other Reframe status call already does.
 - **Guard:** `test_requirements.FakeTransform` now fails any `get_job_status` call without `detailed: true`, so every requirements test checks this.
+
+**AWS waits without asking a question (2026-11-17).** After the objective confirmation, AWS asked which output languages to produce, ending with "Respond with \"no\" or \"English only\" to continue with English only." That text has no "?", so Reframe kept reporting the job as generating.
+- **Fix:** with no plan yet, AWS's latest unanswered `FINAL_RESPONSE` now counts as waiting for an answer. AWS marks its turn-ending messages `FINAL_RESPONSE` and its progress notes `THINKING`. A message that says to "please wait" does not count.
+- **Test:** `test_requirements::test_an_aws_request_without_a_question_mark_still_waits_and_a_please_wait_note_does_not`.

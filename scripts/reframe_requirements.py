@@ -429,7 +429,7 @@ CHAT_LIMIT = 7000  # send_message: "max 7000 chars"
 
 
 def _open_question(snapshot):
-    """AWS's latest chat message when it asks a question no one has answered: (message, numbered options) or None."""
+    """AWS's latest finished chat turn when no one has answered it: (message, numbered options) or None."""
     messages = [m for m in ((snapshot.get('messages') or {}).get('messages') or []) if isinstance(m, dict)]
     system = [m for m in messages if m.get('messageOrigin') == 'SYSTEM'
               and (m.get('processingInfo') or {}).get('messageType') == 'FINAL_RESPONSE']
@@ -439,7 +439,8 @@ def _open_question(snapshot):
     text = str(latest.get('text') or '').strip()
     answered = any(m.get('messageOrigin') != 'SYSTEM' and str(m.get('createdAt', '')) > str(latest.get('createdAt', ''))
                    for m in messages)
-    if answered or not text.endswith('?'):
+    # A FINAL_RESPONSE ends AWS's turn; with no plan yet it waits for an answer, unless it says to wait.
+    if answered or not text or 'please wait' in text.casefold():
         return None
     options = [(number, label.strip()) for number, label in PLAN_OPTION.findall(text)]
     return latest, options if len(options) >= 2 else []

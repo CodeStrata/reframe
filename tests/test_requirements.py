@@ -292,6 +292,19 @@ class RequirementsTests(unittest.TestCase):
         job = app.read(self.work / 'requirements' / 'jobs' / 'requirements-1' / 'job.json')
         self.assertEqual([(entry['reply_to'], entry['by']) for entry in job['chat_replies']], [('m-0', 'Owner'), ('m-1', 'Owner')])
 
+    def test_an_aws_request_without_a_question_mark_still_waits_and_a_please_wait_note_does_not(self):
+        client = FakeTransform()
+        client.questions = ['The job is initializing. Please wait until I notify you of successful initialization.']
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Generate F1 for the pilot', client=client)
+        self.assertEqual(self.command('resume', client=client)['status'], 'REQUIREMENTS_GENERATING')
+        client.questions = ['Output is English. Other languages are available.\n\nRespond with "no" or "English only" to continue.']
+        waiting = self.command('resume', client=client)
+        self.assertEqual(waiting['status'], 'REQUIREMENTS_WAITING_FOR_HUMAN')
+        self.assertIn('English only', waiting['reason'])
+        self.command('resume', '--reply', 'English only', '--by', 'Owner', client=client)
+        self.assertEqual(client.replies, ['English only'])
+
     def test_a_new_job_is_named_like_the_assessment_runs(self):
         client = FakeTransform()
         self.discover(client)
