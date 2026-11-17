@@ -421,6 +421,20 @@ class RequirementsTests(unittest.TestCase):
         job = app.read(self.work / 'requirements' / 'jobs' / 'requirements-1' / 'job.json')
         self.assertEqual(len(job['archive']['sha256']), 64)
 
+    def test_downloads_are_saved_where_the_mcp_server_may_write_then_moved_to_the_job(self):
+        client = FakeTransform()
+        client.directory = self.work
+        client.archive_members = {'spec/Domain/F1/requirements.md': REQUIREMENTS_MD, 'spec/Domain/F1/traceability.yaml': TRACEABILITY_YAML}
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Pilot', client=client)
+        self.command('resume', client=client)
+        self.assertEqual(self.command('resume', client=client)['status'], 'REQUIREMENTS_RETRIEVED')
+        saved = [arguments['savePath'] for name, arguments in client.calls_seen
+                 if name == 'get_resource' and arguments.get('resource') == 'asset']
+        self.assertTrue(all(Path(path).is_relative_to(self.work / 'transform-artifacts') for path in saved))
+        self.assertTrue((self.work / 'requirements' / 'jobs' / 'requirements-1' / 'downloads'
+                         / 'spec_gen_specs_20261117_045719.zip').is_file())
+
     def test_an_archive_member_with_an_unsafe_path_is_refused(self):
         client = FakeTransform()
         client.archive_members = {'../escape/requirements.md': REQUIREMENTS_MD}

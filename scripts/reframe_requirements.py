@@ -715,10 +715,7 @@ def retrieve(work, project, client, job):
         path = target / filename
         if path.exists():
             path.unlink()  # Never mistake an earlier failed download for this one.
-        client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['get_resource'], {
-            **identity, 'resource': 'asset', 'assetKey': item['assetKey'], 'connectorId': item['connectorId'],
-            'savePath': str(target), 'fileName': filename})])
-        require(path.is_file() and not path.is_symlink(), 'Requirements download did not produce ' + item['assetKey'])
+        _download(client, identity, item, path)
         function_id = _function_from_key(item['assetKey'], job['selected_functions'])
         originals.append({'function_id': function_id, 'original_path': item['assetKey'], 'data': path.read_bytes()})
     return _seal_retrieved(work, project, job, originals)
@@ -727,16 +724,30 @@ def retrieve(work, project, client, job):
 ARCHIVE_MEMBER_LIMIT = 50 * 1024 * 1024
 
 
+def _download(client, identity, item, path):
+    """Have the MCP server save one asset where it may write, then move it to path."""
+    # The server writes only under the client's transform-artifacts folder (AWS_TRANSFORM_MCP_WRITE_DIR).
+    base = getattr(client, 'directory', None)
+    staging = Path(base) / 'transform-artifacts' / 'requirements' / path.parent.parent.name if base else path.parent
+    staging.mkdir(parents=True, exist_ok=True, mode=0o700)
+    staged = staging / path.name
+    if staged.exists():
+        staged.unlink()  # Never mistake an earlier failed download for this one.
+    client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['get_resource'], {
+        **identity, 'resource': 'asset', 'assetKey': item['assetKey'], 'connectorId': item['connectorId'],
+        'savePath': str(staging), 'fileName': path.name})])
+    require(staged.is_file() and not staged.is_symlink(), 'Requirements download did not produce ' + item['assetKey'])
+    if staged != path:
+        os.replace(staged, path)
+
+
 def _retrieve_archive(work, project, client, job, identity, item, target):
     """Download AWS's spec_gen archive once, keep its bytes and hash, and take the documented files from inside it."""
     import zipfile
     path = target / Path(item['assetKey']).name
     if path.exists():
         path.unlink()  # Never mistake an earlier failed download for this one.
-    client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['get_resource'], {
-        **identity, 'resource': 'asset', 'assetKey': item['assetKey'], 'connectorId': item['connectorId'],
-        'savePath': str(target), 'fileName': path.name})])
-    require(path.is_file() and not path.is_symlink(), 'Requirements archive download did not produce ' + item['assetKey'])
+    _download(client, identity, item, path)
     job['archive'] = {'asset_key': item['assetKey'], 'stored': str(path.relative_to(work)), 'sha256': _sha(path.read_bytes()),
                       'bytes': path.stat().st_size}
     originals = []

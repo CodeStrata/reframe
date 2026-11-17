@@ -256,3 +256,7 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 - **Tests:**
   - `test_requirements_are_taken_from_the_spec_gen_archive_with_its_hash_kept`;
   - `test_an_archive_member_with_an_unsafe_path_is_refused`.
+
+**Downloads must land where the MCP server may write.** Live retrieval was refused with "Write path must be within the working directory (`<workspace>/transform-artifacts`)", which is the folder Reframe itself sets as `AWS_TRANSFORM_MCP_WRITE_DIR`. Retrieval had asked for the job's `downloads` folder.
+- **Fix:** files are saved under `transform-artifacts/requirements/<job>/`, then moved into the job's `downloads` folder.
+- **Test:** `test_requirements::test_downloads_are_saved_where_the_mcp_server_may_write_then_moved_to_the_job`.
