@@ -3524,6 +3524,11 @@ def requirements_command(work, project, args, client=None):
         return {'status': 'REQUIREMENTS_JOB_AUTHORIZED', 'label': job['label'], 'run_id': job['run_id'],
                 'evidence_level': job['evidence_level'],
                 'next_step': 'reframe --workspace ' + str(work) + ' requirements resume'}
+    if action == 'renormalize':
+        reject_instructional_placeholder(args.note, 'Renormalize note')
+        counts = requirements.renormalize(work, project, args.by, args.note)
+        persist(work, project)
+        return {'status': 'REQUIREMENTS_RENORMALIZED', 'counts': counts}
     if action == 'stop':
         reject_instructional_placeholder(args.note, 'Stop note')
         job = requirements.stop_job(work, project, client or transform_client(project, work), args.by, args.note)
@@ -3707,6 +3712,9 @@ def parser():
     authorize.add_argument('--functions', default='')
     authorize.add_argument('--by', required=True)
     authorize.add_argument('--note', required=True)
+    renorm = requirement_commands.add_parser('renormalize', help='Rebuild the active set\'s normalized view from its sealed originals')
+    renorm.add_argument('--by', required=True)
+    renorm.add_argument('--note', required=True)
     halt = requirement_commands.add_parser('stop', help='Stop the active requirements job in AWS, once; nothing is deleted')
     halt.add_argument('--by', required=True)
     halt.add_argument('--note', required=True)

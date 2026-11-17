@@ -435,6 +435,54 @@ class RequirementsTests(unittest.TestCase):
         self.assertTrue((self.work / 'requirements' / 'jobs' / 'requirements-1' / 'downloads'
                          / 'spec_gen_specs_20261117_045719.zip').is_file())
 
+    def test_aws_reimagine_traceability_maps_each_requirement_to_its_rules_and_programs(self):
+        requirements = ('# Bill payment\n\n## 1. Pay balance\n'
+                        'REQ-F-1: [Event-driven] When the user confirms, the system shall post the payment.\n'
+                        'REQ-F-2: [Ubiquitous] The system shall record the payment.\n'
+                        'REQ-F-3: [Ubiquitous] The system shall show a confirmation.\n')
+        traceability = ('function: F1\nsummary:\n  total_rules: 2\nrules:\n'
+                        '- rule_id: r_one\n  program: COBIL00C\n  disposition: captured\n  rule_name: Post\n'
+                        '  rule_text: THE system SHALL post\n    the payment\n  traceability_lines:\n  - 10\n  - 11\n  req_ids:\n  - REQ-F-1\n  - REQ-F-2\n'
+                        '- rule_id: r_two\n  program: COBIL00C\n  disposition: captured\n  req_id: REQ-F-2\n'
+                        'requirements:\n- req_id: REQ-F-1\n  rule_ids:\n  - r_one\n- req_id: REQ-F-3\n  rule_ids:\n  - r_three\n')
+        source = Path(self.project['source']['root'])
+        (source / 'app' / 'cbl').mkdir(parents=True, exist_ok=True)
+        (source / 'app' / 'cbl' / 'COBIL00C.cbl').write_text('       IDENTIFICATION DIVISION.\n')
+        client = FakeTransform()
+        client.archive_members = {'spec/Domain/F1/requirements.md': requirements, 'spec/Domain/F1/traceability.yaml': traceability}
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Pilot', client=client)
+        self.command('resume', client=client)
+        self.command('resume', client=client)
+        manifest = app.read(self.work / self.project['requirements']['manifest'])
+        normalized = app.read(self.work / manifest['normalized']['path'])
+        trace = {item['original_id']: item['traceability'] for item in normalized['requirements']}
+        self.assertEqual((trace['REQ-F-1']['state'], trace['REQ-F-1']['rule_ids']), ('mapped', ['r_one']))
+        self.assertEqual(trace['REQ-F-2']['rule_ids'], ['r_one', 'r_two'])
+        self.assertEqual(trace['REQ-F-2']['source_paths'], ['app/cbl/COBIL00C.cbl'])
+        self.assertEqual((trace['REQ-F-3']['state'], trace['REQ-F-3']['programs']), ('partial', []))
+        self.assertEqual(normalized['counts']['by_traceability']['ambiguous'], 0)
+
+    def test_renormalize_rebuilds_the_view_and_keeps_originals_and_approvals(self):
+        client = FakeTransform()
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Pilot', client=client)
+        self.command('resume', client=client)
+        self.command('resume', client=client)
+        manifest_path = self.work / self.project['requirements']['manifest']
+        before = app.read(manifest_path)
+        before_requirements = dict(self.project['requirements'])
+        result = self.command('renormalize', '--by', 'Owner', '--note', 'Newer traceability reader')
+        after = app.read(manifest_path)
+        self.assertEqual(result['status'], 'REQUIREMENTS_RENORMALIZED')
+        self.assertEqual((after['files'], after['set_id']), (before['files'], before['set_id']))
+        self.assertEqual(after['renormalized'][0]['previous_sha256'], before['normalized']['sha256'])
+        self.assertEqual(self.project['requirements'], before_requirements)
+        stored = self.work / before['files'][0]['stored_path']
+        stored.write_text('changed')
+        with self.assertRaises(Blocked):
+            self.command('renormalize', '--by', 'Owner', '--note', 'Again')
+
     def test_an_archive_member_with_an_unsafe_path_is_refused(self):
         client = FakeTransform()
         client.archive_members = {'../escape/requirements.md': REQUIREMENTS_MD}

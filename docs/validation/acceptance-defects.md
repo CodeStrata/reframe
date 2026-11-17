@@ -260,3 +260,14 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 **Downloads must land where the MCP server may write.** Live retrieval was refused with "Write path must be within the working directory (`<workspace>/transform-artifacts`)", which is the folder Reframe itself sets as `AWS_TRANSFORM_MCP_WRITE_DIR`. Retrieval had asked for the job's `downloads` folder.
 - **Fix:** files are saved under `transform-artifacts/requirements/<job>/`, then moved into the job's `downloads` folder.
 - **Test:** `test_requirements::test_downloads_are_saved_where_the_mcp_server_may_write_then_moved_to_the_job`.
+
+**AWS's traceability format.** The live `traceability.yaml` has a `summary`, then `rules` and `requirements` lists:
+- each `rules` entry carries `rule_id`, `program`, `disposition`, `rule_text`, source `traceability_lines`, and `req_id` or `req_ids`;
+- each `requirements` entry carries a `req_id` and its `rule_ids`.
+
+The generic reader split every list entry into its own block, so 397 of 398 requirements were "ambiguous" and none "mapped".
+- **Fix:** Reframe reads this shape directly, merging both lists per requirement. It records rule ids, programs and dispositions, and maps program names to source files in the pinned checkout. A requirement is `mapped` when a program resolves to a pinned file, `partial` when it has rules but no resolved file, and `missing` otherwise. Other shapes still use the generic reader. Evidence stays `TRACEABILITY_CLAIM` until independent validation.
+- **New command:** `requirements renormalize --by --note` rebuilds an existing set's normalized view from its sealed originals. It refuses if any original's hash changed, and keeps the set id, files and approvals. It records the previous normalized hash.
+- **Tests:** `test_aws_reimagine_traceability_maps_each_requirement_to_its_rules_and_programs` and `test_renormalize_rebuilds_the_view_and_keeps_originals_and_approvals`.
+
+**Environment-dependent failure, not caused by this change.** `test_reframe_checkpoints::test_sanitized_carddemo_recovery_builds_exact_requests` reads the live CardDemo workspace's `project.json`. That project now records a retrieved requirements set, which the test's sanitized copy does not include, so the test fails with a missing `requirements` folder. It fails the same way on the commit before this change. It is left unchanged for a separate fix, rather than adjusted here to pass.

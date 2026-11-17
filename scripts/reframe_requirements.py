@@ -839,6 +839,26 @@ def record_set(work, project, originals, origin, evidence_level, producing_job_i
     return set_id
 
 
+def renormalize(work, project, by, note):
+    """Rebuild the active set's normalized view from its sealed originals; originals, hashes and approvals stay."""
+    require(str(by).strip() and str(note).strip(), 'Renormalizing needs a named owner and a note')
+    manifest_path = Path(work) / ((project.get('requirements') or {}).get('manifest') or '')
+    require(manifest_path.is_file(), 'No requirements set is recorded')
+    manifest = json.loads(manifest_path.read_text())
+    for entry in manifest['files']:
+        stored = Path(work) / entry['stored_path']
+        require(stored.is_file() and _sha(stored.read_bytes()) == entry['sha256'], 'A sealed original changed: ' + entry['stored_path'])
+    folder = manifest_path.parent
+    normalized = normalize(work, project, manifest['files'])
+    _save(folder / 'normalized.json', normalized)
+    manifest.setdefault('renormalized', []).append({'at': time.time(), 'by': by, 'note': note,
+                                                    'previous_sha256': manifest['normalized']['sha256'], **actor_provenance()})
+    manifest['normalized'] = {'path': str((folder / 'normalized.json').relative_to(work)),
+                              'sha256': _sha((folder / 'normalized.json').read_bytes())}
+    _save(manifest_path, manifest)
+    return normalized['counts']
+
+
 def import_files(work, project, requirements_file, traceability_file, function_id, by, origin_note, job_id=None):
     """Import externally generated requirements. They are labeled imported and never presented as generated."""
     require(str(by).strip() and str(origin_note).strip(), 'An import needs a named owner and a note on where the files came from')
@@ -985,6 +1005,70 @@ def _rule_tokens(block):
     return [t.strip('\'"') for t in tokens]
 
 
+def _section_items(text, key):
+    """The list items under one top-level key, each as {field: scalar or [scalars]}, without a YAML parser."""
+    items, current, field, inside = [], None, None, False
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        if not line[0].isspace() and not line.startswith('-'):
+            inside = line.split(':', 1)[0].strip() == key
+            continue
+        if not inside:
+            continue
+        depth = len(line) - len(line.lstrip())
+        body = line.strip()
+        if body.startswith('- ') and depth == 0:
+            current = {}
+            items.append(current)
+            body, depth = body[2:], 2
+        if current is None:
+            continue
+        pair = re.match(r'^([\w.-]+)\s*:\s*(.*)$', body)
+        if pair and depth == 2:
+            field, value = pair.group(1), pair.group(2).strip().strip('\'"')
+            current[field] = value if value else []
+        elif body.startswith('- ') and field and isinstance(current.get(field), list):
+            current[field].append(body[2:].strip().strip('\'"'))
+    return items
+
+
+def _aws_traceability(text):
+    """AWS's reimagine traceability.yaml (rules with req_id/req_ids, and requirements with rule_ids), keyed by requirement.
+
+    None when the text is not that shape, so other producers fall back to the generic reader.
+    """
+    rules = [item for item in _section_items(text, 'rules') if item.get('rule_id')]
+    if not rules:
+        return None
+    by_requirement = {}
+    for rule in rules:
+        ids = rule.get('req_ids') if isinstance(rule.get('req_ids'), list) else []
+        ids = ids + ([rule['req_id']] if isinstance(rule.get('req_id'), str) and rule.get('req_id') else [])
+        for req in ids:
+            entry = by_requirement.setdefault(req, {'rule_ids': set(), 'programs': set(), 'dispositions': set()})
+            entry['rule_ids'].add(rule['rule_id'])
+            if isinstance(rule.get('program'), str) and rule['program']:
+                entry['programs'].add(rule['program'])
+            if isinstance(rule.get('disposition'), str):
+                entry['dispositions'].add(rule['disposition'])
+    for item in _section_items(text, 'requirements'):
+        if isinstance(item.get('req_id'), str) and isinstance(item.get('rule_ids'), list):
+            by_requirement.setdefault(item['req_id'], {'rule_ids': set(), 'programs': set(), 'dispositions': set()})[
+                'rule_ids'].update(item['rule_ids'])
+    return by_requirement
+
+
+def _program_files(source_root):
+    """Source files in the pinned checkout, by upper-case file stem, for mapping AWS program names to paths."""
+    index = {}
+    if source_root.is_dir():
+        for path in source_root.rglob('*'):
+            if path.is_file() and '.git' not in path.parts:
+                index.setdefault(path.stem.upper(), []).append(str(path.relative_to(source_root)))
+    return index
+
+
 def normalize(work, project, files):
     """Namespaced requirement records with honest traceability states: mapped, partial, missing, ambiguous, unsupported."""
     rule_ids = set()
@@ -1004,7 +1088,31 @@ def normalize(work, project, files):
             unrecognized += [{**item, 'file': entry['stored_path']} for item in skipped]
         else:
             traces.setdefault(entry['function_id'], []).append(data)
+    structured = {}
+    for function_id, texts in traces.items():
+        parsed = [found for found in (_aws_traceability(text) for text in texts) if found is not None]
+        if parsed:
+            merged = {}
+            for found in parsed:
+                for req, entry in found.items():
+                    into = merged.setdefault(req, {'rule_ids': set(), 'programs': set(), 'dispositions': set()})
+                    for name in into:
+                        into[name] |= entry[name]
+            structured[function_id] = merged
+    programs = _program_files(source_root) if structured else {}
     for item in requirements:
+        if item['function_id'] in structured:
+            entry = structured[item['function_id']].get(item['original_id'])
+            if not entry or not entry['rule_ids']:
+                item['traceability'] = {'state': 'missing', 'reason': 'identifier not found in traceability'}
+                continue
+            paths = sorted({path for program in entry['programs'] for path in programs.get(program.upper(), [])})
+            item['traceability'] = {'state': 'mapped' if paths else 'partial', 'rule_ids': sorted(entry['rule_ids']),
+                                    'known_rule_ids': sorted(entry['rule_ids'] & rule_ids), 'programs': sorted(entry['programs']),
+                                    'dispositions': sorted(entry['dispositions']), 'source_paths': paths,
+                                    'source_paths_in_pin': paths, 'format': 'aws-reimagine-traceability',
+                                    'evidence_status': 'TRACEABILITY_CLAIM'}
+            continue
         blocks = [block for text in traces.get(item['function_id'], []) for block in _trace_blocks(text)
                   if re.search(r'\b' + re.escape(item['original_id']) + r'\b', block)]
         if not traces.get(item['function_id']):
