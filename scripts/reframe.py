@@ -1314,7 +1314,13 @@ def approve(work, project, args):
         require(not unresolved, 'Record SME decisions first: ' + ', '.join(unresolved))
         verified_preparation_report(work, project)
         require_clear_for_final(work, 'validation approval', spec_scope_ids(work, project))
+        import reframe_requirements
+        stale = reframe_requirements.stale_specification(project)
+        require(not stale, 'This specification was validated before requirements set ' + str(stale) + ' arrived. '
+                'Revalidate it with reframe feedback --scope specification --by NAME --note WHY.')
         fingerprint = digest({'specification': project['specification']['sha256'], 'decisions': project['decisions']})
+        if (project.get('requirements') or {}).pop('requires_revalidation', None):
+            project['requirements']['revalidated'] = {'at': time.time(), 'specification_sha256': project['specification']['sha256']}
         project['stage'] = 'VALIDATION_APPROVED'
     elif args.phase == 'design':
         require(project.get('verification_skip') and project.get('skip_bundle'),
@@ -1556,6 +1562,51 @@ def recover_provider_request(work, project, args):
     persist(work,project)
     return {'status':'REVISED_REQUEST_READY','calls_consumed':project['pipeline']['calls'],
             'next_step':'reframe resume; new provider refusals still stop automatically'}
+
+
+REQUIREMENTS_CONTEXT_BYTES = 150000
+SYNTHESIS_CONTEXT_BYTES = 600000
+ALLOWANCE_CEILING_BYTES = 1000000
+
+
+def synthesis_round_limit(project):
+    """Synthesis rounds. A recorded allowance extends them without loosening the evidence-unit limit."""
+    return project['settings'].get('synthesis_round_limit') or project['settings']['max_rounds']
+
+
+def validation_allowance(work, project, args):
+    """Record a named person's larger validation allowance. Limits only rise, and each change is an audited event."""
+    require(args.by.strip() and args.note.strip(), 'Named owner and allowance rationale required')
+    reject_instructional_placeholder(args.by, 'Name of the person recording the allowance')
+    reject_instructional_placeholder(args.note, 'Allowance note')
+    requested = {'synthesis_round_limit': args.extra_rounds, 'requirements_context_bytes': args.requirements_context_bytes,
+                 'synthesis_context_bytes': args.synthesis_context_bytes}
+    require(any(value is not None for value in requested.values()),
+            'Record extra synthesis rounds, a requirements context allowance, or a synthesis context allowance')
+    settings = project['settings']
+    state = project.get('pipeline') or {}
+    before = {'synthesis_round_limit': synthesis_round_limit(project),
+              'requirements_context_bytes': settings.get('requirements_context_bytes') or REQUIREMENTS_CONTEXT_BYTES,
+              'synthesis_context_bytes': settings.get('synthesis_context_bytes') or SYNTHESIS_CONTEXT_BYTES}
+    changed = {}
+    if args.extra_rounds is not None:
+        require(args.extra_rounds in {1, 2}, 'Extra synthesis rounds must be 1 or 2')
+        changed['synthesis_round_limit'] = max(before['synthesis_round_limit'], int(state.get('round') or 0)) + args.extra_rounds
+    for key in ('requirements_context_bytes', 'synthesis_context_bytes'):
+        if requested[key] is not None:
+            require(before[key] < requested[key] <= ALLOWANCE_CEILING_BYTES,
+                    key.replace('_', ' ') + ' must rise above ' + str(before[key]) + ' and stay at or below '
+                    + str(ALLOWANCE_CEILING_BYTES))
+            changed[key] = requested[key]
+    settings.update(changed)
+    import reframe_setup
+    project.setdefault('events', []).append({'event': 'validation_allowance_changed', 'at': time.time(),
+        'from': {key: before[key] for key in changed}, 'to': changed, 'round': state.get('round'),
+        'calls_consumed': state.get('calls', 0), 'by': args.by, 'note': args.note, **actor_provenance()})
+    persist(work, project)
+    return {'status': 'VALIDATION_ALLOWANCE_RECORDED', 'changed': changed, 'calls_consumed': state.get('calls', 0),
+            'note': 'An allowance permits calls; it does not make them. Earlier calls stay counted.',
+            'next_step': reframe_setup.next_step(project)}
 
 
 def set_model_budget(work, project, args):
@@ -1911,8 +1962,9 @@ def tracked_runtime(work, project, op_id, kind, role, provider, message, invoke,
     return reply
 
 
-def admitted_evidence(work, project, limit=150000):
+def admitted_evidence(work, project, limit=None):
     """Requirements and accepted human context for validation, as separate layers. Refuses rather than truncates."""
+    limit = limit or project['settings'].get('requirements_context_bytes') or REQUIREMENTS_CONTEXT_BYTES
     import reframe_optional as optional
     import reframe_requirements as requirements
     active = requirements.active_set(work, project)
@@ -1929,7 +1981,8 @@ def admitted_evidence(work, project, limit=150000):
     if size > limit:
         from reframe_states import stop
         stop('Requirements and admitted context are ' + str(size) + ' bytes; the validation allowance is ' + str(limit)
-             + '. Nothing was truncated. Narrow the selected functions or raise the allowance.', 'CONTEXT_LIMIT')
+             + '. Nothing was truncated. Narrow the selected functions, or record a larger allowance with '
+             'reframe validation-allowance --requirements-context-bytes N --by NAME --note WHY.', 'CONTEXT_LIMIT')
     return inputs
 
 
@@ -2219,7 +2272,9 @@ def legacy_pipeline(work, project, args, runtime=model_call):
             context['previous_review'] = state['previous_review']
         # Reviewed units are larger than one program. Synthesis may use the model window above the per-unit cap.
         try:
-            message = bounded_preparation_context(context, 600000 if capsules else project['settings']['max_context_bytes'])
+            message = bounded_preparation_context(context, (project['settings'].get('synthesis_context_bytes')
+                                                            or SYNTHESIS_CONTEXT_BYTES) if capsules
+                                                  else project['settings']['max_context_bytes'])
             require_stage_contract(work, 'task')
             if role == 'reviewer':
                 require_stage_contract(work, 'review')
@@ -2350,11 +2405,13 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                                             'review_sha256': sha(area / f'{artifact_prefix}review-{number}.json'), 'review_path': f'preparation/{artifact_prefix}review-{number}.json'}
                 if capsules:
                     project['specification']['checkpoints_sha256'] = digest(capsules)
+                admitted_set = (context['candidate'].get('admitted_inputs') or {}).get('requirements_set') or {}
+                project['specification']['requirements_set_id'] = admitted_set.get('set_id')
                 state['status'] = 'PASS'
                 project['stage'] = 'AWAITING_VALIDATION_APPROVAL'
                 preparation_report(work, project)
                 break
-            if reply['decision'] == 'BLOCKED' or number >= project['settings']['max_rounds']:
+            if reply['decision'] == 'BLOCKED' or number >= synthesis_round_limit(project):
                 used = state.get('limit_corrections') or (1 if state.get('limit_corrected') else 0)
                 if (reply['decision'] == 'REWORK' and capsules and not continued_rework
                         and kw.within_call_limit(project['settings'], state['calls'])
@@ -3006,8 +3063,12 @@ def feedback(work, project, args):
                 'next_step': 'reframe resume'}
 
     project.setdefault('feedback', []).append({'by': args.by, 'note': args.note, 'at': time.time(), **actor_provenance()})
-    require(state['round'] < project['settings']['max_rounds'], 'Revision limit exhausted; start a new workspace')
+    require(state['round'] < synthesis_round_limit(project),
+            'Revision limit exhausted. reframe validation-allowance --extra-rounds 1 --by NAME --note WHY records one more '
+            'synthesis round, or start a new workspace')
     state.update(round=state['round'] + 1, role='executor', status='RUNNING')
+    # The last review belongs to the candidate this feedback replaces; the new round starts from the feedback.
+    state.pop('previous_review', None)
     stamp = time.time()
     if project.get('decisions'):
         project.setdefault('decision_history', []).append({
@@ -3595,6 +3656,13 @@ def parser():
     preview.add_argument('--provider', choices=['claude','codex'], default='codex')
     preview.add_argument('--name', default='transform-direct')
     preview.add_argument('--refresh-export', action='store_true', help='Re-export a verified saved design after a CLI update, without new model calls')
+    allowance = commands.add_parser('validation-allowance',
+                                    help='Record an approved extra synthesis round or a larger validation context allowance')
+    allowance.add_argument('--extra-rounds', type=int)
+    allowance.add_argument('--requirements-context-bytes', type=int)
+    allowance.add_argument('--synthesis-context-bytes', type=int)
+    allowance.add_argument('--by', required=True)
+    allowance.add_argument('--note', required=True)
     budget = commands.add_parser('model-budget', help='Record an approved call allowance or model dollar cap')
     budget.add_argument('--max-calls', type=int)
     budget.add_argument('--clear-call-cap', action='store_true')
@@ -3936,6 +4004,7 @@ def main(argv=None, reporter=None):
                         import reframe_preview
                         result = reframe_preview.run(work, project, args, sys.modules[__name__])
                     elif args.command == 'model-budget': result = set_model_budget(work, project, args)
+                    elif args.command == 'validation-allowance': result = validation_allowance(work, project, args)
                     elif args.command == 'recover-provider': result = recover_provider_request(work, project, args)
                     elif args.command == 'assessment-report': result = assessment_report(work, project, args)
                     elif args.command == 'upgrade-framework': result = upgrade_framework(work, project, args)

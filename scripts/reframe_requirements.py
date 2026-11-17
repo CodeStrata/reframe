@@ -836,7 +836,24 @@ def record_set(work, project, originals, origin, evidence_level, producing_job_i
         moved = versions.supersede(project, ('validation', 'specifications', 'design', 'package'), 'requirements_' + origin)
         project['requirements']['requires_revalidation'] = True
         project['requirements']['superseded_approvals'] = moved
+        if project.get('stage') in AFTER_VALIDATION:
+            # The approvals this stage rests on are gone, so the run waits at the validation gate instead.
+            project['requirements']['returned_from_stage'] = project['stage']
+            project['stage'] = 'AWAITING_VALIDATION_APPROVAL'
     return set_id
+
+
+AFTER_VALIDATION = ('VALIDATION_APPROVED', 'AWAITING_SPECIFICATIONS_APPROVAL', 'SPECIFICATIONS_APPROVED', 'DESIGN_APPROVED',
+                    'PACKAGED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGE_ACCEPTED')
+
+
+def stale_specification(project):
+    """The set id a saved specification was not validated against, or None when it was (or nothing is pending)."""
+    record = project.get('requirements') or {}
+    specification = project.get('specification') or {}
+    if record.get('requires_revalidation') and specification and specification.get('requirements_set_id') != record.get('set_id'):
+        return record.get('set_id')
+    return None
 
 
 def renormalize(work, project, by, note):

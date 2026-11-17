@@ -271,3 +271,19 @@ The generic reader split every list entry into its own block, so 397 of 398 requ
 - **Tests:** `test_aws_reimagine_traceability_maps_each_requirement_to_its_rules_and_programs` and `test_renormalize_rebuilds_the_view_and_keeps_originals_and_approvals`.
 
 **Environment-dependent failure, not caused by this change.** `test_reframe_checkpoints::test_sanitized_carddemo_recovery_builds_exact_requests` reads the live CardDemo workspace's `project.json`. That project now records a retrieved requirements set, which the test's sanitized copy does not include, so the test fails with a missing `requirements` folder. It fails the same way on the commit before this change. It is left unchanged for a separate fix, rather than adjusted here to pass.
+
+**Requirements after validation left the run stranded.** Retrieving the live set superseded the validation, specification, design and package approvals, as spec §5.3 requires, but left the stage at `VALIDATION_APPROVED`. `resume` then went to wireframes and stopped at "Missing or stale validation approval", `upgrade-framework` was refused, and `status` named no route back. Decision amendments and specification feedback already move the stage when they supersede.
+- **Fix:**
+  - a set that arrives after a stage that rests on validation returns the run to `AWAITING_VALIDATION_APPROVAL` and records the stage it left;
+  - `approve validation` refuses a specification validated without the active set;
+  - a specification that passes now records the set it was validated against, and approving it clears `requires_revalidation`;
+  - `status` names `feedback --scope specification` as the revalidation route.
+- **Stale review:** specification feedback no longer resends the last review of the candidate it replaces. The live run held a round-3 `REWORK` review after its round-4 specification had passed.
+- **Test:** `test_context_validation::test_requirements_after_approval_return_the_run_to_validation_and_revalidate_it`.
+
+**No recorded way to give validation more room.** Revalidating the live set hit two fixed limits. The revision limit was spent (round 4 of `max_rounds` 2), and feedback said only "start a new workspace". The 233,167-byte requirements layer exceeded the fixed 150,000-byte validation allowance. The refusal said "raise the allowance", but no command could. The synthesis messages were already 538–592 KB against a fixed 600,000-byte ceiling.
+- **New command:** `validation-allowance --by --note` records extra synthesis rounds (1 or 2), a requirements context allowance, or a synthesis context allowance.
+  - Limits only rise, up to 1,000,000 bytes.
+  - Extra rounds apply to synthesis only, so the evidence-unit limit stays.
+  - Each change is an audited event with the calls already used.
+- **Test:** `test_context_validation::test_a_validation_allowance_only_rises_and_is_used_by_validation`.

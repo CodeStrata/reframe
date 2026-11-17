@@ -208,6 +208,7 @@ Every command takes `--workspace`. `reframe --help` and `reframe COMMAND --help`
 | `reframe --workspace "$W" prepare-plan` | Plan bounded evidence units without model calls |
 | `reframe --workspace "$W" preview` | Generate AWS-assumed draft wireframes and AI-DLC package without independent validation |
 | `reframe --workspace "$W" model-budget` | Record an approved call allowance or model dollar cap |
+| `reframe --workspace "$W" validation-allowance` | Record an approved extra synthesis round or a larger validation context allowance |
 | `reframe --workspace "$W" recover-provider` | Record review of a reasoning-extraction refusal before an evidence-only retry |
 | `reframe --workspace "$W" assessment-report` | Generate a private HTML index of sealed assessment evidence |
 | `reframe --workspace "$W" upgrade-framework` | Record a controller update before candidate handoff; preserve approved evidence |
@@ -720,6 +721,27 @@ reframe --workspace /path/to/private-poc resume
 ```
 
 A new project has no model-call cap. `max_model_calls` is null until you set one. A saved run keeps its recorded cap, its calls, and its dollar cap. The guide asks before raising a cap or removing it with `reframe model-budget --clear-call-cap`. Removing the cap does not restart the assessment or discard completed work. A call cap is enforced only when it is set. Tracked API spend and the API dollar cap are shown separately from an estimated next call. A cap of 0 is a real API budget and blocks the next billed API call. Subscription and other provider usage are unmeasured, and that absence is not a zero-dollar charge. A billed API key stops at the saved dollar cap until you raise it. A logged-in Claude subscription is not charged to that ledger. Repeated identical results, a provider failure, and a lack of progress pause with the completed work saved.
+
+### Requirements that arrive after validation
+
+A requirements set that is retrieved or imported after the specification supersedes the validation, specification,
+design, and package approvals. The run returns to `AWAITING_VALIDATION_APPROVAL`. `approve validation` refuses the
+earlier specification, because it was validated without that set. `reframe feedback --scope specification` revalidates
+it: passed evidence units stay sealed, and synthesis and review run again with the requirements as their own evidence
+layer. A specification that passes records the requirements set it was validated against, and approving it clears
+the revalidation flag.
+
+When the revision limit is spent or the requirements do not fit, the run owner can record a larger allowance:
+
+```bash
+reframe --workspace /path/to/private-poc validation-allowance --extra-rounds 1 --by NAME --note WHY
+reframe --workspace /path/to/private-poc validation-allowance --requirements-context-bytes 250000 --synthesis-context-bytes 900000 --by NAME --note WHY
+```
+
+Limits only rise, up to 1,000,000 bytes. The defaults are 150,000 bytes for requirements and admitted human context,
+and 600,000 bytes for a synthesis message. Extra rounds apply to synthesis only, so the evidence-unit revision limit
+does not change. Each change is an audited event with the owner, the note, and the calls already used. An allowance
+permits calls; it does not make them.
 
 `reframe status` reports the project phase, the saved assessment service state, assessment approval, the last local action, and the current required action. The service record can still say `AWAITING_ASSESSMENT_APPROVAL` after that approval exists. That historical state is not the current blocker when validation is pending. Question totals, answered, deferred, and remaining counts do not include question text or rationale.
 
