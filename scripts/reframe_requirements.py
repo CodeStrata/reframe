@@ -318,7 +318,7 @@ def _check_schema(record, tool, arguments):
     require(not set(arguments) - allowed, 'Unrecognized arguments for ' + tool + '; nothing is guessed')
 
 
-def step(work, project, client, selected=None, plan=None, reply=None, by=None):
+def step(work, project, client, selected=None, plan=None, reply=None, by=None, answer=None):
     """Advance the active requirements job by one saved step. A finished job is not rerun."""
     label = (project.get('requirements') or {}).get('active_job')
     require(label, 'No requirements job is authorized')
@@ -385,8 +385,11 @@ def step(work, project, client, selected=None, plan=None, reply=None, by=None):
     names = [str(item.get('stepName') or '') for item in steps]
     job['service_status'] = status
     job['plan_steps'] = [{'name': item.get('stepName'), 'status': item.get('status')} for item in steps]
-    if steps and not any(name.casefold() == GENERATE_STEP for name in names):
-        job.update(state='FAILED', reason='The job plan has no "Generate requirements" step. Observed steps: ' + ', '.join(names))
+    # The reimagine plan grows: AWS adds steps after business functions are discovered. Only a finished job without
+    # a "Generate requirements" step shows this plan cannot generate them.
+    if (steps and not any(name.casefold() == GENERATE_STEP for name in names)
+            and status in {'COMPLETED', 'SUCCEEDED', 'FAILED', 'STOPPED', 'CANCELLED'}):
+        job.update(state='FAILED', reason='The job ended without a "Generate requirements" step. Observed steps: ' + ', '.join(names))
         _save(job_path(work, label), job)
         from reframe_states import stop
         stop(job['reason'] + '. Integrated generation is not available through this plan.', 'CAPABILITY_UNVERIFIED')
@@ -403,9 +406,11 @@ def step(work, project, client, selected=None, plan=None, reply=None, by=None):
     for task in waiting:
         if _answer_connector(work, project, client, job, task, identity):
             continue
-        if not _answer_selection(work, project, client, job, task, identity, selected):
-            job.update(state='WAITING_FOR_HUMAN', reason='AWS presents a human task this adapter does not answer: '
-                       + str(task.get('title') or task.get('uxComponentId') or task.get('taskId')))
+        if _answer_source_location(work, project, client, job, task, identity):
+            continue
+        if _answer_selection(work, project, client, job, task, identity, selected):
+            continue
+        if not _answer_task(work, record, client, job, task, identity, answer, by):
             _save(job_path(work, label), job)
             return job
     generate = next((item for item in steps if str(item.get('stepName')).casefold() == GENERATE_STEP), None)
@@ -540,6 +545,102 @@ def _answer_connector(work, project, client, job, task, identity):
         **identity, 'taskId': task_id, 'content': json.dumps(content), 'action': 'APPROVE'})])[-1]
     _save(receipt, response)
     job['events'].append({'event': 'connector_selected', 'at': time.time(), 'connector_type': entry['connector_type']})
+    return True
+
+
+SOURCE_TASK = 'SpecifyAssetsLocation'
+
+
+def _answer_source_location(work, project, client, job, task, identity):
+    """Answer AWS's source-location form with this job's recorded, checked source, only when its schema asks for that."""
+    if task.get('uxComponentId') != SOURCE_TASK:
+        return False
+    task_id = task.get('taskId')
+    directory = job_path(work, job['label']).parent
+    receipt = directory / ('source-location-receipt-' + str(task_id) + '.json')
+    if receipt.is_file():
+        return True
+    record = client.calls([(ADAPTER_TOOLS['job_state'], identity),
+                           (ADAPTER_TOOLS['get_resource'], {**identity, 'resource': 'task', 'taskId': task_id})])[-1]
+    schema = (record.get('task') or {}).get('_outputSchema') or {}
+    if schema.get('required') != ['assetLocation'] or ((schema.get('properties') or {}).get('assetLocation') or {}).get('type') != 'string':
+        return False
+    from reframe_reimagine import job_source
+    content = {'assetLocation': job_source(project, (job['baseline'].get('uploaded_source') or {}).get('uri'))}
+    intent = directory / ('source-location-intent-' + str(task_id) + '.json')
+    require(not intent.is_file(), 'The source-location answer is uncertain. Check the task in AWS; Reframe never sends it again.')
+    _save(directory / ('source-location-task-' + str(task_id) + '.json'), record)
+    _save(intent, {'task_id': task_id, 'content': content})
+    response = client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['complete_task'], {
+        **identity, 'taskId': task_id, 'content': json.dumps(content), 'action': 'APPROVE'})])[-1]
+    _save(receipt, response)
+    job['events'].append({'event': 'source_location_submitted', 'at': time.time(), 'uri': content['assetLocation']})
+    return True
+
+
+_JSON_TYPES = {'string': str, 'boolean': bool, 'array': list, 'object': dict, 'integer': int, 'number': (int, float)}
+
+
+def _fits(schema, value):
+    """True when a value fits a JSON schema's type, enum, required and properties, as far as the schema states them."""
+    if not isinstance(schema, dict):
+        return True
+    if 'enum' in schema and value not in schema['enum']:
+        return False
+    kind = schema.get('type')
+    if isinstance(kind, str) and kind in _JSON_TYPES and not isinstance(value, _JSON_TYPES[kind]):
+        return False
+    if isinstance(value, dict):
+        properties = schema.get('properties') or {}
+        if not set(schema.get('required') or []) <= set(value):
+            return False
+        if properties and schema.get('additionalProperties') is not True and not set(value) <= set(properties):
+            return False
+        return all(_fits(properties.get(key), item) for key, item in value.items())
+    if isinstance(value, list):
+        return all(_fits(schema.get('items'), item) for item in value)
+    return True
+
+
+def _answer_task(work, record, client, job, task, identity, answer, by):
+    """Answer one other AWS task once, only with content that fits its own response schema. True when answered."""
+    task_id = task.get('taskId')
+    directory = job_path(work, job['label']).parent
+    receipt = directory / ('task-receipt-' + str(task_id) + '.json')
+    if receipt.is_file():
+        return True
+    intent = directory / ('task-intent-' + str(task_id) + '.json')
+    if intent.is_file():
+        job.update(state='NEEDS_RECONCILIATION', reason='The answer to AWS task ' + str(task.get('title') or task_id)
+                   + ' is uncertain. Check the task in AWS; Reframe never sends it again.')
+        return False
+    detail = client.calls([(ADAPTER_TOOLS['job_state'], identity),
+                           (ADAPTER_TOOLS['get_resource'], {**identity, 'resource': 'task', 'taskId': task_id})])[-1]
+    _save(directory / ('task-' + str(task_id) + '.json'), detail)
+    body = detail.get('task') or {}
+    schema = body.get('_outputSchema') or {}
+    job['open_task'] = {'task_id': task_id, 'title': body.get('title') or task.get('title'),
+                        'ux_component': body.get('uxComponentId') or task.get('uxComponentId'), 'schema': schema,
+                        'saved': 'task-' + str(task_id) + '.json'}
+    if answer is None:
+        job.update(state='WAITING_FOR_HUMAN', reason='AWS task "' + str(job['open_task']['title'] or task_id) + '" ('
+                   + str(job['open_task']['ux_component']) + ') waits for an answer that fits its schema. '
+                   'Answer with requirements resume --answer JSON --by NAME')
+        return False
+    require(str(by or '').strip(), 'An answer to an AWS task needs a named person: add --by')
+    try:
+        content = json.loads(answer)
+    except ValueError:
+        raise Blocked('The answer is not valid JSON')
+    require(_fits(schema, content), 'The answer does not fit the task\'s response schema; nothing was sent')
+    _save(intent, {'task_id': task_id, 'content': content, 'by': by, 'at': time.time()})
+    response = client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['complete_task'], {
+        **identity, 'taskId': task_id, 'content': json.dumps(content), 'action': 'APPROVE'})])[-1]
+    _save(receipt, response)
+    job.setdefault('task_answers', []).append({'task_id': task_id, 'title': job['open_task']['title'], 'content': content,
+                                               'by': by, 'at': time.time(), **actor_provenance()})
+    job['events'].append({'event': 'aws_task_answered', 'at': time.time(), 'by': by, 'title': job['open_task']['title']})
+    job.pop('open_task', None)
     return True
 
 

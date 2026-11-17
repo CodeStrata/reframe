@@ -223,3 +223,13 @@ The first live read-only discovery (#169), run under the confirmed envelope (#19
 **AWS waits without asking a question (2026-11-17).** After the objective confirmation, AWS asked which output languages to produce, ending with "Respond with \"no\" or \"English only\" to continue with English only." That text has no "?", so Reframe kept reporting the job as generating.
 - **Fix:** with no plan yet, AWS's latest unanswered `FINAL_RESPONSE` now counts as waiting for an answer. AWS marks its turn-ending messages `FINAL_RESPONSE` and its progress notes `THINKING`. A message that says to "please wait" does not count.
 - **Test:** `test_requirements::test_an_aws_request_without_a_question_mark_still_waits_and_a_please_wait_note_does_not`.
+
+**The reimagine plan grows as the job runs (2026-11-17).** The live "Assess and reimagine" plan started as Kickoff, Analyze code, Discover data paths, Analyze data and Discover business functions. "Generate requirements" comes later; the owner's earlier console job of this kind ends with it. Reframe failed the job locally as soon as it saw a plan without that step. The AWS job was unaffected.
+- **Test expectation changed by this change.** `test_a_plan_without_generate_requirements_is_a_capability_stop` now expects the capability stop only when AWS reports the job finished without the step. While the job runs, its tasks are handled as usual.
+
+**AWS tasks beyond connector and function selection.** The owner's earlier console job answered four AWS tasks, all `APPROVE` with a JSON payload (CloudTrail `SubmitStandardHitlTask`).
+- **Source location:** the form (`SpecifyAssetsLocation`) is now answered automatically, as the assessment answers it. That happens only when its schema is exactly `{assetLocation: string}`, and only with this job's recorded, checksum-checked source.
+- **Any other task:** saved locally and shown. It is answered with `requirements resume --answer JSON --by NAME` only when the JSON fits the task's own response schema (required and allowed fields, listed values, types). It is sent once and recorded with who answered.
+- **Tests:**
+  - `test_an_other_aws_task_is_answered_once_only_with_content_that_fits_its_schema`;
+  - `test_the_source_location_form_gets_this_jobs_recorded_source`.

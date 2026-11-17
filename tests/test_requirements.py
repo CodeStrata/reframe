@@ -404,10 +404,11 @@ class RequirementsTests(unittest.TestCase):
         client = FakeTransform(plan_steps=('Analyze code', 'Extract business logic'))
         self.discover(client)
         self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Pilot', client=client)
+        # While AWS runs the job, its plan may still grow; only a finished job without the step is a capability stop.
+        self.assertEqual(self.command('resume', client=client)['status'], 'REQUIREMENTS_GENERATING')
         with self.assertRaises(Blocked) as raised:
             self.command('resume', client=client)
         self.assertEqual(states.describe(raised.exception)['cause'], 'CAPABILITY_UNVERIFIED')
-        self.assertFalse(any(name == 'complete_task' for name, _ in client.calls_seen))
 
     def test_a_value_outside_the_task_schema_is_refused(self):
         client = FakeTransform()
@@ -426,6 +427,37 @@ class RequirementsTests(unittest.TestCase):
         self.assertEqual(result['status'], 'REQUIREMENTS_WAITING_FOR_HUMAN')
         self.assertIn('Approve the decomposition', result['reason'])
         self.assertFalse(any(name == 'complete_task' for name, _ in client.calls_seen))
+
+    def test_an_other_aws_task_is_answered_once_only_with_content_that_fits_its_schema(self):
+        client = FakeTransform(task={'taskId': 'T7', 'status': 'AWAITING_HUMAN_INPUT', 'title': 'Approve the decomposition',
+                                     '_outputSchema': {'type': 'object', 'required': ['ok'], 'properties': {'ok': {'enum': ['yes', 'no']}}}})
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Pilot', client=client)
+        waiting = self.command('resume', client=client)
+        self.assertEqual(waiting['open_task']['title'], 'Approve the decomposition')
+        for bad in ('{"ok": "maybe"}', '{"other": 1}', 'not json'):
+            with self.assertRaises(Blocked):
+                self.command('resume', '--answer', bad, '--by', 'Delegate', client=client)
+        with self.assertRaises(Blocked):
+            self.command('resume', '--answer', '{"ok": "yes"}', client=client)
+        self.assertFalse(any(name == 'complete_task' for name, _ in client.calls_seen))
+        self.command('resume', '--answer', '{"ok": "yes"}', '--by', 'Delegate', client=client)
+        sent = [json.loads(arguments['content']) for name, arguments in client.calls_seen if name == 'complete_task']
+        self.assertEqual(sent, [{'ok': 'yes'}])
+        job = app.read(self.work / 'requirements' / 'jobs' / 'requirements-1' / 'job.json')
+        self.assertEqual((job['task_answers'][0]['by'], job['task_answers'][0]['content']), ('Delegate', {'ok': 'yes'}))
+
+    def test_the_source_location_form_gets_this_jobs_recorded_source(self):
+        client = FakeTransform(task={'taskId': 'T2', 'status': 'AWAITING_HUMAN_INPUT', 'uxComponentId': 'SpecifyAssetsLocation',
+                                     'title': 'Specify resource location', '_outputSchema': {
+                                         'type': 'object', 'required': ['assetLocation'], 'properties': {'assetLocation': {'type': 'string'}}}})
+        self.discover(client)
+        self.command('authorize-job', '--functions', 'F1', '--by', 'Owner', '--note', 'Pilot', client=client)
+        self.command('resume', client=client)
+        self.command('resume', client=client)
+        sent = [json.loads(arguments['content']) for name, arguments in client.calls_seen if name == 'complete_task']
+        self.assertEqual(sent[0], {'assetLocation': 's3://fixture-bucket/reframe/run-1/source.zip'})
+        self.assertEqual(len([content for content in sent if 'assetLocation' in content]), 1)
 
     def test_without_a_selection_the_catalog_from_the_schema_is_shown(self):
         client = FakeTransform()
