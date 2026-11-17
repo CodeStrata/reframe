@@ -203,9 +203,12 @@ class RequirementsRevalidationTests(m1.WorkspaceFixture):
                          ('validation_allowance_changed', 'Owner', {'synthesis_round_limit': unit_limit},
                           {'synthesis_round_limit': unit_limit + 1}))
         self.project['pipeline']['previous_review'] = {'decision': 'REWORK', 'findings': ['stale']}
+        self.project['pending_action'] = {'command': 'review-site', 'provider': None}
         self.feedback()
         self.assertEqual(self.project['stage'], 'REVISION_PENDING')
         self.assertNotIn('previous_review', self.project['pipeline'], 'a review of the replaced candidate is not resent')
+        self.assertNotIn('pending_action', self.project, 'an unfinished design step for the withdrawn specification is dropped')
+        self.assertEqual(self.project['events'][-1]['event'], 'pending_action_withdrawn')
 
         self.seen.clear()
         result = app.pipeline(self.work, self.project, self.args('resume'), self.runtime)

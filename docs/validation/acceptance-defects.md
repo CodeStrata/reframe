@@ -272,12 +272,15 @@ The generic reader split every list entry into its own block, so 397 of 398 requ
 
 **Environment-dependent failure, not caused by this change.** `test_reframe_checkpoints::test_sanitized_carddemo_recovery_builds_exact_requests` reads the live CardDemo workspace's `project.json`. That project now records a retrieved requirements set, which the test's sanitized copy does not include, so the test fails with a missing `requirements` folder. It fails the same way on the commit before this change. It is left unchanged for a separate fix, rather than adjusted here to pass.
 
+`test_wireframe_context::test_saved_request_is_staged_inside_the_context_budget` also reads the live workspace. It needs the live project to hold a specification. Since revalidation began, the live specification is withdrawn until synthesis passes again, so the test fails with `KeyError: 'specification'`. It is left unchanged for the same separate fix: these tests should read a sealed copy, not the live workspace.
+
 **Requirements after validation left the run stranded.** Retrieving the live set superseded the validation, specification, design and package approvals, as spec §5.3 requires, but left the stage at `VALIDATION_APPROVED`. `resume` then went to wireframes and stopped at "Missing or stale validation approval", `upgrade-framework` was refused, and `status` named no route back. Decision amendments and specification feedback already move the stage when they supersede.
 - **Fix:**
   - a set that arrives after a stage that rests on validation returns the run to `AWAITING_VALIDATION_APPROVAL` and records the stage it left;
   - `approve validation` refuses a specification validated without the active set;
   - a specification that passes now records the set it was validated against, and approving it clears `requires_revalidation`;
   - `status` names `feedback --scope specification` as the revalidation route.
+- **Stale design step:** the live run still held a `review-site` pending action from an earlier wireframe attempt. `resume` runs a pending action before reading the stage, so the first revalidation `resume` went to wireframes for the withdrawn specification and stopped with `KeyError: 'specification'`, before any call. Specification feedback now withdraws a pending `review-site` action and records the event.
 - **Stale review:** specification feedback no longer resends the last review of the candidate it replaces. The live run held a round-3 `REWORK` review after its round-4 specification had passed.
 - **Test:** `test_context_validation::test_requirements_after_approval_return_the_run_to_validation_and_revalidate_it`.
 

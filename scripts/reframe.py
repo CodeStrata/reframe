@@ -3077,6 +3077,11 @@ def feedback(work, project, args):
             'previous': copy.deepcopy(project['decisions'])})
     for key in ('specification', 'site', 'package', 'preparation_report'):
         project.pop(key, None)
+    if (project.get('pending_action') or {}).get('command') == 'review-site':
+        # An unfinished design step was for the specification this feedback withdraws; resume revalidates instead.
+        project.setdefault('events', []).append({'event': 'pending_action_withdrawn', 'at': stamp,
+                                                 'pending_action': project.pop('pending_action'),
+                                                 'reason': 'specification_feedback'})
     project['decisions'] = {}
     import reframe_versions
     reframe_versions.supersede(project, ('validation', 'specifications', 'design', 'package'), 'specification_feedback', stamp)
