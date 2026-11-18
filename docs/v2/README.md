@@ -6,6 +6,7 @@ This folder is the reference for Reframe v2. Every design and build decision is 
 |---|---|
 | [specification.md](specification.md) | What v2 does: scope, workflow, requirements, data model, AWS resources, package, security, commands, acceptance, phases and owner decisions |
 | [plan.md](plan.md) | Why v2 exists, what changes from v1, phases, success measures, risks, remaining owner decisions and next steps |
+| [backlog.md](backlog.md) | Index of the v2 epic and stories in GitHub |
 
 ## Change process
 
