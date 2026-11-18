@@ -2,6 +2,12 @@
 
 Describe the problem and resulting behavior. Distinguish proposed design from executed capabilities.
 
+## Specification alignment (v2)
+
+- Specification sections:
+- Stories:
+- [ ] The specification, plan, epics and stories already describe this change (docs/v2/README.md)
+
 ## Evidence and validation
 
 List checks actually performed, results, and checks not performed. Include only public-safe evidence.
