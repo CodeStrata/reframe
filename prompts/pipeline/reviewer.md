@@ -15,7 +15,11 @@ Independently read both source and findings before any review decision. Check
 source anchors, rule completeness for the stated slice, error paths, dependencies,
 false source-verified claims, assessment evidence presented as a source rule or as new implementation work, a prose mapping that is missing from section or work-item rule_ids, a section that picks one layout while an open question still records the conflict, missing business oracles, scope/exclusion boundaries,
 API/data/UI consistency, all ten preparation sections, testability, and whether
-implementation prompts respect unresolved decisions. Challenge invented service
+implementation prompts respect unresolved decisions. When admitted requirements are present, check that every section, work item
+and test listing a requirement in `requirement_ids` actually addresses it, and that
+each `excluded_requirements` entry gives a reason. A wrong mapping is a defect. An
+unmapped requirement is a reported gap, not a defect by itself. The controller derives
+coverage views from these ids and does not resend them. Challenge invented service
 boundaries and inferred runtime behavior. Require uncertainty to be explicit and
 assigned to an SME/architect with impact and blocked work.
 

@@ -1,12 +1,16 @@
 """Human context at review gates, scoped conflicts, and validation inputs (AC-08, AC-09, AC-10; #174-#177). L1/L2 offline."""
+import argparse
 import json
 import unittest
+from unittest.mock import patch
 
 import test_m1_contracts as m1
 import test_requirements as req_fixtures
 import reframe as app
 import reframe_optional as optional
 import reframe_requirements as requirements
+import reframe_coverage
+import reframe_setup
 import reframe_states as states
 from pilot import Blocked
 
@@ -151,6 +155,167 @@ class ContextAndValidationTests(m1.WorkspaceFixture):
             optional.import_context(self.work, self.context_file('bad.md', 'x'), 'Dana', 'SME', 'approval', [], 'baseline')
         self.assertEqual({'correction', 'constraint', 'review-feedback'} - set(optional.CATEGORIES), set())
 
+
+
+class RequirementsRevalidationTests(m1.WorkspaceFixture):
+    validated_and_approved = m1.MigrationTests.validated_and_approved
+    synthesis_contexts = ContextAndValidationTests.synthesis_contexts
+
+    def allowance(self, **values):
+        fields = {'extra_rounds': None, 'requirements_context_bytes': None, 'synthesis_context_bytes': None,
+                  'by': 'Owner', 'note': 'Revalidate against the AWS requirements'}
+        return app.validation_allowance(self.work, self.project, argparse.Namespace(**{**fields, **values}))
+
+    def feedback(self):
+        return app.feedback(self.work, self.project, argparse.Namespace(
+            scope='specification', unit=None, authorize_correction=False, by='Owner',
+            note='Revalidate the specification against the AWS requirements set'))
+
+    def import_requirements(self):
+        folder = self.root / 'external'
+        folder.mkdir(exist_ok=True)
+        (folder / 'requirements.md').write_text(req_fixtures.REQUIREMENTS_MD)
+        (folder / 'traceability.yaml').write_text(req_fixtures.TRACEABILITY_YAML)
+        return requirements.import_files(self.work, self.project, folder / 'requirements.md', folder / 'traceability.yaml',
+                                         'F1', 'Analyst', 'Console export')
+
+    def test_requirements_after_approval_send_the_run_back_to_revision_and_revalidate_it(self):
+        self.validated_and_approved()
+        unit_limit = self.project['settings']['max_rounds']
+        self.project['pipeline']['round'] = unit_limit
+        with self.assertRaises(Blocked) as raised:
+            self.import_requirements()
+        self.assertIn('validation-allowance --extra-rounds 1', str(raised.exception))
+        self.assertEqual(self.project['stage'], 'VALIDATION_APPROVED', 'a refused import changes nothing')
+
+        result = self.allowance(extra_rounds=1)
+        self.assertEqual(result['changed'], {'synthesis_round_limit': unit_limit + 1})
+        self.assertEqual(self.project['settings']['max_rounds'], unit_limit, 'evidence-unit revision limit is unchanged')
+        event = self.project['events'][-1]
+        self.assertEqual((event['event'], event['by'], event['from'], event['to']),
+                         ('validation_allowance_changed', 'Owner', {'synthesis_round_limit': unit_limit},
+                          {'synthesis_round_limit': unit_limit + 1}))
+        self.project['pipeline']['previous_review'] = {'decision': 'REWORK', 'findings': ['stale']}
+        self.project['pending_action'] = {'command': 'review-site', 'provider': None}
+        set_id = self.import_requirements()
+        self.assertEqual(self.project['stage'], 'REVISION_PENDING', 'the stage no longer claims a superseded approval')
+        self.assertTrue(self.project['requirements']['requires_revalidation'])
+        self.assertNotIn('previous_review', self.project['pipeline'], 'a review of the replaced candidate is not resent')
+        self.assertNotIn('pending_action', self.project, 'an unfinished design step for the withdrawn specification is dropped')
+        self.assertIn('pending_action_withdrawn', [e.get('event') for e in self.project['events']])
+
+        self.seen.clear()
+        result = app.pipeline(self.work, self.project, self.args('resume'), self.runtime)
+        self.assertEqual(result['status'], 'AWAITING_VALIDATION_APPROVAL')
+        executor = self.synthesis_contexts()[-2]
+        self.assertEqual(executor['admitted_inputs']['requirements_set']['set_id'], set_id)
+        self.assertNotIn('previous_review', executor)
+        self.assertEqual(self.project['specification']['requirements_set_id'], set_id)
+        self.assertIsNone(requirements.stale_specification(self.project))
+        spec = app.read(app.spec_path(self.work, self.project))
+        ids = [q['id'] for q in spec['questions']]
+        if ids:
+            app.decision(self.work, self.project, argparse.Namespace(
+                question=None, questions=','.join(ids), open=False, placeholders=False, by='SME',
+                answer='Deferred for this fixture', disposition='deferred', amend=False, confirm=True))
+        app.approve(self.work, self.project, argparse.Namespace(
+            phase='validation', by='Architect', note='Revalidated against requirements', label=None, confirm_source_match=False))
+        self.assertEqual(self.project['stage'], 'VALIDATION_APPROVED')
+        self.assertNotIn('requires_revalidation', self.project['requirements'])
+        self.assertIn('revalidated', self.project['requirements'])
+
+    def test_approving_a_specification_validated_before_the_active_set_is_refused(self):
+        self.validated_and_approved()
+        # A workspace saved before routing existed can hold a validated specification and a newer set.
+        self.project['requirements'] = {**(self.project.get('requirements') or {}), 'set_id': 'newer-set', 'requires_revalidation': True}
+        self.project['stage'] = 'AWAITING_VALIDATION_APPROVAL'
+        self.assertEqual(requirements.stale_specification(self.project), 'newer-set')
+        self.assertIn('feedback --scope specification', reframe_setup.next_step(self.project))
+        self.project['pipeline']['round'] = app.synthesis_round_limit(self.project)
+        self.assertIn('validation-allowance --extra-rounds 1', reframe_setup.next_step(self.project))
+        with self.assertRaises(Blocked) as raised:
+            app.approve(self.work, self.project, argparse.Namespace(
+                phase='validation', by='Architect', note='Same specification', label=None, confirm_source_match=False))
+        self.assertIn('validated before requirements set newer-set', str(raised.exception))
+
+    def test_a_validation_allowance_only_rises_and_is_used_by_validation(self):
+        self.import_requirements()
+        with patch.object(app, 'REQUIREMENTS_CONTEXT_BYTES', 100):
+            with self.assertRaises(Blocked) as raised:
+                app.admitted_evidence(self.work, self.project)
+            self.assertIn('validation-allowance --requirements-context-bytes', str(raised.exception))
+            for values in ({}, {'requirements_context_bytes': 50}, {'requirements_context_bytes': app.ALLOWANCE_CEILING_BYTES + 1},
+                           {'extra_rounds': 3}, {'synthesis_context_bytes': app.SYNTHESIS_CONTEXT_BYTES}):
+                with self.assertRaises(Blocked):
+                    self.allowance(**values)
+            self.assertNotIn('requirements_context_bytes', self.project['settings'])
+            self.allowance(requirements_context_bytes=200000, synthesis_context_bytes=900000)
+            self.assertTrue(app.admitted_evidence(self.work, self.project)['requirements'])
+        limits = []
+        original = app.bounded_preparation_context
+        with patch.object(app, 'bounded_preparation_context',
+                          side_effect=lambda context, limit: limits.append(limit) or original(context, limit)):
+            app.pipeline(self.work, self.project, self.args('validate'), self.runtime)
+        self.assertEqual(set(limits), {900000}, 'synthesis calls use the recorded ceiling')
+        self.assertEqual([e['to'] for e in self.project['events'] if e.get('event') == 'validation_allowance_changed'],
+                         [{'requirements_context_bytes': 200000, 'synthesis_context_bytes': 900000}])
+
+    def test_synthesis_cites_requirements_and_the_reviewer_gets_no_controller_views(self):
+        self.import_requirements()
+        reviewed = []
+
+        def runtime(provider, run, directory, role, message):
+            context = json.loads(message)
+            if 'unit_id' in context:
+                return self.runtime(provider, run, directory, role, message)
+            if role == 'reviewer':
+                self.seen.append((role, context))
+                reviewed.append(context['candidate'])
+                return {'kind': 'review', 'decision': 'PASS', 'report': 'Mappings checked', 'findings': []}
+            reply = self.runtime(provider, run, directory, role, message)
+            spec = reply['specification']
+            for holder in list(spec['sections'].values()) + spec['work_items'] + spec['tests']:
+                holder['requirement_ids'] = ['PAY-001']
+            spec['excluded_requirements'] = {'PAY-003': 'Rejection logging is outside the selected scope'}
+            return reply
+
+        result = app.pipeline(self.work, self.project, self.args('validate'), runtime)
+        self.assertEqual(result['status'], 'AWAITING_VALIDATION_APPROVAL')
+        spec = app.read(app.spec_path(self.work, self.project))
+        self.assertEqual(spec['sections']['architecture']['requirement_ids'], ['aws-req:F1:PAY-001'],
+                         'a unique original id is recorded as the full id')
+        coverage = {row['id']: row['disposition'] for row in spec['requirement_coverage']}
+        self.assertEqual(coverage, {'aws-req:F1:PAY-001': 'mapped', 'aws-req:F1:PAY-002': 'gap',
+                                    'aws-req:F1:PAY-003': 'excluded'})
+        for view in ('requirement_coverage', 'admitted_inputs', 'test_templates'):
+            self.assertIn(view, spec, 'the saved candidate keeps its controller views')
+            self.assertNotIn(view, reviewed[-1], 'the reviewer is not sent views the controller derives')
+        self.assertEqual(reviewed[-1]['controller_views_omitted'], ['admitted_inputs', 'requirement_coverage', 'test_templates'])
+
+    def test_an_unknown_or_unexplained_requirement_id_is_refused(self):
+        records = [{'id': 'aws-req:F1:PAY-001', 'original_id': 'PAY-001'}, {'id': 'aws-req:F2:PAY-001', 'original_id': 'PAY-001'}]
+        for spec in ({'sections': {'ui': {'requirement_ids': ['PAY-404']}}},
+                     {'sections': {'ui': {'requirement_ids': ['PAY-001']}}},
+                     {'excluded_requirements': {'aws-req:F1:PAY-001': ' '}}):
+            with self.assertRaises(Blocked):
+                reframe_coverage.resolve_requirement_ids(spec, records)
+        spec = reframe_coverage.resolve_requirement_ids({'work_items': [{'requirement_ids': ['aws-req:F2:PAY-001']}]}, records)
+        self.assertEqual(spec['work_items'][0]['requirement_ids'], ['aws-req:F2:PAY-001'])
+
+    def test_a_revision_does_not_reuse_an_unreviewed_candidate_from_the_replaced_round(self):
+        self.validated_and_approved()
+        state = self.project['pipeline']
+        state['calls'] += 1
+        stale = app.read(app.spec_path(self.work, self.project))
+        app.write(self.work / 'preparation' / ('reply-' + str(state['calls']) + '.json'), {'kind': 'candidate', 'specification': stale})
+        self.allowance(extra_rounds=1)
+        self.import_requirements()
+        self.assertEqual(self.project['stage'], 'REVISION_PENDING')
+        self.seen.clear()
+        app.pipeline(self.work, self.project, self.args('resume'), self.runtime)
+        executors = [ctx for role, ctx in self.seen if role == 'executor' and 'unit_id' not in ctx]
+        self.assertEqual(len(executors), 1, 'the executor is asked again instead of reusing the replaced reply')
+        self.assertIn('admitted_inputs', executors[0])
 
 if __name__ == '__main__':
     unittest.main()

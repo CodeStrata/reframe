@@ -1314,7 +1314,13 @@ def approve(work, project, args):
         require(not unresolved, 'Record SME decisions first: ' + ', '.join(unresolved))
         verified_preparation_report(work, project)
         require_clear_for_final(work, 'validation approval', spec_scope_ids(work, project))
+        import reframe_requirements
+        stale = reframe_requirements.stale_specification(project)
+        require(not stale, 'This specification was validated before requirements set ' + str(stale) + ' arrived. '
+                'Revalidate it with reframe feedback --scope specification --by NAME --note WHY.')
         fingerprint = digest({'specification': project['specification']['sha256'], 'decisions': project['decisions']})
+        if (project.get('requirements') or {}).pop('requires_revalidation', None):
+            project['requirements']['revalidated'] = {'at': time.time(), 'specification_sha256': project['specification']['sha256']}
         project['stage'] = 'VALIDATION_APPROVED'
     elif args.phase == 'design':
         require(project.get('verification_skip') and project.get('skip_bundle'),
@@ -1556,6 +1562,51 @@ def recover_provider_request(work, project, args):
     persist(work,project)
     return {'status':'REVISED_REQUEST_READY','calls_consumed':project['pipeline']['calls'],
             'next_step':'reframe resume; new provider refusals still stop automatically'}
+
+
+REQUIREMENTS_CONTEXT_BYTES = 150000
+SYNTHESIS_CONTEXT_BYTES = 600000
+ALLOWANCE_CEILING_BYTES = 1000000
+
+
+def synthesis_round_limit(project):
+    """Synthesis rounds. A recorded allowance extends them without loosening the evidence-unit limit."""
+    return project['settings'].get('synthesis_round_limit') or project['settings']['max_rounds']
+
+
+def validation_allowance(work, project, args):
+    """Record a named person's larger validation allowance. Limits only rise, and each change is an audited event."""
+    require(args.by.strip() and args.note.strip(), 'Named owner and allowance rationale required')
+    reject_instructional_placeholder(args.by, 'Name of the person recording the allowance')
+    reject_instructional_placeholder(args.note, 'Allowance note')
+    requested = {'synthesis_round_limit': args.extra_rounds, 'requirements_context_bytes': args.requirements_context_bytes,
+                 'synthesis_context_bytes': args.synthesis_context_bytes}
+    require(any(value is not None for value in requested.values()),
+            'Record extra synthesis rounds, a requirements context allowance, or a synthesis context allowance')
+    settings = project['settings']
+    state = project.get('pipeline') or {}
+    before = {'synthesis_round_limit': synthesis_round_limit(project),
+              'requirements_context_bytes': settings.get('requirements_context_bytes') or REQUIREMENTS_CONTEXT_BYTES,
+              'synthesis_context_bytes': settings.get('synthesis_context_bytes') or SYNTHESIS_CONTEXT_BYTES}
+    changed = {}
+    if args.extra_rounds is not None:
+        require(args.extra_rounds in {1, 2}, 'Extra synthesis rounds must be 1 or 2')
+        changed['synthesis_round_limit'] = max(before['synthesis_round_limit'], int(state.get('round') or 0)) + args.extra_rounds
+    for key in ('requirements_context_bytes', 'synthesis_context_bytes'):
+        if requested[key] is not None:
+            require(before[key] < requested[key] <= ALLOWANCE_CEILING_BYTES,
+                    key.replace('_', ' ') + ' must rise above ' + str(before[key]) + ' and stay at or below '
+                    + str(ALLOWANCE_CEILING_BYTES))
+            changed[key] = requested[key]
+    settings.update(changed)
+    import reframe_setup
+    project.setdefault('events', []).append({'event': 'validation_allowance_changed', 'at': time.time(),
+        'from': {key: before[key] for key in changed}, 'to': changed, 'round': state.get('round'),
+        'calls_consumed': state.get('calls', 0), 'by': args.by, 'note': args.note, **actor_provenance()})
+    persist(work, project)
+    return {'status': 'VALIDATION_ALLOWANCE_RECORDED', 'changed': changed, 'calls_consumed': state.get('calls', 0),
+            'note': 'An allowance permits calls; it does not make them. Earlier calls stay counted.',
+            'next_step': reframe_setup.next_step(project)}
 
 
 def set_model_budget(work, project, args):
@@ -1911,8 +1962,9 @@ def tracked_runtime(work, project, op_id, kind, role, provider, message, invoke,
     return reply
 
 
-def admitted_evidence(work, project, limit=150000):
+def admitted_evidence(work, project, limit=None):
     """Requirements and accepted human context for validation, as separate layers. Refuses rather than truncates."""
+    limit = limit or project['settings'].get('requirements_context_bytes') or REQUIREMENTS_CONTEXT_BYTES
     import reframe_optional as optional
     import reframe_requirements as requirements
     active = requirements.active_set(work, project)
@@ -1929,7 +1981,8 @@ def admitted_evidence(work, project, limit=150000):
     if size > limit:
         from reframe_states import stop
         stop('Requirements and admitted context are ' + str(size) + ' bytes; the validation allowance is ' + str(limit)
-             + '. Nothing was truncated. Narrow the selected functions or raise the allowance.', 'CONTEXT_LIMIT')
+             + '. Nothing was truncated. Narrow the selected functions, or record a larger allowance with '
+             'reframe validation-allowance --requirements-context-bytes N --by NAME --note WHY.', 'CONTEXT_LIMIT')
     return inputs
 
 
@@ -1945,8 +1998,21 @@ def attach_admitted_inputs(work, project, spec):
         'note': 'Recorded by the controller. Requirements are producer claims and human context is admitted input; '
                 'neither is source verification.'}
     import reframe_coverage
+    reframe_coverage.resolve_requirement_ids(spec, inputs['requirements'])
     reframe_coverage.annotate(spec, [item['id'] for item in inputs['requirements']])
     return spec['admitted_inputs']
+
+
+CONTROLLER_VIEWS = ('admitted_inputs', 'requirement_coverage', 'test_templates')
+
+
+def reviewer_view(candidate):
+    """The candidate without views the controller derives from its structured ids. The saved candidate keeps them."""
+    view = {key: value for key, value in candidate.items() if key not in CONTROLLER_VIEWS}
+    omitted = [key for key in CONTROLLER_VIEWS if key in candidate]
+    if omitted:
+        view['controller_views_omitted'] = omitted
+    return view
 
 
 def pipeline(work, project, args, runtime=None):
@@ -2170,7 +2236,8 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                     'Return kind review. A source read is only for one claim you cannot check from the candidate. '
                     'Do not inventory the repository. PASS when the specification keeps the reviewed rules and '
                     'SME questions and does not claim runtime equivalence. REWORK only for a contradicted claim.')
-        prior_reply = next((area / f'reply-{n}.json' for n in range(state['calls'], 0, -1)
+        # Replies saved before specification feedback belong to the replaced round and are not reused.
+        prior_reply = next((area / f'reply-{n}.json' for n in range(state['calls'], state.get('replies_superseded_through', 0), -1)
                             if (area / f'reply-{n}.json').exists()), None)
         if role == 'executor' and prior_reply is not None:
             prior = read(prior_reply)
@@ -2214,12 +2281,15 @@ def legacy_pipeline(work, project, args, runtime=model_call):
         if role == 'reviewer':
             candidate_path = area / f'{artifact_prefix}candidate-{number}.json'
             require(sha(candidate_path) == state['candidate_sha256'], 'Candidate changed after handoff')
-            context['candidate'] = read(candidate_path)
+            candidate = read(candidate_path)
+            context['candidate'] = reviewer_view(candidate)
         if state.get('previous_review'):
             context['previous_review'] = state['previous_review']
         # Reviewed units are larger than one program. Synthesis may use the model window above the per-unit cap.
         try:
-            message = bounded_preparation_context(context, 600000 if capsules else project['settings']['max_context_bytes'])
+            message = bounded_preparation_context(context, (project['settings'].get('synthesis_context_bytes')
+                                                            or SYNTHESIS_CONTEXT_BYTES) if capsules
+                                                  else project['settings']['max_context_bytes'])
             require_stage_contract(work, 'task')
             if role == 'reviewer':
                 require_stage_contract(work, 'review')
@@ -2350,11 +2420,13 @@ def legacy_pipeline(work, project, args, runtime=model_call):
                                             'review_sha256': sha(area / f'{artifact_prefix}review-{number}.json'), 'review_path': f'preparation/{artifact_prefix}review-{number}.json'}
                 if capsules:
                     project['specification']['checkpoints_sha256'] = digest(capsules)
+                admitted_set = (candidate.get('admitted_inputs') or {}).get('requirements_set') or {}
+                project['specification']['requirements_set_id'] = admitted_set.get('set_id')
                 state['status'] = 'PASS'
                 project['stage'] = 'AWAITING_VALIDATION_APPROVAL'
                 preparation_report(work, project)
                 break
-            if reply['decision'] == 'BLOCKED' or number >= project['settings']['max_rounds']:
+            if reply['decision'] == 'BLOCKED' or number >= synthesis_round_limit(project):
                 used = state.get('limit_corrections') or (1 if state.get('limit_corrected') else 0)
                 if (reply['decision'] == 'REWORK' and capsules and not continued_rework
                         and kw.within_call_limit(project['settings'], state['calls'])
@@ -3029,7 +3101,9 @@ def design_feedback(work, project, args):
 def revision_possible(project):
     """Stop before anything changes when validation cannot run again."""
     require(project.get('pipeline'), 'No preparation candidate to revise')
-    require(project['pipeline']['round'] < project['settings']['max_rounds'], 'Revision limit exhausted; start a new workspace')
+    require(project['pipeline']['round'] < synthesis_round_limit(project),
+            'Revision limit exhausted. reframe validation-allowance --extra-rounds 1 --by NAME --note WHY records one more '
+            'synthesis round, or start a new workspace')
 
 
 def route_to_revision(project, by, note, reason, **extra):
@@ -3038,6 +3112,9 @@ def route_to_revision(project, by, note, reason, **extra):
     state = project['pipeline']
     project.setdefault('feedback', []).append({'by': by, 'note': note, 'at': time.time(), **extra, **actor_provenance()})
     state.update(round=state['round'] + 1, role='executor', status='RUNNING')
+    # The last review and any unreviewed reply belong to the candidate this revision replaces.
+    state.pop('previous_review', None)
+    state['replies_superseded_through'] = state['calls']
     stamp = time.time()
     if project.get('decisions'):
         project.setdefault('decision_history', []).append({
@@ -3047,6 +3124,10 @@ def route_to_revision(project, by, note, reason, **extra):
     retire_package(project, reason, stamp)
     for key in ('specification', 'site', 'preparation_report'):
         project.pop(key, None)
+    if (project.get('pending_action') or {}).get('command') == 'review-site':
+        # An unfinished design step was for the specification this revision withdraws; resume revalidates instead.
+        project.setdefault('events', []).append({'event': 'pending_action_withdrawn', 'at': stamp,
+                                                 'pending_action': project.pop('pending_action'), 'reason': reason})
     project['decisions'] = {}
     import reframe_versions
     reframe_versions.supersede(project, ('validation', 'specifications', 'design', 'package'), reason, stamp)
@@ -3566,8 +3647,12 @@ def semantic_compare(work, project, args, runtime=model_call):
 
 
 def transform_client(project, work):
-    """The Transform MCP client for this project's saved settings."""
-    return kw.Transform(project['settings']['transform'], Path(work))
+    """The Transform MCP client for this project's saved settings, signed in with the saved AWS profile and region."""
+    config = dict(project['settings']['transform'])
+    config['env'] = {**(config.get('env') or {}),
+                     **{variable: project['aws'][key] for key, variable in (('profile', 'AWS_PROFILE'), ('region', 'AWS_REGION'))
+                        if (project.get('aws') or {}).get(key)}}
+    return kw.Transform(config, Path(work))
 
 
 def requirements_command(work, project, args, client=None):
@@ -3618,21 +3703,42 @@ def requirements_command(work, project, args, client=None):
         record = requirements.discover(work, project, client or transform_client(project, work), args.by, args.note)
         persist(work, project)
         return {'status': 'CAPABILITY_RECORDED', **requirements.generation_status(record)}
+    if action == 'connector':
+        import reframe_reimagine as reimagine
+        reject_instructional_placeholder(args.note, 'Connector note')
+        result = reimagine.connector(work, project, args, client or (transform_client(project, work) if args.create else None))
+        persist(work, project)
+        return result
     if action == 'authorize-job':
         reject_instructional_placeholder(args.note, 'Authorization note')
         functions = [item.strip() for item in args.functions.split(',') if item.strip()]
         job = requirements.authorize_job(work, project, functions, args.by, args.note)
         persist(work, project)
-        return {'status': 'REQUIREMENTS_JOB_AUTHORIZED', 'label': job['label'], 'evidence_level': job['evidence_level'],
+        return {'status': 'REQUIREMENTS_JOB_AUTHORIZED', 'label': job['label'], 'run_id': job['run_id'],
+                'evidence_level': job['evidence_level'],
                 'next_step': 'reframe --workspace ' + str(work) + ' requirements resume'}
+    if action == 'renormalize':
+        reject_instructional_placeholder(args.note, 'Renormalize note')
+        counts = requirements.renormalize(work, project, args.by, args.note)
+        persist(work, project)
+        return {'status': 'REQUIREMENTS_RENORMALIZED', 'counts': counts}
+    if action == 'stop':
+        reject_instructional_placeholder(args.note, 'Stop note')
+        job = requirements.stop_job(work, project, client or transform_client(project, work), args.by, args.note)
+        persist(work, project)
+        return {'status': 'REQUIREMENTS_STOPPED', 'job': job['label'], 'job_id': job.get('job_id'),
+                'service_status': job.get('service_status'), 'reason': job['reason']}
+    if args.reply:
+        reject_instructional_placeholder(args.reply, 'Reply to AWS')
     selected = [item.strip() for item in (args.select or '').split(',') if item.strip()]
-    job = requirements.step(work, project, client or transform_client(project, work), selected or None)
+    job = requirements.step(work, project, client or transform_client(project, work), selected or None,
+                            plan=args.plan, reply=args.reply, by=args.by, answer=args.answer)
     if job.get('state') == 'RETRIEVED':
         import reframe_versions
         reframe_versions.record(work, project, 'requirements retrieved')
     persist(work, project)
-    return {'status': 'REQUIREMENTS_' + job['state'], 'job': job['label'], 'job_id': job.get('job_id'),
-            'completion': job.get('completion'), 'catalog': job.get('catalog'), 'reason': job.get('reason'),
+    return {'status': 'REQUIREMENTS_' + job['state'], 'job': job['label'], 'run_id': job.get('run_id'), 'job_id': job.get('job_id'),
+            'question': job.get('question'), 'open_task': job.get('open_task'), 'completion': job.get('completion'), 'catalog': job.get('catalog'), 'reason': job.get('reason'),
             'evidence_level': job.get('evidence_level')}
 
 
@@ -3682,6 +3788,13 @@ def parser():
     preview.add_argument('--provider', choices=['claude','codex'], default='codex')
     preview.add_argument('--name', default='transform-direct')
     preview.add_argument('--refresh-export', action='store_true', help='Re-export a verified saved design after a CLI update, without new model calls')
+    allowance = commands.add_parser('validation-allowance',
+                                    help='Record an approved extra synthesis round or a larger validation context allowance')
+    allowance.add_argument('--extra-rounds', type=int)
+    allowance.add_argument('--requirements-context-bytes', type=int)
+    allowance.add_argument('--synthesis-context-bytes', type=int)
+    allowance.add_argument('--by', required=True)
+    allowance.add_argument('--note', required=True)
     budget = commands.add_parser('model-budget', help='Record an approved call allowance or model dollar cap')
     budget.add_argument('--max-calls', type=int)
     budget.add_argument('--clear-call-cap', action='store_true')
@@ -3782,12 +3895,35 @@ def parser():
     discover = requirement_commands.add_parser('discover', help='Read-only: list the Transform tools and connectors this account reports')
     discover.add_argument('--by', required=True)
     discover.add_argument('--note', required=True)
+    linked = requirement_commands.add_parser('connector', help='Plan, and with --create make and activate, the reimagine '
+                                             '(Neptune) connector requirements generation needs')
+    linked.add_argument('--neptune-stack', required=True, help="CloudFormation stack from AWS's neptune-kg-setup.yaml")
+    linked.add_argument('--create', action='store_true', help='Create the role and connector; without it nothing is created')
+    linked.add_argument('--replace', action='store_true',
+                        help='Create the project-named pair in place of a recorded connector that is named otherwise; '
+                             'the old one is kept and recorded, never deleted')
+    linked.add_argument('--role-arn', help='Use this existing connector role instead of creating one')
+    linked.add_argument('--attach-connector', help='Record an existing reimagine connector instead of creating one')
+    linked.add_argument('--copy-source', action='store_true',
+                        help="Copy the assessment's source archive into the stack bucket when it differs from the project bucket")
+    linked.add_argument('--by', required=True)
+    linked.add_argument('--note', required=True)
     authorize = requirement_commands.add_parser('authorize-job', help='Authorize one new requirements job for selected functions')
     authorize.add_argument('--functions', default='')
     authorize.add_argument('--by', required=True)
     authorize.add_argument('--note', required=True)
+    renorm = requirement_commands.add_parser('renormalize', help='Rebuild the active set\'s normalized view from its sealed originals')
+    renorm.add_argument('--by', required=True)
+    renorm.add_argument('--note', required=True)
+    halt = requirement_commands.add_parser('stop', help='Stop the active requirements job in AWS, once; nothing is deleted')
+    halt.add_argument('--by', required=True)
+    halt.add_argument('--note', required=True)
     advance = requirement_commands.add_parser('resume', help='Advance the authorized requirements job by one step')
     advance.add_argument('--select', default='')
+    advance.add_argument('--plan', help="Answer AWS's plan menu with one option it lists, exactly as named")
+    advance.add_argument('--reply', help="Answer AWS's open job-chat question in your own words")
+    advance.add_argument('--answer', help="Answer AWS's open task with JSON that fits its response schema")
+    advance.add_argument('--by', help='Who is answering (required with --plan, --reply or --answer)')
     imported = requirement_commands.add_parser('import', help='Import externally generated requirements, labeled imported')
     imported.add_argument('--requirements', required=True)
     imported.add_argument('--traceability')
@@ -4000,6 +4136,7 @@ def main(argv=None, reporter=None):
                         import reframe_preview
                         result = reframe_preview.run(work, project, args, sys.modules[__name__])
                     elif args.command == 'model-budget': result = set_model_budget(work, project, args)
+                    elif args.command == 'validation-allowance': result = validation_allowance(work, project, args)
                     elif args.command == 'recover-provider': result = recover_provider_request(work, project, args)
                     elif args.command == 'assessment-report': result = assessment_report(work, project, args)
                     elif args.command == 'upgrade-framework': result = upgrade_framework(work, project, args)

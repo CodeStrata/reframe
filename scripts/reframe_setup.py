@@ -628,6 +628,15 @@ def next_step(project):
     if project['stage'] == 'PROVIDER_REVIEW_REQUIRED':
         return 'Review the private provider refusal and request content; automatic model retries are stopped.'
     stage = project['stage']
+    import reframe_requirements
+    stale = reframe_requirements.stale_specification(project)
+    if stale and stage in {'AWAITING_VALIDATION_APPROVAL', *reframe_requirements.AFTER_VALIDATION}:
+        state = project.get('pipeline') or {}
+        spent = int(state.get('round') or 0) >= app.synthesis_round_limit(project)
+        return (('The revision limit is spent. reframe validation-allowance --extra-rounds 1 --by NAME --note WHY records '
+                 'one more synthesis round. Then ' if spent else '')
+                + 'reframe feedback --scope specification --by NAME --note WHY revalidates the specification against '
+                'requirements set ' + stale + '. Passed evidence units stay sealed; synthesis and review run again.')
     plan = project.get('wireframe_plan') or {}
     if not project.get('site') and any(isinstance(item, dict) and item.get('status') in {'failed', 'invalid'}
                                        for item in [plan.get('planner')] + list(plan.get('stages') or [])):

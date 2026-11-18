@@ -16,6 +16,7 @@ import json
 import os
 import re
 import time
+import uuid
 from hashlib import sha256
 from pathlib import Path
 
@@ -43,6 +44,8 @@ DOCUMENTED = {
 ITEMS = tuple(DOCUMENTED)
 GENERATE_STEP = 'generate requirements'
 FUNCTION_TERM = 'business function'
+# Task component the official AWS Transform MCP server names for choosing a job's connector.
+CONNECTOR_TASK = 'CreateOrSelectConnectors'
 REQUIREMENTS_FILE = 'requirements.md'
 TRACEABILITY_FILES = ('traceability.yaml', 'traceability.yml')
 # Tools this adapter already calls on AWS Transform for assessments.
@@ -125,9 +128,24 @@ def _tool_catalog(client):
 
 
 def _enum_values(schema, name):
-    """Enum values of one property in a tool input schema, or an empty list."""
-    prop = (schema.get('properties') or {}).get(name) or {}
-    return [str(value) for value in prop.get('enum') or []]
+    """Enum values of one property in a tool input schema, or an empty list.
+
+    Follows local `#/$defs/...` references and `anyOf`/`oneOf` branches, the form the live AWS Transform server uses."""
+    defs = schema.get('$defs') or schema.get('definitions') or {}
+
+    def values(node, seen):
+        if not isinstance(node, dict):
+            return []
+        ref = node.get('$ref')
+        if isinstance(ref, str) and ref.startswith('#/') and ref not in seen:
+            target = defs.get(ref.rsplit('/', 1)[-1]) if ref.split('/')[1] in ('$defs', 'definitions') else None
+            return values(target, seen | {ref})
+        found = [str(value) for value in node.get('enum') or []]
+        for branch in (node.get('anyOf') or []) + (node.get('oneOf') or []):
+            found += [value for value in values(branch, seen) if value not in found]
+        return found
+
+    return values((schema.get('properties') or {}).get(name) or {}, frozenset())
 
 
 def discover(work, project, client, by, note):
@@ -154,14 +172,26 @@ def discover(work, project, client, by, note):
         listing = client.calls([('list_resources', {'workspaceId': workspace, 'resource': connector_kind})])[-1]
         connectors = listing.get('connectors') or listing.get('items') or []
         summary = [{'id': item.get('connectorId') or item.get('id'), 'type': item.get('connectorType') or item.get('type'),
-                    'status': item.get('status')} for item in connectors if isinstance(item, dict)]
-        reimagine = [item for item in summary if 'neptune' in str(item.get('type')).casefold()
-                     or 'reimagine' in str(item.get('type')).casefold()]
+                    'status': item.get('status') or ((item.get('accountConnection') or {}).get('awsAccountConnection') or {})
+                    .get('status')} for item in connectors if isinstance(item, dict)]
+        # Only the observed reimagine type counts, and only once AWS has activated it.
+        from reframe_reimagine import CONNECTOR_TYPE
+        for item in summary:
+            # The live listing carries no status; AWS reports it only on the connector record (read-only).
+            if item.get('type') == CONNECTOR_TYPE and item.get('status') is None and item.get('id'):
+                detail = client.calls([('get_resource', {'resource': 'connector', 'workspaceId': workspace,
+                                                         'connectorId': item['id']})])[0]
+                item['status'] = ((detail.get('accountConnection') or {}).get('awsAccountConnection') or {}).get('status')
+        reimagine = [item for item in summary if item.get('type') == CONNECTOR_TYPE and item.get('status') == 'ACTIVE']
         observed = {'resource_kind': connector_kind, 'connectors': summary, 'reimagine_connectors': reimagine}
         if reimagine:
             _observe(record, 'connector', observed, fixture)
         else:
             record['items']['connector']['observed'] = observed
+    elif 'list_resources' in catalog:
+        reason = ('No Transform workspace is recorded for this project' if connector_kind
+                  else 'list_resources declares no connector resource kind')
+        record['items']['connector']['observed'] = {'resource_kind': connector_kind, 'connectors_listed': False, 'reason': reason}
     record['discoveries'].append({'at': time.time(), 'by': by, 'note': note, 'evidence': 'offline-fixture' if fixture else 'live',
                                   'read_only': True})
     _save(root(work) / 'capability.json', record)
@@ -216,9 +246,51 @@ def authorize_job(work, project, functions, by, note):
            'baseline': {'assessment_label': project['selected'], 'assessment_sha256': project['assessments'][project['selected']]['sha256'],
                         'source_commit': (project.get('source') or {}).get('commit'),
                         'uploaded_source': run.get('uploaded_source')},
-           'job_id': None, 'create_pending': False, 'selected_functions': [], 'catalog': [], 'events': []}
+           'run_id': new_run_id(), 'job_id': None, 'create_pending': False, 'selected_functions': [], 'catalog': [], 'events': []}
     _save(job_path(work, label), job)
     project.setdefault('requirements', {}).update(state='AUTHORIZED', active_job=label)
+    return job
+
+
+def new_run_id():
+    """A job identity in the form assessment runs use: RUN- and 16 hex characters."""
+    return 'RUN-' + uuid.uuid4().hex[:16]
+
+
+def stop_job(work, project, client, by, note):
+    """Stop the active requirements job in AWS once, recorded with who stopped it and why. Nothing is deleted."""
+    require(str(by).strip() and str(note).strip(), 'Stopping a requirements job needs a named owner and a note')
+    label = (project.get('requirements') or {}).get('active_job')
+    require(label, 'No requirements job is authorized')
+    job = json.loads(job_path(work, label).read_text())
+    require(job.get('job_id'), 'The requirements job was never created in AWS; nothing to stop')
+    require(job['state'] not in {'RETRIEVED', 'FAILED', 'STOPPED'}, 'The requirements job already ended: ' + job['state'])
+    directory = job_path(work, label).parent
+    intent, receipt = directory / 'stop-intent.json', directory / 'stop-receipt.json'
+    identity = _identity(project, job)
+    if not receipt.is_file():
+        require(not intent.is_file(), 'The stop request outcome is uncertain. Check the job in AWS; Reframe never sends it again.')
+        schema = _tool_catalog(client).get('control_job') or {}
+        actions = ((schema.get('properties') or {}).get('action') or {}).get('enum') or []
+        require('stop' in actions and set(schema.get('required') or []) <= {'workspaceId', 'jobId', 'action'},
+                'The Transform server does not list control_job with a stop action; nothing is guessed')
+        _save(intent, {'by': by, 'note': note, 'at': time.time()})
+        response = client.calls([(ADAPTER_TOOLS['job_state'], identity), ('control_job', {**identity, 'action': 'stop'})])[-1]
+        _save(receipt, response if isinstance(response, dict) else {'result': response})
+    # Only the detailed form is a read: without it the server sends a chat message that restarts the job's agent.
+    snapshot = client.calls([(ADAPTER_TOOLS['job_state'], identity),
+                             (ADAPTER_TOOLS['job_status'], {**identity, 'detailed': True})])[-1]
+    _save(directory / 'job-status.json', snapshot)
+    import kiro_workflow as kw
+    detail = kw.nested_job(snapshot)
+    details = detail.get('statusDetails') or {}
+    job['service_status'] = str(detail.get('status') or (details.get('status') if isinstance(details, dict) else details)
+                                or 'UNKNOWN').upper()
+    job.update(state='STOPPED', reason='Stopped in AWS by ' + by + ': ' + note,
+               stopped={'by': by, 'note': note, 'at': time.time(), **actor_provenance()})
+    job['events'].append({'event': 'job_stopped', 'at': time.time(), 'by': by})
+    _save(job_path(work, label), job)
+    project['requirements'].update(state='STOPPED')
     return job
 
 
@@ -246,13 +318,13 @@ def _check_schema(record, tool, arguments):
     require(not set(arguments) - allowed, 'Unrecognized arguments for ' + tool + '; nothing is guessed')
 
 
-def step(work, project, client, selected=None):
+def step(work, project, client, selected=None, plan=None, reply=None, by=None, answer=None):
     """Advance the active requirements job by one saved step. A finished job is not rerun."""
     label = (project.get('requirements') or {}).get('active_job')
     require(label, 'No requirements job is authorized')
     job = json.loads(job_path(work, label).read_text())
     record = capability(work)
-    if job['state'] in {'RETRIEVED', 'FAILED'}:
+    if job['state'] in {'RETRIEVED', 'FAILED', 'STOPPED'}:
         return job
     directory = job_path(work, label).parent
     if not job['job_id']:
@@ -273,13 +345,24 @@ def step(work, project, client, selected=None):
             _save(job_path(work, label), job)
             return job
         else:
+            # AWS job names follow the assessment runs: RUN- and 16 hex characters.
+            job.setdefault('run_id', new_run_id())
             source = (job['baseline'].get('uploaded_source') or {}).get('uri')
             require(source, 'The assessment baseline has no recorded source upload to reuse')
-            arguments = {'workspaceId': _identity(project, {'job_id': None})['workspaceId'], 'jobName': label,
+            from reframe_reimagine import job_source
+            source = job_source(project, source)
+            arguments = {'workspaceId': _identity(project, {'job_id': None})['workspaceId'], 'jobName': job['run_id'],
                          'objective': ('Assess and reimagine the source archive at ' + source + ' for the business functions '
                                        'selected in this job, and generate requirements with traceability. '
                                        'Source commit ' + str(job['baseline']['source_commit']) + '.'),
                          'intent': 'Generate business requirements for selected business functions; preserve human selection tasks.'}
+            # The live service rejects a job without an orchestrator although the schema marks it optional.
+            # Reuse the one the baseline assessment recorded, else the one mainframe orchestrator AWS lists.
+            import kiro_workflow as kw
+            baseline = ((_baseline_run(project).get('settings') or {}).get('transform') or {}).get('orchestrator_agent')
+            arguments['orchestratorAgent'] = kw.select_orchestrator(
+                {'settings': {'transform': {'orchestrator_agent': baseline} if baseline else {}}, 'events': job['events']}, client)
+            job['orchestrator_agent'] = arguments['orchestratorAgent']
             _check_schema(record, ADAPTER_TOOLS['create_job'], arguments)
             job.update(state='CREATING', create_pending=True)
             _save(job_path(work, label), job)
@@ -295,27 +378,42 @@ def step(work, project, client, selected=None):
     _save(directory / 'job-status.json', snapshot)
     import kiro_workflow as kw
     detail = kw.nested_job(snapshot)
-    status = str(detail.get('status') or 'UNKNOWN').upper()
+    # The live job reports its status under statusDetails, as the assessment path already reads it.
+    details = detail.get('statusDetails') or {}
+    status = str(detail.get('status') or (details.get('status') if isinstance(details, dict) else details) or 'UNKNOWN').upper()
     steps = [item for item in (snapshot.get('plan') or {}).get('steps') or [] if isinstance(item, dict)]
     names = [str(item.get('stepName') or '') for item in steps]
     job['service_status'] = status
     job['plan_steps'] = [{'name': item.get('stepName'), 'status': item.get('status')} for item in steps]
-    if steps and not any(name.casefold() == GENERATE_STEP for name in names):
-        job.update(state='FAILED', reason='The job plan has no "Generate requirements" step. Observed steps: ' + ', '.join(names))
+    # The reimagine plan grows: AWS adds steps after business functions are discovered. Only a finished job without
+    # a "Generate requirements" step shows this plan cannot generate them.
+    if (steps and not any(name.casefold() == GENERATE_STEP for name in names)
+            and status in {'COMPLETED', 'SUCCEEDED', 'FAILED', 'STOPPED', 'CANCELLED'}):
+        job.update(state='FAILED', reason='The job ended without a "Generate requirements" step. Observed steps: ' + ', '.join(names))
         _save(job_path(work, label), job)
         from reframe_states import stop
         stop(job['reason'] + '. Integrated generation is not available through this plan.', 'CAPABILITY_UNVERIFIED')
     if steps and job['evidence_level'] == 'live':
         _observe(record, 'service_plan', {'plan_steps': names}, False)
         _save(root(work) / 'capability.json', record)
+    # Each poll works the waiting state out afresh, so a question answered elsewhere does not stay open here.
+    job.update(state='GENERATING', reason=None)
+    job.pop('question', None)
     container = snapshot.get('tasks') or {}
     tasks = container.get('hitlTasks', []) if isinstance(container, dict) else container if isinstance(container, list) else []
     waiting = [task for task in tasks if isinstance(task, dict) and task.get('status') in
                {'AWAITING_HUMAN_INPUT', 'PENDING_HUMAN_INPUT', 'AWAITING_APPROVAL'}]
     for task in waiting:
-        if not _answer_selection(work, project, client, job, task, identity, selected):
-            job.update(state='WAITING_FOR_HUMAN', reason='AWS presents a human task this adapter does not answer: '
-                       + str(task.get('title') or task.get('uxComponentId') or task.get('taskId')))
+        if _answer_connector(work, project, client, job, task, identity):
+            continue
+        if _answer_source_location(work, project, client, job, task, identity):
+            continue
+        if _answer_selection(work, project, client, job, task, identity, selected):
+            continue
+        if not _answer_task(work, record, client, job, task, identity, answer, by):
+            # AWS may take the answer in chat instead of the form (e.g. the business-function selection).
+            if reply and job['state'] == 'WAITING_FOR_HUMAN':
+                _answer_chat(work, record, client, job, identity, snapshot, plan, reply, by)
             _save(job_path(work, label), job)
             return job
     generate = next((item for item in steps if str(item.get('stepName')).casefold() == GENERATE_STEP), None)
@@ -328,10 +426,93 @@ def step(work, project, client, selected=None):
         job['state'] = 'STEPS_COMPLETE'
         _save(job_path(work, label), job)
         return retrieve(work, project, client, job)
-    elif job['state'] not in {'WAITING_FOR_HUMAN'}:
-        job['state'] = 'GENERATING'
+    elif job['state'] != 'WAITING_FOR_HUMAN' and (status == 'AWAITING_HUMAN_INPUT' or not any(
+            str(item.get('status')).upper() in {'IN_PROGRESS', 'RUNNING'} for item in steps)):
+        # No task waits and nothing runs, or AWS says it awaits input: it may be asking in chat, e.g.
+        # "Proceed with this plan?" or "Please select the business function(s) to Re-Imagine".
+        _answer_chat(work, record, client, job, identity, snapshot, plan, reply, by)
     _save(job_path(work, label), job)
     return job
+
+
+PLAN_OPTION = re.compile(r'^\s*(\d+)\.\s+([^:\n]+?)\s*(?::|$)', re.M)
+CHAT_LIMIT = 7000  # send_message: "max 7000 chars"
+
+
+def _open_question(snapshot):
+    """AWS's latest finished chat turn when no one has answered it: (message, numbered options) or None."""
+    messages = [m for m in ((snapshot.get('messages') or {}).get('messages') or []) if isinstance(m, dict)]
+    system = [m for m in messages if m.get('messageOrigin') == 'SYSTEM'
+              and (m.get('processingInfo') or {}).get('messageType') == 'FINAL_RESPONSE']
+    if not system:
+        return None
+    latest = max(system, key=lambda m: str(m.get('createdAt', '')))
+    text = str(latest.get('text') or '').strip()
+    answered = any(m.get('messageOrigin') != 'SYSTEM' and str(m.get('createdAt', '')) > str(latest.get('createdAt', ''))
+                   for m in messages)
+    # A FINAL_RESPONSE ends AWS's turn; while nothing runs it waits for an answer, unless it says to wait.
+    if answered or not text or 'please wait' in text.casefold():
+        return None
+    options = [(number, label.strip()) for number, label in PLAN_OPTION.findall(text)]
+    return latest, options if len(options) >= 2 else []
+
+
+def _answer_chat(work, record, client, job, identity, snapshot, plan, reply, by):
+    """Answer AWS's open chat question once, with a named person's choice or words. True when this step ends here.
+
+    A numbered menu takes only an option it lists (--plan), sent as AWS numbered and worded it. Any other question
+    takes the person's own reply (--reply). Nothing is answered without a person, and no question is answered twice.
+    """
+    question = _open_question(snapshot)
+    if not question:
+        return False
+    message, options = question
+    message_id = message.get('messageId')
+    require(message_id, 'The AWS question has no message identity; inspect the job chat privately')
+    labels = [label for _, label in options]
+    directory = job_path(work, job['label']).parent
+    intent, receipt = directory / ('chat-intent-' + message_id + '.json'), directory / ('chat-receipt-' + message_id + '.json')
+    legacy = directory / 'plan-receipt.json'
+    if receipt.is_file() or (legacy.is_file() and json.loads(legacy.read_text()).get('reply_to') == message_id):
+        return False
+    if intent.is_file():
+        job.update(state='NEEDS_RECONCILIATION', reason='The reply to AWS is uncertain. Check the job chat; '
+                                                        'Reframe never sends it again.')
+        return True
+    job['question'] = {'message_id': message_id, 'text': str(message.get('text') or '')[-2000:], 'options': labels}
+    if options:
+        if not plan:
+            job.update(state='WAITING_FOR_HUMAN', plan_options=labels,
+                       reason='AWS asks which plan to run. Choose one with requirements resume --plan NAME --by NAME: '
+                              + ', '.join(labels))
+            return True
+        require(not reply, 'AWS offers a numbered menu; choose with --plan, not --reply')
+        chosen = next(((number, label) for number, label in options if label.casefold() == plan.strip().casefold()), None)
+        require(chosen, 'AWS does not offer that plan. Options: ' + ', '.join(labels))
+        text = chosen[0] + '. ' + chosen[1]
+    else:
+        require(not plan, 'AWS is not offering a plan menu; answer its question with --reply')
+        if not str(reply or '').strip():
+            job.update(state='WAITING_FOR_HUMAN', reason='AWS asks: "' + job['question']['text'][-400:]
+                       + '" Answer with requirements resume --reply TEXT --by NAME')
+            return True
+        text = reply.strip()
+        require(len(text) <= CHAT_LIMIT, 'The reply exceeds the AWS job chat limit')
+    require(str(by or '').strip(), 'A reply to AWS needs a named person: add --by')
+    arguments = {**identity, 'text': text, 'skipPolling': True}
+    _check_schema(record, ADAPTER_TOOLS['send_message'], arguments)
+    _save(intent, {'reply_to': message_id, 'text': text, 'by': by, 'at': time.time()})
+    response = client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['send_message'], arguments)])[-1]
+    _save(receipt, {'reply_to': message_id, 'text': text, 'response': response})
+    entry = {'reply_to': message_id, 'text': text, 'by': by, 'at': time.time(), **actor_provenance()}
+    job.setdefault('chat_replies', []).append(entry)
+    if options:
+        job['plan_choice'] = {'option': chosen[1], 'by': by, 'at': entry['at'], **actor_provenance()}
+    job['events'].append({'event': 'aws_question_answered', 'at': entry['at'], 'by': by,
+                          **({'option': chosen[1]} if options else {})})
+    job.pop('question', None)
+    job.update(state='PLAN_PENDING', reason='Reply sent to AWS; resume to follow the job.')
+    return True
 
 
 def _selection_options(task):
@@ -345,6 +526,134 @@ def _selection_options(task):
         if isinstance(prop.get('enum'), list):
             return name, [str(v) for v in prop['enum']], False
     return None, [], False
+
+
+def _answer_connector(work, project, client, job, task, identity):
+    """Answer a connector task with the recorded, active reimagine connector, and only when its schema asks for that."""
+    entry = project.get('requirements_connector') or {}
+    if task.get('uxComponentId') != CONNECTOR_TASK or entry.get('status') != 'ACTIVE':
+        return False
+    task_id = task.get('taskId')
+    directory = job_path(work, job['label']).parent
+    receipt = directory / ('connector-receipt-' + str(task_id) + '.json')
+    if receipt.is_file():
+        return True
+    record = client.calls([(ADAPTER_TOOLS['job_state'], identity),
+                           (ADAPTER_TOOLS['get_resource'], {**identity, 'resource': 'task', 'taskId': task_id})])[-1]
+    detail = record.get('task') or {}
+    schema = detail.get('_outputSchema') or {}
+    content = {'connectorId': entry['connector_id'], 'connectorType': entry['connector_type']}
+    if not set(schema.get('required') or []) <= set(content) or not set(content) <= set(schema.get('properties') or content):
+        return False
+    _save(directory / ('connector-task-' + str(task_id) + '.json'), record)
+    _save(directory / ('connector-intent-' + str(task_id) + '.json'), {'task_id': task_id, 'content': content})
+    response = client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['complete_task'], {
+        **identity, 'taskId': task_id, 'content': json.dumps(content), 'action': 'APPROVE'})])[-1]
+    _save(receipt, response)
+    job['events'].append({'event': 'connector_selected', 'at': time.time(), 'connector_type': entry['connector_type']})
+    return True
+
+
+SOURCE_TASK = 'SpecifyAssetsLocation'
+
+
+def _answer_source_location(work, project, client, job, task, identity):
+    """Answer AWS's source-location form with this job's recorded, checked source, only when its schema asks for that."""
+    if task.get('uxComponentId') != SOURCE_TASK:
+        return False
+    task_id = task.get('taskId')
+    directory = job_path(work, job['label']).parent
+    receipt = directory / ('source-location-receipt-' + str(task_id) + '.json')
+    if receipt.is_file():
+        return True
+    record = client.calls([(ADAPTER_TOOLS['job_state'], identity),
+                           (ADAPTER_TOOLS['get_resource'], {**identity, 'resource': 'task', 'taskId': task_id})])[-1]
+    schema = (record.get('task') or {}).get('_outputSchema') or {}
+    if schema.get('required') != ['assetLocation'] or ((schema.get('properties') or {}).get('assetLocation') or {}).get('type') != 'string':
+        return False
+    from reframe_reimagine import job_source
+    content = {'assetLocation': job_source(project, (job['baseline'].get('uploaded_source') or {}).get('uri'))}
+    intent = directory / ('source-location-intent-' + str(task_id) + '.json')
+    require(not intent.is_file(), 'The source-location answer is uncertain. Check the task in AWS; Reframe never sends it again.')
+    _save(directory / ('source-location-task-' + str(task_id) + '.json'), record)
+    _save(intent, {'task_id': task_id, 'content': content})
+    response = client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['complete_task'], {
+        **identity, 'taskId': task_id, 'content': json.dumps(content), 'action': 'APPROVE'})])[-1]
+    _save(receipt, response)
+    job['events'].append({'event': 'source_location_submitted', 'at': time.time(), 'uri': content['assetLocation']})
+    return True
+
+
+_JSON_TYPES = {'string': str, 'boolean': bool, 'array': list, 'object': dict, 'integer': int, 'number': (int, float)}
+
+
+def _fits(schema, value):
+    """True when a value fits a JSON schema's type, enum, required and properties, as far as the schema states them."""
+    if not isinstance(schema, dict):
+        return True
+    if 'enum' in schema and value not in schema['enum']:
+        return False
+    kind = schema.get('type')
+    if isinstance(kind, str) and kind in _JSON_TYPES and not isinstance(value, _JSON_TYPES[kind]):
+        return False
+    if isinstance(value, dict):
+        properties = schema.get('properties') or {}
+        if not set(schema.get('required') or []) <= set(value):
+            return False
+        if properties and schema.get('additionalProperties') is not True and not set(value) <= set(properties):
+            return False
+        return all(_fits(properties.get(key), item) for key, item in value.items())
+    if isinstance(value, list):
+        return all(_fits(schema.get('items'), item) for item in value)
+    return True
+
+
+def _answer_task(work, record, client, job, task, identity, answer, by):
+    """Answer one other AWS task once, only with content that fits its own response schema. True when answered."""
+    task_id = task.get('taskId')
+    directory = job_path(work, job['label']).parent
+    receipt = directory / ('task-receipt-' + str(task_id) + '.json')
+    if receipt.is_file():
+        return True
+    intent = directory / ('task-intent-' + str(task_id) + '.json')
+    if intent.is_file():
+        job.update(state='NEEDS_RECONCILIATION', reason='The answer to AWS task ' + str(task.get('title') or task_id)
+                   + ' is uncertain. Check the task in AWS; Reframe never sends it again.')
+        return False
+    detail = client.calls([(ADAPTER_TOOLS['job_state'], identity),
+                           (ADAPTER_TOOLS['get_resource'], {**identity, 'resource': 'task', 'taskId': task_id})])[-1]
+    _save(directory / ('task-' + str(task_id) + '.json'), detail)
+    body = detail.get('task') or {}
+    schema = body.get('_outputSchema') or {}
+    if schema.get('displayOnly') is True:
+        # AWS renders it and submits the empty response itself; there is nothing to answer.
+        if not any(event.get('task_id') == task_id for event in job['events']):
+            job['events'].append({'event': 'aws_display_only_task_seen', 'at': time.time(), 'task_id': task_id,
+                                  'title': body.get('title') or task.get('title')})
+        return True
+    job['open_task'] = {'task_id': task_id, 'title': body.get('title') or task.get('title'),
+                        'ux_component': body.get('uxComponentId') or task.get('uxComponentId'), 'schema': schema,
+                        'saved': 'task-' + str(task_id) + '.json'}
+    if answer is None:
+        job.update(state='WAITING_FOR_HUMAN', reason='AWS task "' + str(job['open_task']['title'] or task_id) + '" ('
+                   + str(job['open_task']['ux_component']) + ') waits for an answer that fits its schema. '
+                   'Answer with requirements resume --answer JSON --by NAME')
+        return False
+    require(str(by or '').strip(), 'An answer to an AWS task needs a named person: add --by')
+    try:
+        content = json.loads(answer)
+    except ValueError:
+        raise Blocked('The answer is not valid JSON')
+    require(_fits(schema, content), 'The answer does not fit the task\'s response schema; nothing was sent')
+    _save(intent, {'task_id': task_id, 'content': content, 'by': by, 'at': time.time()})
+    response = client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['complete_task'], {
+        **identity, 'taskId': task_id, 'content': json.dumps(content), 'action': 'APPROVE'})])[-1]
+    _save(receipt, response)
+    job.setdefault('task_answers', []).append({'task_id': task_id, 'title': job['open_task']['title'], 'content': content,
+                                               'by': by, 'at': time.time(), **actor_provenance()})
+    job['events'].append({'event': 'aws_task_answered', 'at': time.time(), 'by': by, 'title': job['open_task']['title']})
+    job.pop('open_task', None)
+    return True
 
 
 def _answer_selection(work, project, client, job, task, identity, selected):
@@ -391,21 +700,75 @@ def retrieve(work, project, client, job):
     listing = kw.list_assessment_exports(directory, client, identity)
     wanted = [item for item in listing['assets'] if Path(item['assetKey']).name.casefold() in
               {REQUIREMENTS_FILE, *TRACEABILITY_FILES}]
-    require(wanted, 'The finished job lists no requirements.md or traceability.yaml. Nothing was imported.')
     target = directory / 'downloads'
     target.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not wanted:
+        # Live reimagine jobs deliver the documented files inside spec_gen/spec_gen_specs_<timestamp>.zip.
+        archives = sorted((item for item in listing['assets'] if Path(item['assetKey']).parent.name == 'spec_gen'
+                           and Path(item['assetKey']).name.startswith('spec_gen_specs') and item['assetKey'].endswith('.zip')),
+                          key=lambda item: str(item.get('createdTimestamp') or item['assetKey']))
+        require(archives, 'The finished job lists no requirements.md, traceability.yaml, or spec_gen archive. Nothing was imported.')
+        return _retrieve_archive(work, project, client, job, identity, archives[-1], target)
     originals = []
     for index, item in enumerate(wanted):
         filename = str(index) + '-' + Path(item['assetKey']).name
         path = target / filename
         if path.exists():
             path.unlink()  # Never mistake an earlier failed download for this one.
-        client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['get_resource'], {
-            **identity, 'resource': 'asset', 'assetKey': item['assetKey'], 'connectorId': item['connectorId'],
-            'savePath': str(target), 'fileName': filename})])
-        require(path.is_file() and not path.is_symlink(), 'Requirements download did not produce ' + item['assetKey'])
+        _download(client, identity, item, path)
         function_id = _function_from_key(item['assetKey'], job['selected_functions'])
         originals.append({'function_id': function_id, 'original_path': item['assetKey'], 'data': path.read_bytes()})
+    return _seal_retrieved(work, project, job, originals)
+
+
+ARCHIVE_MEMBER_LIMIT = 50 * 1024 * 1024
+
+
+def _download(client, identity, item, path):
+    """Have the MCP server save one asset where it may write, then move it to path."""
+    # The server writes only under the client's transform-artifacts folder (AWS_TRANSFORM_MCP_WRITE_DIR).
+    base = getattr(client, 'directory', None)
+    staging = Path(base) / 'transform-artifacts' / 'requirements' / path.parent.parent.name if base else path.parent
+    staging.mkdir(parents=True, exist_ok=True, mode=0o700)
+    staged = staging / path.name
+    if staged.exists():
+        staged.unlink()  # Never mistake an earlier failed download for this one.
+    client.calls([(ADAPTER_TOOLS['job_state'], identity), (ADAPTER_TOOLS['get_resource'], {
+        **identity, 'resource': 'asset', 'assetKey': item['assetKey'], 'connectorId': item['connectorId'],
+        'savePath': str(staging), 'fileName': path.name})])
+    require(staged.is_file() and not staged.is_symlink(), 'Requirements download did not produce ' + item['assetKey'])
+    if staged != path:
+        os.replace(staged, path)
+
+
+def _retrieve_archive(work, project, client, job, identity, item, target):
+    """Download AWS's spec_gen archive once, keep its bytes and hash, and take the documented files from inside it."""
+    import zipfile
+    path = target / Path(item['assetKey']).name
+    if path.exists():
+        path.unlink()  # Never mistake an earlier failed download for this one.
+    _download(client, identity, item, path)
+    job['archive'] = {'asset_key': item['assetKey'], 'stored': str(path.relative_to(work)), 'sha256': _sha(path.read_bytes()),
+                      'bytes': path.stat().st_size}
+    originals = []
+    with zipfile.ZipFile(path) as archive:
+        for member in archive.infolist():
+            name = Path(member.filename)
+            if member.is_dir() or name.name.casefold() not in {REQUIREMENTS_FILE, *TRACEABILITY_FILES}:
+                continue
+            require(not name.is_absolute() and '..' not in name.parts, 'Unsafe path in the requirements archive: ' + member.filename)
+            require(member.file_size <= ARCHIVE_MEMBER_LIMIT, 'A requirements file in the archive exceeds 50 MB: ' + member.filename)
+            # A chat selection names no function id; AWS's own folder for the function identifies it.
+            function_id = (_function_from_key(member.filename, job['selected_functions']) if job['selected_functions']
+                           else name.parent.name)
+            originals.append({'function_id': function_id, 'original_path': item['assetKey'] + '!/' + member.filename,
+                              'data': archive.read(member)})
+    require(originals, 'The spec_gen archive holds no requirements.md or traceability.yaml. Nothing was imported.')
+    return _seal_retrieved(work, project, job, originals)
+
+
+def _seal_retrieved(work, project, job, originals):
+    """Record retrieved originals as the job's requirements set and mark generation verified for live jobs."""
     set_id = record_set(work, project, originals, origin='aws-generated', evidence_level=job['evidence_level'],
                         producing_job_id=job['job_id'], functions=job['selected_functions'],
                         service_status=job.get('completion'))
@@ -487,6 +850,39 @@ def record_set(work, project, originals, origin, evidence_level, producing_job_i
     if downstream:
         _route_downstream(work, project, downstream, set_id, previous, by, note, 'requirements_' + origin)
     return set_id
+
+
+AFTER_VALIDATION = ('VALIDATION_APPROVED', 'AWAITING_SPECIFICATIONS_APPROVAL', 'SPECIFICATIONS_APPROVED', 'DESIGN_APPROVED',
+                    'PACKAGED', 'AWAITING_PACKAGE_ACCEPTANCE', 'PACKAGE_ACCEPTED')
+
+
+def stale_specification(project):
+    """The set id a saved specification was not validated against, or None when it was (or nothing is pending)."""
+    record = project.get('requirements') or {}
+    specification = project.get('specification') or {}
+    if record.get('requires_revalidation') and specification and specification.get('requirements_set_id') != record.get('set_id'):
+        return record.get('set_id')
+    return None
+
+
+def renormalize(work, project, by, note):
+    """Rebuild the active set's normalized view from its sealed originals; originals, hashes and approvals stay."""
+    require(str(by).strip() and str(note).strip(), 'Renormalizing needs a named owner and a note')
+    manifest_path = Path(work) / ((project.get('requirements') or {}).get('manifest') or '')
+    require(manifest_path.is_file(), 'No requirements set is recorded')
+    manifest = json.loads(manifest_path.read_text())
+    for entry in manifest['files']:
+        stored = Path(work) / entry['stored_path']
+        require(stored.is_file() and _sha(stored.read_bytes()) == entry['sha256'], 'A sealed original changed: ' + entry['stored_path'])
+    folder = manifest_path.parent
+    normalized = normalize(work, project, manifest['files'])
+    _save(folder / 'normalized.json', normalized)
+    manifest.setdefault('renormalized', []).append({'at': time.time(), 'by': by, 'note': note,
+                                                    'previous_sha256': manifest['normalized']['sha256'], **actor_provenance()})
+    manifest['normalized'] = {'path': str((folder / 'normalized.json').relative_to(work)),
+                              'sha256': _sha((folder / 'normalized.json').read_bytes())}
+    _save(manifest_path, manifest)
+    return normalized['counts']
 
 
 # Part of a set's identity: a change to how files are read makes a new set rather than rewriting an old one.
@@ -677,6 +1073,70 @@ def _rule_tokens(block):
     return [t.strip('\'"') for t in tokens]
 
 
+def _section_items(text, key):
+    """The list items under one top-level key, each as {field: scalar or [scalars]}, without a YAML parser."""
+    items, current, field, inside = [], None, None, False
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        if not line[0].isspace() and not line.startswith('-'):
+            inside = line.split(':', 1)[0].strip() == key
+            continue
+        if not inside:
+            continue
+        depth = len(line) - len(line.lstrip())
+        body = line.strip()
+        if body.startswith('- ') and depth == 0:
+            current = {}
+            items.append(current)
+            body, depth = body[2:], 2
+        if current is None:
+            continue
+        pair = re.match(r'^([\w.-]+)\s*:\s*(.*)$', body)
+        if pair and depth == 2:
+            field, value = pair.group(1), pair.group(2).strip().strip('\'"')
+            current[field] = value if value else []
+        elif body.startswith('- ') and field and isinstance(current.get(field), list):
+            current[field].append(body[2:].strip().strip('\'"'))
+    return items
+
+
+def _aws_traceability(text):
+    """AWS's reimagine traceability.yaml (rules with req_id/req_ids, and requirements with rule_ids), keyed by requirement.
+
+    None when the text is not that shape, so other producers fall back to the generic reader.
+    """
+    rules = [item for item in _section_items(text, 'rules') if item.get('rule_id')]
+    if not rules:
+        return None
+    by_requirement = {}
+    for rule in rules:
+        ids = rule.get('req_ids') if isinstance(rule.get('req_ids'), list) else []
+        ids = ids + ([rule['req_id']] if isinstance(rule.get('req_id'), str) and rule.get('req_id') else [])
+        for req in ids:
+            entry = by_requirement.setdefault(req, {'rule_ids': set(), 'programs': set(), 'dispositions': set()})
+            entry['rule_ids'].add(rule['rule_id'])
+            if isinstance(rule.get('program'), str) and rule['program']:
+                entry['programs'].add(rule['program'])
+            if isinstance(rule.get('disposition'), str):
+                entry['dispositions'].add(rule['disposition'])
+    for item in _section_items(text, 'requirements'):
+        if isinstance(item.get('req_id'), str) and isinstance(item.get('rule_ids'), list):
+            by_requirement.setdefault(item['req_id'], {'rule_ids': set(), 'programs': set(), 'dispositions': set()})[
+                'rule_ids'].update(item['rule_ids'])
+    return by_requirement
+
+
+def _program_files(source_root):
+    """Source files in the pinned checkout, by upper-case file stem, for mapping AWS program names to paths."""
+    index = {}
+    if source_root.is_dir():
+        for path in source_root.rglob('*'):
+            if path.is_file() and '.git' not in path.parts:
+                index.setdefault(path.stem.upper(), []).append(str(path.relative_to(source_root)))
+    return index
+
+
 def normalize(work, project, files):
     """Namespaced requirement records with honest traceability states: mapped, partial, missing, ambiguous, unsupported."""
     rule_ids = set()
@@ -696,7 +1156,31 @@ def normalize(work, project, files):
             unrecognized += [{**item, 'file': entry['stored_path']} for item in skipped]
         else:
             traces.setdefault(entry['function_id'], []).append(data)
+    structured = {}
+    for function_id, texts in traces.items():
+        parsed = [found for found in (_aws_traceability(text) for text in texts) if found is not None]
+        if parsed:
+            merged = {}
+            for found in parsed:
+                for req, entry in found.items():
+                    into = merged.setdefault(req, {'rule_ids': set(), 'programs': set(), 'dispositions': set()})
+                    for name in into:
+                        into[name] |= entry[name]
+            structured[function_id] = merged
+    programs = _program_files(source_root) if structured else {}
     for item in requirements:
+        if item['function_id'] in structured:
+            entry = structured[item['function_id']].get(item['original_id'])
+            if not entry or not entry['rule_ids']:
+                item['traceability'] = {'state': 'missing', 'reason': 'identifier not found in traceability'}
+                continue
+            paths = sorted({path for program in entry['programs'] for path in programs.get(program.upper(), [])})
+            item['traceability'] = {'state': 'mapped' if paths else 'partial', 'rule_ids': sorted(entry['rule_ids']),
+                                    'known_rule_ids': sorted(entry['rule_ids'] & rule_ids), 'programs': sorted(entry['programs']),
+                                    'dispositions': sorted(entry['dispositions']), 'source_paths': paths,
+                                    'source_paths_in_pin': paths, 'format': 'aws-reimagine-traceability',
+                                    'evidence_status': 'TRACEABILITY_CLAIM'}
+            continue
         blocks = [block for text in traces.get(item['function_id'], []) for block in _trace_blocks(text)
                   if re.search(r'\b' + re.escape(item['original_id']) + r'\b', block)]
         if not traces.get(item['function_id']):

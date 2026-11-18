@@ -35,6 +35,15 @@ Return `{"kind":"candidate","specification":{...}}` with this exact structure:
   no rule. Acceptance prose is not a mapping. Do not infer that similarly named
   rules are the same rule, and do not copy a mapping from a section title.
 - `monorepo_layout`: nonempty array of proposed relative paths and their purposes.
+- When `admitted_inputs` holds requirements, give each section, work item and test a
+  `requirement_ids` array: the requirements that item implements or verifies. Cite a
+  requirement by its `original_id` (for example REQ-F-001) or its full `id`; the
+  controller records the full id and rejects an unknown or ambiguous one. Map a
+  requirement only where that item addresses it. Naming it in prose is not a mapping.
+  Put a requirement the target deliberately does not implement in
+  `excluded_requirements` as `{id: reason}`. A requirement the source contradicts keeps
+  its open question and is mapped only where the specification addresses it. A
+  requirement absent from every `requirement_ids` array is an honest gap.
 
 Sections must be substantive for the selected scope. UI: screen flows, validation,
 accessibility, errors, states and rule references. Services: boundary alternatives,
