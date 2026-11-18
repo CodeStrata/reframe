@@ -173,7 +173,8 @@ The CardDemo run stops here as the reference result; no further gates are pursue
 - [x] Run the AI-DLC spike (done 18 November 2026; results are in the specification).
 - [x] SME, architect and client review of the specification; revision 2 answers all 26 findings (18 November 2026).
 - [x] Second review round of specification revision 2: it approved starting P0 and a bounded P1, and its 12 findings (U01 to U12) are answered in the specification's appendix B.
-- [ ] Specification and plan committed to the v2 branch under docs/v2/ (18 November 2026). Next: create the v2 epic and stories, and close the existing stories as superseded.
+- [x] Specification and plan committed to the v2 branch under docs/v2/ (18 November 2026).
+- [x] v2 epic and stories created in GitHub ([backlog.md](backlog.md)); the 20 open v1 issues closed as superseded (18 November 2026). Next: build P0, starting with P0-01.
 - [ ] Seal the round-6 candidate, its review and the coverage numbers as the baseline.
 - [ ] Answer the remaining owner decisions above, including the scale-test repositories.
 
