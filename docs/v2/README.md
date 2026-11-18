@@ -27,7 +27,7 @@ A pull request into `v2` names the specification sections and the stories it imp
 
 ## Branches
 
-v2 is built on the `v2` branch, created from `develop`, alongside v1 (specification section 15). Work on v2 uses feature branches from `v2` and pull requests back into `v2`. v1 stays frozen on `main` until v2 passes P3. [CONTRIBUTING.md](../../CONTRIBUTING.md) still applies to identity, review and publication.
+v2 is built on the `v2` branch, created from `develop`, alongside v1 (specification section 15). Its code is the `reframe_v2` package in [`v2/`](../../v2/), with its own `pyproject.toml`, tests and `reframe-v2` command; it imports nothing from v1, and a test enforces that. Pull requests into `v2` run CI and a check that the specification-alignment section of the template is filled in. Work on v2 uses feature branches from `v2` and pull requests back into `v2`. v1 stays frozen on `main` until v2 passes P3. [CONTRIBUTING.md](../../CONTRIBUTING.md) still applies to identity, review and publication.
 
 ## Reading copies
 

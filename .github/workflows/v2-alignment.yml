@@ -1,0 +1,27 @@
+name: v2 specification alignment
+
+on:
+  pull_request:
+    branches: [v2]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-alignment-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  alignment:
+    name: Specification alignment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Check the pull request names its specification sections and stories
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python .github/scripts/check_spec_alignment.py

@@ -11,6 +11,8 @@ Reframe is an open-source CLI for understanding mainframe applications before re
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-POC%20%7C%20offline--tested-orange)](docs/limitations.md)
 
+> **v1 is frozen.** This is the v1 CLI (`reframe`), kept as a pinned release and readable archive on `main`. Reframe v2 is being built on the [`v2` branch](https://github.com/sknampally/reframe/tree/v2) from its [specification](docs/v2/specification.md), as a separate package (`reframe_v2`, command `reframe-v2`) in [`v2/`](v2/). v1 receives no new features; it is retired once v2 passes phase P3 of the [plan](docs/v2/plan.md).
+
 > **Project maturity:** The CLI and offline workflows have been exercised with fixtures. A CardDemo AWS assessment has reached a human-review gate, but uninterrupted live AWS/provider acceptance, production application buildout, and behavioral equivalence are **not** established. Generated implementation packages remain drafts until required reviews and evidence gates are satisfied.
 
 ## Why Reframe?

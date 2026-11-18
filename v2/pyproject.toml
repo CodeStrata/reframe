@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reframe-v2"
+version = "2.0.0.dev0"
+description = "Reframe v2: mainframe repository to AI-DLC-ready package (in development, see docs/v2)"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = []
+
+[project.scripts]
+reframe-v2 = "reframe_v2.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
