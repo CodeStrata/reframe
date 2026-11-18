@@ -118,10 +118,14 @@ def screen_action_valid(action, ids):
             and action['screen_id'] in ids)
 
 
-def validate_screens(value, spec):
-    """Reject a screen or API contract that is incomplete or cites an unknown rule."""
+def validate_screens(value, spec, requirement_ids=()):
+    """Reject a screen or API contract that is incomplete or cites an unknown rule or requirement."""
     require(isinstance(value, dict) and isinstance(value.get('screens'), list) and value['screens'], 'Screens required')
     rules = {r['id'] for r in spec['rules']}
+    for item in value['screens'] + (value.get('apis') if isinstance(value.get('apis'), list) else []):
+        unknown = [ident for ident in (item.get('requirement_ids') or []) if ident not in set(requirement_ids)] \
+            if isinstance(item, dict) else []
+        require(not unknown, 'Unknown requirement reference: ' + ', '.join(map(str, unknown)))
     require(isinstance(value.get('apis'), list), 'Structured API contracts required; use an empty list only when no APIs are proposed')
     operations = set()
     for api in value['apis']:
@@ -327,14 +331,22 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere}
 </style>''' + body + '</html>'
 
 
+def _rule_location(rule):
+    """Where a rule came from: a source line when one was cited, otherwise the assessment record, labeled as such."""
+    if rule.get('source_path'):
+        return rule['source_path'] + ' ' + (rule.get('source_anchor') or '')
+    if rule.get('assessment_path'):
+        return 'AWS assessment ' + rule['assessment_path'] + ' ' + (rule.get('assessment_anchor') or '') + ' (no source line)'
+    return ''
+
+
 def _rules_panel(screen, rules, esc):
     """The business-rule table for one screen. Other screens' rules are not included."""
     linked = [rules[rule_id] for rule_id in screen.get('rule_ids') or [] if rule_id in rules]
     if not linked:
         return '<p class="stay">No business rule is linked to this screen.</p>'
     table = ''.join('<tr><td>' + esc(rule['id']) + '</td><td>' + esc(rule.get('statement', '')) + '</td><td>'
-                    + esc(rule.get('evidence_status', '')) + '</td><td>' + esc((rule.get('source_path') or '')
-                    + ' ' + (rule.get('source_anchor') or '')) + '</td></tr>' for rule in linked)
+                    + esc(rule.get('evidence_status', '')) + '</td><td>' + esc(_rule_location(rule)) + '</td></tr>' for rule in linked)
     return ('<button popovertarget="rules-' + esc(screen['id']) + '">Business rules</button>'
             '<div class="rules" id="rules-' + esc(screen['id']) + '" popover="auto"><h2>'
             + esc(plain_title(screen)) + '</h2><table><thead><tr><th>Rule</th><th>Statement</th><th>Status</th><th>Source</th></tr></thead><tbody>'

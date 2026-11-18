@@ -130,6 +130,9 @@ Menu **1** runs these gates in order after assessment approval. Each waits for a
 W=/path/to/private-poc
 reframe --workspace "$W" requirements status
 reframe --workspace "$W" requirements import --requirements requirements.md --traceability traceability.yaml --function FUNCTION_ID --by NAME --note WHY
+reframe --workspace "$W" requirements connector --neptune-stack STACK --by NAME --note WHY
+reframe --workspace "$W" requirements connector --neptune-stack STACK --create --copy-source --by NAME --note WHY
+reframe --workspace "$W" requirements stop --by NAME --note WHY
 reframe --workspace "$W" requirements discover --by NAME --note WHY
 reframe --workspace "$W" context import --file notes.md --by NAME --role architect --category clarification --affected R1 --gate baseline
 reframe --workspace "$W" context none --gate specification --by NAME
@@ -142,9 +145,37 @@ reframe --workspace "$W" package-review
 reframe --workspace "$W" accept-package --sha256 PACKAGE_SHA256 --by NAME --note WHY
 ```
 
-`requirements discover` is read-only: it lists the Transform tools and connectors this account reports. `requirements authorize-job` and `requirements resume` drive one AWS requirements job for selected business functions, only after that capability is verified. A requirements step is never marked complete from an import, a mock, or a capability blocker.
+`requirements discover` is read-only: it lists the Transform tools and connectors this account reports. AWS generates requirements only in the "Assess and reimagine" and "Reimagine" job plans, which need the reimagine connector (`mainframe_modernization|reimagine|1`): an S3 bucket plus an Amazon Neptune Serverless knowledge graph. The assessment's S3 connector cannot serve them.
 
-`design-plan --revise` starts a new design version when design work exists. The earlier site and its stage receipts are kept, and the next `review-site` makes a new provider call instead of reusing a stale design. When two stages define a shared screen, journey, or API differently, `review-site` stops and names every conflict. `reconcile-design` records which stage's definition stands; the other is kept as superseded. Nothing is renamed.
+`requirements connector` sets that connector up from the CLI, using a stack built from AWS's `neptune-kg-setup.yaml` template:
+- **Without `--create`, it only reads.** It reads the stack outputs and the Neptune cluster, checks them against AWS's requirements (Serverless, engine 1.4.5.1 or later, IAM authentication, encryption, two subnets), and shows what it would create and what Neptune bills while it runs.
+- **`--create` creates and activates the connector.** It:
+  1. creates one IAM role scoped to the stack's bucket and cluster, with the permissions the AWS console grants this connector type (or uses `--role-arn`);
+  2. creates the connector with the six configuration values from the stack outputs;
+  3. activates it;
+  4. checks that AWS records the same type and configuration.
+- **Each creation happens at most once.** An intent saved without a receipt stops for reconciliation. Rerun with `--role-arn` or `--attach-connector` to record what exists.
+- **Names follow the project name.** Reframe gives a project's bucket, Transform workspace and S3 connector one name, N, and the S3 connector's role N-role. The reimagine connector is N-reimagine. Its role is N-rmg, because IAM role names are capped at 64 characters. The role is tagged `ManagedBy=reframe`, `ReframeProject=N`, `Purpose=reimagine-connector` and `NeptuneStack=STACK`. Requirements jobs are named `RUN-` plus 16 hex characters, as assessment runs are.
+- **`--replace` swaps a connector recorded under other names.** It creates the N-reimagine connector and N-rmg role. The old pair stays in AWS and in `requirements_connector_history`; Reframe deletes nothing.
+- **`requirements stop` stops the active requirements job in AWS, once.** It records who stopped it and why, and checks that the server lists `control_job` with a `stop` action. It deletes nothing, and `resume` does not continue a stopped job.
+- **Nothing else changes.** The command never changes the project stage, the assessment's S3 connector, or the stack, and it deletes nothing.
+- **A different bucket needs `--copy-source`.** When the stack's bucket differs from the project bucket, `--copy-source` puts the assessment's own archive (checksum checked) in the stack's bucket. The requirements job then names that copy, and it refuses to start without one.
+
+`discover` counts a connector only when it has this exact type and AWS reports it `ACTIVE`. A requirements job answers its connector-selection task with this connector, and only when the task's own schema asks for a connector id and type. `requirements authorize-job` and `requirements resume` drive one AWS requirements job for selected business functions, only after that capability is verified. A requirements step is never marked complete from an import, a mock, or a capability blocker.
+
+**When AWS asks a question in the job chat.** A new requirements job starts with AWS's agent asking questions in the job chat. First comes a numbered plan menu, then, for example, "Does this objective match your goals?". There is no plan until they are answered. Reframe never answers for you. `requirements resume` stops as `WAITING_FOR_HUMAN` and shows the question. A person answers it once:
+
+```bash
+reframe --workspace "$W" requirements resume --plan "Assess and reimagine" --by NAME
+reframe --workspace "$W" requirements resume --reply "Yes, proceed." --by NAME
+```
+
+- **`--plan`** answers a numbered menu. It must match one of AWS's listed options, and Reframe sends it as AWS numbered and worded it.
+- **`--reply`** answers any other question with the person's own words.
+- **Each AWS question is answered at most once.** Every answer is recorded with who gave it. If an answer's outcome is uncertain, the job stops as `NEEDS_RECONCILIATION` and nothing is resent.
+- **Job names:** every requirements job gets a `RUN-` plus 16-hex-character identity, as assessment runs do, and that is its AWS job name.
+
+Before the first detail call, `review-site` makes one counted design plan call. It plans every journey, screen, API, and shared component, with a stable id, an owning stage, dependency links, and rule and requirement ids. The plan is saved and hashed in the design inventory. Each detail call defines the ids planned for its stage and references the rest. A stage that adds an id the plan does not name stops the run; its reply is kept and stays counted, and a new design version plans again. `design-plan --revise` starts a new design version when design work exists. The earlier site and its stage receipts are kept, and the next `review-site` makes a new provider call instead of reusing a stale design. When two stages define a shared screen, journey, or API differently, `review-site` stops and names every conflict. `reconcile-design` records which stage's definition stands; the other is kept as superseded. Nothing is renamed.
 
 `package` writes the archive and the status `AWAITING_PACKAGE_ACCEPTANCE`. `package-review` shows the file list with hashes, the approvals it rests on, the gaps, and the implementation blockers. `accept-package` needs the exact SHA-256 shown, a name, and a rationale, and it refuses while a conflict that affects the package is open. On the skip route a second person first records `approve verification-skip`. Acceptance is appended to `acceptance/ledger.jsonl`, outside the archive, and it is not deployment approval.
 
@@ -177,6 +208,7 @@ Every command takes `--workspace`. `reframe --help` and `reframe COMMAND --help`
 | `reframe --workspace "$W" prepare-plan` | Plan bounded evidence units without model calls |
 | `reframe --workspace "$W" preview` | Generate AWS-assumed draft wireframes and AI-DLC package without independent validation |
 | `reframe --workspace "$W" model-budget` | Record an approved call allowance or model dollar cap |
+| `reframe --workspace "$W" validation-allowance` | Record an approved extra synthesis round or a larger validation context allowance |
 | `reframe --workspace "$W" recover-provider` | Record review of a reasoning-extraction refusal before an evidence-only retry |
 | `reframe --workspace "$W" assessment-report` | Generate a private HTML index of sealed assessment evidence |
 | `reframe --workspace "$W" upgrade-framework` | Record a controller update before candidate handoff; preserve approved evidence |
@@ -197,7 +229,7 @@ Every command takes `--workspace`. `reframe --help` and `reframe COMMAND --help`
 | `reframe --workspace "$W" reconcile-operation` | Record the outcome of an uncertain provider call; it stays counted |
 | `reframe --workspace "$W" feedback` | Send specification or design feedback back for a new version |
 | `reframe --workspace "$W" package` | Build the AI-DLC package; it then awaits a separate acceptance |
-| `reframe --workspace "$W" requirements` (`status`, `none`, `discover`, `authorize-job`, `resume`, `import`) | AWS requirements: capability, generation job, import, status |
+| `reframe --workspace "$W" requirements` (`status`, `none`, `discover`, `connector`, `authorize-job`, `resume`, `import`) | AWS requirements: capability, generation job, import, status |
 | `reframe --workspace "$W" context` (`import`, `none`, `status`, `decide`, `approve-delta`, `resolve`) | Import or decide optional human context |
 | `reframe --workspace "$W" design-export` | Write an opt-in current-state or reimagine draft beside the review site |
 | `reframe --workspace "$W" package-export` | Write an opt-in draft package beside the approved package |
@@ -300,7 +332,7 @@ Use `--transform-workspace <id>` during init or `setup --attach-workspace <id>` 
 a workspace. Use `setup --attach-connector <id>` to reuse a connector. These private
 identifiers must never go into the framework repository.
 
-A new AWS assessment reads three private settings: `transform.workspace_id`, `transform.upload_prefix`, and `transform.sandbox_role`. The CLI refuses to start that assessment when any of them is empty, before it calls AWS. Guided start creates a bucket, a workspace, and a connector that share one name: `reframe-`, the repository name, the UTC date, and a short id. The role name adds `-role`. The upload path is `s3://<bucket>/reframe`. Continuing that source reuses them. A fresh source gets a new set. The role can read and write objects anywhere in its bucket and denies object and bucket reads outside it. Comment on story 40 that the production deny check passed. Do not commit the account ID, the role ARN, or the bucket name.
+A new AWS assessment reads three private settings: `transform.workspace_id`, `transform.upload_prefix`, and `transform.sandbox_role`. The CLI refuses to start that assessment when any of them is empty, before it calls AWS. Guided start creates a bucket, a workspace, and a connector that share one name: `reframe-`, the repository name, the UTC date, and a short id. The role name adds `-role`. The upload path is `s3://<bucket>/reframe`. Continuing that source reuses them. A fresh source gets a new set. The role can read and write objects anywhere in its bucket and denies object and bucket reads outside it. Setup checks that deny before it creates the Transform workspace. Do not commit the account ID, the role ARN, or the bucket name.
 
 **AWS login is not necessarily a Transform application connection.** The official
 MCP `configure` operation supports its own authentication flow. If it is not already
@@ -689,6 +721,32 @@ reframe --workspace /path/to/private-poc resume
 ```
 
 A new project has no model-call cap. `max_model_calls` is null until you set one. A saved run keeps its recorded cap, its calls, and its dollar cap. The guide asks before raising a cap or removing it with `reframe model-budget --clear-call-cap`. Removing the cap does not restart the assessment or discard completed work. A call cap is enforced only when it is set. Tracked API spend and the API dollar cap are shown separately from an estimated next call. A cap of 0 is a real API budget and blocks the next billed API call. Subscription and other provider usage are unmeasured, and that absence is not a zero-dollar charge. A billed API key stops at the saved dollar cap until you raise it. A logged-in Claude subscription is not charged to that ledger. Repeated identical results, a provider failure, and a lack of progress pause with the completed work saved.
+
+### Requirements that arrive after validation
+
+A requirements set that is retrieved or imported after the specification supersedes the validation, specification,
+design, and package approvals, and sends the run back to revision (`REVISION_PENDING`). `reframe resume` revalidates
+the specification: passed evidence units stay sealed, and synthesis and review run again with the requirements as their
+own evidence layer. When the revision limit is spent, the import is refused before anything changes; record one more
+round with `validation-allowance` first. A workspace saved before this routing may still hold a specification validated
+without the set; `approve validation` refuses it, and `reframe feedback --scope specification` revalidates it. A specification that passes records the requirements set it was validated against, and approving it clears
+the revalidation flag. Synthesis cites requirements in `requirement_ids` on sections, work items and
+tests, by full id or a unique `original_id`. The controller records the full id and refuses an unknown or ambiguous one.
+A requirement is mapped only when all three cite it, is excluded only with a reason in `excluded_requirements`, and is
+otherwise a gap. The reviewer receives the candidate without the views the controller derives from those ids
+(`admitted_inputs`, `requirement_coverage`, `test_templates`); the saved candidate keeps them.
+
+When the revision limit is spent or the requirements do not fit, the run owner can record a larger allowance:
+
+```bash
+reframe --workspace /path/to/private-poc validation-allowance --extra-rounds 1 --by NAME --note WHY
+reframe --workspace /path/to/private-poc validation-allowance --requirements-context-bytes 250000 --synthesis-context-bytes 900000 --by NAME --note WHY
+```
+
+Limits only rise, up to 1,000,000 bytes. The defaults are 150,000 bytes for requirements and admitted human context,
+and 600,000 bytes for a synthesis message. Extra rounds apply to synthesis only, so the evidence-unit revision limit
+does not change. Each change is an audited event with the owner, the note, and the calls already used. An allowance
+permits calls; it does not make them.
 
 `reframe status` reports the project phase, the saved assessment service state, assessment approval, the last local action, and the current required action. The service record can still say `AWAITING_ASSESSMENT_APPROVAL` after that approval exists. That historical state is not the current blocker when validation is pending. Question totals, answered, deferred, and remaining counts do not include question text or rationale.
 

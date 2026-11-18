@@ -112,7 +112,7 @@ The re-test was **PASS WITH DEFECTS** for offline (L2) acceptance: no blockers, 
 
 ## Test expectations changed by a fix
 
-No expectation was weakened. These four changed because the fix changed correct behavior:
+No expectation was weakened. These six changed because the fix changed correct behavior:
 
 | Test | Before | After | Fix |
 | --- | --- | --- | --- |
@@ -120,11 +120,221 @@ No expectation was weakened. These four changed because the fix changed correct 
 | `test_reframe_optional::test_malformed_context_and_unknown_enum_stay_local` | A credential-shaped note imported, refused at package export | Refused at import with nothing stored; package-time scans stay covered by `test_package_safeguards` and `test_reframe::test_package_refuses_secret_and_writes_no_zip` | R3-3 |
 | `test_guided_flow::test_each_approval_asks_who_approves_and_a_yes_is_not_a_name` | One "y" for the session name was refused at once | It is asked again; three refusals still stop | R3-5 |
 | `test_guided_flow::test_framework_update_is_recorded_before_approval` | `upgrade-framework --note …` | Adds `--by` with the session name | R5-2 |
+| `test_release_acceptance::test_skip_journey_preserves_the_bundle_and_rejects_a_changed_version` | The packaged rule's `source_path` appears in `rules.json` | `source_path` is empty; its `assessment_path` appears in `rules.json` | N9 (#200) |
+| `test_reframe_preview::test_jcl_rules_format_is_imported_with_its_original_pointer` | `source_anchor` is `/rules/0` | `assessment_path` and `assessment_anchor` carry the AWS record; `source_path` is empty | N9 (#200) |
 
-## Remaining defects (not fixed on the accepted candidate)
+## After the merge: R6-1 and N9 (#199, #200)
 
-| # | Severity | Defect |
-| --- | --- | --- |
-| R6-1 | minor | On the skip route, the "DESIGN FEEDBACK RECORDED" result says it kept "specification, validation approval, decisions"; a skip-route run has neither of the first two. The framework update is attributed to the session name without a per-update "who" prompt; the record is labeled and audited. |
-| N9 | minor | Skip-route traceability: specification sections cite `R1` while the catalog uses `AWS-…`; AWS-assumed findings carry `source_path: rules.json`; the synthetic Reimagine journey is named `recorded`. |
-| — | observation | After a design change, menu 1 asks the route (skip/pause) and the draft name again; the defaults are correct. `upgrade-framework` on a run waiting at assessment approval suggests `resume` as its next step. |
+Both minor defects left on the accepted candidate are fixed on `fix/skip-route-defects`. Each regression test fails on `d0e6e5b`, the `develop` merge of `05e219e`.
+
+| # | Defect | Fix | Regression test |
+| --- | --- | --- | --- |
+| R6-1 (#199) | On the skip route, the design feedback result said it kept "specification, validation approval, decisions"; a skip-route run has neither of the first two | A skip-route result lists the assessment approval, the skip decision, and decisions. The review route is unchanged. | `test_design::test_skip_route_design_feedback_names_only_what_the_run_keeps` |
+| R6-1 (#199) | A framework update was attributed to the session name without asking | Menu 1 asks who records each update, offers the session name, and passes the answer as `--by` | `test_guided_flow::test_each_framework_update_asks_who_records_it` |
+| N9 (#200) | Skip-route sections cited the AWS id `R1` while the catalog uses `AWS-…` | Section text and section `rule_ids` cite the catalog id when an AWS id names exactly one catalog rule and carries a letter and a digit. Ambiguous ids are listed in `specification.json` `rule_citations`, never guessed. The provider's reply is saved unchanged. | `test_reframe_preview::test_skip_draft_cites_catalog_ids_and_never_names_the_assessment_file_as_source`, `test_catalog_citations_replace_only_unambiguous_ids_with_a_letter_and_a_digit` |
+| N9 (#200) | AWS-assumed findings named the assessment file in `source_path` | They carry `assessment_path` and `assessment_anchor`, with `source_path` empty. Screen rule tables and `rules.html` say no source line was checked. | the first N9 test |
+| N9 (#200) | A bundle without journeys got a journey named `recorded` | It is `synthetic-all-screens`, named and flagged as synthetic | `test_reframe_preview::test_a_bundle_without_journeys_gets_a_journey_labeled_synthetic` |
+
+Drafts saved before this fix keep their files. A new draft or design version uses the new fields.
+
+## Independent review of `develop` at `d0e6e5b`
+
+The owner reopened seven stories after an independent review of the merged `develop`. Six are fixed on `fix/develop-audit`, and each regression test fails on `65206cd`, the commit it builds on. #183 is fixed on `fix/planned-inventory`, and its tests fail on the `fix/develop-audit` head.
+
+| Story | Finding | Fix | Regression test |
+| --- | --- | --- | --- |
+| #161, #171 | Importing the same requirements twice rewrote the sealed manifest and normalized records, so the earlier version failed verification | A set is named by its files, origin, job, source pin, assessment, importer, and normalizer version. The same inputs reuse the sealed set and write nothing; a stored file or manifest is never overwritten | `test_requirements::test_an_identical_import_reuses_the_sealed_set_and_both_versions_verify`; guard: `test_a_changed_import_is_a_new_set_and_never_rewrites_the_earlier_one` |
+| #171, #188, #191 | A requirements import after the package was built superseded approvals but left the old package acceptable; `PACKAGE_ACCEPTED` was reachable without the new requirement | A changed set withdraws any acceptance (the ledger keeps it) and retires the package to `package_history`. On the review route it sends the run back to validation like specification feedback (`REVISION_PENDING`, a new round); on the skip route it supersedes the design approval and returns to the draft's design review. A package records its inputs (requirements set, specification, draft, design version, decisions, approval basis), and acceptance refuses a package whose inputs or required approvals changed | `test_acceptance::test_a_requirements_import_after_the_build_retires_the_package_and_refuses_its_acceptance`, `test_a_requirements_import_after_acceptance_withdraws_it_and_keeps_the_ledger`, `test_a_package_whose_approval_basis_was_superseded_cannot_be_accepted`, `test_a_package_records_its_inputs_and_a_changed_input_blocks_acceptance`; `test_menu_journeys::test_a_requirements_import_after_skip_acceptance_returns_to_design_review_and_refuses_the_old_package` |
+| #191 | Mode exports did not depend on the requirements set | A design export's selection includes the set, and a draft mode package is refused after the set changes. Mode packages stay drafts | `test_reframe_optional::test_a_mode_package_is_refused_after_the_requirements_set_changes` |
+| #184 | An unknown screen `requirement_ids` entry passed both validators | Screens and APIs follow one contract: `rule_ids` name a rule, finding, or requirement; `requirement_ids` name a requirement in the active set. Both the model-output check and the merged-design check enforce it before the site is written | `test_design::test_a_screen_citing_an_unknown_requirement_is_refused_before_the_site_is_written`, `RequirementReferenceTests` (3) |
+| #190 | Readiness read an unpopulated `design_coverage`, so an API contract gap could leave `NO_KNOWN_BLOCKERS` | Readiness reads the review site's sealed `api-completeness.json`, or the skip draft's contracts, and lists each gap as an `api_contract` blocker in readiness, the package's `ai-dlc.json`, and package review. A site without the report names that as a gap | `test_acceptance::test_an_api_contract_gap_alone_keeps_the_package_from_no_known_blockers` |
+
+| #183 | The inventory saved before detail held capabilities, requirement ids, and stage assignments, but no planned journeys, screens, or APIs; owners came from detail replies | Before the first detail call, one counted design plan call (`prompts/pipeline/design-inventory.md`) returns the planned journeys, screens, APIs, shared components, and gaps. Each has a stable id, an owning stage, dependency links, and rule and requirement ids. The plan is validated, saved, and hashed in the inventory. An item without a stage is owned by the earliest stage of its rules, and a journey by the earliest stage of its screens; anything else is refused. Each detail call defines its planned ids and references the rest. A stage that adds an unplanned id stops for a new design version; differing definitions of a planned id still go to reconciliation. A design version started before plans keeps the earlier rule. | `test_wireframe_context::test_the_plan_is_saved_and_hashed_and_the_first_detail_request_carries_it`, `test_a_detail_stage_that_adds_an_unplanned_id_stops_for_a_new_design_version`, `test_an_invalid_plan_stays_counted_and_can_be_retried`, `test_a_changed_saved_plan_is_refused` |
+
+#183 adds one counted wireframe-role call per design version. Tests that count wireframe calls, or that fail or reserve the first call, now expect or target the plan call: `test_wireframe_context` (7 tests), `test_guided_recovery::test_validation_sequence_records_the_controller_and_keeps_the_review`, and `test_design::test_a_changed_plan_regenerates_and_never_returns_the_stale_design`. Fixture models answer the plan call with the screens they then return (`test_reframe.PreparationTests.runtime`, `test_reframe_checkpoints`, `test_workflow_journey`, and the bad-reference runtimes in `test_design`, which keep the plan valid so the detail check is still the one tested). Packing keeps an eighth of a context budget under 16 KB for the planned id lists, so `test_staged_generation_keeps_cross_references_and_rejects_conflicting_ids` derives its two-stage budget from that.
+
+One expectation changed because the fix changed correct behavior: `test_requirements::test_an_import_after_a_reviewed_specification_supersedes_its_approvals` now gives its fixture the validation run a specification always has, and also asserts the return to `REVISION_PENDING`.
+
+A set imported before this change keeps its folder and id. Importing the same files again afterwards gets a new id, because the importer and pin are now part of the name, and counts as a change.
+
+## Live discovery on the saved CardDemo workspace (2026-11-16)
+
+The first live read-only discovery (#169), run under the confirmed envelope (#197), reported "connector not observed" without asking the server for connectors.
+
+**L-1, major.** The live AWS Transform MCP server declares the `list_resources` `resource` argument as a `$ref` into `$defs`. `_enum_values` read only an inline `enum`, so it found no connector kind and skipped the connector listing. The offline fixture used an inline enum, so only a live run could show this.
+
+**Fix.** `_enum_values` follows local `$defs` references and `anyOf`/`oneOf` branches. When `list_resources` exists but no connector listing is possible, the capability record now says why.
+
+**Regression tests.** Both new tests fail on `d0e6e5b`:
+- `test_requirements::test_discovery_follows_a_referenced_resource_enum`
+- `test_requirements::test_a_schema_without_a_connector_kind_says_why_nothing_was_listed`
+
+**Result of the repeat discovery with the fix.**
+- The workspace lists one connector, of type `mainframe_modernization|s3|2`.
+- No Reimagine (Neptune) connector is present, so the status remains `REQUIREMENTS_GENERATION_UNAVAILABLE`, now based on observed evidence.
+
+## Reimagine connector from the CLI (#206)
+
+**Test expectation changed by this change.** `test_requirements.FakeTransform` reported a synthetic connector type, `NEPTUNE_REIMAGINE`, which the old substring check counted as a reimagine connector.
+- Discovery now counts only the type AWS accepted and listed for this account, `mainframe_modernization|reimagine|1`, and only when AWS reports it `ACTIVE`.
+- The fixture now reports that type.
+- The synthetic type is still covered, now as a type that is refused, in `test_reimagine_connector::test_discovery_counts_only_an_active_connector_of_the_observed_type`.
+
+**Evidence for the observed values.** All of it is read-only, from 2026-11-16:
+- **CloudTrail:** two successful `CreateConnector` requests (2026-11-15) used this type and the six configuration keys.
+- **AWS validation:** AWS's own validation error lists the valid properties for the type.
+- **Role:** the IAM policy the AWS console generated for an activated reimagine connector.
+- **Live plan run:** the read-only `requirements connector` run against the saved workspace's stack produced a configuration identical to both accepted console requests.
+
+**Defect found during the first live `--create` (2026-11-16).** The requirements commands (`discover`, `job`, `connector`) started the Transform MCP server without the project's saved AWS profile and region. The assessment runs and `reframe_projects._live_transform` already pass both.
+- **What happened:** the IAM role was created through `aws --profile <saved profile>`, while the connector request went to an MCP server that had no usable sign-in. The server refused the request locally with `NOT_CONFIGURED`, before calling AWS.
+- **Fix:** `transform_client` now passes `AWS_PROFILE` and `AWS_REGION` from `project['aws']`, overriding the shell. The saved settings are unchanged.
+- **Test:** `test_reimagine_connector::test_the_transform_client_uses_the_saved_aws_profile_like_the_aws_cli_calls` fails without the fix.
+- **Saved state:** the connector intent from that attempt stays on disk. Reframe still treats it as uncertain until AWS confirms that no connector was created.
+
+**Defect found on the first live discovery after creation (2026-11-17).** The live `list_resources` connector listing returns only `connectorId`, `connectorName` and `connectorType`, under `items`. It carries no status, so discovery never counted an active reimagine connector.
+- **Fix:** for each listed connector of the reimagine type with no status, discovery now reads that connector with `get_resource`, which is read-only, and takes the status from `accountConnection.awsAccountConnection.status`.
+- **Test expectation changed by this change.** `test_requirements.FakeTransform` had returned the listing with a `status` field and under `connectors`. It now returns the live shape, and serves the connector record from `get_resource`.
+- **Verified:** with the live-shaped fake, 10 tests fail on the code before this fix.
+
+**Defect found on the first live requirements job (2026-11-17).** AWS rejected `create_job` with HTTP 400, because the value at `orchestratorAgent` was null. The MCP schema marks that field optional, but the live service requires it. The assessment path already knew this (`kiro_workflow.select_orchestrator`); the requirements path did not send one.
+- **Fix:** a requirements job now reuses the orchestrator that the baseline assessment discovered and recorded. If there is none, it runs the same unique-mainframe-orchestrator discovery, so no name is guessed. The orchestrator used is saved on the job record.
+- **Tests:**
+  - `test_requirements::test_a_new_job_reuses_the_orchestrator_the_baseline_assessment_recorded` is new, and fails without the fix.
+  - `test_fixture_generation_selects_from_the_schema_and_preserves_originals` now also asserts that the orchestrator is sent.
+  - `FakeTransform` answers the orchestrator listing in the shape `select_orchestrator` already filters on.
+
+**Defect found on the same live job.** The live `get_job_status` reports the job status under `job.statusDetails.status` (for example `ASSESSING`). The requirements step read only `job.status`, so it reported `UNKNOWN` and could never see a job finish or fail.
+- **Fix:** the requirements step now reads `statusDetails` the same way the assessment path does (`kiro_workflow`).
+- **Test:** `test_requirements::test_the_job_status_is_read_from_status_details_as_aws_returns_it` fails without the fix.
+
+**Plan menu on the live requirements job (2026-11-17).** The live job started with AWS asking in chat which plan to run: "Assess and reimagine", "Reimagine", or a custom plan. The requirements adapter had no way to answer, and reported the job as generating.
+- **What it does now:** it stops with `WAITING_FOR_HUMAN` and lists AWS's options. `requirements resume --plan NAME --by NAME` sends one listed option, once, as AWS numbered and worded it. The request is saved before sending and the result after, and the choice is recorded with the person.
+- **Tests:**
+  - `test_requirements::test_a_plan_menu_waits_for_a_named_choice_and_is_answered_once_with_the_listed_option`;
+  - `test_requirements::test_an_uncertain_plan_reply_is_never_sent_again`.
+- **Fixture change:** the synthetic `send_message` schema gained `skipPolling`, which the live schema lists.
+
+**Follow-up on the same live job (2026-11-17).**
+- **AWS asked a second question.** After the plan choice, AWS's agent asked "Does this objective match your goals?" and built no plan until it was answered. Reframe reported the job as generating. It now stops as `WAITING_FOR_HUMAN` on any unanswered AWS question: a latest chat message that ends with "?" and has no reply after it. It shows the question, and a person answers with `--reply TEXT --by NAME` (or `--plan` for a numbered menu), once per AWS message.
+- **Job names.** Requirements jobs were named after their local label (`requirements-N`). Assessment runs are named `RUN-` plus 16 hex characters. A requirements job now gets a `run_id` in the same form, and that is its AWS job name. The job created before this fix keeps its name, because the Transform tools offer no rename.
+- **Tests:**
+  - `test_requirements::test_an_aws_question_after_the_plan_waits_for_a_persons_own_reply`;
+  - `test_requirements::test_a_new_job_is_named_like_the_assessment_runs`.
+- **Fixture change:** `FakeTransform` now serves a sequence of AWS questions, each answered by one `send_message`.
+
+**Consistent, traceable names (owner request, 2026-11-17).** The first live connector and job were named outside the project's scheme. The role was `reframe-reimagine-<stack>`, the connector was given by `--name`, and the job was `requirements-N`.
+- **The scheme now:** every name derives from the project name N, Reframe's bucket, workspace and S3 connector name.
+  - connector: `N-reimagine`;
+  - role: `N-rmg` (IAM caps role names at 64 characters), tagged `ReframeProject=N` and `Purpose=reimagine-connector`;
+  - jobs: `RUN-` plus 16 hex characters.
+- **`--name` is removed.**
+- **`--replace` creates the named pair in place of a recorded one named otherwise.** The old pair is kept in `requirements_connector_history`. Nothing is deleted.
+- **`requirements stop` stops an active job once,** recorded with who stopped it and why.
+- **Receipts are keyed by resource name,** so a renamed resource gets its own create-once record.
+- **Tests:**
+  - `test_reimagine_connector::test_names_follow_the_project_name_and_the_role_is_tagged_with_it`;
+  - `test_reimagine_connector::test_a_connector_named_otherwise_is_replaced_only_on_request_and_kept_on_record`;
+  - `test_requirements::test_stop_ends_the_job_once_and_resume_does_not_continue_it`.
+- **Fixture changes:** the connector tests no longer pass `--name`. `FakeConnectors` returns the connector name. `FakeTransform` lists `control_job` and answers it.
+
+**Live replace (2026-11-17): AWS allows one reimagine connector per workspace.** `create_connector` for `N-reimagine` returned HTTP 400: the workspace had exceeded the quota for connectors of this type (1). The project-named role `N-rmg` was created. The connector was not.
+- **Defect:** the old connector had already been moved to `requirements_connector_history` before the new one existed.
+- **Fix:** the old record moves to history only once the new connector exists. `test_a_connector_named_otherwise_is_replaced_only_on_request_and_kept_on_record` now covers a refused creation.
+- **What renaming needs:** the old connector must be removed first. Reframe never deletes, and the Transform MCP tools offer no connector delete, so the owner removes it in the AWS Transform console.
+
+**Live stop (2026-11-17): a status read that was not a read.** `requirements stop` sent `control_job` stop once, and AWS stopped `requirements-2`. Its follow-up `get_job_status` omitted `detailed: true`. Without that flag, the Transform MCP server does not just read: it posts "What is the current status and what are the next steps needed from the user?" into the job chat. AWS restarted the job's agent to answer it.
+- **Effect:** the job stayed `STOPPED`, with no plan, steps or tasks, but the question and the agent's answer remain in the job's chat history.
+- **Fix:** the stop path now passes `detailed: true`, as every other Reframe status call already does.
+- **Guard:** `test_requirements.FakeTransform` now fails any `get_job_status` call without `detailed: true`, so every requirements test checks this.
+
+**AWS waits without asking a question (2026-11-17).** After the objective confirmation, AWS asked which output languages to produce, ending with "Respond with \"no\" or \"English only\" to continue with English only." That text has no "?", so Reframe kept reporting the job as generating.
+- **Fix:** with no plan yet, AWS's latest unanswered `FINAL_RESPONSE` now counts as waiting for an answer. AWS marks its turn-ending messages `FINAL_RESPONSE` and its progress notes `THINKING`. A message that says to "please wait" does not count.
+- **Test:** `test_requirements::test_an_aws_request_without_a_question_mark_still_waits_and_a_please_wait_note_does_not`.
+
+**The reimagine plan grows as the job runs (2026-11-17).** The live "Assess and reimagine" plan started as Kickoff, Analyze code, Discover data paths, Analyze data and Discover business functions. "Generate requirements" comes later; the owner's earlier console job of this kind ends with it. Reframe failed the job locally as soon as it saw a plan without that step. The AWS job was unaffected.
+- **Test expectation changed by this change.** `test_a_plan_without_generate_requirements_is_a_capability_stop` now expects the capability stop only when AWS reports the job finished without the step. While the job runs, its tasks are handled as usual.
+
+**AWS tasks beyond connector and function selection.** The owner's earlier console job answered four AWS tasks, all `APPROVE` with a JSON payload (CloudTrail `SubmitStandardHitlTask`).
+- **Source location:** the form (`SpecifyAssetsLocation`) is now answered automatically, as the assessment answers it. That happens only when its schema is exactly `{assetLocation: string}`, and only with this job's recorded, checksum-checked source.
+- **Any other task:** saved locally and shown. It is answered with `requirements resume --answer JSON --by NAME` only when the JSON fits the task's own response schema (required and allowed fields, listed values, types). It is sent once and recorded with who answered.
+- **Tests:**
+  - `test_an_other_aws_task_is_answered_once_only_with_content_that_fits_its_schema`;
+  - `test_the_source_location_form_gets_this_jobs_recorded_source`.
+
+**AWS asks after the plan exists.** Once the plan was generated, AWS asked "Proceed with this plan?" and started no step until it was answered. Reframe only read chat before a plan existed, and a waiting state could outlive a question answered elsewhere.
+- **Fix:** each poll works the state out afresh. When no task waits and no step runs, an unanswered AWS chat turn stops the job for an answer.
+- **Test:** `test_requirements::test_a_question_after_the_plan_exists_waits_and_is_answered_once`.
+
+**Function selection happens in chat while a parent step shows in progress.** After the catalog review, AWS's job status was `AWAITING_HUMAN_INPUT`, with "Please select the business function(s) to Re-Imagine before continuing." in chat and no task form. The parent step "Discover business functions" still showed `IN_PROGRESS`, so Reframe did not read the chat.
+- **Fix:** AWS's own `AWAITING_HUMAN_INPUT` job status now overrides the running-step check.
+- **Test:** `test_requirements::test_aws_awaiting_input_is_read_from_chat_even_while_a_parent_step_shows_in_progress`.
+
+**Selecting business functions in chat while the review form is open.** AWS's review form ("Review business functions discovery results") gives no schema for the selection. AWS's documentation says the chat prompts for the selection.
+- **Change:** when the open form is not one Reframe can answer and a person gives `--reply`, the reply now goes to AWS's open chat question, once.
+- **Test:** `test_requirements::test_a_chat_reply_is_sent_while_an_unrecognized_form_is_open`.
+
+**Display-only AWS forms.** During extraction, AWS presented "Business rule extraction results" (`MainframeBreResultComponent`). Its schema says `displayOnly: true`, and AWS submits the empty response itself. Reframe stopped and waited for an answer.
+- **Fix:** display-only forms are recorded once as seen, and need no answer.
+- **Test:** `test_requirements::test_a_display_only_aws_task_needs_no_answer`.
+
+**Live requirements are delivered in an archive.** The live job delivered its requirements inside `transform-output/<job>/spec_gen/spec_gen_specs_<timestamp>.zip`, at `spec/<Domain>/<Function>/requirements.md` and `traceability.yaml`, plus a coverage report. The owner's earlier console job used the same layout. Retrieval looked only for loose files.
+- **Fix:** when no loose files are listed, retrieval downloads the newest `spec_gen` archive and records its asset key, SHA-256 and size on the job. It takes only the documented files, refusing unsafe paths and members over 50 MB, and records each file's original path as `<archive key>!/<member>`.
+- **Function id:** a chat selection carries no function id, so AWS's own folder for the function is used.
+- **Tests:**
+  - `test_requirements_are_taken_from_the_spec_gen_archive_with_its_hash_kept`;
+  - `test_an_archive_member_with_an_unsafe_path_is_refused`.
+
+**Downloads must land where the MCP server may write.** Live retrieval was refused with "Write path must be within the working directory (`<workspace>/transform-artifacts`)", which is the folder Reframe itself sets as `AWS_TRANSFORM_MCP_WRITE_DIR`. Retrieval had asked for the job's `downloads` folder.
+- **Fix:** files are saved under `transform-artifacts/requirements/<job>/`, then moved into the job's `downloads` folder.
+- **Test:** `test_requirements::test_downloads_are_saved_where_the_mcp_server_may_write_then_moved_to_the_job`.
+
+**AWS's traceability format.** The live `traceability.yaml` has a `summary`, then `rules` and `requirements` lists:
+- each `rules` entry carries `rule_id`, `program`, `disposition`, `rule_text`, source `traceability_lines`, and `req_id` or `req_ids`;
+- each `requirements` entry carries a `req_id` and its `rule_ids`.
+
+The generic reader split every list entry into its own block, so 397 of 398 requirements were "ambiguous" and none "mapped".
+- **Fix:** Reframe reads this shape directly, merging both lists per requirement. It records rule ids, programs and dispositions, and maps program names to source files in the pinned checkout. A requirement is `mapped` when a program resolves to a pinned file, `partial` when it has rules but no resolved file, and `missing` otherwise. Other shapes still use the generic reader. Evidence stays `TRACEABILITY_CLAIM` until independent validation.
+- **New command:** `requirements renormalize --by --note` rebuilds an existing set's normalized view from its sealed originals. It refuses if any original's hash changed, and keeps the set id, files and approvals. It records the previous normalized hash.
+- **Tests:** `test_aws_reimagine_traceability_maps_each_requirement_to_its_rules_and_programs` and `test_renormalize_rebuilds_the_view_and_keeps_originals_and_approvals`.
+
+**Environment-dependent failure, not caused by this change.** `test_reframe_checkpoints::test_sanitized_carddemo_recovery_builds_exact_requests` reads the live CardDemo workspace's `project.json`. That project now records a retrieved requirements set, which the test's sanitized copy does not include, so the test fails with a missing `requirements` folder. It fails the same way on the commit before this change. It is left unchanged for a separate fix, rather than adjusted here to pass.
+
+`test_wireframe_context::test_saved_request_is_staged_inside_the_context_budget` also reads the live workspace. It needs the live project to hold a specification. Since revalidation began, the live specification is withdrawn until synthesis passes again, so the test fails with `KeyError: 'specification'`. It is left unchanged for the same separate fix: these tests should read a sealed copy, not the live workspace.
+
+**Requirements after validation left the run stranded.** Retrieving the live set superseded the validation, specification, design and package approvals, as spec §5.3 requires, but left the stage at `VALIDATION_APPROVED`. `resume` then went to wireframes and stopped at "Missing or stale validation approval", `upgrade-framework` was refused, and `status` named no route back. Decision amendments and specification feedback already move the stage when they supersede.
+- **Fix:**
+  - a set that arrives after a specification sends the run back to revision (`REVISION_PENDING`), through the same route `develop` uses for a changed set (`route_to_revision`). The merge of `develop` replaced this branch's first fix, which returned the run to `AWAITING_VALIDATION_APPROVAL`;
+  - when the synthesis round limit is spent, the import is refused before anything changes, and names `validation-allowance --extra-rounds 1`;
+  - `approve validation` refuses a specification validated without the active set (a workspace saved before routing can still hold one);
+  - a specification that passes now records the set it was validated against, and approving it clears `requires_revalidation`;
+  - `status` names `feedback --scope specification` as the revalidation route.
+- **Stale design step:** the live run still held a `review-site` pending action from an earlier wireframe attempt. `resume` runs a pending action before reading the stage, so the first revalidation `resume` went to wireframes for the withdrawn specification and stopped with `KeyError: 'specification'`, before any call. Specification feedback now withdraws a pending `review-site` action and records the event.
+- **Stale review:** specification feedback no longer resends the last review of the candidate it replaces. The live run held a round-3 `REWORK` review after its round-4 specification had passed.
+- **Tests:** `test_context_validation::test_requirements_after_approval_send_the_run_back_to_revision_and_revalidate_it` and `test_approving_a_specification_validated_before_the_active_set_is_refused`.
+
+**No recorded way to give validation more room.** Revalidating the live set hit two fixed limits. The revision limit was spent (round 4 of `max_rounds` 2), and feedback said only "start a new workspace". The 233,167-byte requirements layer exceeded the fixed 150,000-byte validation allowance. The refusal said "raise the allowance", but no command could. The synthesis messages were already 538–592 KB against a fixed 600,000-byte ceiling.
+- **New command:** `validation-allowance --by --note` records extra synthesis rounds (1 or 2), a requirements context allowance, or a synthesis context allowance.
+  - Limits only rise, up to 1,000,000 bytes.
+  - Extra rounds apply to synthesis only, so the evidence-unit limit stays.
+  - Each change is an audited event with the calls already used.
+- **Test:** `test_context_validation::test_a_validation_allowance_only_rises_and_is_used_by_validation`.
+
+**Requirement coverage could never be recorded.** The live revalidation executor (call 307) checked the specification against all 398 AWS requirements and raised 14 source-grounded questions, but cited none of them: all 398 were coverage gaps. Coverage counts only `requirement_ids` listed on sections, work items and tests, and neither the preparation prompts nor the controller asked for them.
+- **Prompt change (a recorded prompt migration, not a controller-only fix):**
+  - the executor prompt asks for `requirement_ids` on each section, work item and test, and for `excluded_requirements` with reasons;
+  - the reviewer prompt checks those mappings. A wrong mapping is a defect; an unmapped requirement is a reported gap.
+- **Controller:**
+  - a unique `original_id` (for example REQ-F-001) is recorded as the full id, which keeps the executor's output small;
+  - an unknown or ambiguous id, or an exclusion without a reason, makes the candidate invalid.
+- **Reviewer context:** the reviewer no longer receives `admitted_inputs`, `requirement_coverage` or `test_templates` inside the candidate. The controller derives these from the candidate's ids, and the requirements themselves are already in the reviewer's context. The live reviewer context was 925,524 bytes, over its allowance, before any review call.
+- **Reuse after feedback:** a candidate reply saved before specification feedback was reused as the next round's candidate without a call. The live run had exactly that: an unreviewed candidate from call 307. Feedback now marks earlier replies as belonging to the replaced round.
+- **Tests (`test_context_validation`):**
+  - `test_synthesis_cites_requirements_and_the_reviewer_gets_no_controller_views`;
+  - `test_an_unknown_or_unexplained_requirement_id_is_refused`;
+  - `test_a_revision_does_not_reuse_an_unreviewed_candidate_from_the_replaced_round`.
+
+## Remaining observations
+
+- After a design change, menu 1 asks for the route (skip/pause) and the draft name again; the defaults are correct.
+- `upgrade-framework` on a run waiting at assessment approval suggests `resume` as its next step.

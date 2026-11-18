@@ -99,6 +99,9 @@ def readiness(work, project, app):
     for row in (project.get('design_coverage') or {}).get('rows') or []:
         if row.get('state') == 'gap':
             blockers.append({'kind': 'coverage', 'id': row.get('id'), 'state': 'gap'})
+    for row in api_completeness(work, project)['rows']:
+        if row.get('state') == 'gap':
+            blockers.append({'kind': 'api_contract', 'id': row.get('id'), 'state': 'gap', 'gaps': row.get('gaps')})
     for item in pending_deltas(work, project):
         blockers.append({'kind': 'delta', 'id': item['id'], 'state': item['status']})
     if project.get('verification_skip'):
@@ -115,6 +118,26 @@ def readiness(work, project, app):
         state = 'NO_KNOWN_BLOCKERS'
     return {'state': state, 'blockers': blockers, 'blocker_count': len(blockers),
             'note': 'Readiness is computed from recorded blockers. It is not deployment approval or evidence that tests ran.'}
+
+
+def api_completeness(work, project):
+    """API contract gaps of the current design: the review site's sealed report, or the skip draft's contracts."""
+    import reframe_design as design
+    site = project.get('site') or {}
+    if site.get('directory'):
+        path = Path(work) / site['directory'] / 'api-completeness.json'
+        recorded = (site.get('files') or {}).get('api-completeness.json')
+        if not path.is_file() and recorded is None:
+            # A site generated before the report existed: the gap is named, not assumed away.
+            return {'rows': [{'id': 'api-completeness', 'state': 'gap', 'gaps': ['report not generated for this site']}]}
+        require(path.is_file() and (recorded is None or sha(path) == recorded),
+                'The review site\'s API completeness report is missing or changed after generation')
+        return json.loads(path.read_text())
+    if project.get('skip_bundle'):
+        path = Path(work) / project['skip_bundle'] / 'handoff' / 'api-contracts.json'
+        if path.is_file():
+            return design.api_completeness(json.loads(path.read_text()))
+    return {'rows': []}
 
 
 def required_approvals(project):
@@ -206,6 +229,31 @@ def context_changed(work, project):
     return optional._context_fingerprint(work) != recorded
 
 
+def package_inputs(project):
+    """The reviewed inputs a package rests on: requirements set, specification, draft, design version, decisions, approvals."""
+    approvals = project.get('approvals') or {}
+    return {'requirements_set': (project.get('requirements') or {}).get('set_id'),
+            'specification_sha256': (project.get('specification') or {}).get('sha256'),
+            'skip_bundle': project.get('skip_bundle'),
+            'design_version': (project.get('design_plan') or {}).get('version'),
+            'decisions_sha256': sha256(json.dumps(project.get('decisions') or {}, sort_keys=True).encode()).hexdigest(),
+            'approvals': {phase: {key: (approvals.get(phase) or {}).get(key) for key in ('sha256', 'by', 'at')}
+                          for phase in required_approvals(project)}}
+
+
+def require_current_inputs(project):
+    """Refuse a package whose reviewed inputs or approvals were superseded after it was built."""
+    from reframe_states import stop
+    missing = [phase for phase in required_approvals(project) if phase not in (project.get('approvals') or {})]
+    recorded = (project.get('package') or {}).get('inputs')
+    changed = sorted(key for key, value in package_inputs(project).items() if recorded and recorded.get(key) != value)
+    if missing or changed:
+        stop('This package rests on inputs that changed after it was built ('
+             + ', '.join(['missing approval: ' + phase for phase in missing] + ['changed: ' + key for key in changed])
+             + '). Nothing was accepted. The earlier package stays on disk as history.',
+             'HUMAN_DECISION_REQUIRED', 'Use /flow: it returns to the earliest affected review, then build and review a new package.')
+
+
 def accept(work, project, app, package_sha256, by, note, simulated=False):
     """Record that a named person accepted this exact archive. The archive is not modified."""
     require(built_stage(project.get('stage')), 'Only a built package that awaits acceptance can be accepted')
@@ -217,6 +265,7 @@ def accept(work, project, app, package_sha256, by, note, simulated=False):
             'The SHA-256 you accepted does not match the package under review. Nothing was accepted.')
     if project.get('verification_skip'):
         app.require_skip_acceptance(project)
+    require_current_inputs(project)
     app.require_clear_for_final(work, 'package acceptance', app.spec_scope_ids(work, project))
     if context_changed(work, project):
         from reframe_states import stop

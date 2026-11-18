@@ -163,6 +163,77 @@ class AcceptanceTests(unittest.TestCase):
         self.assertEqual(state['state'], 'PARTIALLY_READY')
         self.assertTrue(any(b['kind'] == 'coverage' for b in state['blockers']))
 
+    def test_an_api_contract_gap_alone_keeps_the_package_from_no_known_blockers(self):
+        result = self.built()
+        import zipfile
+        with zipfile.ZipFile(result['archive']) as archive:
+            record = json.loads(archive.read('ai-dlc.json'))
+        report = app.read(self.work / self.project['site']['directory'] / 'api-completeness.json')
+        gaps = [(row['id'], row['gaps']) for row in report['rows'] if row['state'] == 'gap']
+        self.assertTrue(gaps, 'the fixture design has a named API gap')
+        self.assertEqual([(b['id'], b['gaps']) for b in record['implementation_blockers'] if b['kind'] == 'api_contract'], gaps,
+                         'the package names each API gap as an implementation blocker')
+        self.assertTrue(any(b['kind'] == 'api_contract' for b in acceptance.review(self.work, self.project, app)['readiness']['blockers']))
+        # Every other blocker cleared: the API gap alone keeps the package from NO_KNOWN_BLOCKERS.
+        spec_file = app.spec_path(self.work, self.project)
+        spec = app.read(spec_file)
+        for key in ('coverage', 'requirement_coverage', 'test_templates'):
+            spec.pop(key, None)
+        self.project['decisions'] = {q['id']: {'disposition': 'resolved'} for q in spec.get('questions') or []}
+        self.save_spec(spec_file, spec)
+        state = acceptance.readiness(self.work, self.project, app)
+        self.assertEqual(state['state'], 'PARTIALLY_READY')
+        self.assertEqual({b['kind'] for b in state['blockers']}, {'api_contract'})
+
+    def import_pay_999(self):
+        import reframe_requirements as requirements
+        folder = self.root / 'requirements-change'
+        folder.mkdir(exist_ok=True)
+        (folder / 'requirements.md').write_text('# Payments\n- PAY-999: The system SHALL require a second approver.\n')
+        return requirements.import_files(self.work, self.project, folder / 'requirements.md', None, 'F1', 'Analyst',
+                                         'New rule from the business owner')
+
+    def test_a_requirements_import_after_the_build_retires_the_package_and_refuses_its_acceptance(self):
+        result = self.built()
+        self.import_pay_999()
+        self.assertEqual(self.project['stage'], 'REVISION_PENDING', 'validation runs again against the new requirements')
+        self.assertNotIn('package', self.project)
+        retired = self.project['package_history'][-1]
+        self.assertEqual((retired['sha256'], retired['status']), (result['sha256'], 'SUPERSEDED'))
+        self.assertTrue(Path(result['archive']).is_file(), 'the earlier package stays on disk')
+        with self.assertRaises(Blocked):
+            acceptance.accept(self.work, self.project, app, result['sha256'], 'Owner', 'Reviewed the package')
+        self.assertNotIn('package_acceptance', self.project)
+
+    def test_a_requirements_import_after_acceptance_withdraws_it_and_keeps_the_ledger(self):
+        result = self.built()
+        acceptance.accept(self.work, self.project, app, result['sha256'], 'Owner', 'Reviewed the package')
+        self.import_pay_999()
+        self.assertNotIn('package_acceptance', self.project)
+        self.assertEqual(self.project['acceptance_history'][-1]['reason'], 'requirements_imported')
+        events = [entry['event'] for entry in acceptance._ledger_entries(self.work)]
+        self.assertEqual(events, ['package_accepted', 'acceptance_superseded'])
+        self.assertTrue(acceptance.verify_ledger(self.work))
+        self.assertEqual(self.project['stage'], 'REVISION_PENDING')
+
+    def test_a_package_whose_approval_basis_was_superseded_cannot_be_accepted(self):
+        result = self.built()
+        # The state the audited develop left after an import: approvals superseded, the old package still current.
+        import reframe_versions as versions
+        versions.supersede(self.project, ('validation', 'specifications'), 'requirements_imported')
+        with self.assertRaisesRegex(Blocked, 'missing approval: specifications'):
+            acceptance.accept(self.work, self.project, app, result['sha256'], 'Owner', 'Reviewed the package')
+        self.assertNotIn('package_acceptance', self.project)
+
+    def test_a_package_records_its_inputs_and_a_changed_input_blocks_acceptance(self):
+        result = self.built()
+        inputs = self.project['package']['inputs']
+        self.assertEqual(inputs['specification_sha256'], self.project['specification']['sha256'])
+        self.assertEqual(set(inputs['approvals']), {'assessment', 'validation', 'specifications'})
+        self.project['requirements'] = {'set_id': 'later-set'}
+        with self.assertRaisesRegex(Blocked, 'changed: requirements_set'):
+            acceptance.accept(self.work, self.project, app, result['sha256'], 'Owner', 'Reviewed the package')
+
     def test_a_skipped_route_needs_the_documented_second_acceptance(self):
         result = self.built()
         self.project['verification_skip'] = {'owner': 'Fixture owner', 'reason': 'r', 'assessment_sha256': 'x'}
