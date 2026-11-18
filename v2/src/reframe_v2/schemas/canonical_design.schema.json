@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reframe:v2:schema:canonical_design:1",
+  "title": "Canonical design",
+  "description": "Section 6 and FR-10: one canonical design per context with stable ids. The design site, screen specifications and contracts are rendered from it.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "urn:reframe:v2:schema:common:1#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "schema": {
+      "const": "canonical_design/1"
+    },
+    "record_type": {
+      "const": "canonical_design"
+    },
+    "body": {
+      "$ref": "#/$defs/body"
+    }
+  },
+  "$defs": {
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "context": {
+          "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+        },
+        "goal": {
+          "$ref": "urn:reframe:v2:schema:common:1#/$defs/goal"
+        },
+        "journeys": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "pages": {
+                "type": "array",
+                "items": {
+                  "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "pages"
+            ]
+          }
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "replaces_maps": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "type": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "length": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "validation": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "length",
+                    "rules",
+                    "type",
+                    "validation"
+                  ]
+                }
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "interaction": {
+                      "anyOf": [
+                        {
+                          "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "navigates_to": {
+                      "anyOf": [
+                        {
+                          "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "interaction",
+                    "label",
+                    "navigates_to"
+                  ]
+                }
+              },
+              "rules_applied": {
+                "type": "array",
+                "items": {
+                  "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+                }
+              }
+            },
+            "required": [
+              "actions",
+              "fields",
+              "id",
+              "name",
+              "replaces_maps",
+              "rules_applied"
+            ]
+          }
+        },
+        "interactions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+              },
+              "type": {
+                "$ref": "urn:reframe:v2:schema:common:1#/$defs/interaction_type"
+              },
+              "contract": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "contract",
+              "id",
+              "type"
+            ]
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+          }
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+              },
+              "requirement": {
+                "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+              },
+              "placeholder": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "placeholder",
+              "requirement"
+            ]
+          }
+        }
+      },
+      "required": [
+        "context",
+        "goal",
+        "interactions",
+        "journeys",
+        "pages",
+        "requirements",
+        "tests"
+      ]
+    }
+  }
+}

@@ -1,0 +1,387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reframe:v2:schema:project_policy:1",
+  "title": "Project policy",
+  "description": "Section 6 and section 11: account and region, support matrix, scope, data policy and Claude backend, budget, gate policy and deadline, AWS review policy, retention.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "urn:reframe:v2:schema:common:1#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "schema": {
+      "const": "project_policy/1"
+    },
+    "record_type": {
+      "const": "project_policy"
+    },
+    "body": {
+      "$ref": "#/$defs/body"
+    }
+  },
+  "$defs": {
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project": {
+          "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+        },
+        "aws": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "account": {
+              "type": "string",
+              "minLength": 1
+            },
+            "region": {
+              "type": "string",
+              "minLength": 1
+            },
+            "profile": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "account",
+            "region"
+          ]
+        },
+        "support_matrix_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "all",
+                "list"
+              ]
+            },
+            "functions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "domains": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "exclusions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "item": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "item",
+                  "reason"
+                ]
+              }
+            }
+          },
+          "required": [
+            "domains",
+            "exclusions",
+            "functions",
+            "mode"
+          ]
+        },
+        "default_goal": {
+          "$ref": "urn:reframe:v2:schema:common:1#/$defs/goal"
+        },
+        "data_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "destinations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "destination": {
+                    "type": "string",
+                    "enum": [
+                      "aws",
+                      "claude_backend",
+                      "github",
+                      "engineer_machine"
+                    ],
+                    "description": "Section 11 table."
+                  },
+                  "allowed": {
+                    "type": "boolean"
+                  },
+                  "settings": {
+                    "type": "object",
+                    "description": "Destination settings recorded in the policy (section 11). Refined by P0-08."
+                  }
+                },
+                "required": [
+                  "allowed",
+                  "destination",
+                  "settings"
+                ]
+              }
+            },
+            "customer_source": {
+              "type": "boolean",
+              "description": "True when the source belongs to a client; the claude-cli backend is then refused (section 11)."
+            }
+          },
+          "required": [
+            "customer_source",
+            "destinations"
+          ]
+        },
+        "claude_backend": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "claude-cli",
+                "bedrock"
+              ]
+            },
+            "generation_model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "review_model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "inference_profile": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "invocation_region": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "allowed_processing_regions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "cli_version": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "allowed_processing_regions",
+            "cli_version",
+            "generation_model",
+            "inference_profile",
+            "invocation_region",
+            "kind",
+            "review_model"
+          ]
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "usd": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]{1,6})?$",
+                  "description": "US dollars as a decimal string, so hashes never depend on float formatting."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "calls": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tokens": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "calls",
+            "tokens",
+            "usd"
+          ]
+        },
+        "gates": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "deadline_days": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 7
+            }
+          },
+          "required": [
+            "deadline_days"
+          ]
+        },
+        "aws_reviews": {
+          "type": "string",
+          "enum": [
+            "by_class",
+            "ask"
+          ],
+          "description": "Section 4: 'ask' parks every approval for a person. 'by_class' is the default handling by task class."
+        },
+        "audit_mode": {
+          "type": "boolean"
+        },
+        "feedback": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "enum": [
+                "github",
+                "local"
+              ]
+            },
+            "repository": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "channel",
+            "repository"
+          ]
+        },
+        "retention": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "days": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "notes": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "days",
+            "notes"
+          ]
+        }
+      },
+      "required": [
+        "audit_mode",
+        "aws",
+        "aws_reviews",
+        "budget",
+        "claude_backend",
+        "data_policy",
+        "default_goal",
+        "feedback",
+        "gates",
+        "project",
+        "retention",
+        "scope",
+        "support_matrix_version"
+      ]
+    }
+  }
+}

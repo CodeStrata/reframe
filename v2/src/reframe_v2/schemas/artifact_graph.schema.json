@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reframe:v2:schema:artifact_graph:1",
+  "title": "Artifact graph entry",
+  "description": "Section 6 and NFR-05: one artifact's schema version, producer, input hashes, dependency ids and output hash.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "urn:reframe:v2:schema:common:1#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "schema": {
+      "const": "artifact_graph/1"
+    },
+    "record_type": {
+      "const": "artifact_graph"
+    },
+    "body": {
+      "$ref": "#/$defs/body"
+    }
+  },
+  "$defs": {
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+        },
+        "artifact_schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "producer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "component": {
+              "type": "string",
+              "minLength": 1
+            },
+            "operation": {
+              "anyOf": [
+                {
+                  "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "backend": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "claude-cli",
+                    "bedrock"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "model": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "prompt_version": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "backend",
+            "component",
+            "model",
+            "operation",
+            "prompt_version"
+          ]
+        },
+        "input_hashes": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:reframe:v2:schema:common:1#/$defs/sha256"
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+          }
+        },
+        "output_hash": {
+          "$ref": "urn:reframe:v2:schema:common:1#/$defs/sha256"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "artifact",
+        "artifact_schema",
+        "dependencies",
+        "input_hashes",
+        "output_hash",
+        "producer",
+        "reason"
+      ]
+    }
+  }
+}
