@@ -179,6 +179,130 @@ def message_view(work, project):
     return view
 
 
+def planned_inventory(reply, stages, known_ids, requirement_ids):
+    """Read a planner reply into the canonical plan: ids, owning stages, dependency links, requirement ids, and gaps.
+    An item without a stage is owned by the earliest stage its rules are assigned to; a journey without either, by the
+    earliest stage that owns one of its screens. An item still without an owner, an unknown reference, or a repeated id
+    refuses the plan; nothing is guessed."""
+    require(isinstance(reply, dict), 'The design plan reply is not a JSON object')
+    stage_count = len(stages)
+    rule_stage = {}
+    for stage in stages:
+        for ident in stage.get('rules') or []:
+            rule_stage.setdefault(ident, stage['index'] + 1)
+    requirement_ids, problems = set(requirement_ids), []
+    planned = {kind: [] for kind in KINDS}
+    for kind in KINDS:
+        items = reply.get(kind) or []
+        require(isinstance(items, list), 'The design plan ' + kind + ' is not a list')
+        seen = set()
+        for item in items:
+            if not (isinstance(item, dict) and isinstance(item.get('id'), str) and item['id'].strip()):
+                problems.append(kind + ' item without an id')
+                continue
+            ident = item['id']
+            if ident in seen:
+                problems.append('repeated ' + kind + ' id ' + ident)
+                continue
+            seen.add(ident)
+            rules = [x for x in item.get('rule_ids') or [] if isinstance(x, str)]
+            stage, source = item.get('stage'), 'planner'
+            if stage is None:
+                assigned = sorted(rule_stage[x] for x in rules if x in rule_stage)
+                stage, source = (assigned[0], 'rule assignment') if assigned else (1 if stage_count == 1 else None, 'only stage')
+            if not (isinstance(stage, int) and not isinstance(stage, bool) and 1 <= stage <= stage_count) \
+                    and not (kind == 'journeys' and stage is None):
+                problems.append(kind + ' ' + ident + ' has no owning stage between 1 and ' + str(stage_count))
+            depends = []
+            if kind == 'journeys':
+                depends = [('screens', x) for x in item.get('screen_ids') or []]
+            elif kind == 'screens':
+                depends = [('apis', x) for x in item.get('api_ids') or []]
+                depends += [('screens', a.get('screen_id') or a.get('opens')) for a in item.get('actions') or []
+                            if isinstance(a, dict) and (a.get('screen_id') or a.get('opens'))]
+            requirements = [x for x in item.get('requirement_ids') or [] if isinstance(x, str)]
+            problems += [kind + ' ' + ident + ' -> unknown rule ' + x for x in rules if x not in known_ids]
+            problems += [kind + ' ' + ident + ' -> unknown requirement ' + x for x in requirements if x not in requirement_ids]
+            planned[kind].append({'id': ident, 'title': str(item.get('title') or item.get('name') or ident),
+                                  'owner_stage': stage, 'owner_source': source, 'rule_ids': rules, 'requirement_ids': requirements,
+                                  'depends_on': [{'kind': k, 'id': x} for k, x in depends]})
+    ids = {kind: {item['id'] for item in planned[kind]} for kind in KINDS}
+    screen_owner = {item['id']: item['owner_stage'] for item in planned['screens']}
+    for journey in planned['journeys']:
+        if journey['owner_stage'] is None:
+            owners = sorted(screen_owner[link['id']] for link in journey['depends_on']
+                            if isinstance(screen_owner.get(link['id']), int))
+            if owners:
+                journey.update(owner_stage=owners[0], owner_source='screen assignment')
+            else:
+                problems.append('journeys ' + journey['id'] + ' has no owning stage between 1 and ' + str(stage_count))
+    for kind in KINDS:
+        for item in planned[kind]:
+            problems += [kind + ' ' + item['id'] + ' -> unplanned ' + link['kind'] + ' ' + str(link['id'])
+                         for link in item['depends_on'] if link['id'] not in ids[link['kind']]]
+    shared = [x for x in reply.get('shared_components') or [] if isinstance(x, dict)]
+    problems += ['shared component ' + str(x.get('id')) + ' is not planned' for x in shared
+                 if x.get('kind') not in KINDS or x.get('id') not in ids[x.get('kind')]]
+    require(ids['screens'], 'The design plan names no screens')
+    require(not problems, 'The design plan was refused: ' + '; '.join(problems[:10]))
+    planned['shared_components'] = [{'kind': x['kind'], 'id': x['id'], 'used_by': [u for u in x.get('used_by') or []
+                                                                                  if isinstance(u, str)]} for x in shared]
+    planned['gaps'] = [{k: x.get(k) for k in ('id', 'question_id', 'note')} for x in reply.get('gaps') or [] if isinstance(x, dict)]
+    return planned
+
+
+def save_plan(work, project, planned, receipt):
+    """Save and hash the planned inventory before the first detail call. Owners come from the plan."""
+    inventory = load_inventory(work, project)
+    require(not inventory.get('planned'), 'This design version already has a saved plan. A new plan is a new design version.')
+    inventory['planned'] = planned
+    inventory['planned_sha256'] = _digest(planned)
+    inventory['planner'] = receipt
+    inventory['owners'] = {kind: {item['id']: item['owner_stage'] for item in planned[kind]} for kind in KINDS}
+    inventory['ownership_rule'] = ('Owners come from the planned inventory, saved before the first detail call. '
+                                   'A stage defines only its planned ids and references the rest.')
+    _save(Path(work) / project['design_inventory']['path'], inventory)
+    return inventory
+
+
+def verified_plan(work, project):
+    """The saved plan, checked against its hash, or nothing for a design version planned before plans were saved."""
+    inventory = load_inventory(work, project)
+    if not inventory.get('planned'):
+        return None
+    require(_digest(inventory['planned']) == inventory.get('planned_sha256'), 'The planned design inventory changed after it was saved')
+    return inventory['planned']
+
+
+def stage_view(planned, stage_number):
+    """What one detail stage defines, and the planned ids it references."""
+    # Compact: the stage already carries its rules; the saved inventory keeps the full plan.
+    define = [{'kind': kind, 'id': item['id'], 'title': item['title'],
+               **({'requirement_ids': item['requirement_ids']} if item['requirement_ids'] else {}),
+               **({'depends_on': [link['id'] for link in item['depends_on']]} if item['depends_on'] else {})}
+              for kind in KINDS for item in planned[kind] if item['owner_stage'] == stage_number]
+    reference = [{'kind': kind, 'id': item['id'], 'owner_stage': item['owner_stage']}
+                 for kind in KINDS for item in planned[kind] if item['owner_stage'] != stage_number]
+    return define, reference
+
+
+def require_planned(planned, stage_number, payload):
+    """A stage adds no id the plan does not name. A second definition of a planned id is merged, and a differing one
+    needs a recorded reconciliation, as before. An unplanned id waits for an explicit new design version."""
+    owners = {(kind, item['id']) for kind in KINDS for item in planned[kind]}
+    problems = []
+    for kind in KINDS:
+        for item in (payload or {}).get(kind) or []:
+            if isinstance(item, dict) and isinstance(item.get('id'), str) and (kind, item['id']) not in owners:
+                problems.append('unplanned ' + kind + ' ' + item['id'])
+    if problems:
+        from reframe_states import stop
+        stop('Wireframe stage ' + str(stage_number) + ' went outside the saved design plan: ' + '; '.join(problems[:10])
+             + '. Its reply is kept and stays counted. Nothing was merged or renamed.', 'HUMAN_DECISION_REQUIRED',
+             'Record a new design version with reframe design-plan --revise, which plans again; the earlier receipts are kept.')
+    return True
+
+
 # Reconciliation and global references (#184)
 
 def reconcile(work, project, kind, ident, keep_stage, by, note):
@@ -265,13 +389,16 @@ def validate_references(screens, spec, requirement_ids=()):
             target = (action.get('screen_id') or action.get('opens')) if isinstance(action, dict) else None
             if target and target not in screen_ids:
                 problems.append('screen ' + str(screen.get('id')) + ' action -> unknown screen ' + str(target))
-        for ident in screen.get('rule_ids') or []:
-            if ident not in known:
-                problems.append('screen ' + str(screen.get('id')) + ' -> unknown rule or requirement ' + str(ident))
-    for api in screens.get('apis') or []:
-        for ident in (api.get('rule_ids') or []) + (api.get('requirement_ids') or []):
-            if ident not in known:
-                problems.append('API ' + str(api.get('id')) + ' -> unknown rule or requirement ' + str(ident))
+    # One contract for screens and APIs: rule_ids name a rule, finding, or requirement; requirement_ids name a requirement
+    # in the active set.
+    for kind, items in (('screen', screens.get('screens') or []), ('API', screens.get('apis') or [])):
+        for item in items:
+            for ident in item.get('rule_ids') or []:
+                if ident not in known:
+                    problems.append(kind + ' ' + str(item.get('id')) + ' -> unknown rule or requirement ' + str(ident))
+            for ident in item.get('requirement_ids') or []:
+                if ident not in set(requirement_ids):
+                    problems.append(kind + ' ' + str(item.get('id')) + ' -> unknown requirement ' + str(ident))
     require(not problems, 'Merged design has unresolved references: ' + '; '.join(problems[:10]))
     return True
 

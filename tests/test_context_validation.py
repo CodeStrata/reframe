@@ -179,22 +179,14 @@ class RequirementsRevalidationTests(m1.WorkspaceFixture):
         return requirements.import_files(self.work, self.project, folder / 'requirements.md', folder / 'traceability.yaml',
                                          'F1', 'Analyst', 'Console export')
 
-    def test_requirements_after_approval_return_the_run_to_validation_and_revalidate_it(self):
+    def test_requirements_after_approval_send_the_run_back_to_revision_and_revalidate_it(self):
         self.validated_and_approved()
         unit_limit = self.project['settings']['max_rounds']
-        set_id = self.import_requirements()
-        self.assertEqual(self.project['stage'], 'AWAITING_VALIDATION_APPROVAL', 'the stage no longer claims a superseded approval')
-        self.assertEqual(self.project['requirements']['returned_from_stage'], 'VALIDATION_APPROVED')
-        self.assertEqual(requirements.stale_specification(self.project), set_id)
-        with self.assertRaises(Blocked) as raised:
-            app.approve(self.work, self.project, argparse.Namespace(
-                phase='validation', by='Architect', note='Same specification', label=None, confirm_source_match=False))
-        self.assertIn('validated before requirements set ' + set_id, str(raised.exception))
         self.project['pipeline']['round'] = unit_limit
-        self.assertIn('validation-allowance --extra-rounds 1', reframe_setup.next_step(self.project))
         with self.assertRaises(Blocked) as raised:
-            self.feedback()
-        self.assertIn('validation-allowance', str(raised.exception))
+            self.import_requirements()
+        self.assertIn('validation-allowance --extra-rounds 1', str(raised.exception))
+        self.assertEqual(self.project['stage'], 'VALIDATION_APPROVED', 'a refused import changes nothing')
 
         result = self.allowance(extra_rounds=1)
         self.assertEqual(result['changed'], {'synthesis_round_limit': unit_limit + 1})
@@ -205,11 +197,12 @@ class RequirementsRevalidationTests(m1.WorkspaceFixture):
                           {'synthesis_round_limit': unit_limit + 1}))
         self.project['pipeline']['previous_review'] = {'decision': 'REWORK', 'findings': ['stale']}
         self.project['pending_action'] = {'command': 'review-site', 'provider': None}
-        self.feedback()
-        self.assertEqual(self.project['stage'], 'REVISION_PENDING')
+        set_id = self.import_requirements()
+        self.assertEqual(self.project['stage'], 'REVISION_PENDING', 'the stage no longer claims a superseded approval')
+        self.assertTrue(self.project['requirements']['requires_revalidation'])
         self.assertNotIn('previous_review', self.project['pipeline'], 'a review of the replaced candidate is not resent')
         self.assertNotIn('pending_action', self.project, 'an unfinished design step for the withdrawn specification is dropped')
-        self.assertEqual(self.project['events'][-1]['event'], 'pending_action_withdrawn')
+        self.assertIn('pending_action_withdrawn', [e.get('event') for e in self.project['events']])
 
         self.seen.clear()
         result = app.pipeline(self.work, self.project, self.args('resume'), self.runtime)
@@ -230,6 +223,20 @@ class RequirementsRevalidationTests(m1.WorkspaceFixture):
         self.assertEqual(self.project['stage'], 'VALIDATION_APPROVED')
         self.assertNotIn('requires_revalidation', self.project['requirements'])
         self.assertIn('revalidated', self.project['requirements'])
+
+    def test_approving_a_specification_validated_before_the_active_set_is_refused(self):
+        self.validated_and_approved()
+        # A workspace saved before routing existed can hold a validated specification and a newer set.
+        self.project['requirements'] = {**(self.project.get('requirements') or {}), 'set_id': 'newer-set', 'requires_revalidation': True}
+        self.project['stage'] = 'AWAITING_VALIDATION_APPROVAL'
+        self.assertEqual(requirements.stale_specification(self.project), 'newer-set')
+        self.assertIn('feedback --scope specification', reframe_setup.next_step(self.project))
+        self.project['pipeline']['round'] = app.synthesis_round_limit(self.project)
+        self.assertIn('validation-allowance --extra-rounds 1', reframe_setup.next_step(self.project))
+        with self.assertRaises(Blocked) as raised:
+            app.approve(self.work, self.project, argparse.Namespace(
+                phase='validation', by='Architect', note='Same specification', label=None, confirm_source_match=False))
+        self.assertIn('validated before requirements set newer-set', str(raised.exception))
 
     def test_a_validation_allowance_only_rises_and_is_used_by_validation(self):
         self.import_requirements()
@@ -295,21 +302,20 @@ class RequirementsRevalidationTests(m1.WorkspaceFixture):
         spec = reframe_coverage.resolve_requirement_ids({'work_items': [{'requirement_ids': ['aws-req:F2:PAY-001']}]}, records)
         self.assertEqual(spec['work_items'][0]['requirement_ids'], ['aws-req:F2:PAY-001'])
 
-    def test_feedback_does_not_reuse_an_unreviewed_candidate_from_the_replaced_round(self):
+    def test_a_revision_does_not_reuse_an_unreviewed_candidate_from_the_replaced_round(self):
         self.validated_and_approved()
-        self.import_requirements()
         state = self.project['pipeline']
         state['calls'] += 1
         stale = app.read(app.spec_path(self.work, self.project))
         app.write(self.work / 'preparation' / ('reply-' + str(state['calls']) + '.json'), {'kind': 'candidate', 'specification': stale})
         self.allowance(extra_rounds=1)
-        self.feedback()
+        self.import_requirements()
+        self.assertEqual(self.project['stage'], 'REVISION_PENDING')
         self.seen.clear()
         app.pipeline(self.work, self.project, self.args('resume'), self.runtime)
         executors = [ctx for role, ctx in self.seen if role == 'executor' and 'unit_id' not in ctx]
         self.assertEqual(len(executors), 1, 'the executor is asked again instead of reusing the replaced reply')
         self.assertIn('admitted_inputs', executors[0])
-
 
 if __name__ == '__main__':
     unittest.main()

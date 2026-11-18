@@ -196,10 +196,14 @@ class PreparationTests(unittest.TestCase):
                  'findings': [] if review == 'PASS' else ['Revise boundary'] }]
 
     def runtime(self, replies):
-        sequence = iter(replies)
+        replies = list(replies)
         def call(provider, run, directory, role, message):
-            self.messages.append((provider, role, json.loads(message)))
-            return next(sequence)
+            request = json.loads(message)
+            self.messages.append((provider, role, request))
+            if (request.get('stage') or {}).get('planner'):
+                # The design plan call: the fixture plans the screens it is about to return.
+                return json.loads(json.dumps(replies[0]))
+            return replies.pop(0)
         return call
 
     def validated(self):

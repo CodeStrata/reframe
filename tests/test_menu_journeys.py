@@ -113,6 +113,40 @@ class MenuJourneyTests(unittest.TestCase):
         self.assertTrue(all(item.get('simulated') for item in project['approvals'].values()), 'every approval is test-only')
         (Path(__file__).resolve().parents[1] / 'acceptance-skip-route-transcript.txt').write_text(text + '\n')
 
+    def test_a_requirements_import_after_skip_acceptance_returns_to_design_review_and_refuses_the_old_package(self):
+        journey = release.MenuJourney(FINDINGS)
+        self.model_fn = self.model()
+        self.drive([
+            '1', 'continue', 'none', 'Ari', 'none', 'skip', 'functional-parity', 'v1', 'java', 'none',
+            'guided-draft', 'Ari', 'Trust the sealed findings for this draft', 'codex', 'y',
+            'none', 'approve', '<default>', 'Reviewed the draft screens',
+            'none', 'accept', 'Blake', 'Second reviewer accepts the unverified draft',
+            '<default>', 'Accept this draft handoff for stakeholder review', '0'])
+        accepted = journey.reload()
+        self.assertEqual(accepted['stage'], 'PACKAGE_ACCEPTED')
+        old_sha = accepted['package']['sha256']
+        folder = journey.work.parent / 'requirements-change'
+        folder.mkdir()
+        (folder / 'requirements.md').write_text('# Payments\n- PAY-999: The system SHALL require a second approver.\n')
+        reports = []
+        code = reframe.main(['--workspace', str(journey.work), 'requirements', 'import', '--requirements', str(folder / 'requirements.md'),
+                             '--function', 'F1', '--by', 'Analyst', '--note', 'New rule from the business owner'], reporter=reports.append)
+        self.assertEqual(code, 0, reports)
+        project = journey.reload()
+        self.assertEqual(project['stage'], 'ASSESSMENT_APPROVED', 'the skip draft goes back to its design review')
+        self.assertNotIn('package_acceptance', project)
+        self.assertNotIn('package', project)
+        self.assertNotIn('design', project['approvals'])
+        self.assertEqual(project['package_history'][-1]['sha256'], old_sha)
+        self.assertTrue(project['requirements']['requires_design_review'])
+        self.assertTrue((journey.work / project['package_history'][-1]['path']).is_file(), 'the earlier package stays on disk')
+        refused = []
+        code = reframe.main(['--workspace', str(journey.work), 'accept-package', '--sha256', old_sha, '--by', 'Blake',
+                             '--note', 'Accept the old package again'], reporter=refused.append)
+        self.assertNotEqual(code, 0)
+        self.assertNotIn('package_acceptance', journey.reload())
+        self.assertTrue(acceptance.verify_ledger(journey.work))
+
     def test_skip_route_reimagine_package_carries_its_reference_pages_and_proposals(self):
         journey = release.MenuJourney(FINDINGS)
         self.model_fn = self.model()

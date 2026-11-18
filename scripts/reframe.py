@@ -2578,35 +2578,78 @@ def wireframe_catalog(spec, decisions):
     return {'rules': rules, 'questions': questions, 'evidence': evidence, 'sections': sections, 'coverage': coverage}
 
 
-def wireframe_message(spec, stage, count, protocol, owned=None):
+def wireframe_message(spec, stage, count, protocol, owned=None, define=None):
     """One provider request. Audit timestamps, batch ids, tests, and implementation prompts stay local."""
     catalog = stage['catalog']
     sections = {item['id']: {'specification': item['specification']}
                 for item in catalog['sections'] if item['id'] in stage['sections']}
-    return {'protocol': protocol, 'stage': {'index': stage['index'] + 1, 'count': count,
-            'instruction': 'Return journeys, screens, and apis for this stage only. Keep the rule ids named here. '
-                           'Define each shared screen or API once. A later stage references an owned id as {"id":"...","ref":true} and does not repeat its fields. '
-                           'Do not rename an id. Do not answer a deferred decision.'},
-            'owned': owned or [],
-            'decisions': [{'id': item['id'], 'disposition': item['disposition']} for item in catalog['questions']],
-            'specification': {
-                'scope': spec.get('scope'), 'excluded_scope': spec.get('excluded_scope'),
-                'sections': sections,
-                'rules': [item for item in catalog['rules'] if item['id'] in stage['rules']],
-                'questions': [item for item in catalog['questions'] if item['id'] in stage['questions']],
-                'assessment_evidence': [item for item in catalog['evidence'] if item['id'] in stage['evidence']],
-                'coverage': [item for item in catalog['coverage'] if item['id'] in stage['coverage']]}}
+    if define is not None:
+        instruction = ('Return journeys, screens, and apis for this stage only. Define exactly the planned ids in define, '
+                       'with their ids unchanged. Reference each id in owned as {"id":"...","ref":true} and do not repeat its '
+                       'fields. Add no journey, screen, or API that is not planned; name it in uncertainties instead. '
+                       'Keep the rule ids named here. Do not answer a deferred decision.')
+    else:
+        instruction = ('Return journeys, screens, and apis for this stage only. Keep the rule ids named here. '
+                       'Define each shared screen or API once. A later stage references an owned id as {"id":"...","ref":true} and does not repeat its fields. '
+                       'Do not rename an id. Do not answer a deferred decision.')
+    message = {'protocol': protocol, 'stage': {'index': stage['index'] + 1, 'count': count, 'instruction': instruction},
+               'owned': owned or [],
+               'decisions': [{'id': item['id'], 'disposition': item['disposition']} for item in catalog['questions']],
+               'specification': {
+                   'scope': spec.get('scope'), 'excluded_scope': spec.get('excluded_scope'),
+                   'sections': sections,
+                   'rules': [item for item in catalog['rules'] if item['id'] in stage['rules']],
+                   'questions': [item for item in catalog['questions'] if item['id'] in stage['questions']],
+                   'assessment_evidence': [item for item in catalog['evidence'] if item['id'] in stage['evidence']],
+                   'coverage': [item for item in catalog['coverage'] if item['id'] in stage['coverage']]}}
+    if define is not None:
+        message['define'] = define
+    return message
+
+
+def protocol_for(name):
+    """A pipeline prompt from the pinned framework."""
+    return (FRAMEWORK / 'prompts' / 'pipeline' / (name + '.md')).read_text()
+
+
+def planner_message(spec, stages, catalog, protocol, requirement_ids, extra, limit):
+    """The design plan request: each stage's assignment and the approved specification. Never truncated: when the full
+    text does not fit, statements are left out and said to be left out, because each detail stage carries them."""
+    def build(full):
+        rules = [{'id': item['id'], **({'statement': item.get('statement')} if full else {})} for item in catalog['rules']]
+        sections = {item['id']: ({'specification': item['specification']} if full else {}) for item in catalog['sections']}
+        message = {'protocol': protocol,
+                   'stage': {'index': 0, 'count': len(stages), 'planner': True,
+                             'instruction': 'Plan the design inventory for all stages. Return the plan only.'},
+                   'planning': {'stage_count': len(stages),
+                                'stages': [{'stage': stage['index'] + 1, 'sections': stage['sections'], 'rules': stage['rules'],
+                                            'questions': stage['questions']} for stage in stages]},
+                   'requirement_ids': list(requirement_ids),
+                   'decisions': [{'id': item['id'], 'disposition': item['disposition']} for item in catalog['questions']],
+                   'specification': {'scope': spec.get('scope'), 'excluded_scope': spec.get('excluded_scope'),
+                                     'sections': sections, 'rules': rules,
+                                     'questions': [{'id': item['id'], **({'question': item.get('question')} if full else {})}
+                                                   for item in catalog['questions']],
+                                     'assessment_evidence': [{'id': item['id']} for item in catalog['evidence']]}}
+        if not full:
+            message['omitted'] = 'Statements and section text are left out to fit the context budget. Each detail stage carries them in full.'
+        return json.dumps({**message, **(extra or {})})
+    message = build(True)
+    if len(message.encode()) > limit:
+        message = build(False)
+    require(len(message.encode()) <= limit, 'The design plan request does not fit the context budget. It was not truncated.')
+    return message
 
 
 def wireframe_stages(spec, decisions, limit, protocol=None, extra=None):
     """Split a wireframe request into stages that each fit the context budget.
 
-    Later stages also receive the ids already owned. Packing leaves room for that list
-    so those ids are not dropped to make the request fit.
+    Each stage also receives the planned ids it defines and the ids other stages own. Packing leaves room for
+    those lists so no id is dropped to make the request fit.
     """
     protocol = protocol if protocol is not None else (FRAMEWORK / 'prompts/pipeline/wireframes.md').read_text()
     catalog = wireframe_catalog(spec, decisions)
-    room = 8192 if limit > 16384 else 0
+    room = 8192 if limit > 16384 else limit // 8
     budget = limit - room
     groups = [('sections', item['id']) for item in catalog['sections']]
     groups += [('rules', item['id']) for item in catalog['rules']]
@@ -2695,7 +2738,7 @@ def reservation_is_pre_dispatch(work, project, stage):
     """A reservation can be released only when the provider was not invoked and nothing was spent."""
     if not isinstance(stage, dict) or stage.get('status') != 'reserved' or stage.get('provider_invoked'):
         return False
-    if not isinstance(stage.get('call'), int) or not isinstance(stage.get('index'), int):
+    if not isinstance(stage.get('call'), int) or not (isinstance(stage.get('index'), int) or stage.get('index') == 'planner'):
         return False
     response, failure = wireframe_stage_files(work, stage['index'])
     if response.is_file() or failure.is_file():
@@ -2737,9 +2780,15 @@ def wireframe_calls_available(project, provider, new_calls, uncharged_calls=0):
         raise Blocked('Wireframe generation needs ' + str(billed) + ' billed calls and the API dollar cap cannot cover them. No new call was counted.')
 
 
+def wireframe_plan_calls(project):
+    """The plan's counted calls in order: the design plan call, when there is one, then each stage."""
+    plan = project.get('wireframe_plan') or {}
+    return ([plan['planner']] if isinstance(plan.get('planner'), dict) else []) + list(plan.get('stages') or [])
+
+
 def failed_wireframe_stages(work, project):
-    """Wireframe stages whose counted call failed or returned invalid output."""
-    stages = (project.get('wireframe_plan') or {}).get('stages') or []
+    """Wireframe calls, including the design plan call, whose counted call failed or returned invalid output."""
+    stages = wireframe_plan_calls(project)
     found = []
     for stage in stages:
         if not isinstance(stage, dict):
@@ -2790,7 +2839,7 @@ def recover_ui_call(work, project, args):
     require(bool(getattr(args, 'confirm', False)) and str(getattr(args, 'note', '') or '').strip(),
             'Confirm the wireframe counter recovery with --confirm and a note')
     require(not project.get('site'), 'A generated review site records real wireframe usage. The counter was not changed.')
-    stages = (project.get('wireframe_plan') or {}).get('stages') or []
+    stages = wireframe_plan_calls(project)
     reserved = [stage for stage in stages if isinstance(stage, dict) and stage.get('status') == 'reserved']
     recoverable = [stage for stage in reserved if reservation_is_pre_dispatch(work, project, stage)]
     if not recoverable or len(recoverable) != len(reserved):
@@ -2854,7 +2903,8 @@ def review_site(work, project, args, runtime=None):
         stages = wireframe_stages(spec, project['decisions'], limit, protocol, design.message_view(work, project))
         for stage in stages:
             stage.pop('catalog', None)
-        plan = {'fingerprint': fingerprint, 'limit': limit, 'stages': stages}
+        plan = {'fingerprint': fingerprint, 'limit': limit, 'stages': stages,
+                'planner': {'index': 'planner', 'status': 'pending'}}
         project['wireframe_plan'] = plan
         design.build_inventory(work, project, spec, stages, fingerprint)
         persist(work, project)
@@ -2862,17 +2912,19 @@ def review_site(work, project, args, runtime=None):
         design.build_inventory(work, project, spec, plan['stages'], fingerprint)
         persist(work, project)
     stages = plan['stages']
+    planner = plan.get('planner')
     catalog = wireframe_catalog(spec, project['decisions'])
     require_stage_contract(work, 'task')
-    new_calls = sum(1 for stage in stages if stage.get('status') == 'pending')
-    uncharged = sum(1 for stage in stages if reservation_is_pre_dispatch(work, project, stage))
+    calls = ([planner] if planner else []) + stages
+    new_calls = sum(1 for stage in calls if stage.get('status') == 'pending')
+    uncharged = sum(1 for stage in calls if reservation_is_pre_dispatch(work, project, stage))
     wireframe_calls_available(project, provider, new_calls, uncharged)
     stage_dir = Path(work) / 'previews' / 'wireframe-stages'
-    for stage in stages:
+
+    def counted_call(stage, build):
+        """One counted wireframe call through its saved status: a saved reply is reused, never requested again."""
         response_path, failure_path = wireframe_stage_files(work, stage.get('index'))
         status = stage.get('status')
-        if status == 'validated':
-            continue
         if status == 'failed' or failure_path.is_file():
             from reframe_states import stop
             saved_error = read(failure_path).get('error') if failure_path.is_file() else stage.get('error')
@@ -2880,7 +2932,7 @@ def review_site(work, project, args, runtime=None):
                  'PROVIDER_FAILURE', 'reframe retry-wireframes --by NAME --note WHY authorizes one new counted attempt')
         if status == 'invalid':
             from reframe_states import stop
-            stop('Wireframe call ' + str(stage.get('call')) + ' returned invalid output and stays counted.',
+            stop('Wireframe call ' + str(stage.get('call')) + ' returned invalid output and stays counted. ' + str(stage.get('error') or ''),
                  'PROVIDER_FAILURE', 'reframe retry-wireframes --by NAME --note WHY authorizes one new counted attempt')
         if status == 'dispatched' and not response_path.is_file():
             raise Blocked('Wireframe call ' + str(stage.get('call'))
@@ -2889,15 +2941,8 @@ def review_site(work, project, args, runtime=None):
         if status in {'received', 'complete'} or response_path.is_file():
             stage['status'] = 'received'
             stage['provider_invoked'] = True
-            design.record_owners(work, project, stage['index'], read(response_path))
-            persist(work, project)
-            continue
-        stage['catalog'] = catalog
-        owned = owned_wireframe_records(work, stages, stage.get('index') if isinstance(stage.get('index'), int) else 0)
-        request = wireframe_message(spec, stage, len(stages), protocol, owned)
-        request.update(design.message_view(work, project))
-        message = json.dumps(request)
-        stage.pop('catalog', None)
+            return read(response_path)
+        message = build()
         require(len(message.encode()) <= limit, 'Wireframe stage does not fit the context budget. It was not truncated.')
         if status == 'pending':
             project['ui_calls'] = (project.get('ui_calls') or 0) + 1
@@ -2917,22 +2962,63 @@ def review_site(work, project, args, runtime=None):
         call_dir = Path(work) / 'previews' / ('business-' + str(stage['call']))
         run = {'settings': project['settings'], 'model_calls': stage['call']}
         try:
-            screens = tracked_runtime(work, project, 'wireframes:' + str(stage['call']), 'wireframes', 'wireframes',
-                                      provider, message, lambda: runtime(provider, run, call_dir, 'wireframes', message),
-                                      str(response_path.relative_to(work)))
+            reply = tracked_runtime(work, project, 'wireframes:' + str(stage['call']), 'wireframes', 'wireframes',
+                                    provider, message, lambda: runtime(provider, run, call_dir, 'wireframes', message),
+                                    str(response_path.relative_to(work)))
         except Exception as error:
             write(failure_path, {'error': str(error), 'type': type(error).__name__})
             stage.update(status='failed', provider_invoked=True, error=str(error))
             persist(work, project)
             raise
-        if not isinstance(screens, dict):
-            write(response_path, {'raw': str(screens)})
+        if not isinstance(reply, dict):
+            write(response_path, {'raw': str(reply)})
             stage.update(status='invalid', provider_invoked=True)
             persist(work, project)
             raise Blocked('Wireframe call ' + str(stage['call']) + ' returned invalid output and stays counted.')
-        write(response_path, screens)
+        write(response_path, reply)
         stage.update(status='received', provider_invoked=True)
-        design.record_owners(work, project, stage['index'], screens)
+        persist(work, project)
+        return reply
+
+    inventory = design.load_inventory(work, project)
+    if planner and not design.verified_plan(work, project):
+        # The plan is saved and hashed before the first detail call; detail stages are built from it.
+        reply = counted_call(planner, lambda: planner_message(spec, stages, catalog, protocol_for('design-inventory'),
+                                                              inventory['requirement_ids'], design.message_view(work, project), limit))
+        known = {item['id'] for item in catalog['rules'] + catalog['evidence']} | set(inventory['requirement_ids'])
+        try:
+            planned = design.planned_inventory(reply, stages, known, inventory['requirement_ids'])
+        except Blocked as error:
+            planner.update(status='invalid', error=str(error))
+            persist(work, project)
+            raise Blocked('Design plan call ' + str(planner.get('call')) + ' was refused and stays counted. ' + str(error))
+        response_path, _failure = wireframe_stage_files(work, 'planner')
+        design.save_plan(work, project, planned, {'call': planner.get('call'), 'receipt': str(response_path.relative_to(work)),
+                                                  'receipt_sha256': sha(response_path)})
+        planner['status'] = 'validated'
+        persist(work, project)
+    planned = design.verified_plan(work, project) if planner else None
+    for stage in stages:
+        if stage.get('status') == 'validated':
+            continue
+
+        def build(stage=stage):
+            stage['catalog'] = catalog
+            if planned:
+                define, reference = design.stage_view(planned, stage['index'] + 1)
+                request = wireframe_message(spec, stage, len(stages), protocol, reference, define)
+            else:
+                # A design version started before plans were saved keeps the earlier ownership rule.
+                owned = owned_wireframe_records(work, stages, stage.get('index') if isinstance(stage.get('index'), int) else 0)
+                request = wireframe_message(spec, stage, len(stages), protocol, owned)
+            request.update(design.message_view(work, project))
+            stage.pop('catalog', None)
+            return json.dumps(request)
+
+        reply = counted_call(stage, build)
+        if planned:
+            design.require_planned(planned, stage['index'] + 1, reply)
+        design.record_owners(work, project, stage['index'], reply)
         persist(work, project)
     parts = []
     for stage in stages:
@@ -2944,8 +3030,9 @@ def review_site(work, project, args, runtime=None):
         screens = design.merge(parts, design.load_inventory(work, project)['reconciliations'])
         superseded_definitions = screens.pop('superseded_definitions', [])
         verify_source(project)
-        validate_screens(screens, spec)
-        design.validate_references(screens, spec, design.load_inventory(work, project)['requirement_ids'])
+        requirement_ids = design.load_inventory(work, project)['requirement_ids']
+        validate_screens(screens, spec, requirement_ids)
+        design.validate_references(screens, spec, requirement_ids)
     except Blocked:
         persist(work, project)
         raise
@@ -2997,16 +3084,62 @@ def design_feedback(work, project, args):
         project.setdefault('design_plan_history', []).append(copy.deepcopy(plan))
         plan['version'] = optional._next_revision(work, plan['version'])
         plan['revised_by_feedback'] = True
-    if project.get('verification_skip') and not project.get('specification'):
+    skip_route = bool(project.get('verification_skip') and not project.get('specification'))
+    if skip_route:
         project.setdefault('skip_history', []).append(project.pop('skip_bundle', None))
         project['stage'] = 'ASSESSMENT_APPROVED'
     else:
         project['stage'] = 'VALIDATION_APPROVED'
     persist(work, project)
-    return {'status': 'DESIGN_FEEDBACK_RECORDED', 'stage': project['stage'], 'routed_to': 'design',
-            'kept': ['specification', 'validation approval', 'decisions'],
+    # A skip-route run has no specification or validation approval to keep.
+    kept = ['assessment approval', 'skip decision', 'decisions'] if skip_route else ['specification', 'validation approval', 'decisions']
+    return {'status': 'DESIGN_FEEDBACK_RECORDED', 'stage': project['stage'], 'routed_to': 'design', 'kept': kept,
             'next_step': 'reframe --workspace ' + str(work) + (' preview --skip-validation' if project['stage'] == 'ASSESSMENT_APPROVED'
                                                                 else ' review-site')}
+
+
+def revision_possible(project):
+    """Stop before anything changes when validation cannot run again."""
+    require(project.get('pipeline'), 'No preparation candidate to revise')
+    require(project['pipeline']['round'] < synthesis_round_limit(project),
+            'Revision limit exhausted. reframe validation-allowance --extra-rounds 1 --by NAME --note WHY records one more '
+            'synthesis round, or start a new workspace')
+
+
+def route_to_revision(project, by, note, reason, **extra):
+    """Send the run back to validation. Earlier decisions, approvals, and the package stay in history; files stay on disk."""
+    revision_possible(project)
+    state = project['pipeline']
+    project.setdefault('feedback', []).append({'by': by, 'note': note, 'at': time.time(), **extra, **actor_provenance()})
+    state.update(round=state['round'] + 1, role='executor', status='RUNNING')
+    # The last review and any unreviewed reply belong to the candidate this revision replaces.
+    state.pop('previous_review', None)
+    state['replies_superseded_through'] = state['calls']
+    stamp = time.time()
+    if project.get('decisions'):
+        project.setdefault('decision_history', []).append({
+            'reason': reason, 'at': stamp,
+            'specification_sha256': (project.get('specification') or {}).get('sha256'),
+            'previous': copy.deepcopy(project['decisions'])})
+    retire_package(project, reason, stamp)
+    for key in ('specification', 'site', 'preparation_report'):
+        project.pop(key, None)
+    if (project.get('pending_action') or {}).get('command') == 'review-site':
+        # An unfinished design step was for the specification this revision withdraws; resume revalidates instead.
+        project.setdefault('events', []).append({'event': 'pending_action_withdrawn', 'at': stamp,
+                                                 'pending_action': project.pop('pending_action'), 'reason': reason})
+    project['decisions'] = {}
+    import reframe_versions
+    reframe_versions.supersede(project, ('validation', 'specifications', 'design', 'package'), reason, stamp)
+    project['stage'] = 'REVISION_PENDING'
+
+
+def retire_package(project, reason, stamp=None):
+    """Keep the current package as history so it can no longer be accepted. The archive stays on disk."""
+    package = project.pop('package', None)
+    if package:
+        project.setdefault('package_history', []).append({**package, 'status': 'SUPERSEDED', 'superseded_reason': reason,
+                                                          'superseded_at': stamp or time.time()})
 
 
 def feedback(work, project, args):
@@ -3077,31 +3210,7 @@ def feedback(work, project, args):
                 'correction_authorizations': state['invalid_candidate_authorizations'],
                 'next_step': 'reframe resume'}
 
-    project.setdefault('feedback', []).append({'by': args.by, 'note': args.note, 'at': time.time(), **actor_provenance()})
-    require(state['round'] < synthesis_round_limit(project),
-            'Revision limit exhausted. reframe validation-allowance --extra-rounds 1 --by NAME --note WHY records one more '
-            'synthesis round, or start a new workspace')
-    state.update(round=state['round'] + 1, role='executor', status='RUNNING')
-    # The last review and any unreviewed reply belong to the candidate this feedback replaces.
-    state.pop('previous_review', None)
-    state['replies_superseded_through'] = state['calls']
-    stamp = time.time()
-    if project.get('decisions'):
-        project.setdefault('decision_history', []).append({
-            'reason': 'specification_feedback', 'at': stamp,
-            'specification_sha256': (project.get('specification') or {}).get('sha256'),
-            'previous': copy.deepcopy(project['decisions'])})
-    for key in ('specification', 'site', 'package', 'preparation_report'):
-        project.pop(key, None)
-    if (project.get('pending_action') or {}).get('command') == 'review-site':
-        # An unfinished design step was for the specification this feedback withdraws; resume revalidates instead.
-        project.setdefault('events', []).append({'event': 'pending_action_withdrawn', 'at': stamp,
-                                                 'pending_action': project.pop('pending_action'),
-                                                 'reason': 'specification_feedback'})
-    project['decisions'] = {}
-    import reframe_versions
-    reframe_versions.supersede(project, ('validation', 'specifications', 'design', 'package'), 'specification_feedback', stamp)
-    project['stage'] = 'REVISION_PENDING'
+    route_to_revision(project, args.by, args.note, 'specification_feedback')
     persist(work, project)
     return {'status': 'SPECIFICATION_FEEDBACK_RECORDED', 'stage': project['stage'], 'routed_to': 'specification',
             'note': 'Earlier approvals moved to the approval history as superseded. Validation runs again.'}
@@ -3215,7 +3324,8 @@ def package_skip(work, project):
                           'context_fingerprint': context_fingerprint,
                           'manifest_sha256': sha(destination / 'checksums.json'), 'verification': 'SKIPPED_BY_OWNER',
                           'draft_archive': str(draft.relative_to(work)), 'draft_sha256': sha(draft),
-                          'status': acceptance.AWAITING, 'built_at': time.time()}
+                          'status': acceptance.AWAITING, 'built_at': time.time(),
+                          'inputs': acceptance.package_inputs(project)}
     project['stage'] = acceptance.AWAITING
     project['last_local_action'] = {'kind': 'package_built', 'at': time.time()}
     project['package']['version_id'] = reframe_versions.record(work, project, 'skip package built')
@@ -3421,7 +3531,8 @@ def package(work, project):
                           'context_fingerprint': context_fingerprint,
                           'manifest_sha256': sha(destination / 'checksums.json'),
                           'verification': 'SKIPPED_BY_OWNER' if project.get('verification_skip') else 'INDEPENDENTLY_REVIEWED',
-                          'status': acceptance.AWAITING, 'built_at': time.time()}
+                          'status': acceptance.AWAITING, 'built_at': time.time(),
+                          'inputs': acceptance.package_inputs(project)}
     project['stage'] = acceptance.AWAITING
     project['last_local_action'] = {'kind': 'package_built', 'at': time.time()}
     project['package']['version_id'] = reframe_versions.record(work, project, 'package built')

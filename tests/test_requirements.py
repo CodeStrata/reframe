@@ -695,6 +695,7 @@ class RequirementsTests(unittest.TestCase):
     def test_an_import_after_a_reviewed_specification_supersedes_its_approvals(self):
         self.project['specification'] = {'path': 'preparation/candidate.json', 'sha256': 'x'}
         self.project['approvals']['validation'] = {'by': 'A', 'note': 'ok', 'sha256': 'y'}
+        self.project['pipeline'] = {'round': 1, 'role': 'reviewer', 'calls': 2, 'status': 'COMPLETE'}
         folder = self.root / 'external2'
         folder.mkdir()
         (folder / 'requirements.md').write_text(REQUIREMENTS_MD)
@@ -702,6 +703,46 @@ class RequirementsTests(unittest.TestCase):
         self.assertNotIn('validation', self.project['approvals'])
         self.assertTrue(self.project['requirements']['requires_revalidation'])
         self.assertEqual(self.project['approval_history'][-1]['reason'], 'requirements_imported')
+        self.assertEqual(self.project['stage'], 'REVISION_PENDING', 'validation runs again against the new set')
+        self.assertEqual(self.project['pipeline']['round'], 2)
+        self.assertNotIn('specification', self.project)
+
+    def sealed(self, folder):
+        manifest = self.work / self.project['requirements']['manifest']
+        normalized = self.work / json.loads(manifest.read_text())['normalized']['path']
+        return manifest, manifest.read_bytes(), normalized.read_bytes()
+
+    def test_an_identical_import_reuses_the_sealed_set_and_both_versions_verify(self):
+        import reframe_versions as versions
+        folder = self.root / 'same'
+        folder.mkdir()
+        (folder / 'requirements.md').write_text(REQUIREMENTS_MD)
+        first = requirements.import_files(self.work, self.project, folder / 'requirements.md', None, 'F1', 'Analyst', 'Console export')
+        earlier = versions.record(self.work, self.project, 'first import')
+        manifest, manifest_bytes, normalized_bytes = self.sealed(folder)
+        history = list(self.project['requirements']['history'])
+        again = requirements.import_files(self.work, self.project, folder / 'requirements.md', None, 'F1', 'Analyst', 'Console export')
+        self.assertEqual(again, first)
+        self.assertEqual(manifest.read_bytes(), manifest_bytes, 'the sealed manifest is not rewritten')
+        self.assertEqual(self.sealed(folder)[2], normalized_bytes, 'the normalized records are not rewritten')
+        self.assertEqual(self.project['requirements']['history'], history)
+        self.assertEqual(versions.verify(self.work, self.project)['version_id'], earlier, 'the earlier version still verifies')
+        self.assertEqual(versions.record(self.work, self.project, 'second import'), earlier, 'the current version is the same version')
+
+    def test_a_changed_import_is_a_new_set_and_never_rewrites_the_earlier_one(self):
+        folder = self.root / 'changed'
+        folder.mkdir()
+        (folder / 'requirements.md').write_text(REQUIREMENTS_MD)
+        first = requirements.import_files(self.work, self.project, folder / 'requirements.md', None, 'F1', 'Analyst', 'Console export')
+        manifest, manifest_bytes, normalized_bytes = self.sealed(folder)
+        (folder / 'requirements.md').write_text(REQUIREMENTS_MD + '- PAY-999: The system SHALL require a second approver.\n')
+        second = requirements.import_files(self.work, self.project, folder / 'requirements.md', None, 'F1', 'Analyst', 'Console export')
+        self.assertNotEqual(second, first)
+        self.assertEqual(manifest.read_bytes(), manifest_bytes)
+        self.assertEqual((self.work / json.loads(manifest_bytes)['normalized']['path']).read_bytes(), normalized_bytes)
+        self.assertEqual(self.project['requirements']['history'], [str(manifest.relative_to(self.work))])
+        ids = [item['original_id'] for item in requirements.active_set(self.work, self.project)['requirements']]
+        self.assertIn('PAY-999', ids)
 
     def test_a_changed_stored_requirement_file_is_an_integrity_failure(self):
         folder = self.root / 'external3'

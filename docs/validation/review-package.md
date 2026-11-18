@@ -6,7 +6,7 @@ Everything here is offline evidence (L1 unit and contract tests, L2 journeys thr
 
 | Item | Value |
 | --- | --- |
-| Pull request | [sknampally/reframe#198](https://github.com/sknampally/reframe/pull/198), draft, into `develop`, not merged |
+| Pull request | [sknampally/reframe#198](https://github.com/sknampally/reframe/pull/198), merged into `develop` by the owner on 2026-11-16 (`d0e6e5b`) |
 | Branch | `feature/agreed-workflow`, from `origin/develop` at `b534f85` |
 | Accepted candidate | `05e219e4fac681225a4eb5141244947b86b0a15e`, tree `a73840fb447825124e5a17ec8fe3db98871f3cf6` |
 | Later commits | Documentation only (this package, the matrix, the defect record, the progress notes) |
@@ -106,8 +106,7 @@ Four CardDemo-local tests skip on other machines; they are listed in `awaiting-v
 ## 7. Remaining defects and live-only uncertainties
 
 **Remaining defects on the accepted candidate (all minor):**
-- **R6-1:** a skip-route design feedback result names "specification, validation approval" as kept, although a skip run has neither. The framework update is attributed to the session name without a per-update prompt.
-- **N9:** skip-route traceability uses two id forms for one rule, records `source_path: rules.json` on AWS-assumed findings, and names the synthetic Reimagine journey `recorded`.
+- **R6-1 (#199)** and **N9 (#200)** were left on the accepted candidate and fixed after the merge; see `acceptance-defects.md`.
 - **Observations:**
   - After a design change, menu 1 asks for the route and draft name again; the defaults are correct.
   - `upgrade-framework` at assessment approval suggests `resume`.
@@ -173,7 +172,7 @@ After the merge, a team member with a saved workspace does this:
 
 ## 10. Go or no-go
 
-- **Owner code review and merge of #198 into `develop`: go, with the minors above.** The workflow is implemented end to end and accepted offline after six independent rounds. Every blocker and major found was fixed and covered by a test, and the migration path from `b534f85` is verified. The repository owner merges; nothing was merged here.
+- **Owner code review and merge of #198 into `develop`: go, with the minors above.** The workflow is implemented end to end and accepted offline after six independent rounds. Every blocker and major found was fixed and covered by a test, and the migration path from `b534f85` is verified. The repository owner merged it on 2026-11-16.
 - **Live pilot on CardDemo: no-go today.** The offline result is real, but it is offline: a small synthetic fixture, mocked AWS, scripted model replies, simulated people. Going live needs all of these first:
   1. An agreed live execution envelope (#197) and separate authorization.
   2. A genuine reviewer's decisions on the saved CardDemo specification: the 452 deferred questions and the test-only validation approval.

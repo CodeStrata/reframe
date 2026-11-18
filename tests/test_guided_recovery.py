@@ -379,7 +379,7 @@ class ReviewedSpecificationUpgradeTests(BulkAndStatusTests):
              patch.object(app, 'pipeline', side_effect=AssertionError('checkpoint restart')):
             code = app.main(['--workspace', str(inner.work), 'review-site'], reporter=reports.append)
         self.assertEqual(code, 0)
-        self.assertEqual(calls, ['wireframes'])
+        self.assertEqual(calls, ['wireframes', 'wireframes'], 'the design plan call, then one detail call')
         self.assertEqual(reports[-1]['status'], 'AWAITING_SPECIFICATIONS_APPROVAL')
         finished = app.read(inner.work / 'project.json')
         self.assertEqual(finished['pipeline']['calls'], 306)

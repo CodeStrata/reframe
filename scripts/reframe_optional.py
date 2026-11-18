@@ -411,9 +411,11 @@ def _screen_object(raw, source):
     if not screens.get('journeys'):
         ids = [item.get('id') for item in screens.get('screens') or [] if isinstance(item, dict) and item.get('id')]
         if ids:
+            # The bundle recorded no journey. This one only groups its screens, and says so.
             screens['journeys'] = [{
-                'id': 'recorded', 'name': 'Recorded screens',
-                'summary': 'Screens saved in this bundle.', 'screen_ids': ids,
+                'id': 'synthetic-all-screens', 'name': 'All saved screens (synthetic, not a designed journey)',
+                'summary': 'Reframe grouped the screens saved in this bundle. The design recorded no journey.',
+                'screen_ids': ids, 'synthetic': True,
             }]
     from reframe_preview import normalize_design
     return normalize_design(screens)
@@ -561,6 +563,7 @@ def _selection(work, project, mode, stack, screens, spec, provenance):
         'assessment_sha256': provenance.get('assessment_sha256'),
         'verification': _verification_record(project),
         'context_fingerprint': _context_fingerprint(work),
+        'requirements_set': (project.get('requirements') or {}).get('set_id'),
         'mode': mode,
         'stack': (stack or '').strip() or 'unspecified',
         'inputs': _digest({
@@ -577,6 +580,9 @@ def _same_selection(saved, selection):
         return (saved.get('mode') == selection['mode']
                 and (saved.get('stack') or 'unspecified') == selection['stack']
                 and saved.get('context_fingerprint') == selection['context_fingerprint'])
+    if 'requirements_set' not in recorded and selection.get('requirements_set') is None:
+        # Exports saved before requirements were part of the selection had none.
+        selection = {key: value for key, value in selection.items() if key != 'requirements_set'}
     return recorded == selection
 
 
@@ -896,6 +902,9 @@ def package_export(work, project, version, mode):
     mode_record = _read(Path(work) / 'previews' / version / 'mode.json')
     require(mode_record.get('context_fingerprint') == _context_fingerprint(work),
             'Human context changed this design version. Re-export it before packaging')
+    recorded_set = (mode_record.get('selection') or {}).get('requirements_set')
+    require(recorded_set == (project.get('requirements') or {}).get('set_id'),
+            'The requirements set changed after this design version was exported. Re-export it before packaging')
     completion_path = Path(work) / 'previews' / version / 'completion.json'
     archive = Path(work) / 'packages' / version / mode / 'ai-dlc-package.zip'
     if completion_path.is_file():

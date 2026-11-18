@@ -175,7 +175,7 @@ reframe --workspace "$W" requirements resume --reply "Yes, proceed." --by NAME
 - **Each AWS question is answered at most once.** Every answer is recorded with who gave it. If an answer's outcome is uncertain, the job stops as `NEEDS_RECONCILIATION` and nothing is resent.
 - **Job names:** every requirements job gets a `RUN-` plus 16-hex-character identity, as assessment runs do, and that is its AWS job name.
 
-`design-plan --revise` starts a new design version when design work exists. The earlier site and its stage receipts are kept, and the next `review-site` makes a new provider call instead of reusing a stale design. When two stages define a shared screen, journey, or API differently, `review-site` stops and names every conflict. `reconcile-design` records which stage's definition stands; the other is kept as superseded. Nothing is renamed.
+Before the first detail call, `review-site` makes one counted design plan call. It plans every journey, screen, API, and shared component, with a stable id, an owning stage, dependency links, and rule and requirement ids. The plan is saved and hashed in the design inventory. Each detail call defines the ids planned for its stage and references the rest. A stage that adds an id the plan does not name stops the run; its reply is kept and stays counted, and a new design version plans again. `design-plan --revise` starts a new design version when design work exists. The earlier site and its stage receipts are kept, and the next `review-site` makes a new provider call instead of reusing a stale design. When two stages define a shared screen, journey, or API differently, `review-site` stops and names every conflict. `reconcile-design` records which stage's definition stands; the other is kept as superseded. Nothing is renamed.
 
 `package` writes the archive and the status `AWAITING_PACKAGE_ACCEPTANCE`. `package-review` shows the file list with hashes, the approvals it rests on, the gaps, and the implementation blockers. `accept-package` needs the exact SHA-256 shown, a name, and a rationale, and it refuses while a conflict that affects the package is open. On the skip route a second person first records `approve verification-skip`. Acceptance is appended to `acceptance/ledger.jsonl`, outside the archive, and it is not deployment approval.
 
@@ -332,7 +332,7 @@ Use `--transform-workspace <id>` during init or `setup --attach-workspace <id>` 
 a workspace. Use `setup --attach-connector <id>` to reuse a connector. These private
 identifiers must never go into the framework repository.
 
-A new AWS assessment reads three private settings: `transform.workspace_id`, `transform.upload_prefix`, and `transform.sandbox_role`. The CLI refuses to start that assessment when any of them is empty, before it calls AWS. Guided start creates a bucket, a workspace, and a connector that share one name: `reframe-`, the repository name, the UTC date, and a short id. The role name adds `-role`. The upload path is `s3://<bucket>/reframe`. Continuing that source reuses them. A fresh source gets a new set. The role can read and write objects anywhere in its bucket and denies object and bucket reads outside it. Comment on story 40 that the production deny check passed. Do not commit the account ID, the role ARN, or the bucket name.
+A new AWS assessment reads three private settings: `transform.workspace_id`, `transform.upload_prefix`, and `transform.sandbox_role`. The CLI refuses to start that assessment when any of them is empty, before it calls AWS. Guided start creates a bucket, a workspace, and a connector that share one name: `reframe-`, the repository name, the UTC date, and a short id. The role name adds `-role`. The upload path is `s3://<bucket>/reframe`. Continuing that source reuses them. A fresh source gets a new set. The role can read and write objects anywhere in its bucket and denies object and bucket reads outside it. Setup checks that deny before it creates the Transform workspace. Do not commit the account ID, the role ARN, or the bucket name.
 
 **AWS login is not necessarily a Transform application connection.** The official
 MCP `configure` operation supports its own authentication flow. If it is not already
@@ -725,10 +725,11 @@ A new project has no model-call cap. `max_model_calls` is null until you set one
 ### Requirements that arrive after validation
 
 A requirements set that is retrieved or imported after the specification supersedes the validation, specification,
-design, and package approvals. The run returns to `AWAITING_VALIDATION_APPROVAL`. `approve validation` refuses the
-earlier specification, because it was validated without that set. `reframe feedback --scope specification` revalidates
-it: passed evidence units stay sealed, and synthesis and review run again with the requirements as their own evidence
-layer. A specification that passes records the requirements set it was validated against, and approving it clears
+design, and package approvals, and sends the run back to revision (`REVISION_PENDING`). `reframe resume` revalidates
+the specification: passed evidence units stay sealed, and synthesis and review run again with the requirements as their
+own evidence layer. When the revision limit is spent, the import is refused before anything changes; record one more
+round with `validation-allowance` first. A workspace saved before this routing may still hold a specification validated
+without the set; `approve validation` refuses it, and `reframe feedback --scope specification` revalidates it. A specification that passes records the requirements set it was validated against, and approving it clears
 the revalidation flag. Synthesis cites requirements in `requirement_ids` on sections, work items and
 tests, by full id or a unique `original_id`. The controller records the full id and refuses an unknown or ambiguous one.
 A requirement is mapped only when all three cite it, is excluded only with a reason in `excluded_requirements`, and is

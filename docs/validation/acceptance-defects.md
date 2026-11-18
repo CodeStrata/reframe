@@ -112,7 +112,7 @@ The re-test was **PASS WITH DEFECTS** for offline (L2) acceptance: no blockers, 
 
 ## Test expectations changed by a fix
 
-No expectation was weakened. These four changed because the fix changed correct behavior:
+No expectation was weakened. These six changed because the fix changed correct behavior:
 
 | Test | Before | After | Fix |
 | --- | --- | --- | --- |
@@ -120,14 +120,42 @@ No expectation was weakened. These four changed because the fix changed correct 
 | `test_reframe_optional::test_malformed_context_and_unknown_enum_stay_local` | A credential-shaped note imported, refused at package export | Refused at import with nothing stored; package-time scans stay covered by `test_package_safeguards` and `test_reframe::test_package_refuses_secret_and_writes_no_zip` | R3-3 |
 | `test_guided_flow::test_each_approval_asks_who_approves_and_a_yes_is_not_a_name` | One "y" for the session name was refused at once | It is asked again; three refusals still stop | R3-5 |
 | `test_guided_flow::test_framework_update_is_recorded_before_approval` | `upgrade-framework --note …` | Adds `--by` with the session name | R5-2 |
+| `test_release_acceptance::test_skip_journey_preserves_the_bundle_and_rejects_a_changed_version` | The packaged rule's `source_path` appears in `rules.json` | `source_path` is empty; its `assessment_path` appears in `rules.json` | N9 (#200) |
+| `test_reframe_preview::test_jcl_rules_format_is_imported_with_its_original_pointer` | `source_anchor` is `/rules/0` | `assessment_path` and `assessment_anchor` carry the AWS record; `source_path` is empty | N9 (#200) |
 
-## Remaining defects (not fixed on the accepted candidate)
+## After the merge: R6-1 and N9 (#199, #200)
 
-| # | Severity | Defect |
-| --- | --- | --- |
-| R6-1 | minor | On the skip route, the "DESIGN FEEDBACK RECORDED" result says it kept "specification, validation approval, decisions"; a skip-route run has neither of the first two. The framework update is attributed to the session name without a per-update "who" prompt; the record is labeled and audited. |
-| N9 | minor | Skip-route traceability: specification sections cite `R1` while the catalog uses `AWS-…`; AWS-assumed findings carry `source_path: rules.json`; the synthetic Reimagine journey is named `recorded`. |
-| — | observation | After a design change, menu 1 asks the route (skip/pause) and the draft name again; the defaults are correct. `upgrade-framework` on a run waiting at assessment approval suggests `resume` as its next step. |
+Both minor defects left on the accepted candidate are fixed on `fix/skip-route-defects`. Each regression test fails on `d0e6e5b`, the `develop` merge of `05e219e`.
+
+| # | Defect | Fix | Regression test |
+| --- | --- | --- | --- |
+| R6-1 (#199) | On the skip route, the design feedback result said it kept "specification, validation approval, decisions"; a skip-route run has neither of the first two | A skip-route result lists the assessment approval, the skip decision, and decisions. The review route is unchanged. | `test_design::test_skip_route_design_feedback_names_only_what_the_run_keeps` |
+| R6-1 (#199) | A framework update was attributed to the session name without asking | Menu 1 asks who records each update, offers the session name, and passes the answer as `--by` | `test_guided_flow::test_each_framework_update_asks_who_records_it` |
+| N9 (#200) | Skip-route sections cited the AWS id `R1` while the catalog uses `AWS-…` | Section text and section `rule_ids` cite the catalog id when an AWS id names exactly one catalog rule and carries a letter and a digit. Ambiguous ids are listed in `specification.json` `rule_citations`, never guessed. The provider's reply is saved unchanged. | `test_reframe_preview::test_skip_draft_cites_catalog_ids_and_never_names_the_assessment_file_as_source`, `test_catalog_citations_replace_only_unambiguous_ids_with_a_letter_and_a_digit` |
+| N9 (#200) | AWS-assumed findings named the assessment file in `source_path` | They carry `assessment_path` and `assessment_anchor`, with `source_path` empty. Screen rule tables and `rules.html` say no source line was checked. | the first N9 test |
+| N9 (#200) | A bundle without journeys got a journey named `recorded` | It is `synthetic-all-screens`, named and flagged as synthetic | `test_reframe_preview::test_a_bundle_without_journeys_gets_a_journey_labeled_synthetic` |
+
+Drafts saved before this fix keep their files. A new draft or design version uses the new fields.
+
+## Independent review of `develop` at `d0e6e5b`
+
+The owner reopened seven stories after an independent review of the merged `develop`. Six are fixed on `fix/develop-audit`, and each regression test fails on `65206cd`, the commit it builds on. #183 is fixed on `fix/planned-inventory`, and its tests fail on the `fix/develop-audit` head.
+
+| Story | Finding | Fix | Regression test |
+| --- | --- | --- | --- |
+| #161, #171 | Importing the same requirements twice rewrote the sealed manifest and normalized records, so the earlier version failed verification | A set is named by its files, origin, job, source pin, assessment, importer, and normalizer version. The same inputs reuse the sealed set and write nothing; a stored file or manifest is never overwritten | `test_requirements::test_an_identical_import_reuses_the_sealed_set_and_both_versions_verify`; guard: `test_a_changed_import_is_a_new_set_and_never_rewrites_the_earlier_one` |
+| #171, #188, #191 | A requirements import after the package was built superseded approvals but left the old package acceptable; `PACKAGE_ACCEPTED` was reachable without the new requirement | A changed set withdraws any acceptance (the ledger keeps it) and retires the package to `package_history`. On the review route it sends the run back to validation like specification feedback (`REVISION_PENDING`, a new round); on the skip route it supersedes the design approval and returns to the draft's design review. A package records its inputs (requirements set, specification, draft, design version, decisions, approval basis), and acceptance refuses a package whose inputs or required approvals changed | `test_acceptance::test_a_requirements_import_after_the_build_retires_the_package_and_refuses_its_acceptance`, `test_a_requirements_import_after_acceptance_withdraws_it_and_keeps_the_ledger`, `test_a_package_whose_approval_basis_was_superseded_cannot_be_accepted`, `test_a_package_records_its_inputs_and_a_changed_input_blocks_acceptance`; `test_menu_journeys::test_a_requirements_import_after_skip_acceptance_returns_to_design_review_and_refuses_the_old_package` |
+| #191 | Mode exports did not depend on the requirements set | A design export's selection includes the set, and a draft mode package is refused after the set changes. Mode packages stay drafts | `test_reframe_optional::test_a_mode_package_is_refused_after_the_requirements_set_changes` |
+| #184 | An unknown screen `requirement_ids` entry passed both validators | Screens and APIs follow one contract: `rule_ids` name a rule, finding, or requirement; `requirement_ids` name a requirement in the active set. Both the model-output check and the merged-design check enforce it before the site is written | `test_design::test_a_screen_citing_an_unknown_requirement_is_refused_before_the_site_is_written`, `RequirementReferenceTests` (3) |
+| #190 | Readiness read an unpopulated `design_coverage`, so an API contract gap could leave `NO_KNOWN_BLOCKERS` | Readiness reads the review site's sealed `api-completeness.json`, or the skip draft's contracts, and lists each gap as an `api_contract` blocker in readiness, the package's `ai-dlc.json`, and package review. A site without the report names that as a gap | `test_acceptance::test_an_api_contract_gap_alone_keeps_the_package_from_no_known_blockers` |
+
+| #183 | The inventory saved before detail held capabilities, requirement ids, and stage assignments, but no planned journeys, screens, or APIs; owners came from detail replies | Before the first detail call, one counted design plan call (`prompts/pipeline/design-inventory.md`) returns the planned journeys, screens, APIs, shared components, and gaps. Each has a stable id, an owning stage, dependency links, and rule and requirement ids. The plan is validated, saved, and hashed in the inventory. An item without a stage is owned by the earliest stage of its rules, and a journey by the earliest stage of its screens; anything else is refused. Each detail call defines its planned ids and references the rest. A stage that adds an unplanned id stops for a new design version; differing definitions of a planned id still go to reconciliation. A design version started before plans keeps the earlier rule. | `test_wireframe_context::test_the_plan_is_saved_and_hashed_and_the_first_detail_request_carries_it`, `test_a_detail_stage_that_adds_an_unplanned_id_stops_for_a_new_design_version`, `test_an_invalid_plan_stays_counted_and_can_be_retried`, `test_a_changed_saved_plan_is_refused` |
+
+#183 adds one counted wireframe-role call per design version. Tests that count wireframe calls, or that fail or reserve the first call, now expect or target the plan call: `test_wireframe_context` (7 tests), `test_guided_recovery::test_validation_sequence_records_the_controller_and_keeps_the_review`, and `test_design::test_a_changed_plan_regenerates_and_never_returns_the_stale_design`. Fixture models answer the plan call with the screens they then return (`test_reframe.PreparationTests.runtime`, `test_reframe_checkpoints`, `test_workflow_journey`, and the bad-reference runtimes in `test_design`, which keep the plan valid so the detail check is still the one tested). Packing keeps an eighth of a context budget under 16 KB for the planned id lists, so `test_staged_generation_keeps_cross_references_and_rejects_conflicting_ids` derives its two-stage budget from that.
+
+One expectation changed because the fix changed correct behavior: `test_requirements::test_an_import_after_a_reviewed_specification_supersedes_its_approvals` now gives its fixture the validation run a specification always has, and also asserts the return to `REVISION_PENDING`.
+
+A set imported before this change keeps its folder and id. Importing the same files again afterwards gets a new id, because the importer and pin are now part of the name, and counts as a change.
 
 ## Live discovery on the saved CardDemo workspace (2026-11-16)
 
@@ -276,13 +304,14 @@ The generic reader split every list entry into its own block, so 397 of 398 requ
 
 **Requirements after validation left the run stranded.** Retrieving the live set superseded the validation, specification, design and package approvals, as spec §5.3 requires, but left the stage at `VALIDATION_APPROVED`. `resume` then went to wireframes and stopped at "Missing or stale validation approval", `upgrade-framework` was refused, and `status` named no route back. Decision amendments and specification feedback already move the stage when they supersede.
 - **Fix:**
-  - a set that arrives after a stage that rests on validation returns the run to `AWAITING_VALIDATION_APPROVAL` and records the stage it left;
-  - `approve validation` refuses a specification validated without the active set;
+  - a set that arrives after a specification sends the run back to revision (`REVISION_PENDING`), through the same route `develop` uses for a changed set (`route_to_revision`). The merge of `develop` replaced this branch's first fix, which returned the run to `AWAITING_VALIDATION_APPROVAL`;
+  - when the synthesis round limit is spent, the import is refused before anything changes, and names `validation-allowance --extra-rounds 1`;
+  - `approve validation` refuses a specification validated without the active set (a workspace saved before routing can still hold one);
   - a specification that passes now records the set it was validated against, and approving it clears `requires_revalidation`;
   - `status` names `feedback --scope specification` as the revalidation route.
 - **Stale design step:** the live run still held a `review-site` pending action from an earlier wireframe attempt. `resume` runs a pending action before reading the stage, so the first revalidation `resume` went to wireframes for the withdrawn specification and stopped with `KeyError: 'specification'`, before any call. Specification feedback now withdraws a pending `review-site` action and records the event.
 - **Stale review:** specification feedback no longer resends the last review of the candidate it replaces. The live run held a round-3 `REWORK` review after its round-4 specification had passed.
-- **Test:** `test_context_validation::test_requirements_after_approval_return_the_run_to_validation_and_revalidate_it`.
+- **Tests:** `test_context_validation::test_requirements_after_approval_send_the_run_back_to_revision_and_revalidate_it` and `test_approving_a_specification_validated_before_the_active_set_is_refused`.
 
 **No recorded way to give validation more room.** Revalidating the live set hit two fixed limits. The revision limit was spent (round 4 of `max_rounds` 2), and feedback said only "start a new workspace". The 233,167-byte requirements layer exceeded the fixed 150,000-byte validation allowance. The refusal said "raise the allowance", but no command could. The synthesis messages were already 538–592 KB against a fixed 600,000-byte ceiling.
 - **New command:** `validation-allowance --by --note` records extra synthesis rounds (1 or 2), a requirements context allowance, or a synthesis context allowance.
@@ -303,4 +332,9 @@ The generic reader split every list entry into its own block, so 397 of 398 requ
 - **Tests (`test_context_validation`):**
   - `test_synthesis_cites_requirements_and_the_reviewer_gets_no_controller_views`;
   - `test_an_unknown_or_unexplained_requirement_id_is_refused`;
-  - `test_feedback_does_not_reuse_an_unreviewed_candidate_from_the_replaced_round`.
+  - `test_a_revision_does_not_reuse_an_unreviewed_candidate_from_the_replaced_round`.
+
+## Remaining observations
+
+- After a design change, menu 1 asks for the route (skip/pause) and the draft name again; the defaults are correct.
+- `upgrade-framework` on a run waiting at assessment approval suggests `resume` as its next step.

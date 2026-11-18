@@ -101,6 +101,15 @@ class WorkflowJourneyTests(unittest.TestCase):
         def provider(provider_name, run, directory, role, message):
             roles.append(role)
             payload = json.loads(message)
+            if payload['stage'].get('planner'):
+                # The plan names the shared sign-on screen once, owned by stage 1.
+                model = inner.screens()
+                model['screens'].append({'id': 'sign-on', 'title': 'Sign on', 'rule_ids': ['R1']})
+                model['journeys'][0]['screen_ids'] = ['sign-on', 's1']
+                for kind in ('journeys', 'screens', 'apis'):
+                    for item in model[kind]:
+                        item['stage'] = 1
+                return model
             self.assertIn('owned', payload)
             if payload['stage']['index'] == 1:
                 model = inner.screens()

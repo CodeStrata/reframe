@@ -31,6 +31,18 @@ class OptionalModeTests(unittest.TestCase):
         self.project = {'stage': 'PACKAGED', 'scope': 'Fixture scope', 'site': {'directory': 'previews/business-1'},
                         'source': {'repository': 'https://example.test/demo.git', 'commit': 'a' * 40}, 'decisions': {}}
 
+    def test_a_mode_package_is_refused_after_the_requirements_set_changes(self):
+        self.project['requirements'] = {'set_id': 'first-set'}
+        optional.design_export(self.root, self.project, 'v1', 'functional-parity', 'unspecified')
+        self.project['requirements'] = {'set_id': 'second-set'}
+        with self.assertRaisesRegex(optional.Blocked, 'requirements set changed'):
+            optional.package_export(self.root, self.project, 'v1', 'functional-parity')
+        self.assertFalse((self.root / 'packages' / 'v1').exists(), 'no draft mode package was written')
+        again = optional.design_export(self.root, self.project, 'v1b', 'functional-parity', 'unspecified')
+        self.assertEqual(again['status'], 'EXPORTED')
+        self.assertEqual(optional.package_export(self.root, self.project, 'v1b', 'functional-parity')['status'], 'DRAFT_READY',
+                         'a mode package stays a draft; it is never the accepted handoff')
+
     def test_missing_context_still_exports_parity_and_leaves_the_review_site(self):
         before = (self.site / 'index.html').read_bytes()
         self.assertEqual(optional.context_status(self.root)['status'], 'not_provided')

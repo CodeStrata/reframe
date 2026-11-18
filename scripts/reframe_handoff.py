@@ -217,7 +217,7 @@ def capabilities(rules):
     """Group imported rules by program and leave every disposition unassigned."""
     groups, order = {}, []
     for rule in rules:
-        program = str(rule.get('program') or rule.get('source_path') or rule.get('id'))
+        program = str(rule.get('program') or rule.get('source_path') or rule.get('assessment_path') or rule.get('id'))
         if program not in groups:
             groups[program] = []
             order.append(program)
