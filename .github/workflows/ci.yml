@@ -125,7 +125,7 @@ jobs:
               metadata = archive.read(next(name for name in names if name.endswith('METADATA'))).decode()
           schemas = ['common', 'project_policy', 'source_snapshot', 'claim_evidence', 'human_input', 'context_map',
                      'canonical_design', 'findings_assumptions', 'operations_ledger', 'artifact_graph', 'readiness',
-                     'package_manifest', 'provenance']
+                     'package_manifest', 'provenance', 'resources_file']
           required_files = ['reframe_v2/__init__.py', 'reframe_v2/cli.py', 'reframe_v2/__main__.py',
                             'reframe_v2/model/store.py'] + [f'reframe_v2/schemas/{name}.schema.json' for name in schemas]
           for required in required_files:
@@ -148,7 +148,7 @@ jobs:
           python -m venv "${RUNNER_TEMP}/v2-check"
           "${RUNNER_TEMP}/v2-check/bin/python" -m pip install "${RUNNER_TEMP}"/v2-dist/*.whl
           "${RUNNER_TEMP}/v2-check/bin/reframe-v2" --version
-          "${RUNNER_TEMP}/v2-check/bin/python" -c "from reframe_v2.model import catalog; names = catalog(); assert len(names) == 13, names; print('installed schemas:', ', '.join(names))"
+          "${RUNNER_TEMP}/v2-check/bin/python" -c "from reframe_v2.model import catalog; names = catalog(); assert len(names) == 14, names; print('installed schemas:', ', '.join(names))"
 
   secrets:
     name: Secret scan
