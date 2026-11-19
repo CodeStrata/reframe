@@ -55,9 +55,38 @@ variable "bedrock_model_arns" {
 }
 
 variable "reimagine" {
-  description = "Create the Neptune knowledge graph and the reimagine connector role. Nothing is assumed to exist already."
+  description = "Set up the reimagine connector's graph and role: either the existing graph the person chose, or a new graph."
   type        = bool
   default     = false
+}
+
+variable "existing_graph" {
+  description = "The existing Neptune cluster the person chose by name (reframe graph). Used as client-owned: never managed here."
+  type = object({
+    cluster_arn         = string
+    cluster_resource_id = string
+    configuration       = map(string)
+  })
+  default = null
+  validation {
+    condition = try(length(setsubtract(["s3BucketArn", "neptuneClusterArn", "neptuneClusterResourceId", "neptuneBulkUploadRoleArn",
+    "vpcSubnetIds", "vpcSecurityGroupId"], keys(var.existing_graph.configuration))) == 0, var.existing_graph == null)
+    error_message = "The existing graph needs all six connector values; reframe graph writes them."
+  }
+}
+
+variable "graph_network" {
+  description = "Where a new graph goes, normally the account's default VPC (reframe graph). Nothing here is created except the S3 endpoint on the listed route tables."
+  type = object({
+    vpc_id                      = string
+    subnet_ids                  = list(string)
+    s3_endpoint_route_table_ids = list(string)
+  })
+  default = null
+  validation {
+    condition     = !var.reimagine || ((var.existing_graph == null) != (var.graph_network == null))
+    error_message = "With reimagine, give either existing_graph or graph_network, not both; reframe graph writes the one you chose."
+  }
 }
 
 variable "neptune_max_capacity" {
@@ -96,28 +125,44 @@ module "bedrock_invoke" {
 }
 
 module "neptune_graph" {
-  source         = "../modules/neptune_graph"
-  count          = var.reimagine ? 1 : 0
-  name           = "reframe-${var.project}-kg"
-  bucket_name    = module.repo.bucket
-  max_capacity   = var.neptune_max_capacity
-  instance_count = var.neptune_instance_count
+  source                      = "../modules/neptune_graph"
+  count                       = var.reimagine && var.existing_graph == null ? 1 : 0
+  name                        = "reframe-${var.project}-kg"
+  bucket_name                 = module.repo.bucket
+  vpc_id                      = try(var.graph_network.vpc_id, null)
+  subnet_ids                  = try(var.graph_network.subnet_ids, null)
+  s3_endpoint_route_table_ids = try(var.graph_network.s3_endpoint_route_table_ids, [])
+  max_capacity                = var.neptune_max_capacity
+  instance_count              = var.neptune_instance_count
+}
+
+locals {
+  graph = !var.reimagine ? null : var.existing_graph != null ? {
+    cluster_arn         = var.existing_graph.cluster_arn
+    cluster_resource_id = var.existing_graph.cluster_resource_id
+    configuration       = var.existing_graph.configuration
+    } : {
+    cluster_arn         = module.neptune_graph[0].cluster_arn
+    cluster_resource_id = module.neptune_graph[0].cluster_resource_id
+    configuration       = tomap(module.neptune_graph[0].connector_configuration)
+  }
 }
 
 module "reimagine_role" {
   source              = "../modules/reimagine_role"
   count               = var.reimagine ? 1 : 0
   role_name           = "reframe-${var.project}-rmg"
-  bucket_name         = module.repo.bucket
-  cluster_arn         = module.neptune_graph[0].cluster_arn
-  cluster_resource_id = module.neptune_graph[0].cluster_resource_id
+  bucket_name         = trimprefix(local.graph.configuration["s3BucketArn"], "arn:aws:s3:::")
+  cluster_arn         = local.graph.cluster_arn
+  cluster_resource_id = local.graph.cluster_resource_id
 }
 
 output "reimagine_connector" {
-  description = "What the Transform adapter creates the reimagine connector from; null without --reimagine."
+  description = "What the Transform adapter creates the reimagine connector from; null without reimagine."
   value = var.reimagine ? {
-    configuration = module.neptune_graph[0].connector_configuration
+    configuration = local.graph.configuration
     role_arn      = module.reimagine_role[0].role_arn
+    graph         = var.existing_graph != null ? "existing" : "created"
   } : null
 }
 

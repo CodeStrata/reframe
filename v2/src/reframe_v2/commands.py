@@ -69,6 +69,8 @@ COMMANDS: tuple[Command, ...] = (
             ("a stale base", "a conflicting import", "behavioural HTML changes without the same design.json change",
              "removing a verified rule without a decision", "unknown interactions", "disallowed HTML"),
             (Exit.OK, Exit.USAGE, Exit.REFUSED), "F3-03"),
+    Command("graph", "Nothing in AWS; lists the region's Neptune clusters, asks which to use or whether to create one, and writes the Terraform variables",
+            ("an unusable or unknown cluster", "--use with --new", "an existing --tfvars file"), (Exit.OK, Exit.USAGE, Exit.REFUSED, Exit.WAITING), "P2-06"),
     Command("resources adopt", "Records an existing stack in the manifest as Reframe-owned and tags it, after checks and confirmation",
             ("a client-owned, shared, busy or unknown stack", "no confirmation"), (Exit.OK, Exit.USAGE, Exit.REFUSED), "P0-13, F3-07"),
     Command("teardown", "Deletes manifest-owned resources after confirmation and checks; keeps project data unless --include-data",

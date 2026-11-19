@@ -1,18 +1,22 @@
-# The Neptune Serverless knowledge graph for one repository (specification section 8),
-# built from nothing: no cluster, stack or network is assumed to exist.
+# The Neptune Serverless knowledge graph for one repository (specification section 8).
+# Used only when the person has no existing graph to reuse, or declines one
+# (reframe graph, P2-06); a chosen existing graph is never managed here.
 #
 # What AWS checks for a reimagine connector, as v1 recorded it (#206) and this
 # module guarantees: engine 1.4.5.1 or later, IAM database authentication,
 # storage encryption, a serverless scaling configuration, and at least two
 # application subnets in different Availability Zones.
 #
-# The network is private: two subnets, one route table and an S3 gateway
-# endpoint, which the bulk loader needs to read the source bucket. There is no
-# internet gateway or NAT.
+# The network is an existing one, normally the account's default VPC, passed
+# in by reframe graph. This module creates no VPC, subnet, route table,
+# internet gateway or NAT: only the security groups, and an S3 gateway
+# endpoint on the route tables that lack one, which AWS documents the Neptune
+# bulk loader needs.
 #
 # Cost: Neptune Serverless bills per NCU-hour for every instance while the
 # cluster runs, whether or not a job is running (about $0.16 per NCU-hour in
-# us-east-1 when v1 measured it; check current pricing).
+# us-east-1 when v1 measured it; check current pricing). The network pieces
+# have no charge.
 
 variable "name" {
   description = "Name prefix for every resource, starting with reframe-."
@@ -28,13 +32,24 @@ variable "bucket_name" {
   type        = string
 }
 
-variable "vpc_cidr" {
-  type    = string
-  default = "10.42.0.0/16"
+variable "vpc_id" {
+  description = "The existing VPC the graph goes in; reframe graph proposes the account's default VPC."
+  type        = string
+}
+
+variable "subnet_ids" {
+  description = "Existing subnets in at least two Availability Zones, for the cluster and the connector."
+  type        = list(string)
   validation {
-    condition     = can(cidrnetmask(var.vpc_cidr)) && tonumber(split("/", var.vpc_cidr)[1]) <= 24
-    error_message = "An IPv4 CIDR block of /24 or larger."
+    condition     = length(distinct(var.subnet_ids)) >= 2
+    error_message = "The reimagine connector needs at least two subnets."
   }
+}
+
+variable "s3_endpoint_route_table_ids" {
+  description = "Route tables of those subnets that have no S3 gateway endpoint yet; empty when every one has."
+  type        = list(string)
+  default     = []
 }
 
 variable "engine_version" {
@@ -80,61 +95,45 @@ variable "instance_count" {
 
 data "aws_region" "current" {}
 
-data "aws_availability_zones" "available" {
-  state = "available"
+data "aws_subnet" "chosen" {
+  for_each = toset(var.subnet_ids)
+  id       = each.value
 }
 
-resource "aws_vpc" "graph" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_support   = true
-  enable_dns_hostnames = true
-  tags                 = { Name = var.name }
-}
-
-resource "aws_subnet" "app" {
-  count             = 2
-  vpc_id            = aws_vpc.graph.id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 4, count.index)
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-  tags              = { Name = "${var.name}-app-${count.index + 1}" }
-
-  lifecycle {
-    precondition {
-      condition     = length(data.aws_availability_zones.available.names) >= 2
-      error_message = "The reimagine connector needs subnets in two Availability Zones; this region offers fewer."
-    }
-  }
-}
-
-resource "aws_route_table" "app" {
-  vpc_id = aws_vpc.graph.id
-  tags   = { Name = "${var.name}-app" }
-}
-
-resource "aws_route_table_association" "app" {
-  count          = 2
-  subnet_id      = aws_subnet.app[count.index].id
-  route_table_id = aws_route_table.app.id
+data "aws_prefix_list" "s3" {
+  name = "com.amazonaws.${data.aws_region.current.region}.s3"
 }
 
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id            = aws_vpc.graph.id
+  count             = length(var.s3_endpoint_route_table_ids) > 0 ? 1 : 0
+  vpc_id            = var.vpc_id
   service_name      = "com.amazonaws.${data.aws_region.current.region}.s3"
   vpc_endpoint_type = "Gateway"
-  route_table_ids   = [aws_route_table.app.id]
+  route_table_ids   = var.s3_endpoint_route_table_ids
   tags              = { Name = "${var.name}-s3" }
 }
 
 resource "aws_security_group" "app" {
   name        = "${var.name}-app"
   description = "AWS Transform reimagine connector network interfaces"
-  vpc_id      = aws_vpc.graph.id
+  vpc_id      = var.vpc_id
+
+  lifecycle {
+    precondition {
+      condition     = length(distinct([for s in data.aws_subnet.chosen : s.availability_zone])) >= 2
+      error_message = "The reimagine connector needs subnets in two different Availability Zones."
+    }
+    precondition {
+      condition     = alltrue([for s in data.aws_subnet.chosen : s.vpc_id == var.vpc_id])
+      error_message = "Every subnet must be in the VPC the graph goes in."
+    }
+  }
 }
 
 resource "aws_security_group" "graph" {
   name        = "${var.name}-graph"
   description = "Neptune cluster: reachable only from the connector security group"
-  vpc_id      = aws_vpc.graph.id
+  vpc_id      = var.vpc_id
 }
 
 resource "aws_vpc_security_group_ingress_rule" "graph_from_app" {
@@ -157,11 +156,23 @@ resource "aws_vpc_security_group_egress_rule" "app_to_graph" {
 
 resource "aws_vpc_security_group_egress_rule" "app_to_s3" {
   security_group_id = aws_security_group.app.id
-  prefix_list_id    = aws_vpc_endpoint.s3.prefix_list_id
+  prefix_list_id    = data.aws_prefix_list.s3.id
   ip_protocol       = "tcp"
   from_port         = 443
   to_port           = 443
   description       = "Connector to S3 through the gateway endpoint"
+}
+
+# Terraform removes a new security group's default allow-all egress. AWS's own
+# template keeps it on the Neptune group because the bulk loader reads S3 from
+# the instances; this is that rule, narrowed to S3.
+resource "aws_vpc_security_group_egress_rule" "graph_to_s3" {
+  security_group_id = aws_security_group.graph.id
+  prefix_list_id    = data.aws_prefix_list.s3.id
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+  description       = "Bulk loader to S3 through the gateway endpoint"
 }
 
 data "aws_iam_policy_document" "loader_trust" {
@@ -179,7 +190,7 @@ data "aws_iam_policy_document" "loader" {
   statement {
     sid       = "ReadSourceBucketOnly"
     effect    = "Allow"
-    actions   = ["s3:GetObject", "s3:ListBucket"]
+    actions   = ["s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"]
     resources = ["arn:aws:s3:::${var.bucket_name}", "arn:aws:s3:::${var.bucket_name}/*"]
   }
 }
@@ -197,7 +208,7 @@ resource "aws_iam_role_policy" "loader" {
 
 resource "aws_neptune_subnet_group" "graph" {
   name       = var.name
-  subnet_ids = aws_subnet.app[*].id
+  subnet_ids = var.subnet_ids
 }
 
 resource "aws_neptune_cluster" "graph" {
@@ -242,7 +253,7 @@ output "connector_configuration" {
     neptuneClusterArn        = aws_neptune_cluster.graph.arn
     neptuneClusterResourceId = aws_neptune_cluster.graph.cluster_resource_id
     neptuneBulkUploadRoleArn = aws_iam_role.loader.arn
-    vpcSubnetIds             = join(",", aws_subnet.app[*].id)
+    vpcSubnetIds             = join(",", var.subnet_ids)
     vpcSecurityGroupId       = aws_security_group.app.id
   }
 }

@@ -46,5 +46,6 @@ P3 to P5 hold features; each phase's features become stories when that phase sta
 | P2-03 | [#245](https://github.com/sknampally/reframe/issues/245) | Gate feedback through GitHub issues and local files |  |
 | P2-04 | [#246](https://github.com/sknampally/reframe/issues/246) | Terraform provisioning and bootstrap |  |
 | P2-05 | [#248](https://github.com/sknampally/reframe/issues/248) | Neptune knowledge graph and reimagine connector role (Terraform) |  |
+| P2-06 | [#250](https://github.com/sknampally/reframe/issues/250) | Reuse an existing Neptune graph by name, or create one in the default VPC |  |
 
 The 20 v1 issues open on 18 November 2026 were closed as not planned, each with a comment naming the v2 story that replaces it.
