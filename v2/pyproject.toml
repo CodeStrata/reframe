@@ -19,3 +19,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "reframe_v2.schemas" = ["*.schema.json"]
+"reframe_v2" = ["terraform/README.md", "terraform/*/*.tf", "terraform/modules/*/*.tf"]

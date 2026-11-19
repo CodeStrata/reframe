@@ -102,6 +102,11 @@ jobs:
           cache-dependency-path: v2/pyproject.toml
       - name: Install the v2 package
         run: python -m pip install -e v2
+      - name: Install Terraform for the validate test (no AWS credentials, nothing applied)
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.17.2"
+          terraform_wrapper: false
       - name: Run v2 offline tests
         run: python -m unittest discover -s v2/tests
       - name: Check the v2 CLI
@@ -125,9 +130,12 @@ jobs:
               metadata = archive.read(next(name for name in names if name.endswith('METADATA'))).decode()
           schemas = ['common', 'project_policy', 'source_snapshot', 'claim_evidence', 'human_input', 'context_map',
                      'canonical_design', 'findings_assumptions', 'operations_ledger', 'artifact_graph', 'readiness',
-                     'package_manifest', 'provenance']
+                     'package_manifest', 'provenance', 'resources_file']
           required_files = ['reframe_v2/__init__.py', 'reframe_v2/cli.py', 'reframe_v2/__main__.py',
-                            'reframe_v2/model/store.py'] + [f'reframe_v2/schemas/{name}.schema.json' for name in schemas]
+                            'reframe_v2/model/store.py', 'reframe_v2/terraform/README.md', 'reframe_v2/terraform/bootstrap/main.tf',
+                            'reframe_v2/terraform/project/main.tf', 'reframe_v2/terraform/modules/repo/main.tf',
+                            'reframe_v2/terraform/modules/state_bucket/main.tf', 'reframe_v2/terraform/modules/bedrock_invoke/main.tf',
+                            ] + [f'reframe_v2/schemas/{name}.schema.json' for name in schemas]
           for required in required_files:
               if required not in names:
                   raise SystemExit(f'wheel missing {required}')
@@ -148,7 +156,7 @@ jobs:
           python -m venv "${RUNNER_TEMP}/v2-check"
           "${RUNNER_TEMP}/v2-check/bin/python" -m pip install "${RUNNER_TEMP}"/v2-dist/*.whl
           "${RUNNER_TEMP}/v2-check/bin/reframe-v2" --version
-          "${RUNNER_TEMP}/v2-check/bin/python" -c "from reframe_v2.model import catalog; names = catalog(); assert len(names) == 13, names; print('installed schemas:', ', '.join(names))"
+          "${RUNNER_TEMP}/v2-check/bin/python" -c "from reframe_v2.model import catalog; names = catalog(); assert len(names) == 14, names; print('installed schemas:', ', '.join(names))"
 
   secrets:
     name: Secret scan
