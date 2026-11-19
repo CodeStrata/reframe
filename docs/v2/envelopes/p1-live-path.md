@@ -2,19 +2,29 @@
 
 **Status: draft for the owner's decision. Nothing has run under it.** Story: [#230](https://github.com/sknampally/reframe/issues/230) (P1-01). Specification: section 15 (P1), section 11, section 8, section 4 (uncertain dispatch, AWS review tasks), FR-14.
 
-This envelope says exactly what the P1 live path may do: the read-only discovery in P1-03 ([#232](https://github.com/sknampally/reframe/issues/232)), the resource checks in P1-04 ([#233](https://github.com/sknampally/reframe/issues/233)), and one function from selection to retrieved requirements in P1-05 ([#234](https://github.com/sknampally/reframe/issues/234)). Anything not listed here is outside it, and Reframe stops and asks.
+**Revision 2 (19 November 2026):** the first run assumes no Neptune graph is in place. Stage B lists the region's Neptune clusters and the owner chooses one by name, or a new graph. Only a new graph needs stage C, which creates it in the account's default VPC (owner, 19 November 2026; [#250](https://github.com/sknampally/reframe/issues/250)).
 
-**How it is approved.** The owner comments on #230 with "Approved" or with changes, naming the commit of this file. A change after approval is a new revision of this file and needs approval again. The approval covers stages A and B below. Stage C, the one AWS job, waits for a second, separate go-ahead after the owner has seen stage B's report.
+This envelope says exactly what the P1 live path may do:
+- the read-only discovery in P1-03 ([#232](https://github.com/sknampally/reframe/issues/232));
+- the resource checks and the graph choice in P1-04 ([#233](https://github.com/sknampally/reframe/issues/233));
+- the resources a new graph needs;
+- one function, from selection to retrieved requirements, in P1-05 ([#234](https://github.com/sknampally/reframe/issues/234)).
 
-Items marked **Proposed** are defaults for the owner to accept or change. No account id, ARN, bucket name, profile name, job id or secret appears here or anywhere in GitHub.
+Anything not listed here is outside the envelope, and Reframe stops and asks.
+
+**How it is approved.** The owner comments on #230 with "Approved" or with changes, naming the commit of this file. A change after approval is a new revision of this file and needs approval again. The approval covers stages A and B below. Every later stage waits for its own separate go-ahead, given after the owner has seen the report from the stage before.
+
+Items marked **Proposed** are defaults for the owner to accept or change. No account id, ARN, resource id, bucket name, profile name, job id or secret appears here or anywhere in GitHub.
 
 ## Stages
 
-| Stage | What happens | Changes in AWS |
-| --- | --- | --- |
-| A Discovery (P1-03) | The owner signs in. Reframe starts the pinned AWS Transform MCP server, lists its tools and schema hashes, and makes read-only reads of the workspace and its connectors | None |
-| B Resource checks (P1-04) | Read-only checks of the resources below; one report to the owner of what was found, what matches, and what Stage C would cost | None |
-| C One job (P1-05), after a second go-ahead | Snapshot, source copy, one requirements job, the owner's function selection, answers to AWS review tasks, retrieval of requirements and traceability | One source object, one Transform job and its records |
+| Stage | What happens | Changes in AWS | Needs |
+| --- | --- | --- | --- |
+| A Discovery (P1-03) | The owner signs in. Reframe starts the pinned AWS Transform MCP server, lists its tools and schema hashes, and makes read-only reads of the workspaces and their connectors | None | This approval |
+| B Checks and the graph choice (P1-04) | `reframe graph` lists the region's Neptune clusters and says which can serve the reimagine connector and why the others cannot. The owner chooses one by name, or a new graph. For a new graph, Reframe checks the default VPC and shows the Terraform plan. One report covers what was found, what stage C would create and what it would cost | None | This approval |
+| C Provision (only for a new graph) | Terraform creates the resources in the "New graph" table below, from the saved plan the owner reviewed. Reframe then creates the Transform workspace and both connectors | Creates what the table lists. Neptune bills from here | A second go-ahead, after stage B's report |
+| D One job (P1-05) | Snapshot, source copy, one requirements job, the owner's function selection, answers to AWS review tasks, and retrieval of the requirements and traceability | One source object, one Transform job and its records | A further go-ahead |
+| E Remove the new graph | Terraform destroys the Neptune graph it created in stage C, and nothing else | Deletes the graph; a final snapshot is kept | The owner's explicit confirmation |
 
 ## The envelope
 
@@ -24,57 +34,98 @@ Items marked **Proposed** are defaults for the owner to accept or change. No acc
 | Function | One function. Reframe does not preselect it: AWS's job lists its business-function catalog, the owner picks one there in person, and Reframe passes AWS's name exactly. **Proposed:** the smallest function in the catalog that has an online (CICS) path, which keeps the job short. v1 found that AWS treats "Account and Customer Profile Administration" as one function (398 requirements); that is P2's domain | |
 | AWS account and region | The owner's SSO profile and the region v1 used (us-east-1), recorded in the local project policy, never here. The owner signs in with `aws sso login`; Reframe never signs in or handles credentials | |
 | AWS Transform MCP server | Pinned to `awslabs.aws-transform-mcp-server==0.2.4`, the version v1 resolved and cached. Stage A records its tool schema hashes; a later run with different hashes stops and asks | |
-| Resources (P1-04 decision) | **Proposed: used as client-owned, through a resources file.** These already exist from v1: the Transform workspace, its project-named reimagine connector (active), that connector's IAM role, the Neptune test stack and its bucket, and the per-repo project bucket. Reframe checks them read-only and adds no tags; their configuration and permissions are unchanged afterwards (FR-02 acceptance). The other two options, `reframe resources adopt` (adds tags, needs its own confirmation) and a clean start (deletes), are not part of this envelope | |
-| Project state | **Proposed:** for P1 only, the ledger, event log and manifest are kept in the local project folder and the run is attached to one machine. No Reframe state bucket is created. The state bucket, the lease and runs across machines come with P2, which builds `reframe bootstrap`. This is a P1 limit, not the specification's contract | |
+| Neptune graph (P1-04 decision) | **Chosen by the owner at stage B, by name.** If a listed cluster can serve the connector and the owner names it, it is used as client-owned: never tagged, changed or deleted, and out of stage E. Otherwise a new graph is created in stage C. Sharing a graph between repositories is unproven (section 8), so the report says whether another reimagine connector already uses the named cluster | |
+| Other resources with an existing graph | If v1's Transform workspace already has a reimagine connector on the chosen cluster, P1 uses that workspace, connector, connector role and bucket as client-owned, through a resources file. Nothing is created and stage C is skipped. A chosen cluster with no connector of its own takes the new-graph path's workspace and connectors (below), but not its graph | |
+| Resources with a new graph | Everything in the "New graph" table, under one project name. A new Transform workspace is needed, because AWS allows one reimagine connector per workspace and v1's workspace already has one | |
+| Who runs Terraform | **Proposed:** Reframe writes the Terraform and the variables, then runs `init` and `plan` (read-only) and saves the plan. The owner reads the plan and runs `terraform apply <saved plan>` themselves, so exactly the reviewed changes are made. The same goes for `destroy` in stage E | |
+| Project state | **Proposed:** Terraform state goes in the Reframe state bucket, with S3 locking. Reframe's own ledger, event log and manifest stay in the local project folder for P1, so the run is tied to one machine. Runs across machines come with P2's run command | |
 | Data policy | Public source only. The Claude Code CLI backend is allowed by the policy, though this path makes no model call | |
+
+### New graph (stage C)
+
+Every resource is named from the project name, starts with `reframe-` and carries the tags `ManagedBy=reframe`, `ReframeProject` and `ReframeRun`.
+
+| Resource | Created by | Notes |
+| --- | --- | --- |
+| Reframe state bucket | Terraform, `bootstrap/` composition | Encrypted, versioned, private. Its own state stays on the owner's machine. Kept after P1 for later runs |
+| Source bucket and sandbox role | Terraform, `project/` composition | Encrypted, versioned, private; the role cannot read outside the bucket |
+| Neptune Serverless cluster, 1 instance, 1 to 8 NCUs | Terraform, `project/` with `reimagine = true` | Engine 1.4.5.1, IAM authentication, encryption |
+| Two security groups, the Neptune subnet group, the bulk-loader role | Terraform | In the default VPC's existing subnets, in two Availability Zones. Only the connector reaches Neptune |
+| S3 gateway endpoint | Terraform, only on route tables that lack one | The bulk loader needs it. It adds a route to the default VPC's route table, which stage B's plan shows. No charge |
+| Reimagine connector role | Terraform | The trust and permissions v1 recorded from the console (#206) |
+| Transform workspace, assessment connector, reimagine connector | Reframe, through the MCP server | With the arguments v1 used live. If AWS returns a verification link, the owner opens it and approves the connection in person |
+
+No VPC, subnet, route table, internet gateway or NAT is created. If the region has no default VPC, Reframe stops and asks.
 
 ### AWS operations
 
-Only these. Every other tool, including `create_connector`, `accept_connector`, any delete, any IAM, CloudFormation or Neptune change, is refused before anything is sent. Operation names come from the server's own listing, never a console label.
+Only these. Every other tool, including any delete or stop operation, and any IAM, EC2, CloudFormation or Neptune change outside the saved Terraform plan, is refused before anything is sent. Operation names come from the server's own listing, never a console label.
 
-| Operation | Kind | Limit | Rules |
-| --- | --- | --- | --- |
-| List the server's tools | Read | Once per stage | Calls no tool |
-| `list_resources`, `get_resource`, `load_instructions` | Read | Within the duration; at most one read every 60 seconds while polling | |
-| `get_job_status` | Read | Same | Always with `detailed: true`; without it the server writes into the job chat (v1, 17 November 2026) |
-| S3: write the source archive | Data-plane write | 1 | To a declared prefix in the stack's bucket, checksum recorded. Skipped if an object with the same checksum is already there |
-| `create_job` | Change | **1** | Stage C only, after the go-ahead. `orchestratorAgent` is the value AWS accepted in v1's job, read from v1's receipt, never guessed. Intent recorded before, receipt after |
-| `send_message` | Change | 15 | Only to answer a question the job asks, with text from the review-task rules below |
-| `complete_task` | Change | 15 | Only for a task the classifier (P0-11) recognizes, under the review-task rules below |
+| Operation | Kind | Stage | Limit | Rules |
+| --- | --- | --- | --- | --- |
+| List the server's tools | Read | A to D | Once per stage | Calls no tool |
+| `list_resources`, `get_resource`, `load_instructions` | Read | A to D | At most one read every 60 seconds while polling | |
+| `get_job_status` | Read | D | Same | Always with `detailed: true`. Without it, the server writes into the job chat (v1, 17 November 2026) |
+| AWS CLI describe, get and simulate calls | Read | B | As needed | The calls `reframe graph` and the resource checks make, and nothing else |
+| `terraform init` and `plan` | Read | B | As needed | The plan is saved for the owner |
+| `terraform apply <saved plan>` | Change | C | 2: `bootstrap/`, then `project/` | Run by the owner (proposed), exactly the reviewed plan. A plan that differs from the reviewed one is refused |
+| `create_workspace` | Change | C | 1 | Arguments as v1 used live |
+| `create_connector` | Change | C | 2 | One `mainframe_modernization\|s3\|2` and one `mainframe_modernization\|reimagine\|1`, with the configuration Terraform outputs. Intent recorded before, receipt after |
+| `accept_connector` | Change | C | 2 | With the role Terraform created for each |
+| S3: write the source archive | Data-plane write | D | 1 | To the declared prefix in the connector's bucket, with its checksum recorded. Skipped if an object with the same checksum is already there |
+| `create_job` | Change | D | **1** | After the go-ahead. `orchestratorAgent` is the value AWS accepted in v1's job, read from v1's receipt, never guessed. Intent recorded before, receipt after |
+| `send_message` | Change | D | 15 | Only to answer a question the job asks, with text from the review-task rules below |
+| `complete_task` | Change | D | 15 | Only for a task the classifier (P0-11) recognizes, under the review-task rules below |
+| `terraform destroy -target=module.neptune_graph` | Delete | E | 1 | Only after the owner confirms. It removes the graph and the connector role that depends on it. The buckets, the workspace and the connectors stay |
 
 ### Claude backend and models
 
-None. P1-05 stores AWS's requirements and traceability unchanged with status `NOT_CHECKED`; checking them is later work. A step that needs a model call is outside this envelope.
+None. P1-05 stores AWS's requirements and traceability unchanged, with status `NOT_CHECKED`; checking them is later work. A step that needs a model call is outside this envelope.
 
 ### Spend
+
+Estimates. Reframe labels them as estimates and says that AWS billing lags (NFR-03). Neptune prices are from v1's reading ($0.1608 per NCU-hour in us-east-1); check current pricing.
 
 | Item | Estimate | Limit |
 | --- | --- | --- |
 | Model calls | 0 | 0 |
 | AWS Transform | The owner stated on 16 November 2026 that this use has no charge. **To confirm again** | One job |
-| Neptune Serverless | Bills about $0.32 an hour at its minimum while the stack runs, job or not. A job can scale it towards about $10.29 an hour. Estimate, from v1's reading of the stack | One job; the duration limit below. Worst case, the top rate for all 8 hours: about $80 more than idle (estimate) |
-| S3 | One object of about 4 MB | One object |
-
-Reframe reports these as estimates, labelled, and says AWS billing lags (NFR-03).
+| Neptune, existing graph | No new resource. It keeps billing what it already does: v1's test stack runs about $0.32 an hour at idle, and v1 saw it scale towards about $10.29 an hour during a job | One job and the 8-hour limit. Worst case: about $80 more than idle |
+| Neptune, new graph | About $0.16 an hour at idle (1 instance at 1 NCU), up to about $1.29 an hour at its 8-NCU ceiling. An 8-hour job at the ceiling costs about $10.30. Removed right after the job, the whole run costs about $11. Left for the full 7 days, it costs about $36 | The 8-NCU ceiling, one instance, and stage E. Capped at 8 NCUs, the job may run slower than v1's did; that is not yet measured |
+| Neptune final snapshot | Storage for one snapshot of the graph, kept after stage E. Small; billed until the owner deletes it | One snapshot |
+| Network, buckets, roles, workspace, connectors | No charge, apart from S3 storage for a few MB | |
 
 ### Duration
 
 | Limit | Proposed |
 | --- | --- |
-| The envelope | 7 days from approval, or until the chosen function's requirements are retrieved, whichever comes first |
-| The job | 8 hours from `create_job`. At the limit Reframe stops polling and parks the project as `WAITING_HUMAN`. It does not stop the job: no stop operation is allowed here, so stopping is the owner's step in the AWS Transform console |
+| The envelope | 7 days from approval, or until the chosen function's requirements are retrieved and stage E is decided, whichever comes first |
+| The job | 8 hours from `create_job`. At the limit, Reframe stops polling and parks the project as `WAITING_HUMAN`. It does not stop the job: no stop operation is allowed here, so stopping it is the owner's step in the AWS Transform console |
+| Stage E | **Proposed:** offered as soon as the requirements are retrieved, or when the job limit is reached. Until the owner confirms it, the new graph keeps billing at idle |
 | Sign-in | When the SSO sign-in expires, work parks as `WAITING_EXTERNAL` until the owner signs in again; nothing retries in the meantime |
 
 ### Uncertain dispatch
 
-- Never re-dispatched automatically.
-- An operation is settled only from AWS's own state (a read-only listing or `get_resource`), a durable receipt, or a read-only CloudTrail lookup. A timeout, killed process, missing file or empty reply never proves a call did not happen.
-- Otherwise it stays `UNCERTAIN` until the owner records the outcome or authorizes one more counted attempt.
-- While `create_job` is uncertain, no second job is created (FR-14).
+- An operation is never re-dispatched automatically.
+- An operation is settled only from:
+  - AWS's own state (a read-only listing, `get_resource`, or Terraform state read with `terraform show`);
+  - a durable receipt;
+  - a read-only CloudTrail lookup.
+- A timeout, killed process, missing file or empty reply never proves a call did not happen.
+- Otherwise the operation stays `UNCERTAIN` until the owner records the outcome or authorizes one more counted attempt.
+- While `create_job`, `create_workspace` or `create_connector` is uncertain, no second one is created (FR-14).
+- An interrupted `terraform apply` is resumed only from the state it left, after a new plan the owner reviews.
 
 ### Cleanup
 
-Delete nothing: no resource, job, object, receipt or record. The job and the source copy stay. The Neptune stack keeps billing until the owner stops or deletes it; that is the owner's decision, made separately after P1. So is the old IAM role `reframe-reimagine-mainframe-modernization-test` that v1 left in place.
+Outside stage E, nothing is deleted: no resource, job, object, receipt or record. Stage E deletes only the graph Terraform created in stage C, and only after the owner confirms it.
+
+These stay after P1:
+- the state bucket, the source bucket and the sandbox role;
+- the Transform workspace, both connectors, the job and the source copy;
+- the final snapshot.
+
+Removing any of them is the owner's decision, made separately. So is removing v1's test stack and the old IAM role `reframe-reimagine-mainframe-modernization-test`, which v1 left in place. If the owner did not choose v1's stack at stage B, it keeps billing until the owner removes it. Reframe never touches it.
 
 ### Gates and AWS review tasks
 
@@ -82,9 +133,12 @@ Every decision on the live path is genuine. No simulated actor answers anything 
 
 | Decision | Who |
 | --- | --- |
-| Approve this envelope; the go-ahead for stage C | The owner, in person |
+| Approve this envelope; the go-aheads for stages C and D; the confirmation for stage E | The owner, in person |
+| The graph choice at stage B, by name, or a new graph | The owner, in person |
+| Reviewing each saved Terraform plan before it is applied | The owner, in person |
+| The connector verification link, if AWS returns one | The owner, in person, in the AWS console |
 | The job's plan ("Assess and reimagine" in v1), the objective confirmation, "Proceed with this plan", the function catalog and the function selection, the reimagine confirmations | The owner, in person, each time (class `APPROVE_ONLY`) |
-| Source location, collaborators, output language | Answered from this envelope (class `ANSWER_FROM_INTAKE`): the declared source copy, no collaborators, English only. **Proposed** values; the owner may change them |
+| Source location, collaborators, output language | Answered from this envelope (class `ANSWER_FROM_INTAKE`): the declared source copy, no collaborators, English only. These are **Proposed** values; the owner may change them |
 | Display-only forms | Shown and recorded; nothing to answer (`DISPLAY_ONLY`) |
 | Anything the classifier does not recognize, or that needs a value this envelope does not give | Parked for the owner (`PARK`); never guessed |
 
@@ -95,7 +149,9 @@ v1's standing delegation does not carry over (FR-20: v1 approvals are re-decided
 Reframe stops, keeps everything it has, and asks the owner when:
 
 - discovery shows a needed operation missing, or a tool schema hash differs from stage A's record;
-- a resource check fails or a resource differs from what this envelope names;
+- a resource check fails, or a resource differs from what this envelope names;
+- the region has no default VPC, or its default subnets do not span two Availability Zones;
+- a Terraform plan would create, change or delete anything outside the "New graph" table, or would change an existing resource other than adding the S3 endpoint's route;
 - a step needs an operation, resource, value or model call this envelope does not list;
 - a limit (calls, duration, spend) is reached;
 - an operation is `UNCERTAIN`;
@@ -103,24 +159,31 @@ Reframe stops, keeps everything it has, and asks the owner when:
 
 ### Evidence
 
-Live evidence stays in the local project folder. GitHub gets public-safe records only: counts, statuses, content hashes and the capability record without identifiers. No job id, account id, ARN, bucket name or profile name.
+Live evidence stays in the local project folder, and so do the Terraform variables and plans, which name the account. GitHub gets public-safe records only: counts, statuses, content hashes, and the capability record without identifiers. No job id, account id, ARN, resource id, bucket name or profile name goes there.
 
 ## What v1 already proved live
 
 From [#197](https://github.com/sknampally/reframe/issues/197), [#206](https://github.com/sknampally/reframe/issues/206) and [#173](https://github.com/sknampally/reframe/issues/173), 16 and 17 November 2026:
 
 - All seven adapter operations were verified against the live server.
-- A reimagine connector can be created from the CLI. A workspace holds only one reimagine connector. The project-named connector is active.
-- One "Assess and reimagine" job ran to completion. AWS found 15 business functions in 4 domains, and the owner selected one in the job chat, because AWS's form gives no selection schema. Requirements and traceability were retrieved.
+- A workspace and connectors can be created from the CLI. A workspace holds only one reimagine connector.
+- One "Assess and reimagine" job ran to completion. AWS found 15 business functions in 4 domains. The owner selected one in the job chat, because AWS's form gives no selection schema. Requirements and traceability were retrieved.
 - Two rules the server's schemas do not state are now checked in v2 before dispatch: a status read needs `detailed: true`, and `create_job` needs `orchestratorAgent` ([port-or-drop.md](../port-or-drop.md)).
+
+**Not yet proven live:**
+- the graph listing and checks;
+- a graph in the default VPC rather than AWS's own network template;
+- whether the bootstrap policy covers every call Terraform makes. The owner's SSO role is used here, not the bootstrap policy.
 
 ## Owner decisions needed
 
 1. Source: CardDemo at `59cc6c2`, or another repository and commit.
 2. Function: chosen at the catalog in person, and whether to prefer the smallest online function.
-3. Resources (#233): client-owned through a resources file, or another option.
-4. Project state kept locally for P1, with the state bucket left to P2.
-5. The limits: operations, 8-hour job, 7-day envelope, and the Neptune estimate.
-6. The three intake answers.
-7. Confirm again that AWS Transform has no charge for this use.
-8. Whether anyone other than the owner may answer the in-person decisions; if so, name them.
+3. The graph: chosen at stage B by name, or a new graph. Nothing is needed now.
+4. Who runs `terraform apply` and `destroy`: the owner (proposed), or Reframe after the owner has reviewed the plan.
+5. Stage E timing: as soon as the requirements are retrieved (proposed), or later.
+6. Terraform state in a new Reframe state bucket, with Reframe's own state kept locally for P1.
+7. The limits: operations, the 8-hour job, the 7-day envelope, the 8-NCU ceiling and the spend estimates.
+8. The three intake answers.
+9. Confirm again that AWS Transform has no charge for this use.
+10. Whether anyone other than the owner may make the in-person decisions; if so, name them.
