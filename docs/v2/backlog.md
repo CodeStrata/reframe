@@ -38,8 +38,8 @@ P2 to P5 hold features; each phase's features become stories when that phase sta
 | P1-03 | [#232](https://github.com/sknampally/reframe/issues/232) | AWS Transform adapter: read-only capability discovery |  |
 | P1-04 | [#233](https://github.com/sknampally/reframe/issues/233) | Resources for the live path | yes |
 | P1-05 | [#234](https://github.com/sknampally/reframe/issues/234) | Live path: function selection to requirements retrieval | yes |
-| P1-06 | [#235](https://github.com/sknampally/reframe/issues/235) | Bill Payment canonical design and design site, both goals |  |
-| P1-07 | [#236](https://github.com/sknampally/reframe/issues/236) | Expert semantic fixtures for the Bill Payment journey | yes |
+| P1-06 | [#235](https://github.com/sknampally/reframe/issues/235) | Design site renderer for any canonical design, both goals, on three different samples |  |
+| P1-07 | [#236](https://github.com/sknampally/reframe/issues/236) | Expert semantic fixtures for one sample journey | yes |
 | P1-08 | [#237](https://github.com/sknampally/reframe/issues/237) | SME and architect review of the design format | yes |
 
 The 20 v1 issues open on 18 November 2026 were closed as not planned, each with a comment naming the v2 story that replaces it.
