@@ -4,13 +4,13 @@ The v2 epic and stories live in GitHub; this file is the index. Each story names
 
 Epic: [#209 Reframe v2](https://github.com/sknampally/reframe/issues/209). Board: project "Reframe Backlog", label `v2`.
 
-P2 to P5 hold features; each phase's features become stories when that phase starts.
+P3 to P5 hold features; each phase's features become stories when that phase starts. P2's offline stories were created on 19 November 2026; its other features become stories as P1's outcome allows.
 
 | Phase | Epic | Stories |
 | --- | --- | --- |
 | P0 Contracts | [#210](https://github.com/sknampally/reframe/issues/210) | [#216](https://github.com/sknampally/reframe/issues/216) P0-01; [#217](https://github.com/sknampally/reframe/issues/217) P0-02; [#218](https://github.com/sknampally/reframe/issues/218) P0-03; [#219](https://github.com/sknampally/reframe/issues/219) P0-04; [#220](https://github.com/sknampally/reframe/issues/220) P0-05; [#221](https://github.com/sknampally/reframe/issues/221) P0-06; [#222](https://github.com/sknampally/reframe/issues/222) P0-07; [#223](https://github.com/sknampally/reframe/issues/223) P0-08; [#224](https://github.com/sknampally/reframe/issues/224) P0-09; [#225](https://github.com/sknampally/reframe/issues/225) P0-10; [#226](https://github.com/sknampally/reframe/issues/226) P0-11; [#227](https://github.com/sknampally/reframe/issues/227) P0-12; [#228](https://github.com/sknampally/reframe/issues/228) P0-13; [#229](https://github.com/sknampally/reframe/issues/229) P0-14 |
 | P1 Prototype and external proof | [#211](https://github.com/sknampally/reframe/issues/211) | [#230](https://github.com/sknampally/reframe/issues/230) P1-01; [#231](https://github.com/sknampally/reframe/issues/231) P1-02; [#232](https://github.com/sknampally/reframe/issues/232) P1-03; [#233](https://github.com/sknampally/reframe/issues/233) P1-04; [#234](https://github.com/sknampally/reframe/issues/234) P1-05; [#235](https://github.com/sknampally/reframe/issues/235) P1-06; [#236](https://github.com/sknampally/reframe/issues/236) P1-07; [#237](https://github.com/sknampally/reframe/issues/237) P1-08 |
-| P2 One domain | [#212](https://github.com/sknampally/reframe/issues/212) | Features listed in the epic |
+| P2 One domain | [#212](https://github.com/sknampally/reframe/issues/212) | [#243](https://github.com/sknampally/reframe/issues/243) P2-01; [#244](https://github.com/sknampally/reframe/issues/244) P2-02; [#245](https://github.com/sknampally/reframe/issues/245) P2-03; [#246](https://github.com/sknampally/reframe/issues/246) P2-04; other features listed in the epic |
 | P3 Change and recovery | [#213](https://github.com/sknampally/reframe/issues/213) | Features listed in the epic |
 | P4 Whole CardDemo | [#214](https://github.com/sknampally/reframe/issues/214) | Features listed in the epic |
 | P5 Scale | [#215](https://github.com/sknampally/reframe/issues/215) | Features listed in the epic |
@@ -41,5 +41,9 @@ P2 to P5 hold features; each phase's features become stories when that phase sta
 | P1-06 | [#235](https://github.com/sknampally/reframe/issues/235) | Design site renderer for any canonical design, both goals, on three different samples |  |
 | P1-07 | [#236](https://github.com/sknampally/reframe/issues/236) | Expert semantic fixtures for one sample journey | yes |
 | P1-08 | [#237](https://github.com/sknampally/reframe/issues/237) | SME and architect review of the design format | yes |
+| P2-01 | [#243](https://github.com/sknampally/reframe/issues/243) | State store in the Reframe state bucket |  |
+| P2-02 | [#244](https://github.com/sknampally/reframe/issues/244) | Run on client-owned resources (resources file) |  |
+| P2-03 | [#245](https://github.com/sknampally/reframe/issues/245) | Gate feedback through GitHub issues and local files |  |
+| P2-04 | [#246](https://github.com/sknampally/reframe/issues/246) | Terraform provisioning and bootstrap |  |
 
 The 20 v1 issues open on 18 November 2026 were closed as not planned, each with a comment naming the v2 story that replaces it.
