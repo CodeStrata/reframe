@@ -15,8 +15,12 @@ claude-cli runs Claude Code headless under the engineer's plan, isolated:
   billed API access or another provider are refused, and the child
   process gets a scrubbed environment.
 --bare is not used: it reads only ANTHROPIC_API_KEY, never the plan's
-sign-in. P0-09's owner-authorized run must confirm this flag set is both
-isolated and signed in with the plan before the backend is accepted.
+sign-in. Every call runs with stream-json output and checks the CLI's own
+init event, failing closed unless the API-key source is none (the plan
+sign-in), the tools are only those requested, no MCP server loaded, and
+every plugin is a built-in on the list pinned for the CLI version. The
+owner-authorized P0-09 run on 2.1.327 (docs/v2/evidence/p0-09-cli-isolation.md)
+recorded that list.
 
 bedrock calls Claude in the customer's account through an injected client;
 spend is computed from Bedrock's reported token usage and a price table the
@@ -73,6 +77,10 @@ class AuthModeRefused(ProviderError):
     """The environment would switch the CLI to billed API access or another provider. Nothing was run."""
 
 
+class IsolationBreach(ProviderError):
+    """The CLI's init event shows something loaded that isolation forbids. The output is discarded; the call is counted."""
+
+
 @dataclass(frozen=True)
 class ModelRequest:
     operation: str
@@ -99,6 +107,8 @@ class ModelResult:
     backend: str
     model: str
     processing_region: str | None
+    isolation: dict[str, Any] | None = None
+    """For claude-cli: what the init event showed loaded (API-key source, tools, MCP servers, plugins)."""
 
 
 class Provider(Protocol):
@@ -130,6 +140,14 @@ BILLING_SWITCHES = (
 
 PASSED_ENVIRONMENT = ("HOME", "PATH", "LANG", "LC_ALL", "TMPDIR", "USER", "LOGNAME", "TERM")
 """The only variables the child process receives."""
+
+BUILTIN_PLUGINS: dict[str, frozenset[str]] = {
+    "2.1.327": frozenset({"cc-plugin-agents-md", "cc-plugin-telemetry", "cc-plugin-privacy",
+                          "cc-plugin-plugin-authoring", "cc-plugin-easel"}),
+}
+"""Built-in plugins each pinned CLI version loads even with no setting sources, as recorded by an owner-authorized run."""
+
+STRUCTURED_OUTPUT_TOOL = "StructuredOutput"
 
 SIGN_IN_MARKERS = ("please run /login", "invalid api key", "oauth token has expired", "not logged in")
 LIMIT_MARKERS = ("usage limit", "limit reached")
@@ -170,7 +188,7 @@ class ClaudeCli:
     def argv(self, request: ModelRequest) -> list[str]:
         return [
             self.cli_path, "-p",
-            "--output-format", "json",
+            "--output-format", "stream-json", "--verbose",
             "--model", request.model,
             "--system-prompt", request.system,
             "--json-schema", json.dumps(request.output_schema, sort_keys=True),
@@ -196,7 +214,9 @@ class ClaudeCli:
                 raise ProcessKilled(f"{request.operation}: the CLI did not return within {self.timeout}s and was stopped") from None
         if done.returncode < 0:
             raise ProcessKilled(f"{request.operation}: the CLI process was killed (signal {-done.returncode})")
-        payload = _json_or_none(done.stdout)
+        events = [event for event in (_json_or_none(line) for line in done.stdout.splitlines()) if isinstance(event, dict)]
+        init = next((e for e in events if e.get("type") == "system" and e.get("subtype") == "init"), None)
+        payload = next((e for e in events if e.get("type") == "result"), None)
         text = " ".join(str(part) for part in (done.stderr, (payload or {}).get("result", ""))).casefold()
         if done.returncode != 0 or (payload or {}).get("is_error"):
             if any(marker in text for marker in SIGN_IN_MARKERS):
@@ -205,13 +225,41 @@ class ClaudeCli:
                 raise PlanLimit(f"{request.operation}: the Claude plan usage limit was reached", self.parse_reset(text))
             raise ProviderError(f"{request.operation}: the CLI failed (exit {done.returncode})")
         if payload is None:
-            raise MalformedOutput(f"{request.operation}: the CLI returned no JSON")
+            raise MalformedOutput(f"{request.operation}: the CLI returned no result event")
+        isolation = self.check_isolation(request, init)
         output = payload.get("structured_output")
         if output is None:
             output = _json_or_none(str(payload.get("result", "")))
         usage = payload.get("usage") or {}
         result_usage = Usage(int(usage.get("input_tokens", 0)), int(usage.get("output_tokens", 0)), None)
-        return ModelResult(validate_output(request.output_schema, output), result_usage, self.backend, request.model, None)
+        return ModelResult(validate_output(request.output_schema, output), result_usage, self.backend, request.model, None, isolation)
+
+    def check_isolation(self, request: ModelRequest, init: dict[str, Any] | None) -> dict[str, Any]:
+        """Fail closed unless the CLI's own init event shows plan sign-in and nothing loaded beyond what isolation allows."""
+        if init is None:
+            raise IsolationBreach(f"{request.operation}: the CLI reported no init event, so isolation cannot be shown")
+        problems = []
+        if init.get("apiKeySource") != "none":
+            problems.append(f"API-key source is {init.get('apiKeySource')!r}, not the plan sign-in")
+        allowed_tools = set(request.tools) | {STRUCTURED_OUTPUT_TOOL}
+        extra_tools = sorted(set(init.get("tools") or []) - allowed_tools)
+        if extra_tools:
+            problems.append("tools loaded beyond the request: " + ", ".join(extra_tools))
+        if init.get("mcp_servers"):
+            problems.append("MCP servers loaded: " + ", ".join(str(m.get("name", m)) if isinstance(m, dict) else str(m) for m in init["mcp_servers"]))
+        pinned = BUILTIN_PLUGINS.get(self.version_pin)
+        plugins = init.get("plugins") or []
+        if pinned is None and plugins:
+            problems.append(f"no built-in plugin list is pinned for CLI {self.version_pin}")
+        for plugin in plugins:
+            name = plugin.get("name") if isinstance(plugin, dict) else str(plugin)
+            path = plugin.get("path") if isinstance(plugin, dict) else None
+            if path != "builtin" or (pinned is not None and name not in pinned):
+                problems.append(f"plugin {name} ({path}) is not a pinned built-in")
+        if problems:
+            raise IsolationBreach(f"{request.operation}: " + "; ".join(problems) + ". The output is discarded.")
+        return {"apiKeySource": init.get("apiKeySource"), "tools": sorted(init.get("tools") or []),
+                "mcp_servers": [], "plugins": sorted(p.get("name") for p in plugins if isinstance(p, dict))}
 
 
 # --- Amazon Bedrock -------------------------------------------------------------

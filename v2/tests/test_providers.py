@@ -17,6 +17,7 @@ from pathlib import Path
 
 from reframe_v2.providers import (
     AuthModeRefused,
+    IsolationBreach,
     Bedrock,
     BedrockError,
     ClaudeCli,
@@ -42,7 +43,7 @@ ENV = {"HOME": "/home/sample", "PATH": "/usr/bin", "SECRET_TOKEN": "x", "LANG": 
 class FakeRunner:
     """Synthetic CLI responses (labelled fixtures, not recorded from a real account)."""
 
-    def __init__(self, completed=None, raises=None, version="9.9.9"):
+    def __init__(self, completed=None, raises=None, version="2.1.327"):
         self.completed, self.raises, self.version, self.calls = completed, raises, version, []
 
     def __call__(self, argv, stdin, env, cwd, timeout):
@@ -54,15 +55,20 @@ class FakeRunner:
         return self.completed
 
 
-def cli_result(output=GOOD, is_error=False, result="", returncode=0, stderr=""):
+BUILTINS = [{"name": n, "path": "builtin"} for n in ("cc-plugin-agents-md", "cc-plugin-telemetry", "cc-plugin-privacy")]
+INIT = {"type": "system", "subtype": "init", "apiKeySource": "none", "tools": ["StructuredOutput"], "mcp_servers": [], "plugins": BUILTINS}
+
+
+def cli_result(output=GOOD, is_error=False, result="", returncode=0, stderr="", init=INIT):
     payload = {"type": "result", "is_error": is_error, "result": result, "usage": {"input_tokens": 120, "output_tokens": 30}}
     if output is not None:
         payload["structured_output"] = output
-    return Completed(returncode, json.dumps(payload), stderr)
+    lines = ([json.dumps(init)] if init is not None else []) + [json.dumps(payload)]
+    return Completed(returncode, "\n".join(lines), stderr)
 
 
 def cli(runner, environ=ENV):
-    return ClaudeCli("/usr/local/bin/claude", "9.9.9", runner, environ=environ,
+    return ClaudeCli("/usr/local/bin/claude", "2.1.327", runner, environ=environ,
                      parse_reset=lambda text: datetime(2026, 11, 18, 15, tzinfo=timezone.utc) if "resets" in text else None)
 
 
@@ -138,7 +144,7 @@ class ClaudeCliContractTests(SharedContract, unittest.TestCase):
             cli(FakeRunner(raises=subprocess.TimeoutExpired("claude", 900))).invoke(REQUEST)
 
     def test_an_unpinned_version_is_refused_before_any_call(self):
-        runner = FakeRunner(cli_result(), version="9.9.8")
+        runner = FakeRunner(cli_result(), version="2.1.326")
         with self.assertRaises(ProviderError):
             cli(runner).invoke(REQUEST)
         self.assertEqual(len(runner.calls), 1)
@@ -190,6 +196,32 @@ class ClaudeCliContractTests(SharedContract, unittest.TestCase):
                 self.assertNotEqual(Path(call["cwd"]).resolve(), Path(repo).resolve())
                 self.assertFalse(Path(call["cwd"]).resolve().is_relative_to(Path(repo).resolve()))
                 self.assertNotIn(repo, " ".join(call["argv"]))
+
+    def test_the_init_event_must_show_plan_sign_in(self):
+        with self.assertRaises(IsolationBreach):
+            cli(FakeRunner(cli_result(init=dict(INIT, apiKeySource="ANTHROPIC_API_KEY")))).invoke(REQUEST)
+
+    def test_extra_tools_mcp_servers_or_plugins_fail_closed(self):
+        for init in (dict(INIT, tools=["StructuredOutput", "Bash"]),
+                     dict(INIT, mcp_servers=[{"name": "hostile", "status": "connected"}]),
+                     dict(INIT, plugins=BUILTINS + [{"name": "cc-plugin-telemetry", "path": "/repo/.claude/plugins/x"}]),
+                     dict(INIT, plugins=BUILTINS + [{"name": "unknown-builtin", "path": "builtin"}])):
+            with self.subTest(init=init), self.assertRaises(IsolationBreach):
+                cli(FakeRunner(cli_result(init=init))).invoke(REQUEST)
+
+    def test_a_missing_init_event_fails_closed(self):
+        with self.assertRaises(IsolationBreach):
+            cli(FakeRunner(cli_result(init=None))).invoke(REQUEST)
+
+    def test_a_version_without_a_pinned_builtin_list_fails_closed(self):
+        provider = ClaudeCli("/usr/local/bin/claude", "9.9.9", FakeRunner(cli_result(), version="9.9.9"), environ=ENV)
+        with self.assertRaises(IsolationBreach):
+            provider.invoke(REQUEST)
+
+    def test_isolation_is_recorded_with_the_result(self):
+        result = cli(FakeRunner(cli_result())).invoke(REQUEST)
+        self.assertEqual(result.isolation["apiKeySource"], "none")
+        self.assertEqual(result.isolation["mcp_servers"], [])
 
     def test_each_call_runs_in_a_fresh_empty_directory(self):
         runner = FakeRunner(cli_result())
