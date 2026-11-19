@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reframe:v2:schema:operations_ledger:1",
+  "title": "Operations ledger entry",
+  "description": "Section 6, section 4 and NFR-06: intent, budget reservation, dispatch, receipt, validation, commit, uncertain state, reconciliation and spend for one operation. P0-05 adds the transition rules.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "urn:reframe:v2:schema:common:1#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "schema": {
+      "const": "operations_ledger/1"
+    },
+    "record_type": {
+      "const": "operations_ledger"
+    },
+    "body": {
+      "$ref": "#/$defs/body"
+    }
+  },
+  "$defs": {
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "aws_call",
+            "model_call"
+          ]
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "INTENT",
+            "RESERVED",
+            "DISPATCHED",
+            "RECEIPTED",
+            "VALIDATED",
+            "COMMITTED",
+            "FAILED",
+            "UNCERTAIN",
+            "RECONCILED"
+          ]
+        },
+        "reservation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "usd": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]{1,6})?$",
+                  "description": "US dollars as a decimal string, so hashes never depend on float formatting."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "calls": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tokens": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "calls",
+            "tokens",
+            "usd"
+          ]
+        },
+        "spend": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "measured_usd": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]{1,6})?$",
+                  "description": "US dollars as a decimal string, so hashes never depend on float formatting."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "estimated_usd": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]{1,6})?$",
+                  "description": "US dollars as a decimal string, so hashes never depend on float formatting."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "calls": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tokens": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unknown": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "calls",
+            "estimated_usd",
+            "measured_usd",
+            "tokens",
+            "unknown"
+          ]
+        },
+        "receipt": {
+          "anyOf": [
+            {
+              "$ref": "urn:reframe:v2:schema:common:1#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reconciliation": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "happened",
+                    "not_happened",
+                    "retry_authorized"
+                  ]
+                },
+                "by": {
+                  "$ref": "urn:reframe:v2:schema:common:1#/$defs/person"
+                },
+                "evidence": {
+                  "anyOf": [
+                    {
+                      "$ref": "urn:reframe:v2:schema:common:1#/$defs/sha256"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "by",
+                "evidence",
+                "outcome"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "$ref": "urn:reframe:v2:schema:common:1#/$defs/utc_time"
+        }
+      },
+      "required": [
+        "idempotency_key",
+        "intent",
+        "kind",
+        "operation",
+        "receipt",
+        "reconciliation",
+        "reservation",
+        "spend",
+        "state",
+        "updated_at"
+      ]
+    }
+  }
+}
