@@ -135,6 +135,7 @@ jobs:
                             'reframe_v2/model/store.py', 'reframe_v2/terraform/README.md', 'reframe_v2/terraform/bootstrap/main.tf',
                             'reframe_v2/terraform/project/main.tf', 'reframe_v2/terraform/modules/repo/main.tf',
                             'reframe_v2/terraform/modules/state_bucket/main.tf', 'reframe_v2/terraform/modules/bedrock_invoke/main.tf',
+                            'reframe_v2/terraform/modules/neptune_graph/main.tf', 'reframe_v2/terraform/modules/reimagine_role/main.tf',
                             ] + [f'reframe_v2/schemas/{name}.schema.json' for name in schemas]
           for required in required_files:
               if required not in names:

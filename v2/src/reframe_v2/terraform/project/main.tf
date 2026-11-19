@@ -54,6 +54,23 @@ variable "bedrock_model_arns" {
   default     = []
 }
 
+variable "reimagine" {
+  description = "Create the Neptune knowledge graph and the reimagine connector role. Nothing is assumed to exist already."
+  type        = bool
+  default     = false
+}
+
+variable "neptune_max_capacity" {
+  description = "Maximum NCUs per Neptune instance: the ceiling on graph spend while a job runs."
+  type        = number
+  default     = 8
+}
+
+variable "neptune_instance_count" {
+  type    = number
+  default = 1
+}
+
 provider "aws" {
   region = var.region
   default_tags {
@@ -76,6 +93,32 @@ module "bedrock_invoke" {
   count       = length(var.bedrock_model_arns) > 0 ? 1 : 0
   policy_name = "reframe-${var.project}-bedrock-invoke"
   model_arns  = var.bedrock_model_arns
+}
+
+module "neptune_graph" {
+  source         = "../modules/neptune_graph"
+  count          = var.reimagine ? 1 : 0
+  name           = "reframe-${var.project}-kg"
+  bucket_name    = module.repo.bucket
+  max_capacity   = var.neptune_max_capacity
+  instance_count = var.neptune_instance_count
+}
+
+module "reimagine_role" {
+  source              = "../modules/reimagine_role"
+  count               = var.reimagine ? 1 : 0
+  role_name           = "reframe-${var.project}-rmg"
+  bucket_name         = module.repo.bucket
+  cluster_arn         = module.neptune_graph[0].cluster_arn
+  cluster_resource_id = module.neptune_graph[0].cluster_resource_id
+}
+
+output "reimagine_connector" {
+  description = "What the Transform adapter creates the reimagine connector from; null without --reimagine."
+  value = var.reimagine ? {
+    configuration = module.neptune_graph[0].connector_configuration
+    role_arn      = module.reimagine_role[0].role_arn
+  } : null
 }
 
 output "bucket" {
