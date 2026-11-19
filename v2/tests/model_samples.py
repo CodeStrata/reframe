@@ -85,7 +85,7 @@ SAMPLES = {
                 "name": "Pay",
                 "replaces_maps": ["SAMPLEM"],
                 "fields": [{"id": "field:amount", "label": "Amount", "type": "decimal", "length": 9, "validation": [], "rules": ["rule:BP-1"]}],
-                "actions": [{"id": "action:submit", "label": "Submit", "interaction": None, "navigates_to": None}],
+                "actions": [{"id": "action:submit", "label": "Submit", "key": "ENTER", "interaction": None, "navigates_to": None}],
                 "rules_applied": ["rule:BP-1"],
             }
         ],
