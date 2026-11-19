@@ -33,7 +33,7 @@ class PublishedSchemaTests(unittest.TestCase):
                 "canonical_design", "findings_assumptions", "operations_ledger", "artifact_graph", "readiness",
             },
         )
-        self.assertEqual(set(catalog()), set(RECORD_TYPES) | {"common"})
+        self.assertEqual(set(catalog()), set(RECORD_TYPES) | {"common", "package_manifest", "provenance"})
 
     def test_schemas_are_versioned_and_valid(self):
         for name, schema_id in catalog().items():
