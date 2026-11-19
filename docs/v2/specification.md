@@ -149,7 +149,7 @@ An exception parks only the work that depends on it. Reframe records why, notifi
 | Client resource unsuitable | Steps that need that resource, before any job using it starts | The client fixes the resource or the resources file |
 | Destructive confirmation (clean start, teardown) | The deletion, and for a clean start the steps that need the recreated resource; nothing is deleted meanwhile | A person confirms the listed items and cost; only manifest-owned resources can be listed (section 8) |
 
-The project is `RUNNING` while any runnable work remains. When none remains it is `WAITING_HUMAN` (a decision, review task, allowance, confirmation or uncertain operation needs a person) or `WAITING_EXTERNAL` (sign-in, permission, a client resource or a plan limit), and `reframe status` lists each parked item and what it waits on. A live worker is not progress: a parked step is never shown as running.
+The project is `RUNNING` while any runnable work remains, and `COMPLETE` when every step is done and nothing is parked (gates may still be open beside it). Otherwise it is `WAITING_HUMAN` (a decision, review task, allowance, confirmation or uncertain operation needs a person) or `WAITING_EXTERNAL` (sign-in, permission, a client resource or a plan limit), and `reframe status` lists each parked item and what it waits on. A live worker is not progress: a parked step is never shown as running.
 
 ### AWS review tasks
 
@@ -233,7 +233,7 @@ Findings come from verification, review, merge conflicts and unsupported constru
 Readiness per unit, highest precedence first:
 
 1. **BLOCKED:** a contradiction, failed check, conflicting definition, integrity failure or stale dependency it relies on.
-2. **NEEDS\_INPUT:** an open decision, a timed-out gate it depends on, missing or unsupported source, a coverage gap, an interaction or data-contract gap, a placeholder test, or an assumption with high impact whatever its confidence.
+2. **NEEDS\_INPUT:** an open decision, a timed-out or unaccepted gate it depends on, a claim not yet checked, missing or unsupported source, a coverage gap, an interaction or data-contract gap, a placeholder test, or an assumption with high impact whatever its confidence.
 3. **READY\_WITH\_ACCEPTED\_RISKS:** only findings a named person accepted as risks.
 4. **READY:** no blockers.
 

@@ -51,3 +51,17 @@ def validate(record_json: dict[str, Any]) -> None:
     if errors:
         lines = [f"{'/'.join(map(str, error.absolute_path)) or '(record)'}: {error.message}" for error in errors]
         raise SchemaError(f"{record_type} record does not match its schema:\n" + "\n".join(lines))
+
+
+DOCUMENT_SCHEMAS = ("package_manifest", "provenance")
+
+
+def validate_document(name: str, document: dict[str, Any]) -> None:
+    """Validate a package document (reframe/manifest.json, reframe/provenance.json) against its published schema."""
+    if name not in DOCUMENT_SCHEMAS:
+        raise SchemaError(f"{name!r} is not a package document schema")
+    validator = Draft202012Validator(schema_for(name), registry=_registry())
+    errors = sorted(validator.iter_errors(document), key=lambda error: list(error.absolute_path))
+    if errors:
+        lines = [f"{'/'.join(map(str, error.absolute_path)) or '(document)'}: {error.message}" for error in errors]
+        raise SchemaError(f"{name} does not match its schema:\n" + "\n".join(lines))

@@ -7,6 +7,8 @@ This folder is the reference for Reframe v2. Every design and build decision is 
 | [specification.md](specification.md) | What v2 does: scope, workflow, requirements, data model, AWS resources, package, security, commands, acceptance, phases and owner decisions |
 | [plan.md](plan.md) | Why v2 exists, what changes from v1, phases, success measures, risks, remaining owner decisions and next steps |
 | [backlog.md](backlog.md) | Index of the v2 epic and stories in GitHub |
+| [evidence/](evidence/) | Records of owner-authorized proofs, such as [P0-09 CLI isolation](evidence/p0-09-cli-isolation.md) |
+| [port-or-drop.md](port-or-drop.md) | Which v1 modules v2 ports, rewrites or drops, and the v1 regressions carried forward |
 
 ## Change process
 

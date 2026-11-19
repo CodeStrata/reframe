@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reframe:v2:schema:package_manifest:1",
+  "title": "Package manifest",
+  "description": "Section 9: reframe/manifest.json lists every path in the package with its hash, canonical source reference and adapter version; the package is validated against it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "aidlc_release",
+    "harnesses",
+    "adapter_version",
+    "versions",
+    "files"
+  ],
+  "properties": {
+    "schema": {
+      "const": "package_manifest/1"
+    },
+    "aidlc_release": {
+      "const": "v2.11.4"
+    },
+    "harnesses": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "claude",
+          "kiro"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "adapter_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "versions": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:reframe:v2:schema:common:1#/$defs/ref"
+      },
+      "description": "Every canonical version the package contains; it cannot mix versions."
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256",
+          "size",
+          "canonical_source"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*\\.\\.)(?!codekb/)[^\\\\]+$"
+          },
+          "sha256": {
+            "$ref": "urn:reframe:v2:schema:common:1#/$defs/sha256"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "canonical_source": {
+            "anyOf": [
+              {
+                "$ref": "urn:reframe:v2:schema:common:1#/$defs/ref"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The canonical record this file is rendered from; null for fixed adapter files."
+          }
+        }
+      }
+    }
+  }
+}
