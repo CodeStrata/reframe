@@ -162,11 +162,24 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "key": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The key that triggers the action, such as ENTER or PF3 under preserve; null when the action has no key."
                     }
                   },
                   "required": [
                     "id",
                     "interaction",
+                    "key",
                     "label",
                     "navigates_to"
                   ]
@@ -210,12 +223,49 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "OpenAPI document reference for http interactions; null for structured descriptions of events, messages, batch and file exchanges."
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "summary": {
+                "type": "string",
+                "minLength": 1,
+                "description": "What the exchange does, in business terms."
+              },
+              "inputs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "Records, files, queues or calls it reads."
+              },
+              "outputs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "Records, files, queues or calls it writes."
+              },
+              "rules_applied": {
+                "type": "array",
+                "items": {
+                  "$ref": "urn:reframe:v2:schema:common:1#/$defs/id"
+                }
               }
             },
             "required": [
               "contract",
               "id",
+              "inputs",
+              "name",
+              "outputs",
+              "rules_applied",
+              "summary",
               "type"
             ]
           }
