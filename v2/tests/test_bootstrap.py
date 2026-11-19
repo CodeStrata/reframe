@@ -30,20 +30,40 @@ def text(*parts):
 
 
 class PolicyTests(unittest.TestCase):
-    def test_every_change_is_scoped_to_reframe_names(self):
+    def test_every_change_is_scoped_to_reframe_names_or_the_reframe_tag(self):
+        tagged = ({"StringEquals": {"aws:RequestTag/ManagedBy": "reframe"}}, {"StringEquals": {"aws:ResourceTag/ManagedBy": "reframe"}})
         for statement in bootstrap_policy()["Statement"]:
             actions = statement["Action"] if isinstance(statement["Action"], list) else [statement["Action"]]
-            self.assertFalse(any(a.endswith(":*") or a == "*" for a in actions), statement["Sid"])
-            if statement["Sid"] != "ReadOnlyChecks":
-                self.assertIn("reframe-*", statement["Resource"], statement["Sid"])
+            self.assertFalse(any("*" in a for a in actions), statement["Sid"])
+            if statement["Sid"] == "ReadOnlyChecks":
+                continue
+            if statement["Sid"] == "AttachReframeGraphToAnExistingNetwork":
+                # Creating in an existing network is also authorized against that VPC and its route tables.
+                self.assertEqual(statement["Action"], ["ec2:CreateSecurityGroup", "ec2:CreateVpcEndpoint"])
+                self.assertEqual(statement["Resource"], ["arn:aws:ec2:*:*:vpc/*", "arn:aws:ec2:*:*:route-table/*"])
+                continue
+            resources = statement["Resource"] if isinstance(statement["Resource"], list) else [statement["Resource"]]
+            by_name = all("reframe-*" in r for r in resources)
+            self.assertTrue(by_name or statement.get("Condition") in tagged, statement["Sid"])
 
     def test_the_read_only_statement_only_reads(self):
         statement = next(s for s in bootstrap_policy()["Statement"] if s["Sid"] == "ReadOnlyChecks")
         self.assertTrue(all(re.search(r":(Get|Simulate|Describe)", a) for a in statement["Action"]))
 
-    def test_roles_are_passed_to_transform_only(self):
+    def test_roles_are_passed_to_transform_and_neptune_only(self):
         statement = next(s for s in bootstrap_policy()["Statement"] if s["Action"] == "iam:PassRole")
-        self.assertEqual(statement["Condition"], {"StringEquals": {"iam:PassedToService": "transform.amazonaws.com"}})
+        self.assertEqual(statement["Condition"],
+                         {"StringEquals": {"iam:PassedToService": ["transform.amazonaws.com", "rds.amazonaws.com"]}})
+
+    def test_creating_requires_the_reframe_tag_and_deleting_requires_it_on_the_resource(self):
+        statements = {s["Sid"]: s for s in bootstrap_policy()["Statement"]}
+        create = statements["CreateReframeGraphOnlyWhenTagged"]
+        self.assertTrue(all(":Create" in a for a in create["Action"]))
+        attach = statements["AttachReframeGraphToAnExistingNetwork"]
+        self.assertTrue(set(attach["Action"]) <= set(create["Action"]), "attaching never allows an untagged resource")
+        change = statements["ChangeOnlyWhatReframeTagged"]
+        self.assertIn("rds:DeleteDBCluster", change["Action"])
+        self.assertEqual(change["Condition"], {"StringEquals": {"aws:ResourceTag/ManagedBy": "reframe"}})
 
     def test_no_transform_action_is_guessed(self):
         actions = [a for s in bootstrap_policy()["Statement"] for a in (s["Action"] if isinstance(s["Action"], list) else [s["Action"]])]
@@ -93,6 +113,70 @@ class TerraformTextTests(unittest.TestCase):
             self.assertIsNone(re.search(r"\b[0-9]{12}\b|access_key|secret_key|profile\s*=", body), path.name)
 
 
+class NeptuneTextTests(unittest.TestCase):
+    """What AWS checks for a reimagine connector (v1, #206), on an existing network (P2-06)."""
+
+    body = text("modules", "neptune_graph", "main.tf")
+
+    def test_the_cluster_meets_what_aws_checks(self):
+        for line in ("iam_database_authentication_enabled = true", "storage_encrypted                   = true",
+                     "serverless_v2_scaling_configuration", 'instance_class     = "db.serverless"', 'default     = "1.4.5.1"',
+                     "AWS requires Neptune engine 1.4.5.1 or later"):
+            self.assertIn(line, self.body)
+
+    def test_no_network_is_built_beyond_security_groups_and_the_s3_endpoint(self):
+        for resource in ("aws_vpc", "aws_subnet", "aws_route_table", "aws_route_table_association",
+                         "aws_internet_gateway", "aws_nat_gateway"):
+            self.assertNotIn(f'resource "{resource}" ', self.body)
+        for resource in ("aws_security_group", "aws_vpc_endpoint", "aws_neptune_subnet_group", "aws_neptune_cluster", "aws_iam_role"):
+            self.assertIn(f'resource "{resource}" ', self.body)
+        endpoint = self.body[self.body.index('resource "aws_vpc_endpoint" "s3"'):].split("}")[0]
+        self.assertIn("count             = length(var.s3_endpoint_route_table_ids) > 0 ? 1 : 0", endpoint)
+        self.assertIn("length(distinct([for s in data.aws_subnet.chosen : s.availability_zone])) >= 2", self.body)
+
+    def test_the_graph_is_reachable_only_from_the_connector_and_reaches_only_s3(self):
+        self.assertNotIn("0.0.0.0/0", self.body)
+        ingress = self.body[self.body.index('resource "aws_vpc_security_group_ingress_rule"'):]
+        self.assertIn("referenced_security_group_id = aws_security_group.app.id", ingress.split("}")[0])
+        self.assertEqual(self.body.count('resource "aws_vpc_security_group_ingress_rule"'), 1)
+        loader_egress = self.body[self.body.index('resource "aws_vpc_security_group_egress_rule" "graph_to_s3"'):].split("}")[0]
+        self.assertIn("prefix_list_id    = data.aws_prefix_list.s3.id", loader_egress)
+
+    def test_the_bulk_loader_reads_only_the_source_bucket(self):
+        loader = self.body[self.body.index('data "aws_iam_policy_document" "loader" {'):]
+        self.assertIn('actions   = ["s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"]', loader.split("resource")[0])
+        self.assertIn('identifiers = ["rds.amazonaws.com"]', self.body)
+
+    def test_the_connector_configuration_uses_the_keys_aws_accepted(self):
+        from reframe_v2.resources_file import REIMAGINE_CONNECTOR_TYPE
+        self.assertEqual(REIMAGINE_CONNECTOR_TYPE, "mainframe_modernization|reimagine|1")
+        output = self.body[self.body.index('output "connector_configuration"'):]
+        keys = re.findall(r"^    (\w+)\s+=", output, re.M)
+        self.assertEqual(sorted(keys), sorted(["s3BucketArn", "neptuneClusterArn", "neptuneClusterResourceId",
+                                               "neptuneBulkUploadRoleArn", "vpcSubnetIds", "vpcSecurityGroupId"]))
+
+    def test_the_connector_role_matches_what_the_console_generates(self):
+        role = text("modules", "reimagine_role", "main.tf")
+        self.assertIn('values   = ["arn:${local.p}:transform:${local.region}:${local.account}:connector/*"]', role)
+        self.assertIn('resources = ["${local.bucket}/transform-output/neptune-quads/*"]', role)
+        self.assertIn('"neptune-db:StartLoaderJob"', role)
+        self.assertNotIn('actions   = ["s3:*"]', role)
+
+    def test_the_graph_is_only_built_when_asked_and_no_existing_one_was_chosen(self):
+        project = text("project", "main.tf")
+        self.assertIn("count                       = var.reimagine && var.existing_graph == null ? 1 : 0", project)
+        self.assertIn("default     = false", project[project.index('variable "reimagine"'):])
+        self.assertIn("!var.reimagine || ((var.existing_graph == null) != (var.graph_network == null))", project)
+
+    def test_an_existing_graph_is_never_managed(self):
+        project = text("project", "main.tf")
+        # The existing graph reaches only the connector role and the output; no resource or module manages it.
+        uses = [line for line in project.splitlines() if "var.existing_graph" in line]
+        self.assertTrue(uses)
+        self.assertFalse(any(line.strip().startswith("source") for line in uses))
+        self.assertIn('graph         = var.existing_graph != null ? "existing" : "created"', project)
+
+
 @unittest.skipUnless(shutil.which("terraform"), "Terraform is not installed; CI runs this with a pinned version")
 class TerraformValidateTests(unittest.TestCase):
     def test_both_compositions_validate(self):
@@ -117,7 +201,8 @@ class WriteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, mock.patch("subprocess.run", side_effect=AssertionError("no process")):
             written = write_terraform(Path(folder) / "out")
             names = sorted(str(p.relative_to(Path(folder) / "out")) for p in written)
-        self.assertEqual(names, ["README.md", "bootstrap/main.tf", "modules/bedrock_invoke/main.tf", "modules/repo/main.tf",
+        self.assertEqual(names, ["README.md", "bootstrap/main.tf", "modules/bedrock_invoke/main.tf",
+                                 "modules/neptune_graph/main.tf", "modules/reimagine_role/main.tf", "modules/repo/main.tf",
                                  "modules/state_bucket/main.tf", "project/main.tf", "resources.template.json"])
 
     def test_a_folder_with_files_is_refused(self):
