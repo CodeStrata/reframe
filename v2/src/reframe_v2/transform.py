@@ -9,6 +9,10 @@ with three changes:
   refused before dispatch unless the call carries an authorization from the
   execution envelope (P1-01). Discovery never calls a mutating tool.
 
+Two rules v1 learned against the live service, which the server's schemas do
+not state, are checked before dispatch: a status read must carry
+detailed=true, and create_job must carry orchestratorAgent.
+
 Operation names come only from the server's own tool listing, never from a
 console label. The live path's operations are the ones v1 recorded against
 the live service.
@@ -33,6 +37,14 @@ LIVE_PATH_OPERATIONS = ("load_instructions", "get_job_status", "list_resources",
 
 MUTATING = frozenset({"create_job", "send_message", "complete_task"})
 READ_ONLY = frozenset({"load_instructions", "get_job_status", "list_resources", "get_resource"})
+
+REQUIRED_VALUES = {"get_job_status": {"detailed": True}}
+"""Arguments a call must carry with exactly this value. Recorded live by v1 (2026-11-17): without
+detailed=true the server posts a status question into the job chat, so the read is not read-only."""
+
+REQUIRED_BY_SERVICE = {"create_job": ("orchestratorAgent",)}
+"""Arguments AWS rejects the call without, although the server's schema marks them optional.
+Recorded live by v1 (2026-11-17): create_job without orchestratorAgent fails with HTTP 400."""
 
 PASSED_ENVIRONMENT = ("HOME", "PATH", "LANG", "LC_ALL", "TMPDIR", "USER", "LOGNAME")
 PINNED_PACKAGE = re.compile(r"^[A-Za-z0-9_.-]+==?[0-9][A-Za-z0-9_.+-]*$|^[A-Za-z0-9_.-]+@[0-9][A-Za-z0-9_.+-]*$")
@@ -111,6 +123,17 @@ def check_arguments(name: str, schema: dict[str, Any], arguments: dict[str, Any]
         raise TransformError(f"{name}: unrecognized arguments {', '.join(unknown)}; arguments are never guessed")
 
 
+def check_recorded_rules(name: str, arguments: dict[str, Any]) -> None:
+    """Rules AWS enforces that the server's schemas do not state; checked before anything is sent."""
+    for key, value in REQUIRED_VALUES.get(name, {}).items():
+        if arguments.get(key) is not value:
+            raise TransformError(f"{name} needs {key}={json.dumps(value)}; without it the call changes the job")
+    missing = [key for key in REQUIRED_BY_SERVICE.get(name, ()) if not arguments.get(key)]
+    if missing:
+        raise TransformError(f"{name}: AWS rejects the call without {', '.join(missing)}; "
+                             "take the value from the execution envelope, never a guess")
+
+
 class TransformClient:
     """Stdio MCP client for the pinned AWS Transform MCP server."""
 
@@ -148,6 +171,7 @@ class TransformClient:
             raise Unauthorized(f"{name} is not a recognized adapter operation; it is never called")
         if name in MUTATING and (authorization is None or authorization.operation != name or not authorization.by):
             raise Unauthorized(f"{name} changes AWS state; it needs an execution-envelope authorization for {name}")
+        check_recorded_rules(name, arguments)
 
         async def one_call():
             ClientSession, parameters, stdio_client = self._transport()

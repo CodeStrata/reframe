@@ -3,6 +3,8 @@
 Tool names follow those v1 recorded against the live server; responses are synthetic.
 Set FIXTURE_DROP to a comma-separated list of tool names to leave out.
 Set FIXTURE_MARKER to a path; create_job writes it if it is ever called.
+Set FIXTURE_CHAT to a path; get_job_status writes it when called without detailed=true,
+as the live server posts a chat message then.
 """
 import json
 import os
@@ -29,7 +31,10 @@ def load_instructions(workspaceId: str, jobId: str) -> dict:
 
 
 @tool
-def get_job_status(workspaceId: str, jobId: str) -> dict:
+def get_job_status(workspaceId: str, jobId: str, detailed: bool = False) -> dict:
+    chat = os.environ.get("FIXTURE_CHAT")
+    if chat and not detailed:
+        Path(chat).write_text("a status question was posted to the job chat")
     return {"content": [{"type": "text", "text": json.dumps({"success": True, "data": {"status": "IN_PROGRESS"}})}]}
 
 
@@ -44,7 +49,9 @@ def get_resource(workspaceId: str, resource: str, jobId: str = "", taskId: str =
 
 
 @tool
-def create_job(workspaceId: str, objective: str) -> dict:
+def create_job(workspaceId: str, objective: str, orchestratorAgent: str = "") -> dict:
+    if not orchestratorAgent:
+        raise ValueError("Synthetic 400: orchestratorAgent must not be null")
     marker = os.environ.get("FIXTURE_MARKER")
     if marker:
         Path(marker).write_text("create_job was called")

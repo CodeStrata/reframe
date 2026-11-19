@@ -59,10 +59,11 @@ class FixtureServerTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.marker = Path(self.tmp.name) / "create-job-called"
+        self.chat = Path(self.tmp.name) / "chat-posted"
         config = ServerConfig((sys.executable, str(FIXTURE)), None, "us-east-1", Path(self.tmp.name) / "artifacts", timeout_seconds=60)
         parent = {"PATH": os.environ.get("PATH", ""), "HOME": os.environ.get("HOME", "")}
         client = TransformClient(config, parent)
-        client.env.update({"FIXTURE_DROP": drop, "FIXTURE_MARKER": str(self.marker)})
+        client.env.update({"FIXTURE_DROP": drop, "FIXTURE_MARKER": str(self.marker), "FIXTURE_CHAT": str(self.chat)})
         return client
 
     def test_discovery_records_every_live_path_operation_and_calls_nothing(self):
@@ -82,20 +83,34 @@ class FixtureServerTests(unittest.TestCase):
 
     def test_read_only_calls_work_without_authorization(self):
         client = self.client()
-        self.assertEqual(client.call("get_job_status", {"workspaceId": "w", "jobId": "j"}), {"status": "IN_PROGRESS"})
+        self.assertEqual(client.call("get_job_status", {"workspaceId": "w", "jobId": "j", "detailed": True}), {"status": "IN_PROGRESS"})
+        self.assertFalse(self.chat.exists())
+
+    def test_a_status_read_without_detailed_is_refused_before_it_reaches_the_job_chat(self):
+        client = self.client()
+        for arguments in ({"workspaceId": "w", "jobId": "j"}, {"workspaceId": "w", "jobId": "j", "detailed": False}):
+            with self.subTest(arguments=arguments), self.assertRaises(TransformError):
+                client.call("get_job_status", arguments)
+        self.assertFalse(self.chat.exists())
+
+    def test_create_job_without_an_orchestrator_is_refused_before_dispatch(self):
+        client = self.client()
+        with self.assertRaises(TransformError):
+            client.call("create_job", {"workspaceId": "w", "objective": "o"}, Authorization("envelope-1", "create_job", "Owner"))
+        self.assertFalse(self.marker.exists())
 
     def test_a_mutating_call_without_authorization_is_refused_before_dispatch(self):
         client = self.client()
         with self.assertRaises(Unauthorized):
-            client.call("create_job", {"workspaceId": "w", "objective": "o"})
+            client.call("create_job", {"workspaceId": "w", "objective": "o", "orchestratorAgent": "a"})
         with self.assertRaises(Unauthorized):
-            client.call("create_job", {"workspaceId": "w", "objective": "o"},
+            client.call("create_job", {"workspaceId": "w", "objective": "o", "orchestratorAgent": "a"},
                         Authorization("envelope-1", "send_message", "Owner"))
         self.assertFalse(self.marker.exists())
 
     def test_an_authorized_mutating_call_is_sent(self):
         client = self.client()
-        result = client.call("create_job", {"workspaceId": "w", "objective": "o"}, Authorization("envelope-1", "create_job", "Owner"))
+        result = client.call("create_job", {"workspaceId": "w", "objective": "o", "orchestratorAgent": "a"}, Authorization("envelope-1", "create_job", "Owner"))
         self.assertEqual(result, {"jobId": "job-fixture"})
         self.assertTrue(self.marker.exists())
 
@@ -106,9 +121,9 @@ class FixtureServerTests(unittest.TestCase):
     def test_arguments_are_never_guessed(self):
         client = self.client()
         with self.assertRaises(TransformError):
-            client.call("get_job_status", {"workspaceId": "w"})
+            client.call("get_job_status", {"workspaceId": "w", "detailed": True})
         with self.assertRaises(TransformError):
-            client.call("get_job_status", {"workspaceId": "w", "jobId": "j", "extra": "x"})
+            client.call("get_job_status", {"workspaceId": "w", "jobId": "j", "detailed": True, "extra": "x"})
 
 
 if __name__ == "__main__":

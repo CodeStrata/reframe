@@ -59,6 +59,15 @@ The P0 exit names four v1 regressions. Each has a v2 test:
 | API-gap readiness | `v2/tests/test_readiness.py::PrecedenceTests::test_api_gap_keeps_a_unit_from_being_ready` |
 | Unknown reference | `v2/tests/test_package.py::ManifestTests::test_unknown_reference_is_refused` |
 
+## Live AWS Transform findings carried forward
+
+v1 found these against the live service; the server's own schemas do not state them. Each is checked before dispatch and has a v2 test.
+
+| Finding (v1, 17 November 2026) | v2 test |
+| --- | --- |
+| `get_job_status` without `detailed: true` posts a status question into the job chat, so it is not a read | `v2/tests/test_transform.py::FixtureServerTests::test_a_status_read_without_detailed_is_refused_before_it_reaches_the_job_chat` |
+| `create_job` without `orchestratorAgent` is rejected with HTTP 400, although the schema marks it optional | `v2/tests/test_transform.py::FixtureServerTests::test_create_job_without_an_orchestrator_is_refused_before_dispatch` |
+
 ## v1 saved states for import (FR-20)
 
 v1's tests build their workspaces from synthetic data; `tests/fixtures/` holds only an MCP test server. F3-08 (v1 import) builds its import fixtures the same way, from v1's own test builders. They are never copied from a live workspace, so no account, job or customer identifiers enter the repository.
