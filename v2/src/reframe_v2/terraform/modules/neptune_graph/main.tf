@@ -52,6 +52,12 @@ variable "s3_endpoint_route_table_ids" {
   default     = []
 }
 
+variable "final_snapshot" {
+  description = "Keep a final snapshot when the graph is deleted. Off only for a disposable test project, so it leaves nothing billable behind."
+  type        = bool
+  default     = true
+}
+
 variable "engine_version" {
   description = "Neptune engine version; AWS requires 1.4.5.1 or later for the reimagine connector."
   type        = string
@@ -220,8 +226,8 @@ resource "aws_neptune_cluster" "graph" {
   iam_database_authentication_enabled = true
   storage_encrypted                   = true
   iam_roles                           = [aws_iam_role.loader.arn]
-  skip_final_snapshot                 = false
-  final_snapshot_identifier           = "${var.name}-final"
+  skip_final_snapshot                 = !var.final_snapshot
+  final_snapshot_identifier           = var.final_snapshot ? "${var.name}-final" : null
   deletion_protection                 = false
 
   serverless_v2_scaling_configuration {

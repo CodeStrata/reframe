@@ -31,6 +31,12 @@ variable "write_prefix" {
   }
 }
 
+variable "force_destroy" {
+  description = "Destroy the bucket with every object version in it (a disposable test project). Off by default, so a bucket that holds data is not destroyed."
+  type        = bool
+  default     = false
+}
+
 data "aws_caller_identity" "current" {}
 
 data "aws_iam_session_context" "current" {
@@ -38,7 +44,8 @@ data "aws_iam_session_context" "current" {
 }
 
 resource "aws_s3_bucket" "source" {
-  bucket = var.bucket_name
+  bucket        = var.bucket_name
+  force_destroy = var.force_destroy
 }
 
 resource "aws_s3_bucket_ownership_controls" "source" {
