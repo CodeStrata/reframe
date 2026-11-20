@@ -7,11 +7,12 @@
 # storage encryption, a serverless scaling configuration, and at least two
 # application subnets in different Availability Zones.
 #
-# The network is an existing one, normally the account's default VPC, passed
-# in by reframe graph. This module creates no VPC, subnet, route table,
-# internet gateway or NAT: only the security groups, and an S3 gateway
-# endpoint on the route tables that lack one, which AWS documents the Neptune
-# bulk loader needs.
+# The network is the graph's own and private, as AWS's own Neptune template
+# builds it: a VPC, two subnets in different Availability Zones, one route
+# table and an S3 gateway endpoint, which the bulk loader needs to read the
+# source bucket. There is no internet gateway or NAT. No existing network is
+# used or changed, and destroying the module removes the network with the
+# graph (P2-08, #259).
 #
 # Cost: Neptune Serverless bills per NCU-hour for every instance while the
 # cluster runs, whether or not a job is running (about $0.16 per NCU-hour in
@@ -32,24 +33,14 @@ variable "bucket_name" {
   type        = string
 }
 
-variable "vpc_id" {
-  description = "The existing VPC the graph goes in; reframe graph proposes the account's default VPC."
+variable "vpc_cidr" {
+  description = "The private network's address range. It is never connected to another network, so it may overlap others."
   type        = string
-}
-
-variable "subnet_ids" {
-  description = "Existing subnets in at least two Availability Zones, for the cluster and the connector."
-  type        = list(string)
+  default     = "10.42.0.0/16"
   validation {
-    condition     = length(distinct(var.subnet_ids)) >= 2
-    error_message = "The reimagine connector needs at least two subnets."
+    condition     = can(cidrnetmask(var.vpc_cidr)) && tonumber(split("/", var.vpc_cidr)[1]) <= 24
+    error_message = "An IPv4 CIDR block of /24 or larger."
   }
-}
-
-variable "s3_endpoint_route_table_ids" {
-  description = "Route tables of those subnets that have no S3 gateway endpoint yet; empty when every one has."
-  type        = list(string)
-  default     = []
 }
 
 variable "final_snapshot" {
@@ -101,45 +92,69 @@ variable "instance_count" {
 
 data "aws_region" "current" {}
 
-data "aws_subnet" "chosen" {
-  for_each = toset(var.subnet_ids)
-  id       = each.value
+data "aws_availability_zones" "available" {
+  state = "available"
+  filter {
+    name   = "zone-type"
+    values = ["availability-zone"]
+  }
 }
 
 data "aws_prefix_list" "s3" {
   name = "com.amazonaws.${data.aws_region.current.region}.s3"
 }
 
+resource "aws_vpc" "graph" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  tags                 = { Name = var.name }
+}
+
+resource "aws_subnet" "app" {
+  count             = 2
+  vpc_id            = aws_vpc.graph.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 4, count.index)
+  availability_zone = data.aws_availability_zones.available.names[count.index]
+  tags              = { Name = "${var.name}-app-${count.index + 1}" }
+
+  lifecycle {
+    precondition {
+      condition     = length(data.aws_availability_zones.available.names) >= 2
+      error_message = "The reimagine connector needs subnets in two Availability Zones; this region offers fewer."
+    }
+  }
+}
+
+resource "aws_route_table" "app" {
+  vpc_id = aws_vpc.graph.id
+  tags   = { Name = "${var.name}-app" }
+}
+
+resource "aws_route_table_association" "app" {
+  count          = 2
+  subnet_id      = aws_subnet.app[count.index].id
+  route_table_id = aws_route_table.app.id
+}
+
 resource "aws_vpc_endpoint" "s3" {
-  count             = length(var.s3_endpoint_route_table_ids) > 0 ? 1 : 0
-  vpc_id            = var.vpc_id
+  vpc_id            = aws_vpc.graph.id
   service_name      = "com.amazonaws.${data.aws_region.current.region}.s3"
   vpc_endpoint_type = "Gateway"
-  route_table_ids   = var.s3_endpoint_route_table_ids
+  route_table_ids   = [aws_route_table.app.id]
   tags              = { Name = "${var.name}-s3" }
 }
 
 resource "aws_security_group" "app" {
   name        = "${var.name}-app"
   description = "AWS Transform reimagine connector network interfaces"
-  vpc_id      = var.vpc_id
-
-  lifecycle {
-    precondition {
-      condition     = length(distinct([for s in data.aws_subnet.chosen : s.availability_zone])) >= 2
-      error_message = "The reimagine connector needs subnets in two different Availability Zones."
-    }
-    precondition {
-      condition     = alltrue([for s in data.aws_subnet.chosen : s.vpc_id == var.vpc_id])
-      error_message = "Every subnet must be in the VPC the graph goes in."
-    }
-  }
+  vpc_id      = aws_vpc.graph.id
 }
 
 resource "aws_security_group" "graph" {
   name        = "${var.name}-graph"
   description = "Neptune cluster: reachable only from the connector security group"
-  vpc_id      = var.vpc_id
+  vpc_id      = aws_vpc.graph.id
 }
 
 resource "aws_vpc_security_group_ingress_rule" "graph_from_app" {
@@ -214,7 +229,7 @@ resource "aws_iam_role_policy" "loader" {
 
 resource "aws_neptune_subnet_group" "graph" {
   name       = var.name
-  subnet_ids = var.subnet_ids
+  subnet_ids = aws_subnet.app[*].id
 }
 
 resource "aws_neptune_cluster" "graph" {
@@ -259,7 +274,11 @@ output "connector_configuration" {
     neptuneClusterArn        = aws_neptune_cluster.graph.arn
     neptuneClusterResourceId = aws_neptune_cluster.graph.cluster_resource_id
     neptuneBulkUploadRoleArn = aws_iam_role.loader.arn
-    vpcSubnetIds             = join(",", var.subnet_ids)
+    vpcSubnetIds             = join(",", aws_subnet.app[*].id)
     vpcSecurityGroupId       = aws_security_group.app.id
   }
+}
+
+output "vpc_id" {
+  value = aws_vpc.graph.id
 }

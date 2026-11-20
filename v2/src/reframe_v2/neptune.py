@@ -1,12 +1,11 @@
-"""Reuse an existing Neptune graph by name, or create one in the default VPC (section 8; P2-06, #250).
+"""Reuse an existing Neptune graph by name, or create one in its own private network (section 8; P2-06, P2-08).
 
 Before a graph is created, Reframe lists the region's Neptune clusters with
 read-only calls and checks each against what the reimagine connector needs.
 A usable cluster is offered by name; the person chooses it, or chooses a new
 graph. A chosen cluster is client-owned: Reframe never tags, changes or
-deletes it. A new graph goes in the account's default VPC; Reframe adds only
-security groups and, where a route table lacks one, the S3 gateway endpoint
-the bulk loader needs.
+deletes it. A new graph gets its own private network, as AWS's own Neptune
+template builds one (#259); no existing network is read, used or changed.
 
 The requirements are the ones v1 recorded for the reimagine connector (#206)
 and the ones AWS's own Neptune template provides: nothing here is a guess
@@ -31,6 +30,9 @@ CONFIGURATION_KEYS = ("s3BucketArn", "neptuneClusterArn", "neptuneClusterResourc
 SHARING_NOTE = ("Section 8: each repository gets its own graph until P2 proves that two can share one safely. "
                 "If another reimagine connector already uses this cluster, both write into the same graph.")
 OWNERSHIP_NOTE = "Reframe uses it as it is: it never tags, changes or deletes it, and teardown leaves it alone."
+NEW_GRAPH_NOTE = ("A new graph gets its own private network: a VPC, two subnets in different Availability Zones, "
+                  "a route table and an S3 gateway endpoint, with no internet gateway or NAT. The network has no charge, "
+                  "and teardown removes it with the graph. Neptune bills from the moment it is created.")
 
 
 class GraphError(Exception):
@@ -45,8 +47,6 @@ class GraphReader(Protocol):
     def subnet_group(self, name: str) -> dict[str, Any]: ...
     def security_groups(self, ids: list[str]) -> list[dict[str, Any]]: ...
     def can_read(self, role_arn: str, bucket: str, account: str) -> bool: ...
-    def default_vpc(self) -> str | None: ...
-    def default_subnets(self, vpc_id: str) -> list[tuple[str, str]]: ...
     def route_tables(self, vpc_id: str, subnet_ids: list[str]) -> dict[str, str]: ...
     def s3_endpoint_route_tables(self, vpc_id: str) -> set[str]: ...
 
@@ -64,20 +64,6 @@ class Candidate:
     @property
     def usable(self) -> bool:
         return not self.problems and self.configuration is not None
-
-
-@dataclass(frozen=True)
-class Network:
-    """Where a new graph would go: the default VPC, two subnets in different zones, and route tables lacking an S3 endpoint."""
-
-    vpc_id: str | None
-    subnet_ids: tuple[str, ...]
-    s3_endpoint_route_table_ids: tuple[str, ...]
-    problems: tuple[str, ...]
-
-    @property
-    def usable(self) -> bool:
-        return not self.problems and self.vpc_id is not None
 
 
 def engine(version: Any) -> tuple[int, ...] | None:
@@ -185,24 +171,6 @@ def candidates(reader: GraphReader, bucket: str) -> list[Candidate]:
     return sorted((judge(reader, cluster, bucket, account) for cluster in reader.clusters()), key=lambda c: c.name)
 
 
-def default_network(reader: GraphReader) -> Network:
-    """The default VPC, two default subnets in different zones, and their route tables that lack an S3 endpoint."""
-    vpc_id = reader.default_vpc()
-    if vpc_id is None:
-        return Network(None, (), (), ("this region has no default VPC; Reframe stops and asks rather than build a network",))
-    by_zone: dict[str, str] = {}
-    for subnet_id, zone in sorted(reader.default_subnets(vpc_id), key=lambda s: (s[1], s[0])):
-        by_zone.setdefault(zone, subnet_id)
-    chosen = tuple(by_zone[zone] for zone in sorted(by_zone)[:2])
-    if len(chosen) < 2:
-        return Network(vpc_id, chosen, (), ("the default VPC has default subnets in fewer than two Availability Zones",))
-    tables = reader.route_tables(vpc_id, list(chosen))
-    if len(tables) < len(chosen):
-        return Network(vpc_id, chosen, (), ("a default subnet's route table could not be found",))
-    lacking = tuple(sorted(set(tables.values()) - reader.s3_endpoint_route_tables(vpc_id)))
-    return Network(vpc_id, chosen, lacking, ())
-
-
 def describe(found: list[Candidate]) -> str:
     if not found:
         return "No Neptune cluster exists in this region.\n"
@@ -253,21 +221,15 @@ def ask(found: list[Candidate], prompt: Callable[[str], str], say: Callable[[str
             say(f"{error}\n")
 
 
-def terraform_variables(chosen: Candidate | None, network: Network | None) -> dict[str, Any]:
+def terraform_variables(chosen: Candidate | None) -> dict[str, Any]:
     """The project composition's variables for the choice. Nothing is created by writing them."""
     if chosen is not None:
         if not chosen.usable or chosen.configuration is None:
             raise GraphError(f"{chosen.name} cannot be used")
         return {"reimagine": True, "existing_graph": {"cluster_arn": chosen.cluster_arn,
                                                       "cluster_resource_id": chosen.cluster_resource_id,
-                                                      "configuration": dict(chosen.configuration)},
-                "graph_network": None}
-    if network is None or not network.usable:
-        reasons = "; ".join(network.problems) if network else "the network was not checked"
-        raise GraphError(f"a new graph has nowhere to go: {reasons}")
-    return {"reimagine": True, "existing_graph": None,
-            "graph_network": {"vpc_id": network.vpc_id, "subnet_ids": list(network.subnet_ids),
-                              "s3_endpoint_route_table_ids": list(network.s3_endpoint_route_table_ids)}}
+                                                      "configuration": dict(chosen.configuration)}}
+    return {"reimagine": True, "existing_graph": None}
 
 
 def write_variables(path: Path, variables: dict[str, Any]) -> None:
@@ -317,16 +279,6 @@ class AwsCliGraphReader(AwsCliReader):
             if not results or any(item.get("EvalDecision") != "allowed" for item in results):
                 return False
         return True
-
-    def default_vpc(self) -> str | None:
-        vpcs = self._aws("ec2", "describe-vpcs", "--filters", "Name=is-default,Values=true").get("Vpcs") or []
-        return str(vpcs[0]["VpcId"]) if vpcs and vpcs[0].get("VpcId") else None
-
-    def default_subnets(self, vpc_id: str) -> list[tuple[str, str]]:
-        reply = self._aws("ec2", "describe-subnets", "--filters", f"Name=vpc-id,Values={vpc_id}",
-                          "Name=default-for-az,Values=true")
-        return [(str(s["SubnetId"]), str(s["AvailabilityZone"])) for s in reply.get("Subnets") or []
-                if s.get("State") == "available" and s.get("SubnetId") and s.get("AvailabilityZone")]
 
     def route_tables(self, vpc_id: str, subnet_ids: list[str]) -> dict[str, str]:
         """Each subnet's route table: its explicit association, or else the VPC's main table."""

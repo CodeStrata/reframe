@@ -1,4 +1,4 @@
-"""P2-06 (#250): reuse an existing Neptune graph by name, or create one in the default VPC. L1, L2.
+"""P2-06 (#250), P2-08 (#259): reuse an existing Neptune graph by name, or create one in its own private network. L1, L2.
 
 Everything runs against a fake reader or a recorded fake of the AWS CLI;
 nothing contacts AWS. The account id and resource ids are documentation
@@ -22,7 +22,6 @@ from reframe_v2.neptune import (
     ask,
     candidates,
     choose,
-    default_network,
     terraform_variables,
     write_variables,
 )
@@ -63,11 +62,8 @@ class FakeReader:
         self.subnet_groups = {"sample-subnets": {"VpcId": "vpc-graph", "Subnets": [
             {"SubnetIdentifier": "subnet-a", "SubnetAvailabilityZone": {"Name": "us-east-1a"}, "SubnetStatus": "Active"},
             {"SubnetIdentifier": "subnet-b", "SubnetAvailabilityZone": {"Name": "us-east-1b"}, "SubnetStatus": "Active"}]}}
-        self.tables = {"vpc-graph": {"subnet-a": "rtb-graph", "subnet-b": "rtb-graph"},
-                       "vpc-default": {"subnet-d1": "rtb-main", "subnet-d2": "rtb-main", "subnet-d3": "rtb-main"}}
-        self.endpoints = {"vpc-graph": {"rtb-graph"}, "vpc-default": set()}
-        self.vpc = "vpc-default"
-        self.subnets = [("subnet-d3", "us-east-1c"), ("subnet-d2", "us-east-1b"), ("subnet-d1", "us-east-1a")]
+        self.tables = {"vpc-graph": {"subnet-a": "rtb-graph", "subnet-b": "rtb-graph"}}
+        self.endpoints = {"vpc-graph": {"rtb-graph"}}
         self.calls = []
 
     def account(self):
@@ -88,12 +84,6 @@ class FakeReader:
     def can_read(self, role_arn, bucket, account):
         self.calls.append(("can_read", account))
         return (role_arn, bucket) in self.readable
-
-    def default_vpc(self):
-        return self.vpc
-
-    def default_subnets(self, vpc_id):
-        return self.subnets
 
     def route_tables(self, vpc_id, subnet_ids):
         known = self.tables.get(vpc_id, {})
@@ -174,31 +164,15 @@ class CandidateTests(unittest.TestCase):
         self.assertEqual([c.name for c in candidates(reader, BUCKET)], ["another-graph", "sample-graph"])
 
 
-class NetworkTests(unittest.TestCase):
-    def test_two_default_subnets_in_different_zones_and_the_tables_lacking_an_endpoint(self):
-        network = default_network(FakeReader())
-        self.assertTrue(network.usable)
-        self.assertEqual(network.subnet_ids, ("subnet-d1", "subnet-d2"))
-        self.assertEqual(network.s3_endpoint_route_table_ids, ("rtb-main",))
+class NewGraphTests(unittest.TestCase):
+    def test_a_new_graph_needs_no_existing_network(self):
+        self.assertEqual(terraform_variables(None), {"reimagine": True, "existing_graph": None})
 
-    def test_an_existing_endpoint_is_not_created_again(self):
+    def test_no_network_is_ever_read(self):
         reader = FakeReader()
-        reader.endpoints["vpc-default"] = {"rtb-main"}
-        self.assertEqual(default_network(reader).s3_endpoint_route_table_ids, ())
-
-    def test_no_default_vpc_stops_rather_than_build_a_network(self):
-        reader = FakeReader()
-        reader.vpc = None
-        network = default_network(reader)
-        self.assertFalse(network.usable)
-        with self.assertRaises(GraphError) as raised:
-            terraform_variables(None, network)
-        self.assertIn("no default VPC", str(raised.exception))
-
-    def test_one_zone_is_not_enough(self):
-        reader = FakeReader()
-        reader.subnets = [("subnet-d1", "us-east-1a")]
-        self.assertFalse(default_network(reader).usable)
+        for name in ("default_vpc", "default_subnets"):
+            self.assertFalse(hasattr(reader, name))
+        self.assertTrue(all(not name.startswith("default") for name in dir(AwsCliGraphReader)))
 
 
 class ChoiceTests(unittest.TestCase):
@@ -238,13 +212,12 @@ class ChoiceTests(unittest.TestCase):
 
     def test_variables_for_each_choice(self):
         found = candidates(FakeReader(), BUCKET)
-        existing = terraform_variables(found[0], None)
-        self.assertIsNone(existing["graph_network"])
+        existing = terraform_variables(found[0])
+        self.assertNotIn("graph_network", existing)
         self.assertEqual(sorted(existing["existing_graph"]["configuration"]), sorted(CONFIGURATION_KEYS))
-        new = terraform_variables(None, default_network(FakeReader()))
+        new = terraform_variables(None)
         self.assertIsNone(new["existing_graph"])
-        self.assertEqual(new["graph_network"], {"vpc_id": "vpc-default", "subnet_ids": ["subnet-d1", "subnet-d2"],
-                                                "s3_endpoint_route_table_ids": ["rtb-main"]})
+        self.assertNotIn("graph_network", new)
 
     def test_an_existing_file_is_never_overwritten(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -278,9 +251,6 @@ class AwsCliGraphReaderTests(unittest.TestCase):
             "ec2 describe-security-groups": lambda argv: ok({"SecurityGroups": [GROUPS[g] for g in argv[argv.index("--group-ids") + 1:]
                                                                                 if g in GROUPS]}),
             "iam simulate-principal-policy": ok({"EvaluationResults": [{"EvalDecision": "allowed"}]}),
-            "ec2 describe-vpcs": ok({"Vpcs": [{"VpcId": "vpc-default", "IsDefault": True}]}),
-            "ec2 describe-subnets": ok({"Subnets": [{"SubnetId": "subnet-d1", "AvailabilityZone": "us-east-1a", "State": "available"},
-                                                    {"SubnetId": "subnet-d2", "AvailabilityZone": "us-east-1b", "State": "available"}]}),
             "ec2 describe-route-tables": ok({"RouteTables": [
                 {"RouteTableId": "rtb-main", "Associations": [{"Main": True}]},
                 {"RouteTableId": "rtb-graph", "Associations": [{"SubnetId": "subnet-a"}, {"SubnetId": "subnet-b"}]}]}),
@@ -293,9 +263,6 @@ class AwsCliGraphReaderTests(unittest.TestCase):
         reader, runner = self.reader()
         [found] = candidates(reader, BUCKET)
         self.assertTrue(found.usable, found.problems)
-        network = default_network(reader)
-        self.assertEqual(network.subnet_ids, ("subnet-d1", "subnet-d2"))
-        self.assertEqual(network.s3_endpoint_route_table_ids, ("rtb-main",))
         verbs = {argv[2] for argv in runner.calls}
         self.assertTrue(all(v.startswith(("describe-", "get-", "simulate-")) for v in verbs), verbs)
 
@@ -331,21 +298,24 @@ class CliTests(unittest.TestCase):
             self.assertIn("will not tag, change or delete it", out)
             self.assertEqual(json.loads(path.read_text())["existing_graph"]["cluster_resource_id"], "cluster-SAMPLE")
 
-    def test_new_and_enter_both_choose_the_default_vpc(self):
+    def test_new_and_enter_both_choose_a_graph_in_its_own_network(self):
         code, out, _ = self.run_graph(FakeReader(), new=True)
         self.assertEqual(code, 0)
-        self.assertIn("default VPC", out)
+        self.assertIn("its own private network", out)
+        self.assertIn("no internet gateway or NAT", out)
         code, out, _ = self.run_graph(FakeReader(), interactive=True, answer="")
         self.assertEqual(code, 0)
-        self.assertIn('"vpc_id": "vpc-default"', out)
+        self.assertIn('"existing_graph": null', out)
+        self.assertNotIn("vpc", out.split("Neptune bills")[1])
 
-    def test_no_cluster_and_no_default_vpc_is_refused(self):
+    def test_no_cluster_goes_ahead_with_a_new_graph_in_its_own_network(self):
         reader = FakeReader()
-        reader.clusters_found, reader.vpc = [], None
+        reader.clusters_found = []
         code, out, err = self.run_graph(reader)
-        self.assertEqual(code, 3)
+        self.assertEqual(code, 0, err)
         self.assertIn("No Neptune cluster exists", out)
-        self.assertIn("no default VPC", err)
+        self.assertIn("its own private network", out)
+        self.assertEqual(err, "")
 
     def test_an_unusable_choice_is_refused(self):
         reader = FakeReader()
