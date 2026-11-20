@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 960" width="960" height="960" role="img" aria-labelledby="title desc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title id="title">How a Reframe run works</title>
+  <desc id="desc">Seven stages run in order without waiting for people: 1 intake, 2 resources, 3 extract with AWS Transform, 4 per bounded context in parallel (context map, evidence against the source, domain model and rules, by Claude Sonnet), 5 independent review and assessment report by Claude Opus, 6 design per context, platform-neutral (canonical design, contracts, backlog and tests by Sonnet, design review by Opus), and 7 package. After Reframe, the engineering team starts the AI-DLC project in Claude Code or Kiro. Three review gates sit beside the run: gate 1 after extract, gate 2 after review, gate 3 after design. Each is published for review while the run carries on; answers rerun stage 4, stage 6 or rebuild the package.</desc>
+
+  <defs>
+    <marker id="flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#9a9a96"/>
+    </marker>
+    <marker id="gate" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#d6457a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="960" height="960" rx="16" fill="#ffffff"/>
+
+  <!-- Title and legend -->
+  <text x="40" y="46" font-size="20" font-weight="700" fill="#1f1f1f">Reframe runs through to the package; people review at three gates beside it</text>
+  <g font-size="14" fill="#333333">
+    <rect x="40" y="70" width="16" height="16" rx="4" fill="#ffffff" stroke="#c4c4c0" stroke-width="1.5"/>
+    <text x="64" y="83">Reframe</text>
+    <rect x="150" y="70" width="16" height="16" rx="4" fill="#fdeee6" stroke="#e8673a" stroke-width="1.5"/>
+    <text x="174" y="83">AWS Transform</text>
+    <rect x="300" y="70" width="16" height="16" rx="4" fill="#e8f0fb" stroke="#2f6fd0" stroke-width="1.5"/>
+    <text x="324" y="83">Claude</text>
+    <rect x="400" y="70" width="16" height="16" rx="4" fill="#fbeaf0" stroke="#d6457a" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <text x="424" y="83">People: review gate</text>
+    <rect x="590" y="70" width="16" height="16" rx="4" fill="#e8f6f0" stroke="#2fa57a" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <text x="614" y="83">AI-DLC, run by engineers</text>
+  </g>
+  <text x="40" y="114" font-size="13" fill="#555555">Each gate is published for review while the run carries on. Answers rerun only the steps they change. Silence never counts as approval.</text>
+
+  <!-- Main flow arrows -->
+  <g stroke="#9a9a96" stroke-width="2" fill="none" marker-end="url(#flow)">
+    <line x1="340" y1="194" x2="340" y2="218"/>
+    <line x1="340" y1="284" x2="340" y2="308"/>
+    <line x1="340" y1="374" x2="340" y2="398"/>
+    <line x1="340" y1="518" x2="340" y2="542"/>
+    <line x1="340" y1="608" x2="340" y2="632"/>
+    <line x1="340" y1="752" x2="340" y2="776"/>
+    <line x1="340" y1="842" x2="340" y2="866"/>
+  </g>
+
+  <!-- Gate arrows: out for review, back as reruns -->
+  <g stroke="#d6457a" stroke-width="2" fill="none" stroke-dasharray="6 4" marker-end="url(#gate)">
+    <line x1="640" y1="342" x2="698" y2="342"/>
+    <line x1="700" y1="450" x2="642" y2="450"/>
+    <line x1="640" y1="576" x2="698" y2="576"/>
+    <line x1="700" y1="684" x2="642" y2="684"/>
+    <line x1="640" y1="740" x2="698" y2="740"/>
+    <line x1="700" y1="820" x2="642" y2="820"/>
+  </g>
+
+  <!-- 1 Intake -->
+  <rect x="40" y="130" width="600" height="64" rx="12" fill="#ffffff" stroke="#c4c4c0" stroke-width="2"/>
+  <text x="60" y="158" font-size="16" font-weight="700" fill="#1f1f1f">1 Intake and scope</text>
+  <text x="60" y="180" font-size="13.5" fill="#555555">Source snapshot, data policy, scope and budget</text>
+  <text x="620" y="158" font-size="13" text-anchor="end" fill="#6b6b6b">Reframe</text>
+
+  <!-- 2 Resources -->
+  <rect x="40" y="220" width="600" height="64" rx="12" fill="#ffffff" stroke="#c4c4c0" stroke-width="2"/>
+  <text x="60" y="248" font-size="16" font-weight="700" fill="#1f1f1f">2 Resources</text>
+  <text x="60" y="270" font-size="13.5" fill="#555555">Terraform, or resources the client already owns</text>
+  <text x="620" y="248" font-size="13" text-anchor="end" fill="#6b6b6b">Reframe</text>
+
+  <!-- 3 Extract -->
+  <rect x="40" y="310" width="600" height="64" rx="12" fill="#fdeee6" stroke="#e8673a" stroke-width="2"/>
+  <text x="60" y="338" font-size="16" font-weight="700" fill="#1f1f1f">3 Extract</text>
+  <text x="60" y="360" font-size="13.5" fill="#555555">Rules and requirements for the functions in scope</text>
+  <text x="620" y="338" font-size="13" text-anchor="end" fill="#b4461d">AWS Transform</text>
+
+  <!-- 4 Per context -->
+  <rect x="40" y="400" width="600" height="118" rx="12" fill="#efefed" stroke="#c4c4c0" stroke-width="2"/>
+  <text x="60" y="428" font-size="16" font-weight="700" fill="#1f1f1f">4 Per bounded context, in parallel</text>
+  <g stroke="#2f6fd0" stroke-width="2" fill="#dde6f2">
+    <rect x="60" y="446" width="176" height="56" rx="10"/>
+    <rect x="252" y="446" width="176" height="56" rx="10"/>
+    <rect x="444" y="446" width="176" height="56" rx="10"/>
+  </g>
+  <g stroke="#9a9a96" stroke-width="1.5" fill="none" marker-end="url(#flow)">
+    <line x1="237" y1="474" x2="250" y2="474"/>
+    <line x1="429" y1="474" x2="442" y2="474"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="148" y="470" font-size="14" fill="#1f1f1f">Context map</text>
+    <text x="148" y="490" font-size="12.5" fill="#6b6b6b">Sonnet</text>
+    <text x="340" y="470" font-size="14" fill="#1f1f1f">Evidence vs source</text>
+    <text x="340" y="490" font-size="12.5" fill="#6b6b6b">Sonnet</text>
+    <text x="532" y="470" font-size="14" fill="#1f1f1f">Domain model, rules</text>
+    <text x="532" y="490" font-size="12.5" fill="#6b6b6b">Sonnet</text>
+  </g>
+
+  <!-- 5 Review -->
+  <rect x="40" y="544" width="600" height="64" rx="12" fill="#e8f0fb" stroke="#2f6fd0" stroke-width="2"/>
+  <text x="60" y="572" font-size="16" font-weight="700" fill="#1f1f1f">5 Review and report</text>
+  <text x="60" y="594" font-size="13.5" fill="#555555">Independent review, without the generator's working; assessment report</text>
+  <text x="620" y="572" font-size="13" text-anchor="end" fill="#2f6fd0">Opus</text>
+
+  <!-- 6 Design per context -->
+  <rect x="40" y="634" width="600" height="118" rx="12" fill="#efefed" stroke="#c4c4c0" stroke-width="2"/>
+  <text x="60" y="662" font-size="16" font-weight="700" fill="#1f1f1f">6 Design per context, platform-neutral</text>
+  <g stroke="#2f6fd0" stroke-width="2" fill="#dde6f2">
+    <rect x="60" y="680" width="128" height="56" rx="10"/>
+    <rect x="204" y="680" width="128" height="56" rx="10"/>
+    <rect x="348" y="680" width="128" height="56" rx="10"/>
+    <rect x="492" y="680" width="128" height="56" rx="10"/>
+  </g>
+  <g stroke="#9a9a96" stroke-width="1.5" fill="none" marker-end="url(#flow)">
+    <line x1="189" y1="708" x2="202" y2="708"/>
+    <line x1="333" y1="708" x2="346" y2="708"/>
+    <line x1="477" y1="708" x2="490" y2="708"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="124" y="704" font-size="13.5" fill="#1f1f1f">Canonical design</text>
+    <text x="124" y="724" font-size="12.5" fill="#6b6b6b">Sonnet</text>
+    <text x="268" y="704" font-size="13.5" fill="#1f1f1f">Contracts</text>
+    <text x="268" y="724" font-size="12.5" fill="#6b6b6b">Sonnet</text>
+    <text x="412" y="704" font-size="13.5" fill="#1f1f1f">Backlog, tests</text>
+    <text x="412" y="724" font-size="12.5" fill="#6b6b6b">Sonnet</text>
+    <text x="556" y="704" font-size="13.5" fill="#1f1f1f">Design review</text>
+    <text x="556" y="724" font-size="12.5" fill="#6b6b6b">Opus</text>
+  </g>
+
+  <!-- 7 Package -->
+  <rect x="40" y="778" width="600" height="64" rx="12" fill="#ffffff" stroke="#c4c4c0" stroke-width="2"/>
+  <text x="60" y="806" font-size="16" font-weight="700" fill="#1f1f1f">7 Package</text>
+  <text x="60" y="828" font-size="13.5" fill="#555555">Profile, skills and guardrails; a draft until gate 3 is accepted</text>
+  <text x="620" y="806" font-size="13" text-anchor="end" fill="#6b6b6b">Sonnet, Opus review</text>
+
+  <!-- After Reframe -->
+  <rect x="40" y="868" width="600" height="64" rx="12" fill="#e8f6f0" stroke="#2fa57a" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="60" y="896" font-size="16" font-weight="700" fill="#1f1f1f">After Reframe: engineering team</text>
+  <text x="60" y="918" font-size="13.5" fill="#555555">Starts the AI-DLC project in Claude Code or Kiro</text>
+
+  <!-- Gate 1 -->
+  <rect x="700" y="310" width="220" height="160" rx="12" fill="#fbeaf0" stroke="#d6457a" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="718" y="340" font-size="16" font-weight="700" fill="#1f1f1f">Gate 1</text>
+  <text x="718" y="364" font-size="13.5" fill="#333333">Scope, goal, business</text>
+  <text x="718" y="384" font-size="13.5" fill="#333333">context, corrections</text>
+  <text x="718" y="410" font-size="12.5" fill="#6b6b6b">SMEs, architects, lead</text>
+  <text x="718" y="440" font-size="12" fill="#b03a64">Answers rerun stage 4</text>
+
+  <!-- Gate 2 -->
+  <rect x="700" y="544" width="220" height="160" rx="12" fill="#fbeaf0" stroke="#d6457a" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="718" y="574" font-size="16" font-weight="700" fill="#1f1f1f">Gate 2</text>
+  <text x="718" y="598" font-size="13.5" fill="#333333">Stakeholders read the</text>
+  <text x="718" y="618" font-size="13.5" fill="#333333">assessment and correct it</text>
+  <text x="718" y="644" font-size="12.5" fill="#6b6b6b">Stakeholders, SMEs, architects</text>
+  <text x="718" y="674" font-size="12" fill="#b03a64">Answers rerun stage 6</text>
+
+  <!-- Gate 3 -->
+  <rect x="700" y="724" width="220" height="128" rx="12" fill="#fbeaf0" stroke="#d6457a" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="718" y="754" font-size="16" font-weight="700" fill="#1f1f1f">Gate 3</text>
+  <text x="718" y="778" font-size="13.5" fill="#333333">Design acceptance,</text>
+  <text x="718" y="798" font-size="13.5" fill="#333333">stack and AI tool</text>
+  <text x="718" y="818" font-size="12.5" fill="#6b6b6b">Design owner</text>
+  <text x="718" y="842" font-size="12" fill="#b03a64">Acceptance rebuilds 7</text>
+</svg>
