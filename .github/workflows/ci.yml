@@ -110,7 +110,7 @@ jobs:
       - name: Run v2 offline tests
         run: python -m unittest discover -s v2/tests
       - name: Check the v2 CLI
-        run: reframe-v2 --help
+        run: reframe --help
       - name: Build and check the v2 distribution
         run: |
           python -m pip install build
@@ -143,8 +143,8 @@ jobs:
           leaked = sorted(name for name in names if name.endswith('.py') and not name.startswith('reframe_v2/'))
           if leaked:
               raise SystemExit(f'wheel contains modules outside reframe_v2: {leaked}')
-          if 'reframe-v2 = reframe_v2.cli:main' not in entry:
-              raise SystemExit('wheel is missing the reframe-v2 console script')
+          if 'reframe = reframe_v2.cli:main' not in entry.splitlines():
+              raise SystemExit('wheel is missing the reframe console script')
           if 'License-Expression: MIT' not in metadata and 'License: MIT' not in metadata:
               raise SystemExit('wheel metadata does not declare MIT')
           if not any(name.endswith('LICENSE') for name in names):
@@ -156,7 +156,7 @@ jobs:
           PY
           python -m venv "${RUNNER_TEMP}/v2-check"
           "${RUNNER_TEMP}/v2-check/bin/python" -m pip install "${RUNNER_TEMP}"/v2-dist/*.whl
-          "${RUNNER_TEMP}/v2-check/bin/reframe-v2" --version
+          "${RUNNER_TEMP}/v2-check/bin/reframe" --version
           "${RUNNER_TEMP}/v2-check/bin/python" -c "from reframe_v2.model import catalog; names = catalog(); assert len(names) == 14, names; print('installed schemas:', ', '.join(names))"
 
   secrets:

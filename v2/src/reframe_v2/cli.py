@@ -16,15 +16,14 @@ from reframe_v2 import __version__
 from reframe_v2.commands import Exit
 
 DESCRIPTION = (
-    "Reframe v2 (in development). It is built from docs/v2/specification.md "
-    "on the v2 branch; commands arrive as their stories land. The v1 CLI, `reframe`, "
-    "is frozen."
+    "Reframe (in development). It is built from its specification, docs/v2/specification.md; "
+    "commands arrive as their stories land."
 )
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="reframe-v2", description=DESCRIPTION)
-    parser.add_argument("--version", action="version", version=f"reframe-v2 {__version__}")
+    parser = argparse.ArgumentParser(prog="reframe", description=DESCRIPTION)
+    parser.add_argument("--version", action="version", version=f"reframe {__version__}")
     commands = parser.add_subparsers(dest="command")
     bootstrap = commands.add_parser("bootstrap", help="Print the bootstrap policy; write the Terraform. No AWS change.")
     bootstrap.add_argument("--print", dest="print_policy", action="store_true", required=True,

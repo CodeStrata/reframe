@@ -11,7 +11,7 @@ Reframe reads a mainframe repository with AWS Transform. It checks AWS's finding
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-in%20development-orange)](docs/v2/backlog.md)
 
-> **Reframe is in development.** It cannot yet run an assessment from start to finish (see [Status](#status)). It is built from its [specification](docs/v2/specification.md), and its code is the `reframe_v2` package in [`v2/`](v2/).
+> **Reframe is in development.** It cannot yet run an assessment from start to finish (see [Status](#status)). It is built from its [specification](docs/v2/specification.md).
 
 ## How it works
 
@@ -54,28 +54,23 @@ Nothing has run against AWS yet. Every live step needs an execution envelope the
 
 ## Try what exists today
 
-Reframe needs Python 3.11 or later. During development its command is `reframe-v2`; the specification writes it as `reframe`.
+Reframe needs Python 3.11 or later. Install it in a virtual environment:
 
 ```bash
 git clone --branch v2 https://github.com/sknampally/reframe.git
 cd reframe
+python -m venv .venv
+source .venv/bin/activate
 python -m pip install -e v2
-reframe-v2 --help
+reframe --help
 ```
 
 These commands are available now. None of them changes anything in AWS:
 
 | Command | What it does |
 | --- | --- |
-| `reframe-v2 bootstrap --print [--terraform <dir>]` | Prints the policy an administrator grants once; with `--terraform`, writes the Terraform module, a state-bucket definition and a resources-file template |
-| `reframe-v2 graph --profile <aws-profile> --region <region> --bucket <name> [--use <cluster> \| --new] [--tfvars <file>]` | Lists the region's Neptune clusters read-only, says which can serve the reimagine connector and why the others cannot, and asks which to use by name or whether to create a new one |
-| `python -m reframe_v2.design_site v2/examples/designs/online-preserve.json <out-dir>` | Renders a sample design as an interactive design site. The [samples](v2/examples/designs/README.md) are synthetic |
-
-Run the offline tests:
-
-```bash
-python -m unittest discover -s v2/tests
-```
+| `reframe bootstrap --print [--terraform <dir>]` | Prints the policy an administrator grants once; with `--terraform`, writes the Terraform module, a state-bucket definition and a resources-file template |
+| `reframe graph --profile <aws-profile> --region <region> --bucket <name> [--use <cluster> \| --new] [--tfvars <file>]` | Lists the region's Neptune clusters read-only, says which can serve the reimagine connector and why the others cannot, and asks which to use by name or whether to create a new one |
 
 The full command set, including `run`, `status`, `continue`, `accept` and `teardown`, is in [specification section 13](docs/v2/specification.md#13-commands). Each command arrives with the story that implements it.
 
@@ -106,7 +101,7 @@ Reframe is free to use. AWS Transform, Neptune, other AWS usage and Claude usage
 
 ## Contributing
 
-Changes follow one order: the [specification](docs/v2/specification.md), then the [plan](docs/v2/plan.md), then the epics and stories, and only then design and build ([change process](docs/v2/README.md)). Work uses feature branches from `v2` and pull requests back into `v2`. Each pull request names the specification sections and stories it implements, and CI checks that it does. [CONTRIBUTING.md](CONTRIBUTING.md) covers identity, review and publication.
+Changes follow one order: the [specification](docs/v2/specification.md), then the [plan](docs/v2/plan.md), then the epics and stories, and only then design and build ([change process](docs/v2/README.md)). Work uses feature branches from `v2` and pull requests back into `v2`. Each pull request names the specification sections and stories it implements, and CI checks that it does. Run the offline tests with `python -m unittest discover -s v2/tests`. [CONTRIBUTING.md](CONTRIBUTING.md) covers identity, review and publication.
 
 ## Author, security and license
 
