@@ -13,6 +13,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from reframe_v2.transform import (
+    LIVE_PATH_OPERATIONS,
+    MUTATING,
+    READ_ONLY,
     Authorization,
     ServerConfig,
     TransformClient,
@@ -60,19 +63,23 @@ class FixtureServerTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.marker = Path(self.tmp.name) / "create-job-called"
         self.chat = Path(self.tmp.name) / "chat-posted"
+        self.deleted = Path(self.tmp.name) / "deleted"
         config = ServerConfig((sys.executable, str(FIXTURE)), None, "us-east-1", Path(self.tmp.name) / "artifacts", timeout_seconds=60)
         parent = {"PATH": os.environ.get("PATH", ""), "HOME": os.environ.get("HOME", "")}
         client = TransformClient(config, parent)
-        client.env.update({"FIXTURE_DROP": drop, "FIXTURE_MARKER": str(self.marker), "FIXTURE_CHAT": str(self.chat)})
+        client.env.update({"FIXTURE_DROP": drop, "FIXTURE_MARKER": str(self.marker), "FIXTURE_CHAT": str(self.chat),
+                           "FIXTURE_DELETED": str(self.deleted)})
         return client
 
     def test_discovery_records_every_live_path_operation_and_calls_nothing(self):
         capability = discover(self.client(), NOW)
         self.assertTrue(capability.live_path_supported)
         self.assertEqual(capability.missing, ())
-        self.assertIn("delete_workspace", capability.unrecognized)
+        self.assertEqual(set(capability.available), set(LIVE_PATH_OPERATIONS))
+        self.assertEqual(capability.unrecognized, ("reject",))
         self.assertTrue(all(value.startswith("sha256:") for value in capability.tools.values()))
         self.assertFalse(self.marker.exists())
+        self.assertFalse(self.deleted.exists())
         self.assertEqual(capability.as_json()["checked_at"], "2026-11-18T12:00:00Z")
 
     def test_a_missing_operation_is_a_recorded_capability_gap(self):
@@ -114,9 +121,33 @@ class FixtureServerTests(unittest.TestCase):
         self.assertEqual(result, {"jobId": "job-fixture"})
         self.assertTrue(self.marker.exists())
 
+    def test_a_missing_teardown_operation_is_a_recorded_capability_gap(self):
+        capability = discover(self.client(drop="delete_job,delete_workspace"), NOW)
+        self.assertFalse(capability.live_path_supported)
+        self.assertEqual(capability.missing, ("delete_job", "delete_workspace"))
+
+    def test_every_envelope_operation_that_changes_aws_needs_authorization(self):
+        self.assertEqual(MUTATING, {"create_workspace", "create_connector", "accept_connector", "create_job",
+                                    "send_message", "complete_task", "delete_job", "delete_workspace"})
+        self.assertEqual(set(LIVE_PATH_OPERATIONS), MUTATING | READ_ONLY)
+
+    def test_a_delete_without_authorization_is_refused_before_dispatch(self):
+        client = self.client()
+        with self.assertRaises(Unauthorized):
+            client.call("delete_workspace", {"workspaceId": "w", "confirm": True})
+        with self.assertRaises(Unauthorized):
+            client.call("delete_job", {"workspaceId": "w", "jobId": "j", "confirm": True},
+                        Authorization("envelope-1", "delete_workspace", "Owner"))
+        self.assertFalse(self.deleted.exists())
+
+    def test_an_authorized_delete_is_sent(self):
+        client = self.client()
+        client.call("delete_job", {"workspaceId": "w", "jobId": "j", "confirm": True}, Authorization("envelope-1", "delete_job", "Owner"))
+        self.assertTrue(self.deleted.exists())
+
     def test_an_unclassified_tool_is_never_called(self):
         with self.assertRaises(Unauthorized):
-            self.client().call("delete_workspace", {"workspaceId": "w"})
+            self.client().call("reject", {"workspaceId": "w"})
 
     def test_arguments_are_never_guessed(self):
         client = self.client()

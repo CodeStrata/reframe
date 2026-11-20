@@ -3,6 +3,7 @@
 Tool names follow those v1 recorded against the live server; responses are synthetic.
 Set FIXTURE_DROP to a comma-separated list of tool names to leave out.
 Set FIXTURE_MARKER to a path; create_job writes it if it is ever called.
+Set FIXTURE_DELETED to a path; delete_job and delete_workspace write it if either is ever called.
 Set FIXTURE_CHAT to a path; get_job_status writes it when called without detailed=true,
 as the live server posts a chat message then.
 """
@@ -39,7 +40,12 @@ def get_job_status(workspaceId: str, jobId: str, detailed: bool = False) -> dict
 
 
 @tool
-def list_resources(workspaceId: str, resource: str) -> dict:
+def list_resources(resource: str, workspaceId: str = "") -> dict:
+    """As the live schema: workspaceId is optional, and required only for workspace-scoped resources."""
+    if resource != "workspaces" and not workspaceId:
+        raise ValueError("Synthetic 400: workspaceId is required for " + resource)
+    if resource == "workspaces":
+        return {"success": True, "data": {"items": [{"id": "workspace-fixture", "name": "fixture"}]}}
     return {"success": True, "data": {"items": []}}
 
 
@@ -69,7 +75,34 @@ def complete_task(workspaceId: str, jobId: str, taskId: str, content: str, actio
 
 
 @tool
-def delete_workspace(workspaceId: str) -> dict:
+def create_workspace(name: str, description: str = "") -> dict:
+    return {"success": True, "data": {"workspaceId": "workspace-fixture"}}
+
+
+@tool
+def create_connector(workspaceId: str, connectorName: str, connectorType: str, configuration: dict, awsAccountId: str,
+                     description: str = "") -> dict:
+    return {"success": True, "data": {"connectorId": "connector-fixture"}}
+
+
+@tool
+def accept_connector(workspaceId: str, connectorId: str, roleArn: str) -> dict:
+    return {"success": True, "data": {}}
+
+
+@tool
+def delete_job(workspaceId: str, jobId: str, confirm: bool) -> dict:
+    marker = os.environ.get("FIXTURE_DELETED")
+    if marker:
+        Path(marker).write_text("delete_job was called")
+    return {"success": True, "data": {}}
+
+
+@tool
+def delete_workspace(workspaceId: str, confirm: bool) -> dict:
+    marker = os.environ.get("FIXTURE_DELETED")
+    if marker:
+        Path(marker).write_text("delete_workspace was called")
     return {"success": True, "data": {}}
 
 

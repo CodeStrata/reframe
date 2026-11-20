@@ -32,10 +32,15 @@ from typing import Any
 from reframe_v2.model.hashing import content_hash
 
 LIVE_PATH_OPERATIONS = ("load_instructions", "get_job_status", "list_resources", "get_resource",
-                        "create_job", "send_message", "complete_task")
-"""What the live path (P1-05) calls, as recorded by v1 against the live AWS Transform MCP server."""
+                        "create_workspace", "create_connector", "accept_connector",
+                        "create_job", "send_message", "complete_task",
+                        "delete_job", "delete_workspace")
+"""Every operation the P1 execution envelope (revision 3) allows: reads in stages A to E, the workspace and
+connectors in stage C, the job in stage D, and the teardown deletes in stage E. Names as the pinned server
+lists them; v1 recorded them against the live service (#206, 17 November 2026)."""
 
-MUTATING = frozenset({"create_job", "send_message", "complete_task"})
+MUTATING = frozenset({"create_workspace", "create_connector", "accept_connector", "create_job", "send_message",
+                      "complete_task", "delete_job", "delete_workspace"})
 READ_ONLY = frozenset({"load_instructions", "get_job_status", "list_resources", "get_resource"})
 
 REQUIRED_VALUES = {"get_job_status": {"detailed": True}}
