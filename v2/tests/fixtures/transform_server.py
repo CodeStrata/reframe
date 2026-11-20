@@ -40,7 +40,12 @@ def get_job_status(workspaceId: str, jobId: str, detailed: bool = False) -> dict
 
 
 @tool
-def list_resources(workspaceId: str, resource: str) -> dict:
+def list_resources(resource: str, workspaceId: str = "") -> dict:
+    """As the live schema: workspaceId is optional, and required only for workspace-scoped resources."""
+    if resource != "workspaces" and not workspaceId:
+        raise ValueError("Synthetic 400: workspaceId is required for " + resource)
+    if resource == "workspaces":
+        return {"success": True, "data": {"items": [{"id": "workspace-fixture", "name": "fixture"}]}}
     return {"success": True, "data": {"items": []}}
 
 
