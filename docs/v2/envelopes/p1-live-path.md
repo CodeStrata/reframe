@@ -4,6 +4,8 @@
 
 **Revision 2 (19 November 2026):** the first run assumes no Neptune graph is in place. Stage B lists the region's Neptune clusters and the owner chooses one by name, or a new graph. Only a new graph needs stage C, which creates it in the account's default VPC (owner, 19 November 2026; [#250](https://github.com/sknampally/reframe/issues/250)).
 
+**Revision 3 (20 November 2026):** the test leaves nothing behind. Stage E removes everything stages C and D created: the job and the Transform workspace with its connectors, then every Terraform resource, including both buckets with their contents and the graph without a final snapshot. What the run produced is saved locally first, and a read-only listing at the end shows nothing is left (owner, 19 November 2026; [#253](https://github.com/sknampally/reframe/issues/253)). It needs P2-07's `disposable` setting, merged.
+
 This envelope says exactly what the P1 live path may do:
 - the read-only discovery in P1-03 ([#232](https://github.com/sknampally/reframe/issues/232));
 - the resource checks and the graph choice in P1-04 ([#233](https://github.com/sknampally/reframe/issues/233));
@@ -24,7 +26,7 @@ Items marked **Proposed** are defaults for the owner to accept or change. No acc
 | B Checks and the graph choice (P1-04) | `reframe graph` lists the region's Neptune clusters and says which can serve the reimagine connector and why the others cannot. The owner chooses one by name, or a new graph. For a new graph, Reframe checks the default VPC and shows the Terraform plan. One report covers what was found, what stage C would create and what it would cost | None | This approval |
 | C Provision (only for a new graph) | Terraform creates the resources in the "New graph" table below, from the saved plan the owner reviewed. Reframe then creates the Transform workspace and both connectors | Creates what the table lists. Neptune bills from here | A second go-ahead, after stage B's report |
 | D One job (P1-05) | Snapshot, source copy, one requirements job, the owner's function selection, answers to AWS review tasks, and retrieval of the requirements and traceability | One source object, one Transform job and its records | A further go-ahead |
-| E Remove the new graph | Terraform destroys the Neptune graph it created in stage C, and nothing else | Deletes the graph; a final snapshot is kept | The owner's explicit confirmation |
+| E Full teardown | Reframe saves the requirements, traceability, receipts and plans in the local project folder. It deletes the job and the workspace it created, through the server's own delete operations, and checks the connectors are gone. Terraform destroys `project/`, then `bootstrap/`. A read-only listing then shows nothing tagged for the project is left | Deletes everything stages C and D created. No snapshot is kept | The owner's explicit confirmation |
 
 ## The envelope
 
@@ -39,6 +41,7 @@ Items marked **Proposed** are defaults for the owner to accept or change. No acc
 | Resources with a new graph | Everything in the "New graph" table, under one project name. A new Transform workspace is needed, because AWS allows one reimagine connector per workspace and v1's workspace already has one | |
 | Who runs Terraform | **Proposed:** Reframe writes the Terraform and the variables, then runs `init` and `plan` (read-only) and saves the plan. The owner reads the plan and runs `terraform apply <saved plan>` themselves, so exactly the reviewed changes are made. The same goes for `destroy` in stage E | |
 | Project state | **Proposed:** Terraform state goes in the Reframe state bucket, with S3 locking. Reframe's own ledger, event log and manifest stay in the local project folder for P1, so the run is tied to one machine. Runs across machines come with P2's run command | |
+| Test resources | **Proposed:** the project is disposable (`disposable = true` in both Terraform compositions, P2-07). Destroying it deletes both buckets with every object version and the graph without a final snapshot | |
 | Data policy | Public source only. The Claude Code CLI backend is allowed by the policy, though this path makes no model call | |
 
 ### New graph (stage C)
@@ -47,8 +50,8 @@ Every resource is named from the project name, starts with `reframe-` and carrie
 
 | Resource | Created by | Notes |
 | --- | --- | --- |
-| Reframe state bucket | Terraform, `bootstrap/` composition | Encrypted, versioned, private. Its own state stays on the owner's machine. Kept after P1 for later runs |
-| Source bucket and sandbox role | Terraform, `project/` composition | Encrypted, versioned, private; the role cannot read outside the bucket |
+| Reframe state bucket | Terraform, `bootstrap/` composition | Encrypted, versioned, private. Its own state stays on the owner's machine. Created for this test and removed at stage E, last |
+| Source bucket and sandbox role | Terraform, `project/` composition | Encrypted, versioned, private; the role cannot read outside the bucket. Removed at stage E with its contents |
 | Neptune Serverless cluster, 1 instance, 1 to 8 NCUs | Terraform, `project/` with `reimagine = true` | Engine 1.4.5.1, IAM authentication, encryption |
 | Two security groups, the Neptune subnet group, the bulk-loader role | Terraform | In the default VPC's existing subnets, in two Availability Zones. Only the connector reaches Neptune |
 | S3 gateway endpoint | Terraform, only on route tables that lack one | The bulk loader needs it. It adds a route to the default VPC's route table, which stage B's plan shows. No charge |
@@ -59,15 +62,15 @@ No VPC, subnet, route table, internet gateway or NAT is created. If the region h
 
 ### AWS operations
 
-Only these. Every other tool, including any delete or stop operation, and any IAM, EC2, CloudFormation or Neptune change outside the saved Terraform plan, is refused before anything is sent. Operation names come from the server's own listing, never a console label.
+Only these. Every other tool, including any stop operation and any delete operation not listed here, and any IAM, EC2, CloudFormation or Neptune change outside the saved Terraform plan, is refused before anything is sent. Operation names come from the server's own listing, never a console label.
 
 | Operation | Kind | Stage | Limit | Rules |
 | --- | --- | --- | --- | --- |
-| List the server's tools | Read | A to D | Once per stage | Calls no tool |
-| `list_resources`, `get_resource`, `load_instructions` | Read | A to D | At most one read every 60 seconds while polling | |
+| List the server's tools | Read | A to E | Once per stage | Calls no tool |
+| `list_resources`, `get_resource`, `load_instructions` | Read | A to E | At most one read every 60 seconds while polling | At E, they confirm the job, workspace and connectors are gone |
 | `get_job_status` | Read | D | Same | Always with `detailed: true`. Without it, the server writes into the job chat (v1, 17 November 2026) |
-| AWS CLI describe, get and simulate calls | Read | B | As needed | The calls `reframe graph` and the resource checks make, and nothing else |
-| `terraform init` and `plan` | Read | B | As needed | The plan is saved for the owner |
+| AWS CLI describe, get and simulate calls | Read | B, E | As needed | At B, the calls `reframe graph` and the resource checks make. At E, the final listing: resources tagged with the project's `ReframeProject` tag (Resource Groups Tagging API `get-resources`), and describe calls for the cluster, buckets and roles. Nothing else |
+| `terraform init` and `plan` | Read | B, E | As needed | The plan is saved for the owner. At E, `plan -destroy` saves each destroy plan for the owner to read |
 | `terraform apply <saved plan>` | Change | C | 2: `bootstrap/`, then `project/` | Run by the owner (proposed), exactly the reviewed plan. A plan that differs from the reviewed one is refused |
 | `create_workspace` | Change | C | 1 | Arguments as v1 used live |
 | `create_connector` | Change | C | 2 | One `mainframe_modernization\|s3\|2` and one `mainframe_modernization\|reimagine\|1`, with the configuration Terraform outputs. Intent recorded before, receipt after |
@@ -76,7 +79,9 @@ Only these. Every other tool, including any delete or stop operation, and any IA
 | `create_job` | Change | D | **1** | After the go-ahead. `orchestratorAgent` is the value AWS accepted in v1's job, read from v1's receipt, never guessed. Intent recorded before, receipt after |
 | `send_message` | Change | D | 15 | Only to answer a question the job asks, with text from the review-task rules below |
 | `complete_task` | Change | D | 15 | Only for a task the classifier (P0-11) recognizes, under the review-task rules below |
-| `terraform destroy -target=module.neptune_graph` | Delete | E | 1 | Only after the owner confirms. It removes the graph and the connector role that depends on it. The buckets, the workspace and the connectors stay |
+| `delete_job` | Delete | E | 1 | Only the job `create_job` made, by its receipt. Only if stage A's listing shows the operation; its arguments come from the server's schema, never guessed. Intent recorded before, receipt after |
+| `delete_workspace` | Delete | E | 1 | Only the workspace `create_workspace` made, by its receipt, after its job is deleted. Same rules. A workspace that was used as client-owned is never deleted |
+| `terraform apply <saved destroy plan>` | Delete | E | 2: `project/`, then `bootstrap/` | Run by the owner (proposed), after the Transform deletions, exactly the reviewed destroy plan. `project/` removes the graph, roles, security groups, subnet group, S3 endpoint and the source bucket with its contents. `bootstrap/` then removes the state bucket. A destroy plan that would delete anything stage C did not create is refused |
 
 ### Claude backend and models
 
@@ -92,16 +97,16 @@ Estimates. Reframe labels them as estimates and says that AWS billing lags (NFR-
 | AWS Transform | The owner stated on 16 November 2026 that this use has no charge. **To confirm again** | One job |
 | Neptune, existing graph | No new resource. It keeps billing what it already does: v1's test stack runs about $0.32 an hour at idle, and v1 saw it scale towards about $10.29 an hour during a job | One job and the 8-hour limit. Worst case: about $80 more than idle |
 | Neptune, new graph | About $0.16 an hour at idle (1 instance at 1 NCU), up to about $1.29 an hour at its 8-NCU ceiling. An 8-hour job at the ceiling costs about $10.30. Removed right after the job, the whole run costs about $11. Left for the full 7 days, it costs about $36 | The 8-NCU ceiling, one instance, and stage E. Capped at 8 NCUs, the job may run slower than v1's did; that is not yet measured |
-| Neptune final snapshot | Storage for one snapshot of the graph, kept after stage E. Small; billed until the owner deletes it | One snapshot |
+| Neptune final snapshot | None: a disposable project deletes the graph without one | |
 | Network, buckets, roles, workspace, connectors | No charge, apart from S3 storage for a few MB | |
 
 ### Duration
 
 | Limit | Proposed |
 | --- | --- |
-| The envelope | 7 days from approval, or until the chosen function's requirements are retrieved and stage E is decided, whichever comes first |
+| The envelope | 7 days from approval, or until stage E's final listing is reported, whichever comes first |
 | The job | 8 hours from `create_job`. At the limit, Reframe stops polling and parks the project as `WAITING_HUMAN`. It does not stop the job: no stop operation is allowed here, so stopping it is the owner's step in the AWS Transform console |
-| Stage E | **Proposed:** offered as soon as the requirements are retrieved, or when the job limit is reached. Until the owner confirms it, the new graph keeps billing at idle |
+| Stage E | **Proposed:** offered as soon as the requirements are retrieved and saved locally, or when the job limit is reached. Until the owner confirms it, the new graph keeps billing at idle. If the job is still running at the limit, the owner stops it in the console before stage E |
 | Sign-in | When the SSO sign-in expires, work parks as `WAITING_EXTERNAL` until the owner signs in again; nothing retries in the meantime |
 
 ### Uncertain dispatch
@@ -118,14 +123,24 @@ Estimates. Reframe labels them as estimates and says that AWS billing lags (NFR-
 
 ### Cleanup
 
-Outside stage E, nothing is deleted: no resource, job, object, receipt or record. Stage E deletes only the graph Terraform created in stage C, and only after the owner confirms it.
+Outside stage E, nothing is deleted: no resource, job, object, receipt or record.
 
-These stay after P1:
-- the state bucket, the source bucket and the sandbox role;
-- the Transform workspace, both connectors, the job and the source copy;
-- the final snapshot.
+Stage E removes everything stages C and D created, in this order, after the owner confirms it once:
+1. **Save locally:** the requirements, traceability, receipts, ledger and Terraform plans go to the local project folder, with their content hashes recorded.
+2. **The job,** with `delete_job`.
+3. **The workspace,** with `delete_workspace`. Then a read checks that the workspace and both connectors are gone. v1's tool listing had no connector delete, so whether deleting a workspace removes its connectors is checked here, not assumed.
+4. **`project/`:** the graph without a final snapshot, the connector role, the security groups, the subnet group, the S3 endpoint, the sandbox role, and the source bucket with every object version.
+5. **`bootstrap/`:** the state bucket. It is last, because `project/`'s state lives in it.
+6. **Final listing:** a read-only listing of the project's tag, and describe calls for the cluster, buckets and roles, reported to the owner.
 
-Removing any of them is the owner's decision, made separately. So is removing v1's test stack and the old IAM role `reframe-reimagine-mainframe-modernization-test`, which v1 left in place. If the owner did not choose v1's stack at stage B, it keeps billing until the owner removes it. Reframe never touches it.
+If a Transform delete operation is missing at stage A, or a step fails, Reframe stops, keeps everything it has, and reports what is left. The owner then removes it in the console. Nothing is retried on its own.
+
+**Never touched:**
+- an existing cluster the owner chose at stage B;
+- a workspace, connector, role or bucket used as client-owned;
+- v1's test stack and the old IAM role `reframe-reimagine-mainframe-modernization-test`, which v1 left in place.
+
+Removing v1's leftovers is the owner's separate decision. If the owner did not choose v1's stack at stage B, it keeps billing until the owner removes it.
 
 ### Gates and AWS review tasks
 
@@ -155,7 +170,9 @@ Reframe stops, keeps everything it has, and asks the owner when:
 - a step needs an operation, resource, value or model call this envelope does not list;
 - a limit (calls, duration, spend) is reached;
 - an operation is `UNCERTAIN`;
-- AWS rejects a change.
+- AWS rejects a change;
+- a destroy plan would delete anything stage C did not create;
+- stage E's final listing shows a resource tagged for the project, or a workspace or connector Reframe created, still present.
 
 ### Evidence
 
@@ -173,7 +190,8 @@ From [#197](https://github.com/sknampally/reframe/issues/197), [#206](https://gi
 **Not yet proven live:**
 - the graph listing and checks;
 - a graph in the default VPC rather than AWS's own network template;
-- whether the bootstrap policy covers every call Terraform makes. The owner's SSO role is used here, not the bootstrap policy.
+- whether the bootstrap policy covers every call Terraform makes. The owner's SSO role is used here, not the bootstrap policy;
+- the server's `delete_job` and `delete_workspace`, and whether deleting a workspace removes its connectors.
 
 ## Owner decisions needed
 
@@ -181,8 +199,8 @@ From [#197](https://github.com/sknampally/reframe/issues/197), [#206](https://gi
 2. Function: chosen at the catalog in person, and whether to prefer the smallest online function.
 3. The graph: chosen at stage B by name, or a new graph. Nothing is needed now.
 4. Who runs `terraform apply` and `destroy`: the owner (proposed), or Reframe after the owner has reviewed the plan.
-5. Stage E timing: as soon as the requirements are retrieved (proposed), or later.
-6. Terraform state in a new Reframe state bucket, with Reframe's own state kept locally for P1.
+5. Stage E: a full teardown (proposed, as you asked), as soon as the requirements are retrieved and saved locally (proposed), or later.
+6. Terraform state in a new Reframe state bucket, created for this test and removed last at stage E; Reframe's own state kept locally for P1.
 7. The limits: operations, the 8-hour job, the 7-day envelope, the 8-NCU ceiling and the spend estimates.
 8. The three intake answers.
 9. Confirm again that AWS Transform has no charge for this use.
