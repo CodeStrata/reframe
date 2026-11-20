@@ -37,11 +37,6 @@ class PolicyTests(unittest.TestCase):
             self.assertFalse(any("*" in a for a in actions), statement["Sid"])
             if statement["Sid"] == "ReadOnlyChecks":
                 continue
-            if statement["Sid"] == "AttachReframeGraphToAnExistingNetwork":
-                # Creating in an existing network is also authorized against that VPC and its route tables.
-                self.assertEqual(statement["Action"], ["ec2:CreateSecurityGroup", "ec2:CreateVpcEndpoint"])
-                self.assertEqual(statement["Resource"], ["arn:aws:ec2:*:*:vpc/*", "arn:aws:ec2:*:*:route-table/*"])
-                continue
             resources = statement["Resource"] if isinstance(statement["Resource"], list) else [statement["Resource"]]
             by_name = all("reframe-*" in r for r in resources)
             self.assertTrue(by_name or statement.get("Condition") in tagged, statement["Sid"])
@@ -57,12 +52,16 @@ class PolicyTests(unittest.TestCase):
 
     def test_creating_requires_the_reframe_tag_and_deleting_requires_it_on_the_resource(self):
         statements = {s["Sid"]: s for s in bootstrap_policy()["Statement"]}
-        create = statements["CreateReframeGraphOnlyWhenTagged"]
+        create = statements["CreateReframeNetworkAndGraphOnlyWhenTagged"]
         self.assertTrue(all(":Create" in a for a in create["Action"]))
-        attach = statements["AttachReframeGraphToAnExistingNetwork"]
-        self.assertTrue(set(attach["Action"]) <= set(create["Action"]), "attaching never allows an untagged resource")
+        for action in ("ec2:CreateVpc", "ec2:CreateSubnet", "ec2:CreateRouteTable", "ec2:CreateVpcEndpoint"):
+            self.assertIn(action, create["Action"])
+        self.assertNotIn("AttachReframeGraphToAnExistingNetwork", statements, "nothing is created in an untagged network")
+        self.assertFalse(any(isinstance(s["Resource"], list) and any(":vpc/" in r or ":route-table/" in r for r in s["Resource"])
+                             for s in statements.values()), "no untagged VPC or route table is ever authorized")
         change = statements["ChangeOnlyWhatReframeTagged"]
-        self.assertIn("rds:DeleteDBCluster", change["Action"])
+        for action in ("rds:DeleteDBCluster", "ec2:DeleteVpc", "ec2:DeleteSubnet", "ec2:DeleteRouteTable", "ec2:AssociateRouteTable"):
+            self.assertIn(action, change["Action"])
         self.assertEqual(change["Condition"], {"StringEquals": {"aws:ResourceTag/ManagedBy": "reframe"}})
 
     def test_no_transform_action_is_guessed(self):
@@ -114,7 +113,7 @@ class TerraformTextTests(unittest.TestCase):
 
 
 class NeptuneTextTests(unittest.TestCase):
-    """What AWS checks for a reimagine connector (v1, #206), on an existing network (P2-06)."""
+    """What AWS checks for a reimagine connector (v1, #206), in the graph's own private network (P2-08)."""
 
     body = text("modules", "neptune_graph", "main.tf")
 
@@ -124,15 +123,23 @@ class NeptuneTextTests(unittest.TestCase):
                      "AWS requires Neptune engine 1.4.5.1 or later"):
             self.assertIn(line, self.body)
 
-    def test_no_network_is_built_beyond_security_groups_and_the_s3_endpoint(self):
-        for resource in ("aws_vpc", "aws_subnet", "aws_route_table", "aws_route_table_association",
-                         "aws_internet_gateway", "aws_nat_gateway"):
-            self.assertNotIn(f'resource "{resource}" ', self.body)
-        for resource in ("aws_security_group", "aws_vpc_endpoint", "aws_neptune_subnet_group", "aws_neptune_cluster", "aws_iam_role"):
+    def test_the_graph_gets_its_own_private_network_and_nothing_else(self):
+        for resource in ("aws_vpc", "aws_subnet", "aws_route_table", "aws_route_table_association", "aws_vpc_endpoint",
+                         "aws_security_group", "aws_neptune_subnet_group", "aws_neptune_cluster", "aws_iam_role"):
             self.assertIn(f'resource "{resource}" ', self.body)
-        endpoint = self.body[self.body.index('resource "aws_vpc_endpoint" "s3"'):].split("}")[0]
-        self.assertIn("count             = length(var.s3_endpoint_route_table_ids) > 0 ? 1 : 0", endpoint)
-        self.assertIn("length(distinct([for s in data.aws_subnet.chosen : s.availability_zone])) >= 2", self.body)
+        for resource in ("aws_internet_gateway", "aws_egress_only_internet_gateway", "aws_nat_gateway", "aws_eip",
+                         "aws_vpc_peering_connection", "aws_route\" "):
+            self.assertNotIn(f'resource "{resource}', self.body)
+        for name in ("vpc_id", "subnet_ids", "s3_endpoint_route_table_ids"):
+            self.assertNotIn(f'variable "{name}"', self.body, "no existing network is taken")
+        self.assertNotIn('data "aws_vpc"', self.body)
+        self.assertNotIn('data "aws_subnet"', self.body)
+        self.assertIn("count             = 2", self.body[self.body.index('resource "aws_subnet" "app"'):])
+        self.assertIn("availability_zone = data.aws_availability_zones.available.names[count.index]", self.body)
+        endpoint = self.body[self.body.index('resource "aws_vpc_endpoint" "s3"'):].split("\n}")[0]
+        self.assertIn('vpc_endpoint_type = "Gateway"', endpoint)
+        self.assertIn("route_table_ids   = [aws_route_table.app.id]", endpoint)
+        self.assertIn("subnet_ids = aws_subnet.app[*].id", self.body)
 
     def test_the_graph_is_reachable_only_from_the_connector_and_reaches_only_s3(self):
         self.assertNotIn("0.0.0.0/0", self.body)
@@ -164,9 +171,9 @@ class NeptuneTextTests(unittest.TestCase):
 
     def test_the_graph_is_only_built_when_asked_and_no_existing_one_was_chosen(self):
         project = text("project", "main.tf")
-        self.assertIn("count                       = var.reimagine && var.existing_graph == null ? 1 : 0", project)
+        self.assertIn("count          = var.reimagine && var.existing_graph == null ? 1 : 0", project)
         self.assertIn("default     = false", project[project.index('variable "reimagine"'):])
-        self.assertIn("!var.reimagine || ((var.existing_graph == null) != (var.graph_network == null))", project)
+        self.assertNotIn("graph_network", project)
 
     def test_an_existing_graph_is_never_managed(self):
         project = text("project", "main.tf")
@@ -209,7 +216,7 @@ class DisposableTests(unittest.TestCase):
         uses = [line for line in project.splitlines() if "var.disposable" in line]
         self.assertEqual(len(uses), 2)
         self.assertFalse(any("existing_graph" in line for line in uses))
-        self.assertIn("count                       = var.reimagine && var.existing_graph == null ? 1 : 0",
+        self.assertIn("count          = var.reimagine && var.existing_graph == null ? 1 : 0",
                       self.block(project, 'module "neptune_graph"'))
 
     def test_emptying_a_versioned_bucket_is_allowed_only_in_reframe_buckets(self):

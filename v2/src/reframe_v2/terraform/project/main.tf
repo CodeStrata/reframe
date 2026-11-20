@@ -75,22 +75,8 @@ variable "existing_graph" {
   }
 }
 
-variable "graph_network" {
-  description = "Where a new graph goes, normally the account's default VPC (reframe graph). Nothing here is created except the S3 endpoint on the listed route tables."
-  type = object({
-    vpc_id                      = string
-    subnet_ids                  = list(string)
-    s3_endpoint_route_table_ids = list(string)
-  })
-  default = null
-  validation {
-    condition     = !var.reimagine || ((var.existing_graph == null) != (var.graph_network == null))
-    error_message = "With reimagine, give either existing_graph or graph_network, not both; reframe graph writes the one you chose."
-  }
-}
-
 variable "disposable" {
-  description = "A test project, removed completely when the test ends: destroy deletes the source bucket with its contents and the graph without a final snapshot. An existing graph is never affected."
+  description = "A test project, removed completely when the test ends: destroy deletes the source bucket with its contents and the graph without a final snapshot. A new graph's network goes with it either way. An existing graph is never affected."
   type        = bool
   default     = false
 }
@@ -132,16 +118,13 @@ module "bedrock_invoke" {
 }
 
 module "neptune_graph" {
-  source                      = "../modules/neptune_graph"
-  count                       = var.reimagine && var.existing_graph == null ? 1 : 0
-  name                        = "reframe-${var.project}-kg"
-  bucket_name                 = module.repo.bucket
-  vpc_id                      = try(var.graph_network.vpc_id, null)
-  subnet_ids                  = try(var.graph_network.subnet_ids, null)
-  s3_endpoint_route_table_ids = try(var.graph_network.s3_endpoint_route_table_ids, [])
-  max_capacity                = var.neptune_max_capacity
-  instance_count              = var.neptune_instance_count
-  final_snapshot              = !var.disposable
+  source         = "../modules/neptune_graph"
+  count          = var.reimagine && var.existing_graph == null ? 1 : 0
+  name           = "reframe-${var.project}-kg"
+  bucket_name    = module.repo.bucket
+  max_capacity   = var.neptune_max_capacity
+  instance_count = var.neptune_instance_count
+  final_snapshot = !var.disposable
 }
 
 locals {
