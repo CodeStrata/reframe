@@ -1,8 +1,8 @@
-# Reframe v2
+# Reframe
 
 **From a mainframe repository to a traceable, AI-DLC-ready engineering handoff.**
 
-Reframe v2 reads a mainframe repository with AWS Transform. It checks AWS's findings against the pinned source with Claude, and has them reviewed independently. It then produces a platform-neutral design and a package that starts an AI-DLC project in Claude Code or Kiro. People review and correct it at three scheduled gates, and the run does not stop to wait for them.
+Reframe reads a mainframe repository with AWS Transform. It checks AWS's findings against the pinned source with Claude, and has them reviewed independently. It then produces a platform-neutral design and a package that starts an AI-DLC project in Claude Code or Kiro. People review and correct it at three scheduled gates, and the run does not stop to wait for them.
 
 **Reframe prepares a modernization project. It does not write the application, deploy anything or prove runtime equivalence with the mainframe.**
 
@@ -11,28 +11,11 @@ Reframe v2 reads a mainframe repository with AWS Transform. It checks AWS's find
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-in%20development-orange)](docs/v2/backlog.md)
 
-> **This is the `v2` branch, and v2 is still being built.** It cannot yet run an assessment from start to finish (see [Status](#status)). It is built from its [specification](docs/v2/specification.md), as the `reframe_v2` package in [`v2/`](v2/).
->
-> **v1 is frozen.** The v1 CLI (`reframe`) is on [`main`](https://github.com/sknampally/reframe/tree/main), and its README is kept on this branch as [README-v1.md](README-v1.md). v1 is retired once v2 passes phase P3.
+> **Reframe is in development.** It cannot yet run an assessment from start to finish (see [Status](#status)). It is built from its [specification](docs/v2/specification.md), and its code is the `reframe_v2` package in [`v2/`](v2/).
 
 ## How it works
 
-```mermaid
-flowchart TD
-  I["1 Intake and scope<br/>source snapshot, policy, budget, Claude backend"] --> R["2 Resources<br/>--provision (Terraform) or --resources (client-owned)"]
-  R --> X["3 Extract<br/>AWS Transform, functions in scope"]
-  X --> C["4 Per context, in parallel<br/>context map, evidence, domain model, rules (Sonnet)"]
-  C --> V["5 Independent review and report (Opus)"]
-  V --> D["6 Per context: canonical design, contracts,<br/>backlog, tests, design review (platform-neutral)"]
-  D --> P["7 Profile, skills, guardrails, package<br/>(draft until gate 3 is accepted)"]
-  P --> A["After Reframe: engineering team<br/>starts the AI-DLC project in Claude Code or Kiro"]
-  X -.-> G1{{"Gate 1 (open for review)<br/>scope, goal, context, corrections"}}
-  V -.-> G2{{"Gate 2 (open for review)<br/>stakeholders read the assessment"}}
-  D -.-> G3{{"Gate 3 (open for review)<br/>design acceptance; stack and AI tool"}}
-  G1 -. "answers rerun affected steps" .-> C
-  G2 -. "answers rerun affected steps" .-> D
-  G3 -. "acceptance rebuilds the package" .-> P
-```
+![How a Reframe run works: seven stages run through to the package, with three review gates beside the run](docs/v2/images/workflow.svg)
 
 The run has seven stages, and none of them waits for a person:
 
@@ -54,19 +37,6 @@ The run has seven stages, and none of them waits for a person:
 
 Workflow details are in [specification section 4](docs/v2/specification.md#4-workflow).
 
-## What changes from v1
-
-| | v1 (frozen) | v2 |
-| --- | --- | --- |
-| Flow | Four phases, each stopping for an approval | Seven stages that keep running, with three review gates beside them |
-| Models | A choice of executor and reviewer CLIs (Claude, Codex, Kiro) | Claude only: Sonnet 5.5 generates, Opus 5.5 reviews, through the Claude Code CLI or Amazon Bedrock |
-| Infrastructure | OpenTofu sandbox | HashiCorp Terraform, or client-owned resources named in a resources file |
-| Design | Specification and HTML wireframes | A canonical model rendered as an interactive design site, with export and import; `preserve` or `modernize` goal |
-| Output | AI-DLC package after the review route | A tool-neutral package with skills and guardrails for Claude Code or Kiro, draft until gate 3 is accepted |
-| Gate feedback | Given in Reframe at each stop | GitHub issues or local feedback files, while the run carries on |
-
-What v2 ports from v1, rewrites or drops is listed in [port-or-drop.md](docs/v2/port-or-drop.md).
-
 ## Status
 
 As of 19 November 2026. The [backlog](docs/v2/backlog.md) links every epic and story.
@@ -76,15 +46,15 @@ As of 19 November 2026. The [backlog](docs/v2/backlog.md) links every epic and s
 | P0 Contracts | Schemas, state machine, ledger and budget, evidence and readiness, worker, data policy, provider interface, package manifest | Built and tested offline. The semantic fixtures (P0-14) wait for a person |
 | P1 Prototype and external proof | The design site on three different samples; one authorized live AWS Transform path, from function selection to requirements retrieval | Intake and design site built. The live path waits for the owner's approval of its [execution envelope](docs/v2/envelopes/p1-live-path.md); the SME and architect reviews wait for people |
 | P2 One domain | One CardDemo domain, from intake to package, on created and on client-owned resources | Offline parts built: state bucket, resources file, gate feedback, Terraform and bootstrap, Neptune graph |
-| P3 Change and recovery | Resume, late context, failures, teardown, v1 import, one slice on Bedrock | Not started |
+| P3 Change and recovery | Resume, late context, failures, teardown, one slice on Bedrock | Not started |
 | P4 Whole CardDemo | Every function at a pinned revision | Not started |
 | P5 Scale | Two other public mainframe repositories, with nothing built for them | Not started |
 
-Nothing in v2 has run against AWS yet. Every live step needs an execution envelope the owner approves first.
+Nothing has run against AWS yet. Every live step needs an execution envelope the owner approves first.
 
 ## Try what exists today
 
-v2 needs Python 3.11 or later. During development its command is `reframe-v2`, so it can sit beside v1's `reframe`; the specification writes it as `reframe`.
+Reframe needs Python 3.11 or later. During development its command is `reframe-v2`; the specification writes it as `reframe`.
 
 ```bash
 git clone --branch v2 https://github.com/sknampally/reframe.git
@@ -127,8 +97,8 @@ Reframe is free to use. AWS Transform, Neptune, other AWS usage and Claude usage
 
 | Document | What it holds |
 | --- | --- |
-| [Specification](docs/v2/specification.md) | What v2 does: the source of truth for every design and build decision |
-| [Plan](docs/v2/plan.md) | Why v2 exists, phases, success measures, risks and next steps |
+| [Specification](docs/v2/specification.md) | What Reframe does: the source of truth for every design and build decision |
+| [Plan](docs/v2/plan.md) | Phases, success measures, risks and next steps |
 | [Backlog](docs/v2/backlog.md) | The epics and stories in GitHub |
 | [Envelopes](docs/v2/envelopes/) | What each live step may do, approved by the owner before it runs |
 | [Evidence](docs/v2/evidence/) | Records of owner-authorized proofs |
@@ -136,7 +106,7 @@ Reframe is free to use. AWS Transform, Neptune, other AWS usage and Claude usage
 
 ## Contributing
 
-Changes follow one order: the [specification](docs/v2/specification.md), then the [plan](docs/v2/plan.md), then the epics and stories, and only then design and build ([change process](docs/v2/README.md)). Work on v2 uses feature branches from `v2` and pull requests back into `v2`. Each pull request names the specification sections and stories it implements, and CI checks that it does. [CONTRIBUTING.md](CONTRIBUTING.md) covers identity, review and publication.
+Changes follow one order: the [specification](docs/v2/specification.md), then the [plan](docs/v2/plan.md), then the epics and stories, and only then design and build ([change process](docs/v2/README.md)). Work uses feature branches from `v2` and pull requests back into `v2`. Each pull request names the specification sections and stories it implements, and CI checks that it does. [CONTRIBUTING.md](CONTRIBUTING.md) covers identity, review and publication.
 
 ## Author, security and license
 
@@ -144,4 +114,4 @@ Satish Kumar Nampally created Reframe. Reframe is [MIT licensed](LICENSE). [AWS 
 
 Keep source assessments, account identifiers, credentials and client documents in private workspaces, **never in this public repository or its issues**. See [SECURITY.md](SECURITY.md) and [THIRD_PARTY.md](THIRD_PARTY.md).
 
-Reframe v2 is being developed with AI assistance. People are responsible for interpreting evidence, making decisions and validating any resulting application.
+Reframe is being developed with AI assistance. People are responsible for interpreting evidence, making decisions and validating any resulting application.
