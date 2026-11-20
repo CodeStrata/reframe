@@ -9,7 +9,7 @@ from pathlib import Path
 import reframe as app
 
 ROOT = Path(__file__).resolve().parents[1]
-GUIDES = [ROOT / 'README.md', ROOT / 'docs' / 'cli-guide.md', ROOT / 'docs' / 'four-phase-workflow.md']
+GUIDES = [ROOT / 'README-v1.md', ROOT / 'docs' / 'cli-guide.md', ROOT / 'docs' / 'four-phase-workflow.md']
 RECOVERY = ('resume', 'upgrade-framework', 'recover-ui-call', 'recover-provider', 'reconcile-operation',
             'reconcile-design', 'recovery-plan', 'feedback', 'model-budget')
 
@@ -54,7 +54,7 @@ def script_strings():
 
 def package_table():
     """File names and patterns listed in the README package table."""
-    text = (ROOT / 'README.md').read_text()
+    text = (ROOT / 'README-v1.md').read_text()
     section = text[text.index('## What the package contains'):text.index('## Deliverables and quality gates')]
     names = set()
     for row in section.splitlines():
@@ -116,7 +116,7 @@ class DocsConsistencyTests(unittest.TestCase):
             self.assertTrue(child.description, name + ' --help has no description')
 
     def test_the_package_table_names_real_writers(self):
-        text = (ROOT / 'README.md').read_text()
+        text = (ROOT / 'README-v1.md').read_text()
         section = text[text.index('## What the package contains'):text.index('## Deliverables and quality gates')]
         modules = {path.stem: path.read_text() for path in (ROOT / 'scripts').glob('*.py')}
         for writer in set(re.findall(r'`((?:reframe_\w+\.)?\w+)\(\)`', section)):
