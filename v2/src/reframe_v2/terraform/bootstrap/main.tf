@@ -24,6 +24,12 @@ variable "state_bucket" {
   }
 }
 
+variable "disposable" {
+  description = "A state bucket made for a test, removed with everything in it when the test ends. Destroy every project that uses it first."
+  type        = bool
+  default     = false
+}
+
 provider "aws" {
   region = var.region
   default_tags {
@@ -36,8 +42,9 @@ provider "aws" {
 }
 
 module "state_bucket" {
-  source = "../modules/state_bucket"
-  name   = var.state_bucket
+  source        = "../modules/state_bucket"
+  name          = var.state_bucket
+  force_destroy = var.disposable
 }
 
 output "state_bucket" {

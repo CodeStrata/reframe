@@ -11,8 +11,15 @@ variable "name" {
   }
 }
 
+variable "force_destroy" {
+  description = "Destroy the bucket with every object version in it (a disposable test project). Off by default, so a bucket that holds data is not destroyed."
+  type        = bool
+  default     = false
+}
+
 resource "aws_s3_bucket" "state" {
-  bucket = var.name
+  bucket        = var.name
+  force_destroy = var.force_destroy
 }
 
 resource "aws_s3_bucket_ownership_controls" "state" {

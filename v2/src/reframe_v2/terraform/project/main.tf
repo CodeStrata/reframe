@@ -89,6 +89,12 @@ variable "graph_network" {
   }
 }
 
+variable "disposable" {
+  description = "A test project, removed completely when the test ends: destroy deletes the source bucket with its contents and the graph without a final snapshot. An existing graph is never affected."
+  type        = bool
+  default     = false
+}
+
 variable "neptune_max_capacity" {
   description = "Maximum NCUs per Neptune instance: the ceiling on graph spend while a job runs."
   type        = number
@@ -112,9 +118,10 @@ provider "aws" {
 }
 
 module "repo" {
-  source      = "../modules/repo"
-  bucket_name = var.bucket_name
-  role_name   = var.role_name
+  source        = "../modules/repo"
+  bucket_name   = var.bucket_name
+  role_name     = var.role_name
+  force_destroy = var.disposable
 }
 
 module "bedrock_invoke" {
@@ -134,6 +141,7 @@ module "neptune_graph" {
   s3_endpoint_route_table_ids = try(var.graph_network.s3_endpoint_route_table_ids, [])
   max_capacity                = var.neptune_max_capacity
   instance_count              = var.neptune_instance_count
+  final_snapshot              = !var.disposable
 }
 
 locals {

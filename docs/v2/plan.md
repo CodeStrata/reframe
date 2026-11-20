@@ -71,7 +71,7 @@ What later runs do:
 | Same repo, same commit | Reuses every resource. Starts a new `RUN-` job, or with `--replace` makes it the current one in place of the previous run, whose outputs stay as history. |
 | Same repo, new commit | Reuses every resource. Uploads the new source version and starts a new job in the same workspace. |
 | New repo | Creates a new bucket, roles, workspace and connectors named from the new repo, and its own Neptune graph until P2 proves shared graphs safe. |
-| Run finished | `reframe teardown` deletes only resources that are both in the project's manifest and carry its tag, and only after a person confirms; a tagged resource missing from the manifest is listed, never deleted. The shared Neptune graph, the main ongoing cost, is removed only with `--shared` and only when no other project uses it. For testing, `reframe run --clean-start` removes earlier resources, after confirmation, and recreates them. |
+| Run finished | `reframe teardown` deletes only resources that are both in the project's manifest and carry its tag, and only after a person confirms; a tagged resource missing from the manifest is listed, never deleted. The shared Neptune graph, the main ongoing cost, is removed only with `--shared` and only when no other project uses it. For testing, `reframe run --clean-start` removes earlier resources, after confirmation, and recreates them. A project marked disposable for a test is removed completely when the test ends, buckets and their contents included, with no final snapshot. |
 
 AWS allows one reimagine connector per workspace, so one workspace per repo keeps those connectors separate.
 

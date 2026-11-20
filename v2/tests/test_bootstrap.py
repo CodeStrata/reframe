@@ -177,6 +177,52 @@ class NeptuneTextTests(unittest.TestCase):
         self.assertIn('graph         = var.existing_graph != null ? "existing" : "created"', project)
 
 
+class DisposableTests(unittest.TestCase):
+    """P2-07 (#253): a test project is removed completely; the default keeps data and a final snapshot."""
+
+    def block(self, body, start):
+        return body[body.index(start):].split("\n}\n")[0]
+
+    def test_the_default_keeps_data_and_a_final_snapshot(self):
+        for module in ("repo", "state_bucket"):
+            body = text("modules", module, "main.tf")
+            self.assertRegex(self.block(body, 'variable "force_destroy"'), r"default\s+= false", module)
+            self.assertRegex(self.block(body, 'resource "aws_s3_bucket" '), r"force_destroy\s+= var\.force_destroy", module)
+        graph = text("modules", "neptune_graph", "main.tf")
+        self.assertRegex(self.block(graph, 'variable "final_snapshot"'), r"default\s+= true")
+        cluster = self.block(graph, 'resource "aws_neptune_cluster" "graph"')
+        self.assertRegex(cluster, r"skip_final_snapshot\s+= !var\.final_snapshot")
+        self.assertRegex(cluster, r'final_snapshot_identifier\s+= var\.final_snapshot \? "\$\{var\.name\}-final" : null')
+        for composition in ("project", "bootstrap"):
+            body = text(composition, "main.tf")
+            self.assertRegex(self.block(body, 'variable "disposable"'), r"default\s+= false", composition)
+
+    def test_a_disposable_project_removes_its_buckets_and_graph(self):
+        project = text("project", "main.tf")
+        self.assertRegex(self.block(project, 'module "repo"'), r"force_destroy\s+= var\.disposable")
+        self.assertRegex(self.block(project, 'module "neptune_graph"'), r"final_snapshot\s+= !var\.disposable")
+        bootstrap = text("bootstrap", "main.tf")
+        self.assertRegex(self.block(bootstrap, 'module "state_bucket"'), r"force_destroy\s+= var\.disposable")
+
+    def test_an_existing_graph_is_never_part_of_it(self):
+        project = text("project", "main.tf")
+        uses = [line for line in project.splitlines() if "var.disposable" in line]
+        self.assertEqual(len(uses), 2)
+        self.assertFalse(any("existing_graph" in line for line in uses))
+        self.assertIn("count                       = var.reimagine && var.existing_graph == null ? 1 : 0",
+                      self.block(project, 'module "neptune_graph"'))
+
+    def test_emptying_a_versioned_bucket_is_allowed_only_in_reframe_buckets(self):
+        statements = {s["Sid"]: s for s in bootstrap_policy()["Statement"]}
+        holders = sorted(sid for sid, s in statements.items()
+                         if {"s3:ListBucketVersions", "s3:DeleteObjectVersion"} & set(s["Action"] if isinstance(s["Action"], list) else [s["Action"]]))
+        self.assertEqual(holders, ["ReframeBuckets", "ReframeObjects"])
+        self.assertIn("s3:ListBucketVersions", statements["ReframeBuckets"]["Action"])
+        self.assertEqual(statements["ReframeBuckets"]["Resource"], "arn:aws:s3:::reframe-*")
+        self.assertIn("s3:DeleteObjectVersion", statements["ReframeObjects"]["Action"])
+        self.assertEqual(statements["ReframeObjects"]["Resource"], "arn:aws:s3:::reframe-*/*")
+
+
 @unittest.skipUnless(shutil.which("terraform"), "Terraform is not installed; CI runs this with a pinned version")
 class TerraformValidateTests(unittest.TestCase):
     def test_both_compositions_validate(self):
