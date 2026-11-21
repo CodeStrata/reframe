@@ -95,8 +95,8 @@ RESOURCES_TEMPLATE = {
     "state_bucket": {"name": "<state bucket>", "write_prefixes": ["projects/<project>/"]},
     "bucket": {"name": "<source bucket>", "write_prefixes": ["reframe/"]},
     "sandbox_role": {"name": "<sandbox role name>"},
-    "transform": {"workspace_id": "<workspace id>", "assessment_connector": "<connector id>", "reimagine_connector": None},
-    "neptune_stack": None,
+    "transform": {"workspace_id": "<workspace id>", "assessment_connector": None, "reimagine_connector": "<reimagine connector id>"},
+    "neptune_stack": {"name": "<Neptune stack name>"},
 }
 
 

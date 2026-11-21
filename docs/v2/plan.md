@@ -56,7 +56,7 @@ What `--provision` creates, and what Reframe does today:
 | S3 sandbox bucket: encrypted, versioned, public access blocked | Created by guided setup with OpenTofu (`infrastructure/main.tf`) | Move from OpenTofu to HashiCorp Terraform |
 | Sandbox IAM role with a policy that denies reads outside the bucket | Created by OpenTofu | Move from OpenTofu to HashiCorp Terraform |
 | AWS Transform workspace | Created by Reframe through the Transform MCP server | None |
-| S3 connector for the assessment | Created by Reframe; a named person confirms it | Reframe confirms it; no human step (decided 18 November 2026) |
+| S3 connector for the assessment | Created by Reframe; a named person confirms it | Not created for the Assess and reimagine plan, which uses only the reimagine connector; AWS's documentation keeps the S3 connector for custom plans (20 November 2026) |
 | Neptune knowledge-graph stack (cluster, subnets, security group, bulk-loader role) | Not created; Reframe requires an existing stack from AWS's `neptune-kg-setup.yaml` | First look for an existing Neptune Serverless cluster that meets the connector's needs and ask the person whether to use it, by name; otherwise create one with Terraform in its own private network, as AWS's template does (a VPC, two subnets, a route table and an S3 gateway endpoint, with no internet gateway or NAT), removed with the graph: one per repo until P2 proves two repos can share one safely, then one per account and region; read the six connector values from Terraform outputs or the chosen cluster instead of CloudFormation stack outputs |
 | Reimagine connector and its IAM role (`N-reimagine`, `N-rmg`) | Created by a separate `requirements connector --create` command | Run it as part of first-run setup |
 | AWS Transform enabled for the account and its users | Not handled | Check what can be automated; document the rest as a one-time admin step |
@@ -141,7 +141,7 @@ The main risk is an unreviewed package being read as approved. Every output ther
 |---|---|
 | A package resting on assumptions is read as approved | Every assumption carries confidence and status; readiness is computed, never declared. |
 | Quality with only three gates | Automated review per domain and of the design, targeted source checks on every AWS claim used, and the P2 measures before scaling. |
-| AWS Transform constraints: one reimagine connector per workspace, chat-driven steps, Neptune cost | Keep the requirements import path as a fallback; script the chat answers already proven live. |
+| AWS Transform constraints: one reimagine connector per workspace, chat-driven steps, Neptune cost | Keep the requirements import path as a fallback. Record every setup answer at intake and answer AWS's setup chat with one message, then each recognized question within a polling interval, because AWS's job agent stops when a question waits too long (seen live, 20 November 2026). |
 | Shared entities conflict across domains | The merge step records each conflict as an assumption with both definitions, instead of picking one silently. |
 | Model window or cost at scale | Per-context calls with a token cap and a budget set at intake. |
 | AI-DLC changes quickly (v2.11.4 on 13 Nov 2026) | Pin the AI-DLC release in the package and run a conformance check against each new release. |

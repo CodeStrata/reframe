@@ -6,6 +6,10 @@ Set FIXTURE_MARKER to a path; create_job writes it if it is ever called.
 Set FIXTURE_DELETED to a path; delete_job and delete_workspace write it if either is ever called.
 Set FIXTURE_CHAT to a path; get_job_status writes it when called without detailed=true,
 as the live server posts a chat message then.
+Set FIXTURE_GATE=1 to refuse job-scoped calls until load_instructions has run for the job in this
+process, as the live server 0.2.4 does (INSTRUCTIONS_REQUIRED).
+Set FIXTURE_REFUSE_CHAT=1 to refuse send_message as AWS did live on 20 November 2026 (HTTP 409).
+Set FIXTURE_SENT to a path; send_message appends each text it accepts.
 """
 import json
 import os
@@ -18,6 +22,15 @@ except ImportError:
 
 server = MCPServer("offline-transform-fixture")
 DROP = set(filter(None, os.environ.get("FIXTURE_DROP", "").split(",")))
+CHECKED: set[str] = set()
+
+
+def gated(job_id):
+    """The live server's per-process check, as a failure reply; None when the call may go ahead."""
+    if os.environ.get("FIXTURE_GATE") == "1" and job_id and job_id not in CHECKED:
+        return {"success": False, "error": {"code": "INSTRUCTIONS_REQUIRED",
+                                             "message": f"STOP: Before working on this job, call load_instructions with jobId={job_id}"}}
+    return None
 
 
 def tool(function):
@@ -28,11 +41,14 @@ def tool(function):
 
 @tool
 def load_instructions(workspaceId: str, jobId: str) -> dict:
+    CHECKED.add(jobId)
     return {"success": True, "data": {"workspaceId": workspaceId, "jobId": jobId, "fixture": True}}
 
 
 @tool
 def get_job_status(workspaceId: str, jobId: str, detailed: bool = False) -> dict:
+    if gated(jobId):
+        return gated(jobId)
     chat = os.environ.get("FIXTURE_CHAT")
     if chat and not detailed:
         Path(chat).write_text("a status question was posted to the job chat")
@@ -51,6 +67,8 @@ def list_resources(resource: str, workspaceId: str = "") -> dict:
 
 @tool
 def get_resource(workspaceId: str, resource: str, jobId: str = "", taskId: str = "") -> dict:
+    if gated(jobId):
+        return gated(jobId)
     return {"success": True, "data": {"resource": resource}}
 
 
@@ -66,11 +84,22 @@ def create_job(workspaceId: str, objective: str, orchestratorAgent: str = "") ->
 
 @tool
 def send_message(workspaceId: str, jobId: str, text: str) -> dict:
+    if gated(jobId):
+        return gated(jobId)
+    if os.environ.get("FIXTURE_REFUSE_CHAT") == "1":
+        return {"success": False, "error": {"code": "REQUEST_FAILED", "httpStatus": 409,
+                                             "message": "HTTP 409: The job's agent is stopping and cannot chat right now. Please try again in a few minutes."}}
+    sent = os.environ.get("FIXTURE_SENT")
+    if sent:
+        with open(sent, "a") as log:
+            log.write(text + "\n")
     return {"success": True, "data": {}}
 
 
 @tool
 def complete_task(workspaceId: str, jobId: str, taskId: str, content: str, action: str) -> dict:
+    if gated(jobId):
+        return gated(jobId)
     return {"success": True, "data": {}}
 
 
