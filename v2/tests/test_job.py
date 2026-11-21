@@ -23,6 +23,16 @@ from test_aws_reviews import EXECUTING, LANGUAGE, OBJECTIVE, PLAN_MENU, PROCEED
 FUNCTION = "Account and Customer Profile Administration"
 SELECT = "Please select the business function(s) to Re-Imagine before continuing."
 SOURCE_URI = "s3://sample-bucket/reframe/source/0123456789abcdef.zip"
+ANALYSIS_OFFER = """The code analysis has been executed successfully. The analysis workflow has completed, including:
+
+- **Asset Loading**: All available assets and files have been loaded into the analysis engine
+- **Dependency Analysis**: Component dependencies and relationships have been identified
+
+The analysis results are now ready for querying. You can ask me questions about:
+- **Code Statistics**: Total lines of code, file counts, file type distributions
+
+What would you like to know about your codebase?"""
+"""Posted live on 21 November 2026 after "Analyze code" succeeded, while other steps ran (shortened)."""
 LIVE_SOURCE_SCHEMA = {"type": "object", "additionalProperties": True, "required": ["assetLocation"], "displayOnly": False,
                       "properties": {"assetLocation": {"type": "string"}, "enableFeatures": {"type": "array", "items": {"type": "string"}},
                                      "isDownloadButtonClicked": {"type": "boolean"}, "optInChatBox": {"type": "boolean"}}}
@@ -57,6 +67,9 @@ class FakeAWS:
         self.refuse_chat = False
         self.fail_reads = False
         self.unknown_question = None
+        self.executing = False
+        self.polls_since_offer = 0
+        self.offer_after_source = False
 
     # The conversation, in the live order. Each reply moves AWS to its next turn.
     def _say(self, text, origin="SYSTEM"):
@@ -83,9 +96,18 @@ class FakeAWS:
             return {"job": {"jobId": self.job}}
         if name == "get_job_status":
             assert arguments["detailed"] is True
+            if getattr(self, "pending_selection", False) and self.polls_since_offer >= 2:
+                self.pending_selection = False
+                self.status = "AWAITING_HUMAN_INPUT"
+                self.tasks = [{"taskId": "t-review", "status": "AWAITING_HUMAN_INPUT", "title": "Review business functions discovery results",
+                               "uxComponentId": "MainframeAssessmentBusinessProcessDiscoveryComponent", "blockingType": "BLOCKING"}]
+                self._say(SELECT)
+            elif getattr(self, "pending_selection", False):
+                self.polls_since_offer += 1
             return {"job": {"job": {"jobId": self.job, "statusDetails": {"status": self.status}}},
                     "messages": {"messages": list(self.messages)}, "tasks": {"hitlTasks": [dict(t) for t in self.tasks]},
-                    "plan": {"steps": [{"stepName": "Kickoff", "status": "IN_PROGRESS"}]} if self.stage >= 4 else {"steps": []}}
+                    "plan": {"steps": [{"stepName": "Kickoff", "status": "IN_PROGRESS" if self.executing else "NOT_STARTED"},
+                                       {"stepName": "Analyze code", "status": "NOT_STARTED"}]} if self.stage >= 4 else {"steps": []}}
         if name == "send_message":
             if self.refuse_chat:
                 raise Rejected("send_message", "REQUEST_FAILED: HTTP 409: The job's agent is stopping and cannot chat right now.")
@@ -101,6 +123,8 @@ class FakeAWS:
                 self._say(PROCEED)
             elif last == PROCEED:
                 self._say(EXECUTING)
+                self.executing = True
+                self.status = "AWAITING_HUMAN_INPUT"
                 self.tasks = [
                     {"taskId": "t-source", "status": "AWAITING_HUMAN_INPUT", "title": "Specify resource location",
                      "uxComponentId": "SpecifyAssetsLocation", "blockingType": "BLOCKING"},
@@ -113,6 +137,15 @@ class FakeAWS:
         if name == "complete_task":
             self.completed.append((arguments["taskId"], json.loads(arguments["content"])))
             if arguments["taskId"] == "t-source":
+                if self.offer_after_source:
+                    # The live order: code analysis ends, AWS offers to answer questions while other steps run.
+                    self.status = "EXECUTING"
+                    self.tasks = []
+                    self._say(ANALYSIS_OFFER)
+                    self.offer_after_source = False
+                    self.pending_selection = True
+                    return {}
+                self.status = "AWAITING_HUMAN_INPUT"
                 self.tasks = [{"taskId": "t-review", "status": "AWAITING_HUMAN_INPUT", "title": "Review business functions discovery results",
                                "uxComponentId": "MainframeAssessmentBusinessProcessDiscoveryComponent", "blockingType": "BLOCKING"}]
                 self._say(SELECT)
@@ -197,6 +230,30 @@ class DriverTests(unittest.TestCase):
             self.assertIn(b"REQ-1", data)
         self.assertEqual(stored["snapshot"], self.settings().source_sha256)
         self.assertFalse(any((self.root / "server-write-dir" / "downloads").iterdir()))
+
+    def test_an_open_offer_posted_while_a_step_runs_is_noted_not_answered(self):
+        self.aws.offer_after_source = True
+        result = self.driver().run()
+        self.assertEqual(result.outcome, Outcome.RETRIEVED, result.message)
+        self.assertNotIn("knowledge", " ".join(self.aws.replies))
+        self.assertEqual(self.aws.replies[-1], FUNCTION)
+        events = [json.loads(line) for line in (self.root / "events.jsonl").read_text().splitlines()]
+        self.assertEqual(len([e for e in events if e["event"] == "chat_noted"]), 1)
+
+    def test_an_unrecognized_question_while_aws_awaits_input_and_no_form_is_open_parks(self):
+        self.aws.offer_after_source = True
+        driver = self.driver()
+        original = self.aws._one
+
+        def awaiting(name, arguments, authorization):
+            value = original(name, arguments, authorization)
+            if name == "complete_task":
+                self.aws.status, self.aws.pending_selection = "AWAITING_HUMAN_INPUT", False
+            return value
+        self.aws._one = awaiting
+        result = driver.run()
+        self.assertEqual(result.outcome, Outcome.WAITING_HUMAN)
+        self.assertIn("cannot answer", result.message)
 
     def test_polls_are_at_least_60_seconds_apart_from_creation(self):
         self.driver().run()
