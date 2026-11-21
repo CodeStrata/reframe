@@ -132,7 +132,7 @@ class FixtureServerTests(unittest.TestCase):
 
     def test_every_envelope_operation_that_changes_aws_needs_authorization(self):
         self.assertEqual(MUTATING, {"create_workspace", "create_connector", "accept_connector", "create_job",
-                                    "send_message", "complete_task", "delete_job", "delete_workspace"})
+                                    "send_message", "complete_task", "control_job", "delete_job", "delete_workspace"})
         self.assertEqual(set(LIVE_PATH_OPERATIONS), MUTATING | READ_ONLY)
 
     def test_a_delete_without_authorization_is_refused_before_dispatch(self):
@@ -207,6 +207,18 @@ class SessionTests(unittest.TestCase):
         reply = {"content": [{"type": "text", "text": json.dumps({"content": [{"type": "text", "text": json.dumps(
             {"success": False, "error": {"code": "REQUEST_FAILED", "message": "HTTP 409: busy"}})}], "isError": True})}]}
         self.assertEqual(failure_reason(reply), "REQUEST_FAILED: HTTP 409: busy")
+
+
+class ControlJobTests(unittest.TestCase):
+    """Revision 5: a job may be stopped before stage E deletes it; never started or restarted."""
+
+    def test_control_job_is_a_change_and_only_stop_is_allowed(self):
+        from reframe_v2.transform import MUTATING, check_recorded_rules
+
+        self.assertIn("control_job", MUTATING)
+        check_recorded_rules("control_job", {"workspaceId": "w", "jobId": "j", "action": "stop"})
+        with self.assertRaises(TransformError):
+            check_recorded_rules("control_job", {"workspaceId": "w", "jobId": "j", "action": "start"})
 
 
 if __name__ == "__main__":
