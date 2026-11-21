@@ -36,6 +36,10 @@ from reframe_v2.model.hashing import content_hash
 SOURCE_LOCATION_COMPONENT = "SpecifyAssetsLocation"
 """Recorded in v1's live runs (docs/validation/acceptance-defects.md)."""
 
+SOURCE_LOCATION_OPTIONAL = frozenset({"enableFeatures", "isDownloadButtonClicked", "optInChatBox"})
+"""Optional fields AWS's source-location form also declares, recorded live on 20 November 2026 (P1 stage D).
+Reframe sends only assetLocation; a form with any other field parks."""
+
 PROCEED_QUESTIONS = ("proceed with this plan?",)
 """Reframe's maintained list of chat questions that only ask to proceed. Matched against the message's closing line,
 after normalizing case and spaces."""
@@ -117,8 +121,11 @@ def closing_line(text: str) -> str:
 
 
 def needs_answer(text: str) -> bool:
-    """False for status notices: a message with no question in it, or one that asks to wait."""
-    return "?" in text and "please wait" not in _normalize(text)
+    """False for status notices: a message that asks to wait, or one with no question in it. AWS's function
+    selection prompt asks without a question mark (v1, live 17 November 2026), so it is a question too."""
+    if "please wait" in _normalize(text):
+        return False
+    return "?" in text or closing_line(text) in FUNCTION_SELECTION_QUESTIONS
 
 
 def menu_options(text: str) -> tuple[tuple[str, str], ...]:
@@ -161,7 +168,8 @@ def classify_form(form: Form, intake: Intake) -> Decision:
         return Decision(Class.DISPLAY_ONLY, "display-only form; AWS submits it itself", audit=_audit(form.task_id, schema_hash, None, "display_only"))
     if form.component == SOURCE_LOCATION_COMPONENT:
         properties = schema.get("properties") or {}
-        exact = (schema.get("required") == ["assetLocation"] and set(properties) == {"assetLocation"}
+        exact = (schema.get("required") == ["assetLocation"] and "assetLocation" in properties
+                 and set(properties) - {"assetLocation"} <= SOURCE_LOCATION_OPTIONAL
                  and (properties["assetLocation"] or {}).get("type") == "string")
         if not exact:
             return Decision(Class.PARK, "source location form with an unexpected schema; a person checks it")

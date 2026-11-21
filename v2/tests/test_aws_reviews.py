@@ -28,6 +28,16 @@ class FormTests(unittest.TestCase):
         intake = Intake("s3://sample-bucket/source.zip", False, "all")
         self.assertEqual(classify_form(form("SpecifyAssetsLocation", SOURCE_SCHEMA), intake).cls, Class.PARK)
 
+    def test_source_location_as_aws_sent_it_live_is_answered(self):
+        # P1 stage D, 20 November 2026: the form also declares three optional fields and allows others.
+        schema = {"type": "object", "additionalProperties": True, "required": ["assetLocation"], "displayOnly": False,
+                  "properties": {"assetLocation": {"type": "string"}, "enableFeatures": {"type": "array", "items": {"type": "string"}},
+                                 "isDownloadButtonClicked": {"type": "boolean"}, "optInChatBox": {"type": "boolean"}}}
+        decision = classify_form(form("SpecifyAssetsLocation", schema), INTAKE)
+        self.assertEqual(decision.cls, Class.ANSWER_FROM_INTAKE)
+        self.assertEqual(decision.response, {"assetLocation": "s3://sample-bucket/source.zip"})
+        self.assertTrue(fits_schema(schema, decision.response))
+
     def test_source_location_with_any_other_schema_parks(self):
         schema = dict(SOURCE_SCHEMA, properties={"assetLocation": {"type": "string"}, "branch": {"type": "string"}})
         self.assertEqual(classify_form(form("SpecifyAssetsLocation", schema), INTAKE).cls, Class.PARK)
@@ -157,6 +167,9 @@ class SetupChatTests(unittest.TestCase):
         decision = classify_chat(ChatQuestion("m4", PROCEED), INTAKE)
         self.assertEqual(decision.cls, Class.APPROVE_ONLY)
         self.assertEqual(decision.response["text"], "Yes, proceed with this plan.")
+
+    def test_the_function_selection_prompt_needs_an_answer_without_a_question_mark(self):
+        self.assertTrue(needs_answer("Please select the business function(s) to Re-Imagine before continuing."))
 
     def test_status_notices_need_no_answer(self):
         self.assertFalse(needs_answer(EXECUTING))
