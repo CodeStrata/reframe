@@ -292,13 +292,24 @@ class JobDriver:
         summary: dict[str, Any] = {"poll": number, "at": _iso(self.clock()), "status": status, "answered": [], "park": [],
                                    "steps": [{"name": s.get("stepName"), "status": s.get("status")}
                                              for s in ((snapshot.get("plan") or {}).get("steps") or []) if isinstance(s, dict)]}
-        blocking_parked = False
+        blocking_parked = blocking_open = False
         for task in open_tasks(snapshot):
+            blocking_open |= task.get("blockingType") != "NON_BLOCKING"
             parked = self._task(task, summary)
             blocking_parked |= parked and task.get("blockingType") != "NON_BLOCKING"
+        # AWS's chat asks Reframe something only when AWS says the job awaits input, or when no step is running
+        # (v1's live rule, 17 November 2026). While a step runs, AWS also posts open offers such as "What would
+        # you like to know about your codebase?" after its code analysis (live, 21 November 2026); the job does not
+        # wait on them, so they are recorded and left unanswered.
         question = open_question(snapshot)
         if question is not None:
-            self._question(question, snapshot, summary)
+            awaiting = status == "AWAITING_HUMAN_INPUT"
+            running = any(str(step.get("status")) == "IN_PROGRESS" for step in summary["steps"])
+            if awaiting or not running:
+                # With a blocking form open, the form explains the wait; an unrecognized chat message does not park.
+                self._question(question, snapshot, summary, may_park=not (awaiting and blocking_open))
+            else:
+                self._note(question, "AWS posted in chat while a step runs; the job does not wait on it", summary)
         # A blocking form Reframe cannot answer stops the run only when nothing was answered in this poll or
         # the one before: answering the chat (the function selection) can close a form AWS opened alongside it.
         if blocking_parked and not summary["answered"] and not self.state.get("answered_last_poll"):
@@ -343,7 +354,14 @@ class JobDriver:
         summary.setdefault("parked_tasks", []).append(record)
         return True
 
-    def _question(self, message: dict[str, Any], snapshot: dict[str, Any], summary: dict[str, Any]) -> None:
+    def _note(self, message: dict[str, Any], reason: str, summary: dict[str, Any]) -> None:
+        message_id = str(message["messageId"])
+        if message_id not in self.state.setdefault("noted", []):
+            self.state["noted"].append(message_id)
+            self.folder.event("chat_noted", self.clock(), message=message_id, reason=reason)
+        summary.setdefault("noted", []).append({"message": message_id, "reason": reason})
+
+    def _question(self, message: dict[str, Any], snapshot: dict[str, Any], summary: dict[str, Any], may_park: bool = True) -> None:
         message_id = str(message["messageId"])
         step = f"reply-{message_id}"
         if self.folder.exists(f"changes/{step}.receipt.json"):
@@ -356,6 +374,9 @@ class JobDriver:
         record = {"message": message_id, "class": decision.cls.value, "reason": decision.reason}
         self.folder.event("chat_classified", self.clock(), **record)
         reply = (decision.response or {}).get("text") if decision.cls in (Class.ANSWER_FROM_INTAKE, Class.APPROVE_ONLY) else None
+        if not reply and not may_park:
+            self._note(message, f"not answered ({decision.reason}); a blocking AWS form explains the wait", summary)
+            return
         if not reply:
             summary["park"].append(f"AWS asks in chat and Reframe cannot answer it ({decision.reason}). "
                                    "Answer it in the AWS Transform console soon: AWS stops a job whose question waits too long")
