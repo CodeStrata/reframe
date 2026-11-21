@@ -157,7 +157,7 @@ AWS Transform pauses its jobs for a person in three ways: forms with a response 
 
 | Class | Examples seen in live runs | What Reframe does |
 | --- | --- | --- |
-| Answerable from intake | AWS's opening plan menu (the plan recorded at intake); objective confirmation; output language; collaborators; source location form with the exact schema `{assetLocation}`; connector confirmation; function selection: every function AWS lists when the scope is all, or the scope file's functions when they match AWS's list exactly | Answers from the recorded intake, after checking it (the recorded source and checksum, AWS's connector record matching the request), once |
+| Answerable from intake | AWS's opening plan menu (the plan recorded at intake); objective confirmation; output language; collaborators; source location form whose only required field is `assetLocation`, beside at most the optional fields AWS declared live (`enableFeatures`, `isDownloadButtonClicked`, `optInChatBox`), answered with `assetLocation` alone; connector confirmation; function selection: every function AWS lists when the scope is all, or the scope file's functions when they match AWS's list exactly. When AWS asks for the selection in chat without a list, as it did live while its catalog sat in a review form with no selection schema, the scope file's functions are sent only when AWS's own records name each one exactly | Answers from the recorded intake, after checking it (the recorded source and checksum, AWS's connector record matching the request), once |
 | Display-only | "Business rule extraction results" (`displayOnly: true`) | Records that it appeared; AWS submits it itself |
 | Approve-only review | "Review business functions discovery results"; "Proceed with this plan?" | Approves so AWS's job continues (owner decision of 18 November), and records it as approved by Reframe, not reviewed by a person. The reviewed content is kept as evidence with status NOT\_CHECKED and shown at gate 1 for people to correct |
 | Anything else | A choice outside the intake scope, free text, an unknown form or schema, a chat question Reframe does not recognize | Parks that job for a person; the answer must fit the task's own schema and is sent once, recorded with who gave it |
@@ -168,6 +168,7 @@ A form is approve-only only when its schema accepts approval with no other requi
 - Intake records every setup answer: the plan (Assess and reimagine by default), output languages (English only by default), collaborators (none by default) and whether generated plans and review-only tasks are approved (section 4's classes).
 - Reframe answers AWS's opening question with one message that carries all of them, without identifiers, which AWS refuses in its chat. AWS then has nothing left to ask before it builds the plan.
 - Reframe answers every recognized question within one polling interval (60 seconds). AWS's job agent stops when a question waits too long: a job left unanswered for about 40 minutes refused every later message with HTTP 409 ("agent is stopping") and cannot be restarted. Nothing on the setup path waits for a person unless intake leaves an answer open.
+- AWS's function selection prompt asks without a question mark ("Please select the business function(s) to Re-Imagine before continuing."); it is recognized by its wording. Other messages without a question, and messages that ask to wait, are status notices.
 - Every job interaction runs in one session of the pinned MCP server, which first calls `load_instructions` for the job; the server keeps that check in memory per process and refuses job calls without it. A call the server or AWS refuses is recorded as rejected with AWS's reason, never as uncertain.
 
 ## 5. Functional requirements
@@ -420,6 +421,8 @@ Before any source is uploaded, the project's data policy records where customer 
 | reframe teardown \[--shared\] \[--include-data\] | Deletes manifest-owned resources after confirmation and checks; keeps project data unless --include-data, which exports an archive first. |
 | reframe export --out \<dir> | Writes a verified archive of the project's data, canonical model, ledger and package, with a manifest of hashes. |
 | reframe import-v1 \<workspace> | Copies AWS evidence and receipts from a v1 workspace into a new v2 project (FR-20). |
+
+Until F3-01 brings `--provision`, the run's lease and its records in the state bucket, `reframe run` takes `--resources` and a local git checkout, and keeps its job record, receipts, events and the retrieved originals in the local project folder, `<REFRAME_HOME or ~/.reframe>/projects/<project>`, which names the account and stays on the machine (P1-05). One run per project folder runs on a machine at a time.
 
 ## 14. Acceptance
 

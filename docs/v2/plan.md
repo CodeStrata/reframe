@@ -161,6 +161,7 @@ Owner decisions (the full record is in section 16 of the specification):
 - [x] "atx" meant AI-DLC.
 - [x] Scale test on VirtualBank and mainframe-claim-modernization.
 - [ ] Delete or keep the unused IAM role from the first reimagine trial.
+- [ ] What retiring v1 means at P3's exit. Proposed: v1's files (`scripts/`, the root `pyproject.toml`, v1's `tests/`, `prompts/` and `contracts/`, `README-v1.md`) leave the v2 branch in one commit before v2 merges to main; v1 stays readable in history and installable from tag `v0.3.0`. Until then both packages declare a `reframe` command, so v1 and v2 are installed in separate environments.
 - [x] Client AWS accounts: the client gives a profile with the access Reframe needs, or we set the account up; Reframe cleans up only what it created and tagged.
 - [ ] Choose the default modernization goal for CardDemo and who owns gate 3.
 - [ ] Name the two scale-test repositories: VirtualBank and mainframe-claim-modernization. To confirm: the VirtualBank link returns not found, and mainframe-claim-modernization holds no COBOL of its own (the IBM sample it clones has 2 programs), so P5 still needs repositories larger than CardDemo.
