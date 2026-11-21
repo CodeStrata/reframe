@@ -2,7 +2,7 @@
 
 The commands in specification section 13 are added by the stories that
 implement them; the command contract itself is P0-07. Available so far:
-bootstrap (P2-04), graph (P2-06).
+bootstrap (P2-04), graph (P2-06), run with a resources file (P1-05).
 """
 
 from __future__ import annotations
@@ -38,6 +38,9 @@ def build_parser() -> argparse.ArgumentParser:
     answer.add_argument("--use", metavar="CLUSTER", help="use this existing cluster without being asked")
     answer.add_argument("--new", action="store_true", help="create a new graph without being asked")
     graph.add_argument("--tfvars", type=Path, metavar="FILE", help="write the Terraform variables for the choice to this new file")
+    from reframe_v2.run_command import add_parser
+
+    add_parser(commands)
     return parser
 
 
@@ -99,5 +102,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return int(Exit.OK)
     if args.command == "graph":
         return run_graph(args)
+    if args.command == "run":
+        from reframe_v2.run_command import run
+
+        return run(args)
     parser.print_help()
     return int(Exit.OK)

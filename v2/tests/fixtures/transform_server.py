@@ -120,6 +120,14 @@ def accept_connector(workspaceId: str, connectorId: str, roleArn: str) -> dict:
 
 
 @tool
+def control_job(workspaceId: str, jobId: str, action: str) -> dict:
+    """As the live schema: action is 'start' or 'stop'."""
+    if action not in ("start", "stop"):
+        raise ValueError("Synthetic 400: action must be start or stop")
+    return {"success": True, "data": {"jobId": jobId, "status": "STOPPED" if action == "stop" else "EXECUTING"}}
+
+
+@tool
 def delete_job(workspaceId: str, jobId: str, confirm: bool) -> dict:
     marker = os.environ.get("FIXTURE_DELETED")
     if marker:

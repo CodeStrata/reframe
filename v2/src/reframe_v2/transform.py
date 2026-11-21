@@ -40,18 +40,22 @@ from reframe_v2.model.hashing import content_hash
 LIVE_PATH_OPERATIONS = ("load_instructions", "get_job_status", "list_resources", "get_resource",
                         "create_workspace", "create_connector", "accept_connector",
                         "create_job", "send_message", "complete_task",
-                        "delete_job", "delete_workspace")
+                        "control_job", "delete_job", "delete_workspace")
 """Every operation the P1 execution envelope (revision 3) allows: reads in stages A to E, the workspace and
 connectors in stage C, the job in stage D, and the teardown deletes in stage E. Names as the pinned server
-lists them; v1 recorded them against the live service (#206, 17 November 2026)."""
+lists them; v1 recorded them against the live service (#206, 17 November 2026). control_job (revision 5) stops a running job before
+stage E deletes it: AWS refused delete_job on a running job (HTTP 400, P1 stage E, 20 November 2026)."""
 
 MUTATING = frozenset({"create_workspace", "create_connector", "accept_connector", "create_job", "send_message",
-                      "complete_task", "delete_job", "delete_workspace"})
+                      "complete_task", "control_job", "delete_job", "delete_workspace"})
 READ_ONLY = frozenset({"load_instructions", "get_job_status", "list_resources", "get_resource"})
 
 REQUIRED_VALUES = {"get_job_status": {"detailed": True}}
 """Arguments a call must carry with exactly this value. Recorded live by v1 (2026-11-17): without
 detailed=true the server posts a status question into the job chat, so the read is not read-only."""
+
+ALLOWED_VALUES = {"control_job": {"action": ("stop",)}}
+"""Arguments limited to these values: the envelope allows a job to be stopped, never started or restarted."""
 
 REQUIRED_BY_SERVICE = {"create_job": ("orchestratorAgent",)}
 """Arguments AWS rejects the call without, although the server's schema marks them optional.
@@ -170,6 +174,9 @@ def check_recorded_rules(name: str, arguments: dict[str, Any]) -> None:
     for key, value in REQUIRED_VALUES.get(name, {}).items():
         if arguments.get(key) is not value:
             raise TransformError(f"{name} needs {key}={json.dumps(value)}; without it the call changes the job")
+    for key, allowed in ALLOWED_VALUES.get(name, {}).items():
+        if arguments.get(key) not in allowed:
+            raise TransformError(f"{name} is allowed only with {key} in {list(allowed)}; nothing was sent")
     missing = [key for key in REQUIRED_BY_SERVICE.get(name, ()) if not arguments.get(key)]
     if missing:
         raise TransformError(f"{name}: AWS rejects the call without {', '.join(missing)}; "
