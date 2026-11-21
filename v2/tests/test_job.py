@@ -18,7 +18,7 @@ from types import SimpleNamespace
 from reframe_v2.aws_reviews import Intake
 from reframe_v2.job import ENVELOPE, LIMITS, ORCHESTRATOR_AGENT, POLL_SECONDS, JobDriver, Outcome, ProjectFolder, Settings, job_status
 from reframe_v2.transform import NotSent, Rejected, TransformError
-from tests.test_aws_reviews import EXECUTING, LANGUAGE, OBJECTIVE, PLAN_MENU, PROCEED
+from test_aws_reviews import EXECUTING, LANGUAGE, OBJECTIVE, PLAN_MENU, PROCEED
 
 FUNCTION = "Account and Customer Profile Administration"
 SELECT = "Please select the business function(s) to Re-Imagine before continuing."
@@ -400,7 +400,7 @@ class RunCommandTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         base = Path(self.tmp.name)
-        from tests.model_samples import SAMPLES
+        from model_samples import SAMPLES
 
         policy = dict(SAMPLES["project_policy"], aws={"account": "111122223333", "region": "us-east-1", "profile": None})
         (base / "policy.json").write_text(json.dumps(policy))
