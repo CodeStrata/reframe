@@ -15,6 +15,13 @@ class:
 The policy setting aws_reviews: ask, and audit mode by default, park every
 approval. Only shapes recorded from live runs are recognized; nothing here
 infers an operation, component or schema from a console label.
+
+AWS's setup chat (P2-10, #263): a new job asks, in chat and one at a time, which
+plan to run, whether the restated objective matches and which output languages,
+then whether to proceed with the generated plan (live, 20 November 2026). Intake
+records every answer; the plan menu is answered with one message carrying all of
+them, so AWS has nothing left to ask before it builds the plan. A chat question is
+recognized by its closing line, because AWS puts it at the end of a longer message.
 """
 
 from __future__ import annotations
@@ -30,7 +37,20 @@ SOURCE_LOCATION_COMPONENT = "SpecifyAssetsLocation"
 """Recorded in v1's live runs (docs/validation/acceptance-defects.md)."""
 
 PROCEED_QUESTIONS = ("proceed with this plan?",)
-"""Reframe's maintained list of chat questions that only ask to proceed. Matched exactly after normalizing case and spaces."""
+"""Reframe's maintained list of chat questions that only ask to proceed. Matched against the message's closing line,
+after normalizing case and spaces."""
+
+PLAN_MENU_QUESTIONS = ("how would you like to proceed?",)
+"""Closing line of AWS's opening plan menu (live, 20 November 2026)."""
+
+OBJECTIVE_QUESTIONS = ("does this objective match your goals?",)
+"""Closing line of AWS's objective confirmation, which restates the chosen plan (live, 20 November 2026)."""
+
+OUTPUT_LANGUAGE_QUESTIONS = ("would you like your output translated into any of these languages, or would you prefer english only?",)
+"""Closing line of AWS's output-language question (live, 20 November 2026)."""
+
+MENU_OPTION = re.compile(r"^\s*(\d+)\.\s+([^:\n]+?)\s*(?::|$)", re.M)
+"""A numbered option in AWS's chat, read as v1 did: its number and its label up to the colon."""
 
 FUNCTION_SELECTION_QUESTIONS = ("please select the business function(s) to re-imagine before continuing.",
                                 "please select the business function(s) to re-imagine")
@@ -53,6 +73,11 @@ class Intake:
     scope_functions: tuple[str, ...] = ()
     aws_reviews: str = "by_class"
     audit_mode: bool = False
+    plan: str = "Assess and reimagine"
+    """The plan AWS's opening menu is answered with, by AWS's own label."""
+    output_languages: tuple[str, ...] = ()
+    """Languages besides English; English output is always produced."""
+    collaborators: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -83,6 +108,38 @@ class Decision:
 
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().casefold())
+
+
+def closing_line(text: str) -> str:
+    """The last non-empty line of a chat message, normalized: where AWS puts its question."""
+    lines = [line for line in text.strip().splitlines() if line.strip()]
+    return _normalize(lines[-1]) if lines else ""
+
+
+def needs_answer(text: str) -> bool:
+    """False for status notices: a message with no question in it, or one that asks to wait."""
+    return "?" in text and "please wait" not in _normalize(text)
+
+
+def menu_options(text: str) -> tuple[tuple[str, str], ...]:
+    """AWS's numbered options in the order and wording it used; empty unless there are at least two."""
+    options = tuple((number, label.strip()) for number, label in MENU_OPTION.findall(text))
+    return options if len(options) >= 2 else ()
+
+
+def setup_message(choice: str, intake: Intake) -> str:
+    """One reply that carries every setup answer, so AWS has nothing left to ask before it builds the plan.
+
+    It names no workspace, job, connector or archive: AWS refuses identifiers in its chat (v1, live).
+    """
+    languages = (", ".join(intake.output_languages) + " as well as English") if intake.output_languages else "English only, no translations"
+    collaborators = "No collaborators are needed." if not intake.collaborators else "Collaborators are added separately."
+    parts = [f"{choice}.", f"Output: {languages}.", collaborators,
+             "The Amazon Neptune cluster is already configured in this account, and this workspace already has an active reimagine connector to it.",
+             "The source code archive is already uploaded; its location is given in the resource-location task."]
+    parts.append("These are all my choices: please generate the job plan now."
+                 if _approvals_parked(intake) else "These are all my choices: please generate the job plan now and proceed with it.")
+    return " ".join(parts)
 
 
 def _schema_hash(schema: dict[str, Any]) -> str:
@@ -123,12 +180,36 @@ def classify_form(form: Form, intake: Intake) -> Decision:
 
 
 def classify_chat(question: ChatQuestion, intake: Intake) -> Decision:
+    """Sort one chat question. A response carries "text": the exact reply to send, once."""
     text = _normalize(question.text)
-    schema_hash = content_hash({"text": text, "options": list(question.options)})
-    if text in PROCEED_QUESTIONS:
+    closing = closing_line(question.text)
+    options = question.options or tuple(label for _, label in menu_options(question.text))
+    schema_hash = content_hash({"text": text, "options": list(options)})
+    if closing in PLAN_MENU_QUESTIONS:
+        numbered = menu_options(question.text)
+        chosen = [f"{number}. {label}" for number, label in numbered if _normalize(label) == _normalize(intake.plan)]
+        if len(chosen) != 1:
+            return Decision(Class.PARK, f"AWS's plan menu does not list the recorded plan {intake.plan!r} exactly once; a person decides")
+        response = {"plan": chosen[0], "text": setup_message(chosen[0], intake)}
+        return Decision(Class.ANSWER_FROM_INTAKE, "plan menu answered with the recorded plan and every setup answer", response,
+                        audit=_audit(question.message_id, schema_hash, response, "answer_from_intake"))
+    if closing in OBJECTIVE_QUESTIONS:
+        restated = re.search(r"you selected option \d+, ([^.\n]+)\.", text)
+        if not restated or restated.group(1).strip() != _normalize(intake.plan):
+            return Decision(Class.PARK, "AWS restates an objective that is not the recorded plan; a person decides")
+        response = {"confirm": True, "text": "Yes, this objective matches my goals."}
+        return Decision(Class.ANSWER_FROM_INTAKE, "objective confirmation: AWS restates the recorded plan", response,
+                        audit=_audit(question.message_id, schema_hash, response, "answer_from_intake"))
+    if closing in OUTPUT_LANGUAGE_QUESTIONS:
+        reply = ("English only, no translations." if not intake.output_languages
+                 else "Please also produce output in: " + ", ".join(intake.output_languages) + ".")
+        response = {"languages": list(intake.output_languages), "text": reply}
+        return Decision(Class.ANSWER_FROM_INTAKE, "output language answered from intake", response,
+                        audit=_audit(question.message_id, schema_hash, response, "answer_from_intake"))
+    if closing in PROCEED_QUESTIONS:
         if _approvals_parked(intake):
             return Decision(Class.PARK, "the project asks a person for every approval (aws_reviews: ask or audit mode)")
-        response = {"proceed": True}
+        response = {"proceed": True, "text": "Yes, proceed with this plan."}
         return Decision(Class.APPROVE_ONLY, "proceed question: approved by Reframe, not reviewed by a person", response,
                         evidence_status="NOT_CHECKED", audit=_audit(question.message_id, schema_hash, response, "approve_only"))
     if text in FUNCTION_SELECTION_QUESTIONS:
@@ -143,7 +224,7 @@ def classify_chat(question: ChatQuestion, intake: Intake) -> Decision:
             if missing:
                 return Decision(Class.PARK, f"AWS's list does not exactly match the scope file: {', '.join(missing)} not listed; a person decides")
             selected = [option for option in question.options if option in intake.scope_functions]
-        response = {"selected": selected}
+        response = {"selected": selected, "text": ", ".join(selected)}
         return Decision(Class.ANSWER_FROM_INTAKE, "function selection answered from the recorded scope", response,
                         audit=_audit(question.message_id, schema_hash, response, "answer_from_intake"))
     return Decision(Class.PARK, "a chat question Reframe does not recognize; a person answers")
