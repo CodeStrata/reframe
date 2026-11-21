@@ -157,18 +157,24 @@ AWS Transform pauses its jobs for a person in three ways: forms with a response 
 
 | Class | Examples seen in live runs | What Reframe does |
 | --- | --- | --- |
-| Answerable from intake | Source location form with the exact schema `{assetLocation}`; connector confirmation; output language; objective confirmation; function selection: every function AWS lists when the scope is all, or the scope file's functions when they match AWS's list exactly | Answers from the recorded intake, after checking it (the recorded source and checksum, AWS's connector record matching the request), once |
+| Answerable from intake | AWS's opening plan menu (the plan recorded at intake); objective confirmation; output language; collaborators; source location form with the exact schema `{assetLocation}`; connector confirmation; function selection: every function AWS lists when the scope is all, or the scope file's functions when they match AWS's list exactly | Answers from the recorded intake, after checking it (the recorded source and checksum, AWS's connector record matching the request), once |
 | Display-only | "Business rule extraction results" (`displayOnly: true`) | Records that it appeared; AWS submits it itself |
 | Approve-only review | "Review business functions discovery results"; "Proceed with this plan?" | Approves so AWS's job continues (owner decision of 18 November), and records it as approved by Reframe, not reviewed by a person. The reviewed content is kept as evidence with status NOT\_CHECKED and shown at gate 1 for people to correct |
 | Anything else | A choice outside the intake scope, free text, an unknown form or schema, a chat question Reframe does not recognize | Parks that job for a person; the answer must fit the task's own schema and is sent once, recorded with who gave it |
 
-A form is approve-only only when its schema accepts approval with no other required field, and a chat question only when it matches Reframe's maintained list of proceed questions. Every automatic answer records the task id, the schema hash, the response sent and the policy that allowed it. Approving in AWS never makes AWS's output trusted: Reframe still verifies every claim against the source (section 7).
+A form is approve-only only when its schema accepts approval with no other required field, and a chat question only when its closing question matches Reframe's maintained list of proceed questions (AWS asks "Proceed with this plan?" at the end of a longer message). Every automatic answer records the task id, the schema hash, the response sent and the policy that allowed it. Approving in AWS never makes AWS's output trusted: Reframe still verifies every claim against the source (section 7).
+
+**AWS's setup chat.** A new AWS Transform job asks its setup questions in chat, one at a time, before it builds its plan: which plan to run, whether the restated objective matches, which output languages, and then whether to proceed with the generated plan (seen live, 20 November 2026). AWS's documentation says only that the user enters an objective and that the job "might request information" along the way, so the questions and their wording are not fixed. So:
+- Intake records every setup answer: the plan (Assess and reimagine by default), output languages (English only by default), collaborators (none by default) and whether generated plans and review-only tasks are approved (section 4's classes).
+- Reframe answers AWS's opening question with one message that carries all of them, without identifiers, which AWS refuses in its chat. AWS then has nothing left to ask before it builds the plan.
+- Reframe answers every recognized question within one polling interval (60 seconds). AWS's job agent stops when a question waits too long: a job left unanswered for about 40 minutes refused every later message with HTTP 409 ("agent is stopping") and cannot be restarted. Nothing on the setup path waits for a person unless intake leaves an answer open.
+- Every job interaction runs in one session of the pinned MCP server, which first calls `load_instructions` for the job; the server keeps that check in memory per process and refuses job calls without it. A call the server or AWS refuses is recorded as rejected with AWS's reason, never as uncertain.
 
 ## 5. Functional requirements
 
 | ID | Requirement | Acceptance |
 | --- | --- | --- |
-| FR-01 Intake and scope | One command takes the source, AWS profile and region, data policy, scope (all functions, or a named list of functions or domains), budget, goal and feedback channel. It pins the source snapshot (FR-17), estimates cost, and records exclusions. | A one-function run stays within its scope; the cost estimate is shown before paid work. |
+| FR-01 Intake and scope | One command takes the source, AWS profile and region, data policy, scope (all functions, or a named list of functions or domains), budget, goal, feedback channel and AWS's job setup answers (section 4, AWS's setup chat). It pins the source snapshot (FR-17), estimates cost, and records exclusions. | A one-function run stays within its scope; the cost estimate is shown before paid work. |
 | FR-02 Resources | Provisioning is optional. `--provision` creates missing resources with Terraform; `--resources` uses client-owned resources after read-only checks. Neither: Reframe lists what it needs and stops. Each resource has one lifecycle owner (section 8). | A client-owned resource's configuration and permissions are unchanged after a run; only the declared data-plane writes happen. |
 | FR-03 Extraction | Runs the AWS Transform assessment and reimagine plan for the functions in scope. AWS review tasks follow section 4. Every function in scope ends as generated, failed, unsupported, excluded or awaiting selection. | No function disappears from coverage; an unknown task parks without submission. |
 | FR-04 Gate 1 | Shows AWS's functions, domains, rules, open questions and coverage. People record scope corrections, business context and the goal per context (one goal per context; default from intake, otherwise `preserve`). | Gate history shows open, answered or timed out; later stages cite the context with who gave it, and work that ran before the answer is rerun where the answer changes it. |
@@ -251,7 +257,7 @@ Provisioning is optional. With `--provision`, Reframe creates what is missing; w
 | Sandbox IAM role; denies reads outside the bucket | Terraform | Per repo |
 | Neptune Serverless knowledge graph (cluster, its own private network, security groups, bulk-loader role) | Terraform, unless the person chooses an existing graph by name (below) | Per repo for now (below) |
 | Reimagine connector IAM role | Terraform | Per repo |
-| AWS Transform workspace, assessment connector, reimagine connector | AWS Transform adapter | Per repo; AWS allows one reimagine connector per workspace |
+| AWS Transform workspace and its reimagine connector (the bucket and the Neptune graph) | AWS Transform adapter | Per repo; AWS allows one reimagine connector per workspace. The Assess and reimagine plan uses only this connector; an S3 connector is created only for a custom plan (AWS Transform user guide, mainframe workflow, read 20 November 2026) |
 | Reframe state bucket: Terraform state with locking, and per project the resource manifest, worker lease, operation ledger and event log | Administrator, once, or `reframe bootstrap --terraform` | Per account and region |
 | Bootstrap policy for the engineer | Administrator, once | Per account |
 | Bedrock access to the pinned Claude models in the run's region, including any one-time use-case form AWS requires (Bedrock backend only) | Administrator, once; Reframe checks it read-only | Per account and region |
@@ -455,7 +461,7 @@ Owner decisions of 18 November 2026, as amended by this revision:
 | Assessment report and design feedback | Static sites; feedback as GitHub issues, with local files for clients without GitHub (revised after R19) |
 | Skills for Kiro | Steering files for Kiro, SKILL.md for Claude Code, both when no tool is chosen |
 | "atx" | Meant AI-DLC |
-| Assessment connector confirmation | Reframe confirms it; AWS review tasks follow section 4 |
+| Connector | The reimagine connector only, for the Assess and reimagine plan; Reframe confirms it, and AWS review tasks follow section 4 (revised 20 November 2026, after AWS's documentation) |
 | Neptune | Shared per account and region is the target; per repo until P2 proves isolation (revised after R06) |
 | Infrastructure tool | HashiCorp Terraform; Reframe moves off OpenTofu |
 | AWS resources | Optional provisioning; client-owned resources by resources file |
