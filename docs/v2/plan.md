@@ -107,11 +107,11 @@ Change control: the specification and this plan are kept in the v2 branch of the
   - Done when: two implementers would build the same thing from the spec, and v1's regression tests are carried forward.
 2. **P1, prototype and external proof.** The design site renderer, generic for any canonical design, shown in both goals on three deliberately different sample journeys (online CICS, batch-only, and a message or file exchange), at least one not from CardDemo, and reviewed by an SME and an architect; expert-reviewed semantic fixtures for one sample journey; one authorized live path from function selection to requirements retrieval, for a bounded function from a repository the owner names (CardDemo by default). CardDemo is test data, never something the code is fitted to.
   - Done when: the design format is agreed and no unproven AWS behaviour is needed for the first route.
-3. **P2, one domain.** "Account and Customer Profile Administration", once with `--provision --clean-start` and once with a resources file; two runs, one with every gate answered while the run carries on and one with a gate left to time out; model calls through the Claude Code CLI, with one context repeated on Bedrock to prove the switch; the package in Claude Code and Kiro; the Neptune isolation test; reviewer independence measured against seeded defects.
+3. **P2, one domain.** One domain from AWS's catalog for that job, selected by rule (catalogs differ per job), with both reviewers and the reconciler measured per function (agreement, differences, tokens, time) and one run from intake to draft package with no one's input; once with `--provision --clean-start` and once with a resources file; two runs, one with every gate answered while the run carries on and one with a gate left to time out; model calls through the Claude Code CLI, with one context repeated on Bedrock to prove the switch; the package in Claude Code and Kiro; the Neptune isolation test; reviewer independence measured against seeded defects.
   - Done when: semantic fixtures pass, package retrieval is verified, and blockers are reported separately from completion. v2 can become the default; v1 stays until P3.
 4. **P3, change and recovery.** Resume and reuse, late context, stale imports, provider failures, uncertain dispatch, budget exhaustion, concurrency across machines, teardown, v1 import, and one whole vertical slice on Bedrock. A client pilot follows this phase, and v1 is retired at its exit.
   - Done when: no paid work is repeated, no resource is duplicated, and invalidation reaches exactly the dependents.
-5. **P4, whole CardDemo.** Every function at a pinned revision, including batch and shared data.
+5. **P4, whole CardDemo.** Every function at a pinned revision, including batch and shared data, selected by rule in batches with no one's input.
   - Done when: coverage is complete or every gap is labelled.
 6. **P5, scale.** VirtualBank (github.com/mainframe-projects/VirtualBank) and mainframe-claim-modernization (github.com/lillycodebreaker/mainframe-claim-modernization), run one after another through the CLI after CardDemo, with nothing built for them; budget and thresholds set before each run.
   - Done when: results are within the thresholds and unsupported areas are labelled.
@@ -125,7 +125,9 @@ The re-scope succeeds when a package arrives with scheduled reviews never holdin
 | Human stops before the package | 5 gates plus a decision or deferral on each of 461 questions | 3 context gates that never hold the run; package acceptance added only in audit mode |
 | Largest single model call | 387K tokens (review, round 6) | At most 200K tokens |
 | Requirements mapped or excluded with a reason | 23 of 398 (19 mapped, 4 excluded); 397 cited somewhere | At least 90% |
-| Rule extraction calls | 306 by Reframe, plus AWS's own extraction | 0 by Reframe; verification calls only |
+| Rule extraction calls | 306 by Reframe, plus AWS's own extraction | The second reviewer's extraction per function, plus the reconciler's full reading of differences and a fixed sample of agreements; set after P2 measures them (revised 21 November 2026: the second reviewer replaces the earlier target of none) |
+| Agreement between the two reviewers | Not measured | Reported per function with the sample's error rate; set after P2 |
+| Human input needed to keep a run moving | Plan, objective, proceed and function selection answered in person (P1 revision 4) | None once intake and the review form's shape are recorded; people add context only at the three gates |
 | Regeneration after one review note | The whole specification is withdrawn and rebuilt | Only the affected contexts and items |
 | AWS errors caught against source | 14 for one business function | Tracked per domain; every one cited to a source line |
 | Maps covered by the design site | No design site completed for CardDemo | Every map covered by a page or excluded with a reason |
@@ -142,6 +144,9 @@ The main risk is an unreviewed package being read as approved. Every output ther
 | A package resting on assumptions is read as approved | Every assumption carries confidence and status; readiness is computed, never declared. |
 | Quality with only three gates | Automated review per domain and of the design, targeted source checks on every AWS claim used, and the P2 measures before scaling. |
 | AWS Transform constraints: one reimagine connector per workspace, chat-driven steps, Neptune cost | Keep the requirements import path as a fallback. Record every setup answer at intake and answer AWS's setup chat with one message, then each recognized question within a polling interval, because AWS's job agent stops when a question waits too long (seen live, 20 November 2026). |
+| Both reviewers state the same wrong rule | A fixed sample of agreements per function gets the reconciler's full reading, and its error rate is reported; agreement alone never makes a claim supported. |
+| The second reviewer's cost grows with the codebase | It runs per function or module, its calls and tokens are estimated at intake and counted against the budget, and the reconciler's full reading is spent on differences. |
+| AWS's function catalog differs between jobs, and its selection form publishes no schema | Selection by rule against each job's own catalog; the form is answered only in a shape recorded from a person's console submission, and parks until one is. |
 | Shared entities conflict across domains | The merge step records each conflict as an assumption with both definitions, instead of picking one silently. |
 | Model window or cost at scale | Per-context calls with a token cap and a budget set at intake. |
 | AI-DLC changes quickly (v2.11.4 on 13 Nov 2026) | Pin the AI-DLC release in the package and run a conformance check against each new release. |
@@ -160,6 +165,8 @@ Owner decisions (the full record is in section 16 of the specification):
 - [x] HashiCorp Terraform for every AWS resource Reframe owns.
 - [x] "atx" meant AI-DLC.
 - [x] Scale test on VirtualBank and mainframe-claim-modernization.
+- [x] Two reviewers: AWS Transform first, Anthropic's `code-modernization` plugin second (rule extraction only, never in place of AWS Transform), and a reconciler that reads the source where they differ (owner, 21 November 2026).
+- [x] Unattended runs: from the selected repository to a draft package with no one's input, functions selected by rule in batches; people add context only at the three gates (owner, 21 November 2026).
 - [ ] Delete or keep the unused IAM role from the first reimagine trial.
 - [ ] What retiring v1 means at P3's exit. Proposed: v1's files (`scripts/`, the root `pyproject.toml`, v1's `tests/`, `prompts/` and `contracts/`, `README-v1.md`) leave the v2 branch in one commit before v2 merges to main; v1 stays readable in history and installable from tag `v0.3.0`. Until then both packages declare a `reframe` command, so v1 and v2 are installed in separate environments.
 - [x] Client AWS accounts: the client gives a profile with the access Reframe needs, or we set the account up; Reframe cleans up only what it created and tagged.
