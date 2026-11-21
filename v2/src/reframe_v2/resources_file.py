@@ -44,14 +44,15 @@ class Resources:
     write_prefixes: tuple[str, ...]
     sandbox_role: str
     workspace_id: str
-    assessment_connector: str
+    assessment_connector: str | None
+    """An S3 connector, for a custom plan only; the Assess and reimagine plan uses the reimagine connector (P2-11)."""
     reimagine_connector: str | None
     neptune_stack: str | None
 
     @property
     def client_owned_ids(self) -> frozenset[str]:
-        ids = {self.state_bucket, self.bucket, self.sandbox_role, self.workspace_id, self.assessment_connector}
-        ids |= {value for value in (self.reimagine_connector, self.neptune_stack) if value}
+        ids = {self.state_bucket, self.bucket, self.sandbox_role, self.workspace_id}
+        ids |= {value for value in (self.assessment_connector, self.reimagine_connector, self.neptune_stack) if value}
         return frozenset(ids)
 
 
@@ -64,6 +65,8 @@ def load(document: dict[str, Any]) -> Resources:
     transform, stack = document["transform"], document["neptune_stack"]
     if (transform["reimagine_connector"] is None) != (stack is None):
         raise ResourceError("a reimagine connector and its Neptune stack are named together, or neither is")
+    if transform["reimagine_connector"] is None and transform["assessment_connector"] is None:
+        raise ResourceError("name the reimagine connector (the Assess and reimagine plan) or an S3 connector (a custom plan)")
     return Resources(
         document["account"], document["region"],
         document["state_bucket"]["name"], tuple(document["state_bucket"]["write_prefixes"]),
@@ -89,11 +92,13 @@ def what_the_run_needs(reimagine: bool, backend: str) -> list[str]:
         "Reframe state bucket for the account and region (administrator, once, or reframe bootstrap --terraform)",
         "S3 bucket for this repository: encrypted, versioned, public access blocked",
         "Sandbox IAM role that denies reads outside that bucket",
-        "AWS Transform workspace with an assessment connector",
+        "AWS Transform workspace",
     ]
     if reimagine:
-        needs += ["Neptune Serverless knowledge graph (cluster, subnets, security group, bulk-loader role)",
-                  "Reimagine connector and its IAM role (one per workspace)"]
+        needs += ["Neptune Serverless knowledge graph (cluster, its own private network, security groups, bulk-loader role)",
+                  "Reimagine connector and its IAM role (one per workspace); the Assess and reimagine plan needs no other connector"]
+    else:
+        needs += ["S3 connector, for a custom plan"]
     if backend == "bedrock":
         needs += ["Bedrock access to the pinned Claude models in the run's region (administrator, once)",
                   "Bedrock invoke permission on the pinned models or inference profiles only"]
@@ -222,7 +227,8 @@ def check(resources: Resources, reader: Reader) -> CheckReport:
     attempt("bucket", bucket(resources.bucket, "bucket"))
     attempt("sandbox role", role)
     attempt("permissions", permissions)
-    attempt("assessment connector", connector(resources.assessment_connector, ASSESSMENT_CONNECTOR_TYPE, "assessment connector"))
+    if resources.assessment_connector:
+        attempt("assessment connector", connector(resources.assessment_connector, ASSESSMENT_CONNECTOR_TYPE, "assessment connector"))
     if resources.reimagine_connector:
         attempt("reimagine connector", connector(resources.reimagine_connector, REIMAGINE_CONNECTOR_TYPE, "reimagine connector"))
         attempt("Neptune stack", stack)

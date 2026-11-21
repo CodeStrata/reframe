@@ -182,6 +182,37 @@ class NeedsTests(unittest.TestCase):
         self.assertTrue(any("Neptune" in line for line in full) and any("Bedrock" in line for line in full))
 
 
+class OneConnectorTests(unittest.TestCase):
+    """P2-11 (#264): the Assess and reimagine plan needs only the reimagine connector."""
+
+    def test_assess_and_reimagine_needs_no_assessment_connector(self):
+        document = copy.deepcopy(DOCUMENT)
+        document["transform"]["assessment_connector"] = None
+        resources = load(document)
+        self.assertIsNone(resources.assessment_connector)
+        reader = FakeReader()
+        checked = check(resources, reader)
+        self.assertNotIn("assessment connector", {p.resource for p in checked.problems})
+        self.assertNotIn(None, resources.client_owned_ids)
+
+    def test_a_named_assessment_connector_is_still_checked(self):
+        reader = FakeReader()
+        reader.connectors["conn-assess"] = connector(REIMAGINE_CONNECTOR_TYPE)
+        self.assertIn("assessment connector", {p.resource for p in check(load(DOCUMENT), reader).problems})
+
+    def test_a_file_naming_no_connector_is_refused(self):
+        document = copy.deepcopy(DOCUMENT)
+        document["transform"].update(assessment_connector=None, reimagine_connector=None)
+        document["neptune_stack"] = None
+        with self.assertRaises(ResourceError):
+            load(document)
+
+    def test_the_run_needs_one_connector_for_assess_and_reimagine(self):
+        full = what_the_run_needs(reimagine=True, backend="claude-cli")
+        self.assertFalse(any("assessment connector" in line.casefold() for line in full))
+        self.assertTrue(any("Reimagine connector" in line for line in full))
+
+
 class CliReader:
     """Recorded replies of read-only AWS CLI calls."""
 

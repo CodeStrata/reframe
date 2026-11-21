@@ -45,7 +45,10 @@
           "minLength": 1
         },
         "assessment_connector": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1
         },
         "reimagine_connector": {
