@@ -13,6 +13,12 @@ Two rules v1 learned against the live service, which the server's schemas do
 not state, are checked before dispatch: a status read must carry
 detailed=true, and create_job must carry orchestratorAgent.
 
+Calls run in sessions (P2-09, #262). The pinned server refuses job-scoped
+calls until load_instructions has run for the job in the same server process,
+so a session calls it first for every job it touches. A call the server or AWS
+refuses is Rejected, with the reason AWS gave; a refusal before anything was
+sent is NotSent; only a transport failure after a change was sent is uncertain.
+
 Operation names come only from the server's own tool listing, never from a
 console label. The live path's operations are the ones v1 recorded against
 the live service.
@@ -61,6 +67,37 @@ class TransformError(Exception):
 
 class Unauthorized(TransformError):
     """A mutating tool was called without an envelope authorization. Nothing was sent."""
+
+
+class NotSent(TransformError):
+    """Refused or failed before any change reached the server: certainly not dispatched."""
+
+
+class Rejected(TransformError):
+    """The server or AWS answered the call with a failure. Nothing changed; the reason is AWS's own."""
+
+    def __init__(self, name: str, reason: str) -> None:
+        super().__init__(f"{name}: the service rejected the call: {reason}")
+        self.operation, self.reason = name, reason
+
+
+def failure_reason(value: Any) -> str:
+    """The error code and message inside a failed reply, however deeply the server nested it."""
+    for _ in range(8):
+        if isinstance(value, dict) and isinstance(value.get("error"), dict):
+            error = value["error"]
+            return ": ".join(str(part) for part in (error.get("code"), error.get("message")) if part) or "no reason given"
+        if isinstance(value, dict) and set(value) == {"result"}:
+            value = value["result"]
+        elif isinstance(value, dict) and isinstance(value.get("content"), list):
+            text = "\n".join(part.get("text", "") for part in value["content"] if isinstance(part, dict))
+            try:
+                value = json.loads(text)
+            except ValueError:
+                return text[:300] or "no reason given"
+        else:
+            break
+    return "no reason given"
 
 
 @dataclass(frozen=True)
@@ -172,41 +209,79 @@ class TransformClient:
 
     def call(self, name: str, arguments: dict[str, Any], authorization: Authorization | None = None) -> Any:
         """Call one tool. Read-only tools need nothing more; a mutating tool needs an envelope authorization for that operation."""
-        if name not in READ_ONLY and name not in MUTATING:
-            raise Unauthorized(f"{name} is not a recognized adapter operation; it is never called")
-        if name in MUTATING and (authorization is None or authorization.operation != name or not authorization.by):
-            raise Unauthorized(f"{name} changes AWS state; it needs an execution-envelope authorization for {name}")
-        check_recorded_rules(name, arguments)
+        return self.session([(name, arguments, authorization)])[0]
 
-        async def one_call():
+    def session(self, calls: list[tuple[str, dict[str, Any], Authorization | None]]) -> list[Any]:
+        """Run calls in order in one server session, and return their results.
+
+        Every call is checked before anything is sent. A job-scoped call is preceded, once per job,
+        by load_instructions in the same session, because the server keeps that check per process.
+        """
+        for name, arguments, authorization in calls:
+            if name not in READ_ONLY and name not in MUTATING:
+                raise Unauthorized(f"{name} is not a recognized adapter operation; it is never called")
+            if name in MUTATING and (authorization is None or authorization.operation != name or not authorization.by):
+                raise Unauthorized(f"{name} changes AWS state; it needs an execution-envelope authorization for {name}")
+            check_recorded_rules(name, arguments)
+        sent: list[str] = []
+
+        async def run():
             ClientSession, parameters, stdio_client = self._transport()
             self.config.write_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            results = []
             with (self.config.write_dir / "mcp-server.log").open("a") as errlog:
                 async with stdio_client(parameters, errlog=errlog) as (reader, writer):
                     async with ClientSession(reader, writer) as session:
                         await session.initialize()
                         tools = {tool.name: tool for tool in (await session.list_tools()).tools}
-                        if name not in tools:
-                            raise TransformError(f"the server does not offer {name}")
-                        schema = getattr(tools[name], "inputSchema", None) or getattr(tools[name], "input_schema", None) or {}
-                        check_arguments(name, schema, arguments)
-                        result = await session.call_tool(name, arguments)
-            if getattr(result, "isError", False) or getattr(result, "is_error", False):
-                raise TransformError(f"{name}: the service rejected the call; no successful receipt was accepted")
-            value = getattr(result, "structuredContent", None) or getattr(result, "structured_content", None)
-            if not value:
-                value = {"content": [{"type": "text", "text": block.text} for block in result.content if getattr(block, "type", "") == "text"]}
-            return unwrap(value)
+                        loaded: set[tuple[Any, Any]] = set()
 
+                        async def one(name, arguments):
+                            if name not in tools:
+                                raise TransformError(f"the server does not offer {name}")
+                            tool = tools[name]
+                            check_arguments(name, getattr(tool, "inputSchema", None) or getattr(tool, "input_schema", None) or {}, arguments)
+                            sent.append(name)
+                            result = await session.call_tool(name, arguments)
+                            value = getattr(result, "structuredContent", None) or getattr(result, "structured_content", None)
+                            if not value:
+                                value = {"content": [{"type": "text", "text": block.text} for block in result.content
+                                                     if getattr(block, "type", "") == "text"]}
+                            if getattr(result, "isError", False) or getattr(result, "is_error", False):
+                                raise Rejected(name, failure_reason(value))
+                            try:
+                                return unwrap(value)
+                            except TransformError:
+                                raise Rejected(name, failure_reason(value)) from None
+
+                        for name, arguments, _ in calls:
+                            job = (arguments.get("workspaceId"), arguments.get("jobId"))
+                            if name != "load_instructions" and job[1] and job not in loaded:
+                                await one("load_instructions", {"workspaceId": job[0], "jobId": job[1]})
+                            if name == "load_instructions" or job[1]:
+                                loaded.add(job)
+                            results.append(await one(name, arguments))
+            return results
+
+        changed = lambda: any(name in MUTATING for name in sent)  # noqa: E731
         try:
-            return asyncio.run(asyncio.wait_for(one_call(), timeout=self.config.timeout_seconds))
-        except TransformError:
+            return asyncio.run(asyncio.wait_for(run(), timeout=self.config.timeout_seconds))
+        except Rejected:
+            raise
+        except TransformError as error:
+            if not changed():
+                raise NotSent(str(error)) from error
             raise
         except BaseException as error:  # noqa: BLE001 - transport failures are reported, never retried here
-            cause = _find(error, TransformError)
-            if cause is not None:
-                raise cause from error
-            raise TransformError(f"{name}: the MCP transport failed ({type(error).__name__}); a mutating call is UNCERTAIN") from error
+            for kind in (Rejected, TransformError):
+                cause = _find(error, kind)
+                if cause is not None:
+                    if kind is TransformError and not changed():
+                        raise NotSent(str(cause)) from error
+                    raise cause from error
+            if not changed():
+                raise NotSent(f"the MCP transport failed ({type(error).__name__}) before any change was sent") from error
+            raise TransformError(f"the MCP transport failed ({type(error).__name__}); a mutating call is UNCERTAIN") from error
 
 
 def _find(error: BaseException, kind: type) -> BaseException | None:

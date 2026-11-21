@@ -5,6 +5,7 @@ nothing contacts AWS. The live read-only discovery waits for the execution
 envelope (P1-01).
 """
 
+import json
 import os
 import sys
 import tempfile
@@ -17,11 +18,14 @@ from reframe_v2.transform import (
     MUTATING,
     READ_ONLY,
     Authorization,
+    NotSent,
+    Rejected,
     ServerConfig,
     TransformClient,
     TransformError,
     Unauthorized,
     discover,
+    failure_reason,
     unwrap,
 )
 
@@ -155,6 +159,54 @@ class FixtureServerTests(unittest.TestCase):
             client.call("get_job_status", {"workspaceId": "w", "detailed": True})
         with self.assertRaises(TransformError):
             client.call("get_job_status", {"workspaceId": "w", "jobId": "j", "detailed": True, "extra": "x"})
+
+
+class SessionTests(unittest.TestCase):
+    """P2-09 (#262): one server session per job interaction; refusals keep AWS's reason. L1, L2."""
+
+    def client(self, **switches):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.sent = Path(self.tmp.name) / "sent"
+        config = ServerConfig((sys.executable, str(FIXTURE)), None, "us-east-1", Path(self.tmp.name) / "artifacts", timeout_seconds=60)
+        client = TransformClient(config, {"PATH": os.environ.get("PATH", ""), "HOME": os.environ.get("HOME", "")})
+        client.env.update({"FIXTURE_GATE": "1", "FIXTURE_SENT": str(self.sent), **switches})
+        return client
+
+    def test_a_job_call_runs_after_load_instructions_in_the_same_session(self):
+        result = self.client().call("get_job_status", {"workspaceId": "w", "jobId": "j", "detailed": True})
+        self.assertEqual(result, {"status": "IN_PROGRESS"})
+
+    def test_several_job_calls_share_one_session(self):
+        client = self.client()
+        results = client.session([
+            ("get_job_status", {"workspaceId": "w", "jobId": "j", "detailed": True}, None),
+            ("send_message", {"workspaceId": "w", "jobId": "j", "text": "1. Assess and reimagine"},
+             Authorization("envelope-1", "send_message", "Owner")),
+        ])
+        self.assertEqual(len(results), 2)
+        self.assertEqual(self.sent.read_text(), "1. Assess and reimagine\n")
+
+    def test_a_refused_message_is_rejected_with_aws_reason_not_uncertain(self):
+        client = self.client(FIXTURE_REFUSE_CHAT="1")
+        with self.assertRaises(Rejected) as caught:
+            client.call("send_message", {"workspaceId": "w", "jobId": "j", "text": "1. Assess and reimagine"},
+                        Authorization("envelope-1", "send_message", "Owner"))
+        self.assertIn("HTTP 409", caught.exception.reason)
+        self.assertIn("agent is stopping", caught.exception.reason)
+        self.assertFalse(self.sent.exists())
+
+    def test_a_call_refused_before_dispatch_is_not_sent(self):
+        client = self.client()
+        with self.assertRaises(NotSent):
+            client.call("send_message", {"workspaceId": "w", "jobId": "j", "text": "x", "extra": "y"},
+                        Authorization("envelope-1", "send_message", "Owner"))
+        self.assertFalse(self.sent.exists())
+
+    def test_the_reason_is_found_however_deeply_the_server_nests_it(self):
+        reply = {"content": [{"type": "text", "text": json.dumps({"content": [{"type": "text", "text": json.dumps(
+            {"success": False, "error": {"code": "REQUEST_FAILED", "message": "HTTP 409: busy"}})}], "isError": True})}]}
+        self.assertEqual(failure_reason(reply), "REQUEST_FAILED: HTTP 409: busy")
 
 
 if __name__ == "__main__":
