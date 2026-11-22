@@ -57,7 +57,8 @@ class TeardownTest(unittest.TestCase):
         consented = teardown.ask(self.ctx, lambda prompt: "yes", out.append)
         text = "".join(out)
         for expected in ("AWS Transform job", "AWS Transform workspace", "AWS Transform connector", "Network interface left by AWS Transform",
-                         "S3 bucket", "reframe-demo-x-state", "VPC", "their-graph is not in the list"):
+                         "S3 bucket", "reframe-demo-x-state", "VPC", "their-graph is not in the list",
+                         "Reframe also deletes"):
             self.assertIn(expected, text)
         self.assertEqual(self.folder.load("teardown/consents.json")[0]["sha256"], teardown.digest(consented))
         self.assertEqual(self.client.changed("delete_job"), [])  # nothing deleted by asking

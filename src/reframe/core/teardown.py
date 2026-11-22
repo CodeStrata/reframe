@@ -86,6 +86,9 @@ def describe(items: list[dict[str, Any]], graph: dict[str, Any] | None) -> str:
     width = max((len(i["kind"]) for i in items), default=10)
     for number, item in enumerate(items, 1):
         lines.append(f"  {number:>3}. {item['kind']:<{width}}  {item['name']}" + (f"  ({item['id']})" if item.get("id") and item["id"] != item["name"] else ""))
+    if any(i["kind"] == "VPC" for i in items):
+        lines += ["", "AWS Transform can leave a network interface in this run's VPC while the job is deleted. Reframe also deletes",
+                  "any such interface it finds in that VPC (described as managed by AWS Transform), so the VPC can be deleted."]
     if graph and graph.get("kind") == "existing":
         lines += ["", f"The existing Neptune cluster {graph['name']} is not in the list: Reframe never changes or deletes it."]
     return "\n".join(lines) + "\n"
