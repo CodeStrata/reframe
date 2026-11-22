@@ -41,18 +41,18 @@ class SnapshotTest(unittest.TestCase):
 
     def test_archive_is_the_commit_only(self):
         (self.repo / "app" / "UNCOMMITTED.cbl").write_text("x")
-        record = snapshot.take(self.folder, str(self.repo), self.commit)
+        record = snapshot.take(self.folder, str(self.repo), None)
         data = snapshot.archive_bytes(self.folder, record)
         with zipfile.ZipFile(self.folder.path(record["archive"])) as archive:
             self.assertIn("app/PROG.cbl", archive.namelist())
             self.assertNotIn("app/UNCOMMITTED.cbl", archive.namelist())
         self.assertEqual(record["sha256"], hashlib.sha256(data).hexdigest())
-        self.assertEqual(snapshot.take(self.folder, str(self.repo), self.commit), record)
+        self.assertEqual(snapshot.take(self.folder, str(self.repo), None), record)
 
     def test_other_commit_refused(self):
-        snapshot.take(self.folder, str(self.repo), self.commit)
+        snapshot.take(self.folder, str(self.repo), None)
         with self.assertRaises(Stop):
-            snapshot.take(self.folder, str(self.repo), "0" * 40)
+            snapshot.take(self.folder, str(self.repo), "other")
 
 
 class UploadTest(unittest.TestCase):
@@ -94,3 +94,49 @@ class UploadTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SourceFormsTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.base = Path(self.tmp.name)
+        self.plain = self.base / "plain"
+        (self.plain / "cbl").mkdir(parents=True)
+        (self.plain / "cbl" / "B.cbl").write_text("b")
+        (self.plain / "A.jcl").write_text("a")
+        (self.plain / ".DS_Store").write_text("x")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def folder(self, name):
+        return new_run(name, {"REFRAME_HOME": str(self.base / name)})
+
+    def test_plain_folder_is_deterministic(self):
+        first = snapshot.take(self.folder("one"), str(self.plain), None)
+        second = snapshot.take(self.folder("two"), str(self.plain), None)
+        self.assertEqual((first["form"], first["files"]), ("plain-folder", 2))
+        self.assertEqual(first["sha256"], second["sha256"])
+
+    def test_zip_file_is_used_as_is(self):
+        archive = self.base / "src.zip"
+        with zipfile.ZipFile(archive, "w") as z:
+            z.writestr("app/X.cbl", "x")
+        record = snapshot.take(self.folder("z"), str(archive), None)
+        self.assertEqual((record["form"], record["files"]), ("zip", 1))
+        self.assertEqual(record["sha256"], hashlib.sha256(archive.read_bytes()).hexdigest())
+
+    def test_unsafe_zip_refused(self):
+        archive = self.base / "bad.zip"
+        with zipfile.ZipFile(archive, "w") as z:
+            z.writestr("../escape.cbl", "x")
+        with self.assertRaises(Stop):
+            snapshot.take(self.folder("bad"), str(archive), None)
+
+    def test_ref_needs_git(self):
+        with self.assertRaises(Stop):
+            snapshot.take(self.folder("r"), str(self.plain), "main")
+
+    def test_missing_source(self):
+        with self.assertRaises(Stop):
+            snapshot.kind(str(self.base / "nothing"))

@@ -9,7 +9,9 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import zipfile
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 from reframe.core.errors import NotSent, Outcome, Stop
@@ -25,11 +27,12 @@ class Report:
     account: str | None = None
     terraform: str | None = None
     commit: str | None = None
+    source_form: str | None = None
     problems: list[str] = field(default_factory=list)
     signin_expired: bool = False
 
     def as_json(self) -> dict[str, Any]:
-        return {"terraform": self.terraform, "commit": self.commit, "problems": self.problems, "signin_expired": self.signin_expired}
+        return {"terraform": self.terraform, "commit": self.commit, "source_form": self.source_form, "problems": self.problems, "signin_expired": self.signin_expired}
 
 
 def terraform_version(binary: str, runner: Runner = run_subprocess) -> tuple[int, ...] | None:
@@ -41,7 +44,7 @@ def terraform_version(binary: str, runner: Runner = run_subprocess) -> tuple[int
     return tuple(int(part) for part in match.groups()) if match else None
 
 
-def check(*, aws: Aws, terraform: str, repo: str, commit: str | None, transform_ready: Callable[[], None],
+def check(*, aws: Aws, terraform: str, source: str, ref: str | None, transform_ready: Callable[[], None],
           runner: Runner = run_subprocess, which: Callable[[str], str | None] = shutil.which) -> Report:
     report = Report()
     login = f"aws sso login --profile {aws.profile}"
@@ -72,7 +75,7 @@ def check(*, aws: Aws, terraform: str, repo: str, commit: str | None, transform_
         if probe.returncode != 0:
             report.problems.append(f"the AWS Transform MCP server is not installed: run uvx --from {MCP_SERVER} python -c pass")
 
-    report.commit = _commit(repo, commit, runner, report)
+    report.source_form = _source(source, ref, runner, report)
 
     if report.account and not report.signin_expired and not any("MCP server" in p for p in report.problems):
         try:
@@ -87,25 +90,38 @@ def check(*, aws: Aws, terraform: str, repo: str, commit: str | None, transform_
     return report
 
 
-def _commit(repo: str, commit: str | None, runner: Runner, report: Report) -> str | None:
+def _source(source: str, ref: str | None, runner: Runner, report: Report) -> str | None:
+    """The source can be read: a Git URL and its ref can be reached, a folder exists, a ZIP file opens."""
     env = base_environment()
-    if re.match(r"^(https?|ssh|git)://|^git@", repo):
-        result = runner(["git", "ls-remote", repo, commit or "HEAD"], env, 120, None)
+    if re.match(r"^(https?|ssh|git)://|^git@", source):
+        result = runner(["git", "ls-remote", source, *([ref] if ref else ["HEAD"])], env, 120, None)
         if result.returncode != 0:
-            report.problems.append(f"the repository {repo} cannot be read: check the URL and your Git access")
+            report.problems.append(f"the repository {source} cannot be read: check the URL and your Git access")
             return None
-        lines = [line.split()[0] for line in result.stdout.splitlines() if line.strip()]
-        if commit and re.fullmatch(r"[0-9a-f]{7,40}", commit):
-            return commit  # a commit id is checked when the snapshot fetches it
-        if not lines:
-            report.problems.append(f"{commit or 'HEAD'} is not in {repo}")
-            return None
-        return lines[0]
-    result = runner(["git", "-C", repo, "rev-parse", "--verify", f"{commit or 'HEAD'}^{{commit}}"], env, 60, None)
-    if result.returncode != 0:
-        report.problems.append(f"{commit or 'HEAD'} is not a commit in {repo}: check --repo and --commit")
+        if ref and not result.stdout.strip() and not re.fullmatch(r"[0-9a-f]{7,40}", ref):
+            report.problems.append(f"{ref} is not a branch or tag in {source}: check --ref")
+        return "url"
+    path = Path(source).expanduser()
+    if path.is_file():
+        if not zipfile.is_zipfile(path):
+            report.problems.append(f"{source} is not a ZIP file: pass a folder, a .zip file or a Git URL")
+        elif ref:
+            report.problems.append("--ref needs a Git checkout or URL, not a ZIP file")
+        return "zip"
+    if not path.is_dir():
+        report.problems.append(f"{source} does not exist: pass a folder, a .zip file or a Git URL with --source")
         return None
-    return result.stdout.strip()
+    top = runner(["git", "-C", str(path), "rev-parse", "--show-toplevel"], env, 60, None)
+    if top.returncode == 0 and Path(top.stdout.strip()).resolve() == path.resolve():
+        result = runner(["git", "-C", str(path), "rev-parse", "--verify", f"{ref or 'HEAD'}^{{commit}}"], env, 60, None)
+        if result.returncode != 0:
+            report.problems.append(f"{ref or 'HEAD'} is not a commit in {source}: check --source and --ref")
+            return None
+        report.commit = result.stdout.strip()
+        return "git-folder"
+    if ref:
+        report.problems.append("--ref needs a Git checkout or URL; this folder is not a Git checkout")
+    return "folder"
 
 
 def require(report: Report) -> None:

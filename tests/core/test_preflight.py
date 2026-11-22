@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 
 from reframe.core import preflight
@@ -7,8 +8,12 @@ from reframe.core.shell import Aws
 from tests.fakes import FakeRunner
 
 
+SOURCE = tempfile.mkdtemp()
+
+
 def runner(*, sts=(0, {"Account": "000000000000"}, ""), terraform="Terraform v1.17.2\n", mcp=0, git=(0, "a" * 40 + "\n", "")):
     fake = FakeRunner()
+    fake.add(["git", "-C", SOURCE, "rev-parse", "--show-toplevel"], 0, SOURCE + "\n")
     fake.add(["aws", "sts"], sts[0], sts[1], sts[2])
     fake.add(["terraform", "version"], 0, terraform)
     fake.add(["uvx"], mcp, "", "" if mcp == 0 else "not cached")
@@ -17,7 +22,7 @@ def runner(*, sts=(0, {"Account": "000000000000"}, ""), terraform="Terraform v1.
 
 
 def run(fake, ready=lambda: None, which=lambda tool: "/bin/" + tool):
-    return preflight.check(aws=Aws("p", "us-east-1", fake), terraform="terraform", repo="/repo", commit=None,
+    return preflight.check(aws=Aws("p", "us-east-1", fake), terraform="terraform", source=SOURCE, ref=None,
                            transform_ready=ready, runner=fake, which=which)
 
 

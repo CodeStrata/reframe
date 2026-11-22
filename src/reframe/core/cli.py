@@ -18,6 +18,7 @@ HANDLERS = {
     "events": "reframe.core.commands:events",
     "answer": "reframe.core.commands:answer",
     "resume": "reframe.core.commands:resume",
+    "report": "reframe.core.commands:report",
     "teardown": "reframe.core.commands:teardown",
     "worker": "reframe.core.commands:worker",
 }
@@ -33,14 +34,16 @@ def parser() -> argparse.ArgumentParser:
     commands = top.add_subparsers(dest="command", metavar="<command>")
 
     run = commands.add_parser("run", help="Create the AWS resources, run the assessment, download the results and tear down")
-    run.add_argument("--repo", required=True, help="path or URL of the mainframe source repository")
+    run.add_argument("--source", required=True, help="the mainframe source: a local folder, a local .zip file, or a GitHub URL")
     run.add_argument("--profile", required=True, help="the AWS CLI profile to sign in with")
-    run.add_argument("--commit", help="the commit to assess (default: the checkout's HEAD)")
+    run.add_argument("--ref", help="for a Git checkout or URL: the branch, tag or commit to assess (default: HEAD)")
     run.add_argument("--mode", choices=("autonomous", "interactive"), default="autonomous",
                      help="autonomous: Reframe answers AWS and records why; interactive: answer each question with reframe answer")
     run.add_argument("--keep", action="store_true", help="keep the AWS resources after retrieval; remove them later with reframe teardown")
     run.add_argument("--region", default="us-east-1", help="AWS region (default: us-east-1)")
-    run.add_argument("--project", help="project name used in resource names (default: from the repository name)")
+    run.add_argument("--project", help="project name used in resource names (default: from the source's name)")
+    run.add_argument("--graph", default=None, help="new, existing (choose from a list) or the name of an existing Neptune cluster "
+                     "(default: interactive mode asks; autonomous mode creates a new graph)")
     run.add_argument("--terraform", help="the Terraform binary to use (default: REFRAME_TERRAFORM, then terraform on PATH)")
     run.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
 
@@ -60,9 +63,12 @@ def parser() -> argparse.ArgumentParser:
     _run_option(resume)
     resume.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
 
-    teardown = commands.add_parser("teardown", help="Remove what the run created, by the IDs in its own records")
+    report = commands.add_parser("report", help="Build the HTML report from the run's downloads again")
+    _run_option(report)
+    report.add_argument("--open", action="store_true", help="open the report in the browser")
+
+    teardown = commands.add_parser("teardown", help="List every AWS resource the run created, ask for consent, record it, then remove them")
     _run_option(teardown)
-    teardown.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
 
     worker = commands.add_parser("worker")  # internal: the background worker started by run, resume and teardown
     worker.add_argument("folder")
