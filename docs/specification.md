@@ -33,7 +33,9 @@ Out of scope for pipeline 1: anything that uses the downloaded requirements (che
 
 | Command | What it does |
 |---|---|
-| `reframe run --source <folder \| file.zip \| github-url> --profile <aws-profile> [--ref <branch-tag-or-commit>] [--mode autonomous\|interactive] [--graph new\|existing\|<cluster-name>]` | Runs stages 0 to 8 in a background worker and returns. |
+| `reframe run` | The guided run: checks and sets up the prerequisites, the AWS sign-in and the source, asks for each choice, then starts stages 0 to 8 (below). |
+| `reframe run --source <folder \| file.zip \| github-url> [--profile <aws-profile>] [--ref <branch-tag-or-commit>] [--mode autonomous\|interactive] [--graph new\|existing\|<cluster-name>]` | Runs stages 0 to 8 in a background worker and returns, with no questions: the prerequisites are assumed to be set up. The profile defaults to the one saved by the guided setup. |
+| `reframe setup` | The guided setup alone: prerequisites and the AWS sign-in, without starting a run. |
 | `reframe status` | The current stage, the job's plan steps, any question waiting, and the next step. |
 | `reframe events [--follow]` | The run's event log. |
 | `reframe answer [<choice>...] [--text <answer>]` | Shows AWS's waiting question with its options, or sends the answer. |
@@ -42,6 +44,20 @@ Out of scope for pipeline 1: anything that uses the downloaded requirements (che
 | `reframe teardown` | Lists every AWS resource the run created, asks for consent, records it, then removes them (section 4, stage 9). |
 
 Region defaults to `us-east-1` (`--region` to change it). `--run <id>` picks a run other than the latest.
+
+### The guided run
+
+`reframe run` with no `--source` guides the person through everything a run needs, in a terminal. It looks like Reframe's first console (v1): a REFRAME header panel naming the steps, coloured status lines, simple tables and numbered choices.
+
+1. **Prerequisites.** One table of what a run needs, what was found and whether it is ready: Git, the AWS CLI v2, uv, Terraform 1.10 or later, and the AWS Transform MCP server at the pinned version. Claude Code is listed as optional, for pipeline 2. For each missing piece Reframe shows the install command for the operating system it runs on (macOS or Linux; on Windows it points to WSL2) and offers to run it in the terminal, then checks again. Nothing is installed without a yes.
+   - Terraform is installed by Reframe itself when the person agrees: the pinned official HashiCorp release for the operating system and processor, checked against HashiCorp's published SHA-256 sums, in `~/.reframe/tools`. Reframe records its path and uses it, so no shell file or PATH is changed, and an older Terraform elsewhere on the PATH does not matter.
+   - The MCP server is fetched once with `uvx`, so a run can start it offline.
+2. **AWS sign-in.** The profiles from `aws configure list-profiles` are listed to choose from, then the region (default `us-east-1`). Reframe checks the profile is signed in. If it is not, it offers to run `aws sso login --profile <profile>`, where the person signs in in their browser; with no profiles, it offers `aws configure sso`. Reframe never reads or asks for credentials.
+3. **Source.** A GitHub or Git URL, a local folder or a local ZIP file, checked as it is entered; for Git, the branch, tag or commit.
+4. **Choices.** The mode (autonomous by default), the project name (from the source's name), and the Neptune choice of section 4, stage 2.
+5. **Summary and start.** What will be created and that the Neptune graph is billed until `reframe teardown`, then one yes to start.
+
+The chosen profile, region and tool paths are saved in `~/.reframe/config.json` as the next run's defaults. `reframe status` uses the same styling. Without a terminal, `reframe run` needs `--source`.
 
 ## 4. Stages
 
