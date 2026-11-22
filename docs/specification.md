@@ -74,14 +74,21 @@ Reframe records the source, the commit when there is one, the number of files, a
 - interactive mode asks, with the list;
 - autonomous mode creates a new graph unless `--graph <cluster-name>` names one; `--graph existing` asks even in autonomous mode.
 
-An existing cluster must be available and run engine 1.4.5.1 or later, which AWS requires for the reimagine connector. Before using it, Reframe shows exactly what it will add and asks for consent: a loader role associated with the cluster, and a security group in the cluster's VPC with one ingress rule to the cluster's security group on port 8182. Reframe never deletes or otherwise changes an existing cluster; teardown removes only those additions.
+Reframe uses an existing cluster exactly as it is: it never tags, changes or deletes it, and teardown leaves it alone. So a cluster is offered only when it already has everything the reimagine connector needs, and the list shows, for every other cluster, each thing it lacks:
+
+- available, with at least one instance, Serverless, engine 1.4.5.1 or later, IAM authentication on and storage encrypted;
+- subnets in two Availability Zones, each with an S3 gateway endpoint;
+- a security group the cluster lets in on its port, which may also send to it;
+- an associated bulk-loader role that can read the run's source bucket (checked with IAM's policy simulator before the bucket exists, because its name is fixed by the run).
+
+If another reimagine connector already uses the cluster, both write into the same graph; the list says so.
 
 **Terraform roots.** Both are named `reframe-<project>-<run>-…` and tagged `ManagedBy=reframe`, `ReframeProject` and `ReframeRun`:
 
 | Root | Creates |
 |---|---|
 | bootstrap | the encrypted, versioned S3 bucket that holds the project root's state |
-| project | the encrypted source bucket and the sandbox IAM role that can read only that bucket; with a new graph, the Neptune Serverless cluster, its VPC, subnets, security groups, S3 endpoint and loader role; with an existing cluster, the additions above; the reimagine connector's IAM role |
+| project | the encrypted source bucket and the sandbox IAM role that can read only that bucket; with a new graph, the Neptune Serverless cluster, its VPC, subnets, security groups, S3 endpoint and loader role; the reimagine connector's IAM role |
 
 Reframe saves each plan, checks that it only creates resources, then applies it.
 
@@ -145,7 +152,7 @@ Reframe builds one self-contained HTML report in the run folder (`outputs/report
 
 The run keeps its AWS resources until the person runs `reframe teardown`. Then Reframe:
 
-1. builds the inventory from the run's own records only (receipts and Terraform state, never names or guesses), adding any detached network interface AWS Transform left in the run's own VPC, and lists every resource at once: the job, workspace and connector, each Terraform resource (S3 buckets, IAM roles, the Neptune cluster and instance, VPC, subnets, security groups, endpoint), and, with an existing cluster, Reframe's additions to it;
+1. builds the inventory from the run's own records only (receipts and Terraform state, never names or guesses), adding any detached network interface AWS Transform left in the run's own VPC, and lists every resource at once: the job, workspace and connector, each Terraform resource (S3 buckets, IAM roles, the Neptune cluster and instance, VPC, subnets, security groups, endpoint); an existing cluster is never in the list;
 2. asks the person to type `yes` to delete exactly that list;
 3. records the consent (who, when, the list and its hash) in the run folder before deleting anything; a list that changes before deletion needs consent again;
 4. deletes, in order:

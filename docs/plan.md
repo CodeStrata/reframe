@@ -18,7 +18,7 @@ Status: draft for the owner's agreement, with [the specification](specification.
 | P1-03 | Preflight | §4 stage 0 | Each missing piece stops the run with the exact fix |
 | P1-04 | Source input (folder, ZIP, GitHub), snapshot and upload | §4 stages 1, 3 | Each source form gives a checked archive whose SHA-256 matches the object in S3 |
 | P1-05 | Terraform roots and apply | §4 stage 2 | Plans that only create, applied; outputs recorded |
-| P1-15 | Neptune graph: a new one or an existing cluster | §4 stage 2 | The clusters are listed and chosen; an existing one is checked, its additions shown and consented to, and it is never changed otherwise |
+| P1-15 | Neptune graph: a new one or an existing cluster | §4 stage 2 | The clusters are listed with what each lacks; a usable one can be chosen and is used as it is, never changed |
 | P1-17 | Code layout by area | §6 | Core, source, infrastructure, Transform and report code each in its own folder, with tests alongside |
 | P1-06 | AWS Transform setup: workspace and reimagine connector | §4 stage 4 | Connector ACTIVE, IDs recorded from AWS's replies |
 | P1-07 | Job creation and the driver loop | §4 stages 5, 6 | The job is polled and its tasks classified; done means every plan step SUCCEEDED with "Generate requirements" in the plan |
