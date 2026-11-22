@@ -8,17 +8,7 @@ This is pipeline 1. The full design is in [docs/specification.md](docs/specifica
 
 ## The pipeline
 
-```mermaid
-flowchart TD
-    A["0. Preflight<br/>tools, AWS sign-in, source, AWS Transform"] --> B["1. Snapshot<br/>the source as one ZIP"]
-    B --> C["2. AWS resources (Terraform)<br/>S3, IAM roles, Neptune graph"]
-    C --> D["3. Upload<br/>the snapshot to S3"]
-    D --> E["4. AWS Transform setup<br/>workspace and connector"]
-    E --> F["5-6. Job<br/>Reframe answers AWS, or you do"]
-    F --> G["7. Retrieval<br/>requirements, assessment, catalog"]
-    G --> H["8. Report<br/>outputs/report/index.html"]
-    H -.->|when you ask| I["9. Teardown<br/>list, consent, delete"]
-```
+![How a pipeline 1 run works: ten stages from preflight to the report, with teardown only on request; you sign in, answer AWS's questions in interactive mode, read the report and consent to teardown; next, pipeline 2 adds Claude's graph to the same Neptune cluster](docs/images/pipeline-1.svg)
 
 | Stage | What happens |
 |---|---|
