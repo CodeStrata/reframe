@@ -127,6 +127,14 @@ class AnswersTest(unittest.TestCase):
         self.assertEqual(combined.text, 'Reimagine business domain "Payments" and unassigned programs')
         self.assertEqual(combined.interaction_origin_id, "m")
 
+    def test_reply_yes_confirmation_answered(self):
+        text = ("Please confirm to proceed with reimagining:\n- Daily Transaction Processing domain\n- Unassigned programs\n\n"
+                "Once confirmed, this will finalize business function discovery and begin generating modernization requirements.\n\n"
+                'Reply "yes" to confirm or "no" to cancel.')
+        question = answers.chat_question(system("m", text, "t"))
+        self.assertEqual(question.kind, "confirm")
+        self.assertEqual(answers.autonomous(question).text, "yes")
+
     def test_bold_confirmation_recognised(self):
         self.assertEqual(answers.chat_question(system("m", "x\n**Do you want to proceed?**", "t")).kind, "confirm")
 

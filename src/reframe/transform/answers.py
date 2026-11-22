@@ -33,6 +33,8 @@ OBJECTIVE = ("does this objective match your goals?",)
 OUTPUT_LANGUAGE = ("would you like your output translated into any of these languages, or would you prefer english only?",)
 PROCEED_PLAN = ("proceed with this plan?",)
 CONFIRM = ("do you want to proceed?",)
+# AWS's confirmation after the catalog reply (live run, November 2026) ends: Reply "yes" to confirm or "no" to cancel.
+REPLY_YES = re.compile(r'^reply "?yes"? to confirm\b')
 MENU_OPTION = re.compile(r"^\s*(\d+)\.\s+([^:\n]+?)\s*(?::|$)", re.M)
 EVERYTHING = "Everything: every business domain in the catalog and the unassigned programs"
 
@@ -131,8 +133,9 @@ def _combine(values: list[str]) -> str:
     return "Reimagine " + (", ".join(parts[:-1]) + " and " + parts[-1] if len(parts) > 1 else parts[0])
 
 
-def chat_question(message: dict[str, Any]) -> Question | None:
-    """The question in one of AWS's chat messages, with Reframe's options for it; None when it is not one Reframe knows."""
+def chat_question(message: dict[str, Any], awaiting: bool = False) -> Question | None:
+    """The question in one of AWS's chat messages, with Reframe's options for it; None when it is only a notice.
+    While AWS says the job awaits input, its latest message is treated as a question even without a question mark."""
     text = str(message.get("text") or "")
     message_id = str(message.get("messageId"))
     closing = closing_line(text)
@@ -158,7 +161,9 @@ def chat_question(message: dict[str, Any]) -> Question | None:
         return Question(message_id, "confirm", text, ("Yes", "No"), ("Yes, proceed with this plan.", "No."))
     if closing in CONFIRM:
         return Question(message_id, "confirm", text, ("Yes", "No"), ("Yes, proceed.", "No."))
-    if needs_answer(text):
+    if REPLY_YES.match(closing):
+        return Question(message_id, "confirm", text, ("Yes", "No"), ("yes", "no"))
+    if needs_answer(text) or (awaiting and "please wait" not in normalize(text)):
         return Question(message_id, "chat", text)
     return None
 

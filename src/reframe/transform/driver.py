@@ -216,12 +216,14 @@ class Driver:
             return
         message_id = str(message["messageId"])
         step = f"reply-{message_id}"
-        if self.changes.receipt(step) is not None or message_id in self.state.setdefault("noted", []):
+        if self.changes.receipt(step) is not None:
             return
-        question = answers.chat_question(message)
+        question = answers.chat_question(message, awaiting=awaiting)
         if question is None:
-            self.state["noted"].append(message_id)
-            self.folder.event("chat_noted", message=message_id, reason="a notice, not a question")
+            # Looked at again on every poll, so a message read as a notice is answered once AWS says it waits.
+            if message_id not in self.state.setdefault("noted", []):
+                self.state["noted"].append(message_id)
+                self.folder.event("chat_noted", message=message_id, reason="a notice, not a question")
             return
         if question.kind == "chat" and not awaiting:
             # AWS also posts open offers ("Is there anything you'd like to know while the plan executes?"); the job
