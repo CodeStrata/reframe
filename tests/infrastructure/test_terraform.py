@@ -102,6 +102,23 @@ class ApplyTest(unittest.TestCase):
         self.assertNotIn("AWS_PROFILE", env)
         self.assertTrue((tf.base / "modules" / "neptune_graph" / "main.tf").exists())
 
+    def test_plan_tried_again_when_the_provider_stops_responding(self):
+        fake = self.fake([plan(("module.repo.aws_s3_bucket.source", ["create"]))])
+        tf_handler = fake.script[-1][1]
+        plans = {"n": 0}
+
+        def flaky(argv, env, data):
+            if argv[2] == "plan":
+                plans["n"] += 1
+                if plans["n"] == 1:
+                    return Result(1, "", "Error: Plugin did not respond")
+            return tf_handler(argv, env, data)
+        fake.script[-1] = (("terraform",), flaky)
+        tf = terraform.Terraform(self.folder, Aws("p", "us-east-1", fake), "terraform", fake)
+        tf.install()
+        tf.apply("project", Changes(self.folder, "t"), {"bucket": "s", "key": "k", "region": "us-east-1"})
+        self.assertEqual(plans["n"], 2)
+
     def test_refused_plan_is_not_applied(self):
         fake = self.fake([plan(("module.repo.aws_s3_bucket.source", ["update"]))])
         tf = terraform.Terraform(self.folder, Aws("p", "us-east-1", fake), "terraform", fake)

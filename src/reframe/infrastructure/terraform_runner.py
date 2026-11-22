@@ -91,7 +91,15 @@ class Terraform:
 
     def plan(self, root: str, destroy: bool = False) -> dict[str, Any]:
         name = "destroy.tfplan" if destroy else "apply.tfplan"
-        self._tf(root, "plan", "-input=false", "-no-color", *(["-destroy"] if destroy else []), f"-out={name}", timeout=1800)
+        for attempt in range(PLAN_ATTEMPTS):
+            try:
+                self._tf(root, "plan", "-input=false", "-no-color", *(["-destroy"] if destroy else []), f"-out={name}", timeout=1800)
+                break
+            except Stop as stop:
+                # A plan changes nothing, so a provider that stopped responding is tried again.
+                if PROVIDER_STOPPED not in stop.message or attempt == PLAN_ATTEMPTS - 1:
+                    raise
+                self.folder.event("terraform_plan_retried", root=root, reason=PROVIDER_STOPPED)
         shown = json.loads(self._tf(root, "show", "-json", "-no-color", name, timeout=300))
         self.folder.save(f"terraform/{root}/{name}.json", _summary(shown))
         return shown
@@ -189,6 +197,12 @@ def _managed(plan: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _summary(plan: dict[str, Any]) -> dict[str, Any]:
     return {"changes": [{"address": c["address"], "actions": c["change"]["actions"]} for c in _managed(plan)]}
+
+
+# Live round 2: the AWS provider stopped responding while reading data sources in a plan, with no cause in its log,
+# while a second run's provider was starting.
+PROVIDER_STOPPED = "Plugin did not respond"
+PLAN_ATTEMPTS = 3
 
 
 @contextlib.contextmanager
