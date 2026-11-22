@@ -147,6 +147,22 @@ class DriverTest(unittest.TestCase):
         saved = self.folder.load("question.json")
         self.assertEqual((saved["kind"], saved["options"][0], saved["asked_at"]), ("confirm", "Yes, proceed", "earlier"))
 
+    def test_interactive_reselect_offers_the_same_selection(self):
+        d = self.driver("interactive")
+        d._ensure_job()
+        waiting = snapshot("AWAITING_HUMAN_INPUT", [("Discover business functions", "PENDING_HUMAN_INPUT")])
+        self.step(d, waiting, system("m2", CATALOG, "2026-11-21T18:20:41", SELECT))
+        self.folder.save("answer.json", {"id": "m2", "text": 'Reimagine business domain "Payments"', "reason": "the person"})
+        self.step(d, waiting)
+        self.assertEqual(self.api.sent[-1]["origin"], "m2")
+        self.step(d, waiting, system("m5", "Please select the business function(s) to Re-Imagine before continuing.", "2026-11-21T18:40:00"))
+        question = self.folder.load("question.json")
+        self.assertEqual((question["kind"], question["interaction_origin_id"]), ("reselect", "m2"))
+        self.assertIn('business domain "Payments"', question["options"][0])
+        self.folder.save("answer.json", {"id": "m5", "text": question["replies"][0], "reason": "the person"})
+        self.step(d, waiting)
+        self.assertEqual(self.api.sent[-1], {"text": 'Reimagine business domain "Payments"', "origin": "m2"})
+
     def test_interactive_waits_for_answer(self):
         d = self.driver("interactive")
         d._ensure_job()

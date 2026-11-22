@@ -165,12 +165,19 @@ class Driver:
         return detail.get("task", detail) if isinstance(detail, dict) else {}
 
     def _same_selection(self) -> Answer | None:
-        """The catalog selection Reframe already sent, sent again as a structured reply to the same catalog message."""
-        sent = [d for d in self.folder.load("decisions.json", []) if str(d.get("reason", "")).startswith("the business function catalog")]
-        if not sent or not sent[-1].get("message"):
+        """The catalog selection already sent (by Reframe or by the person), from the run's own record of that structured
+        reply, to send again against the same catalog message."""
+        sent = []
+        for intent in sorted(self.folder.path("changes").glob("reply-*.intent.json")):
+            record = self.folder.load(f"changes/{intent.name}") or {}
+            arguments = record.get("arguments") or {}
+            if arguments.get("structured") and self.changes.receipt(intent.name.removesuffix(".intent.json")) is not None:
+                sent.append((str(record.get("at", "")), arguments))
+        if not sent:
             return None
-        return Answer(str(sent[-1]["answer"]), "AWS asked for the catalog selection again; Reframe sent the same selection",
-                      str(sent[-1]["message"]))
+        arguments = max(sent, key=lambda item: item[0])[1]
+        return Answer(str(arguments["text"]), "AWS asked for the catalog selection again; the same selection was sent",
+                      str(arguments["in_reply_to"]))
 
     def _catalog_answered(self) -> bool:
         return bool(self.state.get("catalog_answered")) or any(
@@ -302,8 +309,15 @@ class Driver:
             # does not wait on them, so they are left unanswered unless AWS says the job awaits input (spike 1).
             self._answered(question.id)
             return
-        answer = self._same_selection() if question.kind == "reselect" else None
-        if answer is None and question.kind != "reselect":
+        answer = None
+        if question.kind == "reselect":
+            same = self._same_selection()
+            if same is not None and self.mode == "autonomous":
+                answer = same
+            elif same is not None:
+                question = Question(question.id, "reselect", question.text, (f"Send the same selection again: {same.text}",),
+                                    (same.text,), same.interaction_origin_id)
+        else:
             answer = answers.autonomous(question) if self.mode == "autonomous" else None
         if answer is None:
             answer = self._waiting(question, summary)
