@@ -88,7 +88,8 @@ class RunFolderTest(unittest.TestCase):
 
     def test_project_name(self):
         self.assertEqual(project_name("https://github.com/aws-samples/aws-mainframe-modernization-carddemo.git"),
-                         "aws-mainframe-modernization-ca")
+                         "aws-mainframe-modernization")
+        self.assertEqual(project_name("/x/" + "a" * 40), "a" * 30)
         self.assertEqual(project_name("/x/CardDemo/"), "carddemo")
 
 

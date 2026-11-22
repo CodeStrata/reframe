@@ -17,6 +17,7 @@ import fcntl
 import json
 import shutil
 import subprocess
+import sys
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -88,6 +89,7 @@ class Terraform:
             arguments.append(f"-backend-config={key}={value}")
         with cache_lock():
             self._tf(root, *arguments, timeout=900)
+            own_providers(self.base / root / ".terraform" / "providers")
 
     def plan(self, root: str, destroy: bool = False) -> dict[str, Any]:
         name = "destroy.tfplan" if destroy else "apply.tfplan"
@@ -203,6 +205,32 @@ def _summary(plan: dict[str, Any]) -> dict[str, Any]:
 # while a second run's provider was starting.
 PROVIDER_STOPPED = "Plugin did not respond"
 PLAN_ATTEMPTS = 3
+
+
+def own_providers(providers: Path) -> list[Path]:
+    """Replace each link Terraform made into the shared plugin cache with the run's own copy.
+
+    terraform init rewrites the cached provider in place even when it is already there, so a run that was planning or
+    applying through a link read a half-written provider ("does not match any of the checksums", "Plugin did not
+    respond") whenever another run started (live round 2). An APFS clone on macOS costs no space."""
+    replaced = []
+    if not providers.is_dir():
+        return replaced
+    for link in sorted(p for p in providers.rglob("*") if p.is_symlink()):
+        target = link.resolve()
+        if not target.is_dir():
+            continue
+        staged = link.with_name(link.name + ".reframe-copy")
+        shutil.rmtree(staged, ignore_errors=True)
+        if sys.platform == "darwin" and subprocess.run(["cp", "-cR", str(target), str(staged)], capture_output=True).returncode == 0:
+            pass
+        else:
+            shutil.rmtree(staged, ignore_errors=True)
+            shutil.copytree(target, staged, symlinks=False)
+        link.unlink()
+        staged.rename(link)
+        replaced.append(link)
+    return replaced
 
 
 @contextlib.contextmanager

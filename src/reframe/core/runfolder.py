@@ -39,7 +39,11 @@ def home(environment: dict[str, str] | None = None) -> Path:
 def project_name(repo: str) -> str:
     """A project name from a repository path or URL: lower-case letters, digits and hyphens, at most 30."""
     base = repo.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git").casefold()
-    name = re.sub(r"[^a-z0-9]+", "-", base).strip("-")[:30].strip("-")
+    name = re.sub(r"[^a-z0-9]+", "-", base).strip("-")
+    if len(name) > 30:  # cut at a word boundary, so AWS names read "aws-mainframe-modernization", not "...-ca"
+        cut = name[:31].rsplit("-", 1)[0] if "-" in name[:31] else ""
+        name = cut if len(cut) >= 3 else name[:30]
+    name = name.strip("-")
     if not PROJECT.match(name or ""):
         raise ReframeError(f"cannot make a project name from {repo!r}; pass --project")
     return name

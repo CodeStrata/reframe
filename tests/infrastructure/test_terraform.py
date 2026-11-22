@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import tempfile
 import unittest
 
@@ -48,6 +49,22 @@ class PlanCheckTest(unittest.TestCase):
                 order.append("first done")
             thread.join(5)
             self.assertEqual(order, ["first done", "second"])
+
+    def test_provider_links_become_own_copies(self):
+        import os
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / "cache" / "aws" / "darwin_arm64"
+            cache.mkdir(parents=True)
+            (cache / "terraform-provider-aws").write_bytes(b"provider")
+            providers = Path(tmp) / "run" / ".terraform" / "providers" / "aws"
+            providers.mkdir(parents=True)
+            os.symlink(cache, providers / "darwin_arm64")
+            replaced = terraform.own_providers(Path(tmp) / "run" / ".terraform" / "providers")
+            self.assertEqual(len(replaced), 1)
+            own = providers / "darwin_arm64"
+            self.assertFalse(own.is_symlink())
+            (cache / "terraform-provider-aws").write_bytes(b"rewritten by another run's init")
+            self.assertEqual((own / "terraform-provider-aws").read_bytes(), b"provider")
 
     def test_names_fit_aws_limits(self):
         n = terraform.names("a" * 30, "abc123")
