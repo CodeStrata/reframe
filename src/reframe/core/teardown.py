@@ -25,7 +25,16 @@ LABELS = {"aws_s3_bucket": "S3 bucket", "aws_iam_role": "IAM role", "aws_iam_rol
           "aws_neptune_subnet_group": "Neptune subnet group", "aws_vpc": "VPC", "aws_subnet": "Subnet",
           "aws_security_group": "Security group", "aws_vpc_security_group_ingress_rule": "Security group rule (in)",
           "aws_vpc_security_group_egress_rule": "Security group rule (out)", "aws_vpc_endpoint": "VPC endpoint (S3)",
-          "aws_route_table": "Route table", "aws_route_table_association": "Route table association"}
+          "aws_route_table": "Route table", "aws_route_table_association": "Route table association",
+          "aws_s3_bucket_policy": "S3 bucket policy", "aws_s3_bucket_versioning": "S3 bucket versioning",
+          "aws_s3_bucket_ownership_controls": "S3 bucket ownership setting",
+          "aws_s3_bucket_public_access_block": "S3 bucket public access block",
+          "aws_s3_bucket_server_side_encryption_configuration": "S3 bucket encryption setting"}
+
+
+def _name(resource: dict[str, Any]) -> str:
+    """The resource's own name, or for an unnamed one (a rule, an association) the last part of its address."""
+    return resource.get("name") or resource["address"].rsplit(".", 1)[-1]
 
 
 def transform_ids(ctx: Context) -> dict[str, Any]:
@@ -63,7 +72,7 @@ def inventory(ctx: Context) -> list[dict[str, Any]]:
             items.append({"kind": "Network interface left by AWS Transform", "name": interface["description"], "id": interface["id"],
                           "from": "the run's own VPC"})
     for resource in project + bootstrap:
-        items.append({"kind": LABELS.get(resource["type"], resource["type"]), "name": resource.get("name") or resource["address"],
+        items.append({"kind": LABELS.get(resource["type"], resource["type"]), "name": _name(resource),
                       "id": resource.get("id"), "from": f"Terraform {resource['root']} state ({resource['address']})"})
     return items
 

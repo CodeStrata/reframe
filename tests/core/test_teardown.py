@@ -74,6 +74,15 @@ class TeardownTest(unittest.TestCase):
         kinds = {item["kind"]: item["id"] for item in teardown.inventory(self.ctx)}
         self.assertEqual(kinds["AWS Transform job"], "job-1")
 
+    def test_every_terraform_resource_type_has_a_plain_label(self):
+        import re
+        from importlib import resources
+        root = resources.files("reframe.infrastructure") / "terraform"
+        code = "\n".join(f.read_text() for d in ("bootstrap", "project") for f in [root / d / "main.tf"])
+        code += "\n".join((m / "main.tf").read_text() for m in (root / "modules").iterdir() if (m / "main.tf").is_file())
+        types = set(re.findall(r'^resource "([a-z0-9_]+)"', code, re.M))
+        self.assertEqual(sorted(t for t in types if t not in teardown.LABELS), [])
+
     def test_no_means_nothing_deleted(self):
         self.assertIsNone(teardown.ask(self.ctx, lambda prompt: "no", lambda text: None))
         self.assertFalse(self.folder.exists("teardown/consents.json"))
