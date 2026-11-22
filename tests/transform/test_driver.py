@@ -74,7 +74,7 @@ class DriverTest(unittest.TestCase):
         self.assertEqual(len(self.client.changed("complete_task")), 1)  # neither the catalog form nor the collaborators form
         self.step(d, snapshot("AWAITING_HUMAN_INPUT", [("Discover business functions", "PENDING_HUMAN_INPUT")], tasks),
                   system("m3", "This will finalize discovery.\n\n**Do you want to proceed?**", "2026-11-21T18:22:31"))
-        self.assertEqual(self.api.sent[2]["text"], "yes")
+        self.assertEqual(self.api.sent[2]["text"], "Yes, proceed.")
         done = self.step(d, snapshot("EXECUTING", [("Reimagine", "SUCCEEDED"), ("Generate requirements", "SUCCEEDED")], tasks[1:]))
         self.assertTrue(done["done"])
         decisions = self.folder.load("decisions.json")
@@ -186,6 +186,16 @@ class AnswersTest(unittest.TestCase):
                 "**Please confirm: Proceed with the reimagine for these selections?** (yes/no)")
         question = answers.chat_question(system("m", text, "t"))
         self.assertEqual((question.kind, answers.autonomous(question).text), ("confirm", "yes"))
+
+    def test_spelled_out_reply_sent_as_given(self):
+        text = ("The system is asking for explicit confirmation to proceed despite the missing files.\n\n"
+                "To move forward, please reply: **Yes, proceed**")
+        self.assertEqual(answers.autonomous(answers.chat_question(system("m", text, "t"), awaiting=True)).text, "Yes, proceed")
+
+    def test_either_or_proceed_question_gets_an_explicit_proceed(self):
+        text = ("Would you like to proceed with generating the modernization requirements for the 2 business functions, "
+                "or would you prefer to view the missing/unsupported file details first?")
+        self.assertEqual(answers.autonomous(answers.chat_question(system("m", text, "t"))).text, "Yes, proceed.")
 
     def test_open_offer_is_not_a_question_even_when_awaiting(self):
         text = "The reimagine workflow has been initiated.\n\nYou can now:\n- Ask questions\n\nWhat would you like to do next?"

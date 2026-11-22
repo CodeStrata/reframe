@@ -44,6 +44,18 @@ RESELECT = re.compile(r"\bselect the business functions?(\(s\))? to re-?imagine\
 OPEN_OFFER = re.compile(r"^(what would you like to do next\?|is there anything (else )?you'?d like)")
 
 
+# AWS spelling out the reply it wants ("To move forward, please reply: **Yes, proceed**"); sent as given when affirmative.
+INSTRUCTED = re.compile(r'\b(?:please\s+)?reply(?:\s+with)?\s*:\s*["“]?([^"”\n]{2,40}?)["”]?\s*[.!]?\s*$', re.I)
+AFFIRMATIVE = re.compile(r"^(yes|proceed|confirm)\b", re.I)
+
+
+def instructed_reply(text: str) -> str | None:
+    lines = [line for line in text.replace("**", "").replace("__", "").strip().splitlines() if line.strip()]
+    found = INSTRUCTED.search(lines[-1].strip()) if lines else None
+    reply = found.group(1).strip() if found else None
+    return reply if reply and AFFIRMATIVE.match(reply) else None
+
+
 def is_confirmation(closing: str) -> bool:
     return bool(YES_NO.search(closing) or CONFIRM_QUESTION.search(closing))
 MENU_OPTION = re.compile(r"^\s*(\d+)\.\s+([^:\n]+?)\s*(?::|$)", re.M)
@@ -172,8 +184,13 @@ def chat_question(message: dict[str, Any], awaiting: bool = False) -> Question |
         return Question(message_id, "confirm", text, ("Yes", "No"), ("Yes, proceed with this plan.", "No."))
     if RESELECT.search(normalize(text)):
         return Question(message_id, "reselect", text)
-    if closing in CONFIRM or is_confirmation(closing):
+    instructed = instructed_reply(text)
+    if instructed:
+        return Question(message_id, "confirm", text, (instructed, "No"), (instructed, "No."))
+    if YES_NO.search(closing):
         return Question(message_id, "confirm", text, ("Yes", "No"), ("yes", "no"))
+    if closing in CONFIRM or CONFIRM_QUESTION.search(closing):
+        return Question(message_id, "confirm", text, ("Yes, proceed", "No"), ("Yes, proceed.", "No."))
     if OPEN_OFFER.match(closing):
         return None
     if needs_answer(text) or (awaiting and "please wait" not in normalize(text)):
