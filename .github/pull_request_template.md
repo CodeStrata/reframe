@@ -1,16 +1,10 @@
 ## Change and purpose
 
-Describe the problem and resulting behavior. Distinguish proposed design from executed capabilities.
-
-## Specification alignment (v2)
-
-- Specification sections:
-- Stories:
-- [ ] The specification, plan, epics and stories already describe this change (docs/v2/README.md)
+Describe the problem and the resulting behavior. Distinguish proposed design from what was actually run.
 
 ## Evidence and validation
 
-List checks actually performed, results, and checks not performed. Include only public-safe evidence.
+List the checks actually performed, their results, and the checks not performed. Include only public-safe evidence.
 
 ## Publication and attribution
 
