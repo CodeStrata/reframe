@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from reframe.errors import NotSent, Outcome, Rejected, Stop, Uncertain
-from reframe.runfolder import Changes, RunFolder, find_run, new_run, project_name
+from reframe.core.errors import NotSent, Outcome, Rejected, Stop, Uncertain
+from reframe.core.runfolder import Changes, RunFolder, find_run, new_run, project_name
 
 
 class RunFolderTest(unittest.TestCase):

@@ -12,8 +12,8 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from reframe.errors import NotSent, Outcome, Stop
-from reframe.shell import Aws, Runner, SigninExpired, base_environment, run_subprocess
+from reframe.core.errors import NotSent, Outcome, Stop
+from reframe.core.shell import Aws, Runner, SigninExpired, base_environment, run_subprocess
 
 MCP_SERVER = "awslabs.aws-transform-mcp-server==0.2.4"
 """The AWS Transform MCP server, pinned. Its API client also answers what its tools cannot (reframe.fes)."""

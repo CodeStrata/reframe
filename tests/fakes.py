@@ -2,7 +2,7 @@
 
 import json
 
-from reframe.shell import Result
+from reframe.core.shell import Result
 
 
 class FakeRunner:

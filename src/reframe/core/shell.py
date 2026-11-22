@@ -13,7 +13,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from reframe.errors import NotSent, Rejected, Uncertain
+from reframe.core.errors import NotSent, Rejected, Uncertain
 
 PASSED_ENVIRONMENT = ("HOME", "PATH", "LANG", "LC_ALL", "TMPDIR", "USER", "LOGNAME", "SSL_CERT_FILE",
                       "AWS_CONFIG_FILE", "AWS_SHARED_CREDENTIALS_FILE")

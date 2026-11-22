@@ -12,10 +12,10 @@ license-files = ["LICENSE"]
 dependencies = ["mcp>=2,<3"]
 
 [project.scripts]
-reframe = "reframe.cli:main"
+reframe = "reframe.core.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-reframe = ["terraform/*/*.tf", "terraform/modules/*/*.tf"]
+"reframe.infrastructure" = ["terraform/*/*.tf", "terraform/modules/*/*.tf"]

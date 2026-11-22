@@ -1,8 +1,8 @@
 import unittest
 
-from reframe import preflight
-from reframe.errors import Outcome, Stop
-from reframe.shell import Aws
+from reframe.core import preflight
+from reframe.core.errors import Outcome, Stop
+from reframe.core.shell import Aws
 
 from tests.fakes import FakeRunner
 

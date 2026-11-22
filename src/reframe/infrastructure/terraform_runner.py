@@ -19,9 +19,9 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from reframe.errors import NotSent, Outcome, Stop, Uncertain
-from reframe.runfolder import Changes, RunFolder, home
-from reframe.shell import Aws, Runner, base_environment, run_subprocess
+from reframe.core.errors import NotSent, Outcome, Stop, Uncertain
+from reframe.core.runfolder import Changes, RunFolder, home
+from reframe.core.shell import Aws, Runner, base_environment, run_subprocess
 
 ROOTS = ("bootstrap", "project")
 
@@ -43,7 +43,7 @@ class Terraform:
         """Copy the packaged roots and modules into the run folder once."""
         if (self.base / "project" / "main.tf").exists():
             return
-        source = resources.files("reframe") / "terraform"
+        source = resources.files("reframe.infrastructure") / "terraform"
         with resources.as_file(source) as path:
             shutil.copytree(path, self.base, dirs_exist_ok=True)
         for item in self.base.rglob("*"):

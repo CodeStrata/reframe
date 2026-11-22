@@ -2,10 +2,10 @@ import json
 import tempfile
 import unittest
 
-from reframe import terraform
-from reframe.errors import Outcome, Stop
-from reframe.runfolder import Changes, new_run
-from reframe.shell import Aws, Result
+from reframe.infrastructure import terraform_runner as terraform
+from reframe.core.errors import Outcome, Stop
+from reframe.core.runfolder import Changes, new_run
+from reframe.core.shell import Aws, Result
 
 from tests.fakes import FakeRunner
 

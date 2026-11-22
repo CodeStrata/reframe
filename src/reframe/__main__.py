@@ -1,3 +1,3 @@
-from reframe.cli import main
+from reframe.core.cli import main
 
 raise SystemExit(main())

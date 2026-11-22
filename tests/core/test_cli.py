@@ -2,7 +2,7 @@ import contextlib
 import io
 import unittest
 
-from reframe import cli
+from reframe.core import cli
 
 
 class CliTest(unittest.TestCase):

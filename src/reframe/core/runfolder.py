@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from reframe.errors import NotSent, Outcome, Rejected, ReframeError, Stop, Uncertain
+from reframe.core.errors import NotSent, Outcome, Rejected, ReframeError, Stop, Uncertain
 
 RUN_ID = re.compile(r"^[0-9a-f]{6}$")
 PROJECT = re.compile(r"^[a-z0-9][a-z0-9-]{0,29}$")

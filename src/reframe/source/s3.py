@@ -13,9 +13,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from reframe.errors import NotSent, Outcome, Stop
-from reframe.runfolder import Changes, RunFolder
-from reframe.shell import Aws
+from reframe.core.errors import NotSent, Outcome, Stop
+from reframe.core.runfolder import Changes, RunFolder
+from reframe.core.shell import Aws
 
 
 @dataclass(frozen=True)

@@ -12,9 +12,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-from reframe.errors import Outcome, Stop
-from reframe.runfolder import RunFolder
-from reframe.shell import Runner, base_environment, run_subprocess
+from reframe.core.errors import Outcome, Stop
+from reframe.core.runfolder import RunFolder
+from reframe.core.shell import Runner, base_environment, run_subprocess
 
 URL = re.compile(r"^(https?|ssh|git)://|^git@")
 

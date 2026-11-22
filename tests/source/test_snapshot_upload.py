@@ -7,10 +7,11 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from reframe import s3, snapshot
-from reframe.errors import Outcome, Stop
-from reframe.runfolder import Changes, new_run
-from reframe.shell import Aws, Result
+from reframe.source import s3
+from reframe.source import snapshot
+from reframe.core.errors import Outcome, Stop
+from reframe.core.runfolder import Changes, new_run
+from reframe.core.shell import Aws, Result
 
 from tests.fakes import FakeRunner
 

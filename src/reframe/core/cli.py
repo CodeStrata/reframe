@@ -13,13 +13,13 @@ import sys
 from reframe import __version__
 
 HANDLERS = {
-    "run": "reframe.commands:run",
-    "status": "reframe.commands:status",
-    "events": "reframe.commands:events",
-    "answer": "reframe.commands:answer",
-    "resume": "reframe.commands:resume",
-    "teardown": "reframe.commands:teardown",
-    "worker": "reframe.commands:worker",
+    "run": "reframe.core.commands:run",
+    "status": "reframe.core.commands:status",
+    "events": "reframe.core.commands:events",
+    "answer": "reframe.core.commands:answer",
+    "resume": "reframe.core.commands:resume",
+    "teardown": "reframe.core.commands:teardown",
+    "worker": "reframe.core.commands:worker",
 }
 
 
