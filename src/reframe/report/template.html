@@ -54,8 +54,12 @@ details{margin-top:8px}summary{cursor:pointer;color:var(--accent);font-size:14px
 .pager{display:flex;justify-content:space-between;gap:12px;margin:18px 0}
 .muted{color:var(--muted)}.small{font-size:13px}
 table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}th{background:var(--panel);font-weight:600}
-.scroll{overflow-x:auto}.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.tools input,.tools select{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
-.tools input{flex:1;min-width:220px}.doc h2{font-size:18px}.doc h3,.doc h4{font-size:15px}
+.scroll{overflow-x:auto}
+.tablebox{max-height:72vh;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.datatable{table-layout:fixed;width:100%;min-width:760px}.datatable th{position:sticky;top:0;z-index:1;box-shadow:0 1px 0 var(--line)}
+.datatable td{overflow-wrap:anywhere}.datatable td.id{white-space:nowrap;overflow-wrap:normal}.datatable td.id a{text-decoration:none}
+.datatable tbody tr:hover{background:var(--accent-soft)}.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.tools input,.tools select{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.tools input{flex:1;min-width:220px}.tools select{max-width:260px}.tools select:disabled{opacity:.55}.doc h2{font-size:18px}.doc h3,.doc h4{font-size:15px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}.tabs a{padding:6px 12px;border:1px solid var(--line);border-radius:16px;text-decoration:none;color:var(--muted);font-size:14px}.tabs a.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
 dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);max-width:520px;width:92vw;padding:20px}
 dialog::backdrop{background:rgba(0,0,0,.35)}dialog label{display:block;font-size:14px;margin:10px 0 4px}dialog input{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
@@ -105,6 +109,7 @@ D.rules.forEach(r => ruleByKey[r.key] = r);
 D.questions.forEach(q => qByKey[q.key] = q);
 D.domains.forEach((d, i) => { d.index = i; domByKey[d.key] = d; });
 const business = D.rules.filter(r => r.disposition === 'captured');
+const ruleCap = {}; D.requirements.forEach(r => (r.rules || []).forEach(k => { if (!ruleCap[k]) ruleCap[k] = r.capability; }));
 
 function capItems(c){
   const keys = new Set();
@@ -250,7 +255,7 @@ function capabilityPage(c, focus){
 
 // ---- search -----------------------------------------------------------------------------------------
 function where(fid, cid){ const f = fnById[fid], c = capById[cid]; return esc(f ? f.name : '') + (c ? ' › ' + c.number + '. ' + esc(c.title) : ''); }
-function capOfRule(key){ const r = D.requirements.find(x => (x.rules || []).includes(key)); return r ? r.capability : null; }
+function capOfRule(key){ return ruleCap[key] || null; }
 function searchPage(q){
   const t = q.toLowerCase(), hits = [];
   for (const r of D.requirements) if ((r.code + ' ' + r.text).toLowerCase().includes(t)) hits.push(['Requirement', r.code, r.text, r.function, r.capability, r.key]);
@@ -271,16 +276,36 @@ function searchPage(q){
 const TECH = [['requirements', 'All requirements'], ['rules', 'All rules'], ['questions', 'Open questions'], ['datamodel', 'Data model'], ['assessment', 'Assessment'], ['decisions', "Reframe's answers to AWS"], ['aws', "AWS's own pages"]];
 function techPage(tab){
   let h = '<h2>Technical detail</h2><div class="tabs">' + TECH.map(([id, label]) => '<a href="#/tech/' + id + '" class="' + (id === tab ? 'on' : '') + '">' + label + '</a>').join('') + '</div>';
-  const fname = id => esc((fnById[id] || {}).name || id);
-  if (tab === 'requirements') h += filtered('All requirements', D.requirements, r => r.code + ' ' + r.text + ' ' + (fnById[r.function] || {}).name + ' ' + r.programs.join(' '),
-    ['ID', 'Function', 'Capability', 'When', 'Requirement', 'Programs'], r => '<tr><td><code>' + esc(r.code) + '</code></td><td>' + fname(r.function) + '</td><td>' + esc((capById[r.capability] || {}).title) +
-      '</td><td>' + esc(PATTERN[r.pattern] || r.pattern) + '</td><td>' + esc(r.text) + '</td><td>' + esc(r.programs.join(', ')) + '</td></tr>');
-  if (tab === 'rules') h += filtered('All rules', D.rules, r => r.name + ' ' + r.text + ' ' + r.program + ' ' + r.disposition + ' ' + (fnById[r.function] || {}).name,
-    ['Function', 'Program', 'Rule', 'AWS kept it as', 'Backs'], r => '<tr><td>' + fname(r.function) + '</td><td>' + esc(r.program) + '</td><td><b>' + esc(r.name) + '</b><br>' + esc(r.text) +
-      '</td><td>' + (r.disposition === 'captured' ? 'business rule' : esc(r.disposition.replace(/_/g, ' ')) + (r.reason ? '<br><span class="small muted">' + esc(r.reason) + '</span>' : '')) + '</td><td>' + esc(r.requirements.join(', ')) + '</td></tr>');
-  if (tab === 'questions') h += filtered('Open questions', D.questions, x => x.code + ' ' + x.text + ' ' + x.owner + ' ' + (fnById[x.function] || {}).name,
-    ['ID', 'Function', 'Capability', 'Question', 'For'], x => '<tr><td><code>' + esc(x.code) + '</code></td><td>' + fname(x.function) + '</td><td>' + esc((capById[x.capability] || {}).title) +
-      '</td><td>' + (x.unverified ? '<span class="tag warn">Unverified requirement</span> ' : '') + esc(x.text) + '</td><td>' + esc(x.owner) + '</td></tr>');
+  const fname = id => esc((fnById[id] || {}).name || id), cname = id => { const c = capById[id]; return c ? c.number + '. ' + esc(c.title) : ''; };
+  const place = (fid, cid) => '<b>' + fname(fid) + '</b>' + (cid && capById[cid] ? '<br><span class="small muted">' + cname(cid) + '</span>' : '');
+  const idLink = (code, cid, key) => { const c = capById[cid]; return c ? '<a href="#/c/' + c.index + '/' + encodeURIComponent(key) + '" title="Open it in the review"><code>' + esc(code) + '</code></a>' : '<code>' + esc(code) + '</code>'; };
+  const byFunction = ['fn', 'All functions', r => r.function, rows => [...new Set(rows.map(r => r.function))].map(id => [id, (fnById[id] || {}).name || id]).sort((a, b) => a[1].localeCompare(b[1]))];
+  const byCapability = (cap) => ['cap', 'All capabilities', cap, (rows, st) => st.fn ? (fnById[st.fn] || {capabilities: []}).capabilities.map(id => [id, capById[id].number + '. ' + capById[id].title]) : null];
+  if (tab === 'requirements') h += filtered('requirements', D.requirements, {
+    text: r => r.code + ' ' + r.text + ' ' + r.programs.join(' '),
+    selects: [byFunction, byCapability(r => r.capability),
+      ['when', 'Any time it applies', r => r.pattern, rows => [...new Set(rows.map(r => r.pattern).filter(Boolean))].sort().map(p => [p, PATTERN[p] || p])],
+      ['kind', 'Functional and non-functional', r => r.kind, () => [['F', 'Functional'], ['N', 'Non-functional']]]],
+    cols: [['ID', '112px'], ['Function and capability', '22%'], ['When', '112px'], ['Requirement', ''], ['Programs', '104px']],
+    render: r => '<tr><td class="id">' + idLink(r.code, r.capability, r.key) + '</td><td>' + place(r.function, r.capability) + '</td><td>' + esc(PATTERN[r.pattern] || r.pattern) +
+      (r.kind === 'N' ? '<br><span class="tag grey">Non-functional</span>' : '') + '</td><td>' + prose(r.text) + '</td><td>' + esc(r.programs.join(', ')) + '</td></tr>'});
+  if (tab === 'rules') h += filtered('rules', D.rules, {
+    text: r => r.name + ' ' + r.text + ' ' + r.program + ' ' + r.requirements.join(' '),
+    selects: [byFunction, byCapability(r => capOfRule(r.key)),
+      ['disp', 'Business rules and technical steps', r => r.disposition, rows => [...new Set(rows.map(r => r.disposition))].sort().map(d => [d, d === 'captured' ? 'Business rules' : 'Set aside: ' + d.replace(/_/g, ' ')])],
+      ['program', 'All programs', r => r.program, rows => [...new Set(rows.map(r => r.program).filter(Boolean))].sort().map(p => [p, p])]],
+    cols: [['Function and capability', '22%'], ['Program', '100px'], ['Rule', ''], ['AWS kept it as', '140px'], ['Backs', '112px']],
+    render: r => '<tr><td>' + place(r.function, capOfRule(r.key)) + '</td><td>' + esc(r.program) + '</td><td><b>' + prose(r.name) + '</b><br>' + prose(r.text) + '</td><td>' +
+      (r.disposition === 'captured' ? 'Business rule' : esc(r.disposition.replace(/_/g, ' ')) + (r.reason ? '<br><span class="small muted">' + esc(r.reason) + '</span>' : '')) + '</td><td>' +
+      r.requirements.map(code => idLink(code, (reqByKey[r.function + '/' + code] || {}).capability, r.function + '/' + code)).join(' ') + '</td></tr>'});
+  if (tab === 'questions') h += filtered('questions', D.questions, {
+    text: x => x.code + ' ' + x.text + ' ' + x.owner,
+    selects: [byFunction, byCapability(x => x.capability),
+      ['owner', 'Every owner', x => x.owner, rows => [...new Set(rows.map(x => x.owner).filter(Boolean))].sort().map(o => [o, o])],
+      ['unverified', 'Questions and unverified requirements', x => x.unverified ? 'yes' : 'no', () => [['no', 'Open questions only'], ['yes', 'Unverified requirements only']]]],
+    cols: [['ID', '96px'], ['Function and capability', '22%'], ['Question', ''], ['For', '150px']],
+    render: x => '<tr><td class="id">' + idLink(x.code, x.capability, x.key) + '</td><td>' + place(x.function, x.capability) + '</td><td>' +
+      (x.unverified ? '<span class="tag warn">Unverified requirement</span> ' : '') + prose(x.text) + '</td><td>' + esc(x.owner) + '</td></tr>'});
   if (tab === 'datamodel') h += '<div class="panel doc">' + (D.data_model || '<p class="muted">AWS wrote no data model.</p>') + '</div>';
   if (tab === 'assessment') {
     h += '<div class="panel"><h3 style="margin-top:0">Source files by type</h3><table><tbody>' + D.classification.map(([t, n]) => '<tr><td>' + esc(t) + '</td><td>' + n + '</td></tr>').join('') + '</tbody></table></div>';
@@ -298,17 +323,35 @@ function techPage(tab){
   return h;
 }
 let filters = {};
-function filtered(name, rows, text, cols, render){
-  const q = (filters[name] || '').toLowerCase(), hits = rows.filter(r => !q || text(r).toLowerCase().includes(q));
-  return '<div class="panel"><div class="tools"><input type="search" data-filter="' + esc(name) + '" value="' + esc(filters[name] || '') + '" placeholder="Filter"><span class="muted small" style="align-self:center">' +
-    hits.length + ' of ' + rows.length + (hits.length > 500 ? ', showing 500' : '') + '</span></div><div class="scroll"><table><thead><tr>' + cols.map(c => '<th>' + esc(c) + '</th>').join('') +
-    '</tr></thead><tbody>' + hits.slice(0, 500).map(render).join('') + '</tbody></table></div></div>';
+// One table with a text filter and dropdowns. A dropdown whose options depend on another (capability on function)
+// is disabled until that one is chosen.
+function filtered(name, rows, spec){
+  const st = filters[name] || (filters[name] = {q: ''});
+  const q = st.q.toLowerCase();
+  const hits = rows.filter(r => (!q || spec.text(r).toLowerCase().includes(q)) && spec.selects.every(([id, , value]) => !st[id] || String(value(r)) === st[id]));
+  const selects = spec.selects.map(([id, label, , options]) => {
+    const list = options(rows, st);
+    return '<select data-table="' + name + '" data-select="' + id + '"' + (list ? '' : ' disabled') + ' aria-label="' + esc(label) + '"><option value="">' +
+      esc(list ? label : 'Choose a function first') + '</option>' + (list || []).map(([v, l]) => '<option value="' + esc(v) + '"' + (st[id] === String(v) ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '</select>';
+  }).join('');
+  const any = st.q || spec.selects.some(([id]) => st[id]);
+  return '<div class="panel"><div class="tools"><input type="search" data-table="' + name + '" data-select="q" value="' + esc(st.q) + '" placeholder="Filter by words or ID">' + selects +
+    (any ? '<button class="btn" data-clear="' + name + '">Clear filters</button>' : '') + '<span class="muted small" style="align-self:center">' + hits.length + ' of ' + rows.length + '</span></div>' +
+    '<div class="tablebox"><table class="datatable"><colgroup>' + spec.cols.map(([, w]) => '<col' + (w ? ' style="width:' + w + '"' : '') + '>').join('') + '</colgroup><thead><tr>' +
+    spec.cols.map(([c]) => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>' + hits.map(spec.render).join('') + '</tbody></table>' +
+    (hits.length ? '' : '<p class="muted" style="padding:12px">Nothing matches these filters.</p>') + '</div></div>';
 }
-document.addEventListener('input', e => {
-  const name = e.target.dataset && e.target.dataset.filter; if (!name) return;
-  filters[name] = e.target.value; const at = e.target.selectionStart; route();
-  const again = document.querySelector('[data-filter="' + name + '"]'); if (again) { again.focus(); again.setSelectionRange(at, at); }
-});
+function refilter(target){
+  const name = target.dataset.table, id = target.dataset.select, st = filters[name] || (filters[name] = {q: ''});
+  st[id] = target.value;
+  if (id === 'fn') st.cap = '';
+  const typing = id === 'q', at = target.selectionStart;
+  route();
+  if (typing) { const again = document.querySelector('input[data-table="' + name + '"]'); if (again) { again.focus(); again.setSelectionRange(at, at); } }
+}
+document.addEventListener('input', e => { if (e.target.dataset && e.target.dataset.table && e.target.tagName === 'INPUT') refilter(e.target); });
+document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.table && e.target.tagName === 'SELECT') refilter(e.target); });
+document.addEventListener('click', e => { const b = e.target.closest('[data-clear]'); if (b) { filters[b.dataset.clear] = {q: ''}; route(); } });
 
 // ---- routing ----------------------------------------------------------------------------------------
 function route(){
@@ -323,7 +366,7 @@ function route(){
   $('main').innerHTML = h;
   $('vReview').classList.toggle('on', !tech); $('vTech').classList.toggle('on', tech);
   if (focus) { const el = document.getElementById(anchor(focus)); if (el) { const det = el.closest('details'); if (det) det.open = true; el.scrollIntoView({block: 'center'}); el.style.outline = '2px solid var(--accent)'; } }
-  else if (!(document.activeElement && document.activeElement.dataset && document.activeElement.dataset.filter)) window.scrollTo(0, 0);
+  else if (!(document.activeElement && document.activeElement.dataset && document.activeElement.dataset.table)) window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
 let searchTimer;
