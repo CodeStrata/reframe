@@ -33,9 +33,17 @@ OBJECTIVE = ("does this objective match your goals?",)
 OUTPUT_LANGUAGE = ("would you like your output translated into any of these languages, or would you prefer english only?",)
 PROCEED_PLAN = ("proceed with this plan?",)
 CONFIRM = ("do you want to proceed?",)
-# AWS confirms the catalog selection twice (live run, November 2026), ending with: Reply "yes" to confirm or "no" to
-# cancel; then: Reply "yes" to proceed with the reimagine workflow or "no" to cancel.
-REPLY_YES = re.compile(r'^reply "?yes"? to (confirm|proceed)\b')
+# AWS words its yes/no confirmations differently in every run (live runs, November 2026): "Reply "yes" to confirm or
+# "no" to cancel.", "Reply "yes" to proceed with the reimagine workflow or "no" to cancel.", "Do you want to proceed?",
+# "Please confirm: Proceed with the reimagine for these selections? (yes/no)". They are recognised by shape, not wording.
+YES_NO = re.compile(r'\(\s*yes\s*/\s*no\s*\)|\breply\s+"?yes"?\b|"yes"\s+or\s+"no"|\byes\s+or\s+no\b')
+CONFIRM_QUESTION = re.compile(r"\b(proceed|confirm)\b[^?]*\?")
+# Offers AWS posts after an action ("What would you like to do next?"); the job never waits on them.
+OPEN_OFFER = re.compile(r"^(what would you like to do next\?|is there anything (else )?you'?d like)")
+
+
+def is_confirmation(closing: str) -> bool:
+    return bool(YES_NO.search(closing) or CONFIRM_QUESTION.search(closing))
 MENU_OPTION = re.compile(r"^\s*(\d+)\.\s+([^:\n]+?)\s*(?::|$)", re.M)
 EVERYTHING = "Everything: every business domain in the catalog and the unassigned programs"
 
@@ -160,10 +168,10 @@ def chat_question(message: dict[str, Any], awaiting: bool = False) -> Question |
         return Question(message_id, "confirm", text, ("English only",), ("English only, no translations.",))
     if closing in PROCEED_PLAN:
         return Question(message_id, "confirm", text, ("Yes", "No"), ("Yes, proceed with this plan.", "No."))
-    if closing in CONFIRM:
-        return Question(message_id, "confirm", text, ("Yes", "No"), ("Yes, proceed.", "No."))
-    if REPLY_YES.match(closing):
+    if closing in CONFIRM or is_confirmation(closing):
         return Question(message_id, "confirm", text, ("Yes", "No"), ("yes", "no"))
+    if OPEN_OFFER.match(closing):
+        return None
     if needs_answer(text) or (awaiting and "please wait" not in normalize(text)):
         return Question(message_id, "chat", text)
     return None
@@ -232,6 +240,20 @@ def form_decision(component: str | None, schema: dict[str, Any], blocking: str |
     if schema.get("type") == "object" and not required and schema.get("additionalProperties") is not True:
         return FormDecision("approve", "an approval with nothing to fill in")
     return FormDecision("ask", "a form Reframe cannot answer from the run's records")
+
+
+def catalog_form_content(task: dict[str, Any], source_uri: str | None) -> dict[str, Any] | None:
+    """AWS's own response template for the catalog's review form, when it has exactly the fields AWS names and points at
+    the business-functions delivery in the run's own bucket; None otherwise (the person is asked)."""
+    template = task.get("_responseTemplate")
+    bucket = (source_uri or "").removeprefix("s3://").split("/", 1)[0]
+    if not isinstance(template, dict) or set(template) != {"isBPDEnabled", "s3Uri"} or not bucket:
+        return None
+    uri = template["s3Uri"]
+    if template["isBPDEnabled"] is not True or not isinstance(uri, str) or not uri.startswith(f"s3://{bucket}/transform-output/") \
+            or not uri.endswith("/business-functions/delivery.zip"):
+        return None
+    return dict(template)
 
 
 def fits_schema(schema: dict[str, Any], value: Any) -> bool:

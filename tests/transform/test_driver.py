@@ -74,7 +74,7 @@ class DriverTest(unittest.TestCase):
         self.assertEqual(len(self.client.changed("complete_task")), 1)  # neither the catalog form nor the collaborators form
         self.step(d, snapshot("AWAITING_HUMAN_INPUT", [("Discover business functions", "PENDING_HUMAN_INPUT")], tasks),
                   system("m3", "This will finalize discovery.\n\n**Do you want to proceed?**", "2026-11-21T18:22:31"))
-        self.assertEqual(self.api.sent[2]["text"], "Yes, proceed.")
+        self.assertEqual(self.api.sent[2]["text"], "yes")
         done = self.step(d, snapshot("EXECUTING", [("Reimagine", "SUCCEEDED"), ("Generate requirements", "SUCCEEDED")], tasks[1:]))
         self.assertTrue(done["done"])
         decisions = self.folder.load("decisions.json")
@@ -88,6 +88,42 @@ class DriverTest(unittest.TestCase):
                   system("m1", "Is there anything you'd like to know while the plan executes?", "2026-11-21T18:03:10"))
         self.assertEqual(self.api.sent, [])
         self.assertFalse(self.folder.exists("question.json"))
+
+    def stalled_after_catalog(self, mode="autonomous"):
+        d = self.driver(mode)
+        d._ensure_job()
+        template = {"isBPDEnabled": True, "s3Uri": "s3://reframe-demo-abc123-src/transform-output/job-1/business-functions/delivery.zip"}
+        self.client.tasks["t2"] = {"title": "Review business functions discovery results", "uxComponentId": answers.CATALOG_COMPONENT,
+                                   "blockingType": "BLOCKING", "_outputSchema": {}, "_responseTemplate": template}
+        tasks = [{"taskId": "t2", "status": "AWAITING_HUMAN_INPUT", "blockingType": "BLOCKING"}]
+        waiting = snapshot("AWAITING_HUMAN_INPUT", [("Discover business functions", "PENDING_HUMAN_INPUT")], tasks)
+        self.step(d, waiting, system("m2", CATALOG, "2026-11-21T18:20:41", SELECT))
+        self.step(d, waiting, system("m3", "This will finalize discovery.\n\nDo you want to proceed?", "2026-11-21T18:22:31"))
+        self.step(d, waiting, system("m4", "It appears the finalization workflow has already processed your request.\n\n"
+                                           "What would you like to do next?", "2026-11-21T18:23:00"))
+        return d, waiting, template
+
+    def test_stalled_catalog_form_gets_aws_template(self):
+        d, waiting, template = self.stalled_after_catalog()
+        self.assertFalse(self.folder.exists("question.json"))  # the open offer is not a question
+        for _ in range(3):  # the open-offer poll was the first quiet one
+            self.step(d, waiting)
+        self.assertEqual(self.client.changed("complete_task"), [])
+        self.step(d, waiting)
+        completed = self.client.changed("complete_task")
+        self.assertEqual(len(completed), 1)
+        self.assertEqual(json.loads(completed[0]["content"]), template)
+        self.step(d, waiting)
+        self.assertEqual(len(self.client.changed("complete_task")), 1)
+
+    def test_stalled_catalog_form_with_foreign_bucket_asks(self):
+        d, waiting, template = self.stalled_after_catalog()
+        self.client.tasks["t2"]["_responseTemplate"] = {**template, "s3Uri": "s3://someone-else/transform-output/x/business-functions/delivery.zip"}
+        self.folder.remove("tasks/t2.json")
+        for _ in range(5):
+            self.step(d, waiting)
+        self.assertEqual(self.client.changed("complete_task"), [])
+        self.assertEqual(self.folder.load("question.json")["kind"], "form")
 
     def test_interactive_waits_for_answer(self):
         d = self.driver("interactive")
@@ -141,6 +177,16 @@ class AnswersTest(unittest.TestCase):
         question = answers.chat_question(system("m", text, "t"))
         self.assertEqual(question.kind, "confirm")
         self.assertEqual(answers.autonomous(question).text, "yes")
+
+    def test_yes_no_confirmation_recognised(self):
+        text = ("Your selection includes:\n- Technical domain\n\n"
+                "**Please confirm: Proceed with the reimagine for these selections?** (yes/no)")
+        question = answers.chat_question(system("m", text, "t"))
+        self.assertEqual((question.kind, answers.autonomous(question).text), ("confirm", "yes"))
+
+    def test_open_offer_is_not_a_question_even_when_awaiting(self):
+        text = "The reimagine workflow has been initiated.\n\nYou can now:\n- Ask questions\n\nWhat would you like to do next?"
+        self.assertIsNone(answers.chat_question(system("m", text, "t"), awaiting=True))
 
     def test_bold_confirmation_recognised(self):
         self.assertEqual(answers.chat_question(system("m", "x\n**Do you want to proceed?**", "t")).kind, "confirm")

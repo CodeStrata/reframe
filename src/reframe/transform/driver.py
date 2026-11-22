@@ -33,6 +33,7 @@ FAILED_JOB = frozenset({"FAILED", "STOPPED"})
 OPEN_TASK = frozenset({"AWAITING_HUMAN_INPUT", "AWAITING_APPROVAL"})
 FINAL_STEP = "Generate requirements"
 SNAPSHOT_EVERY = 10
+STALL_POLLS = 5  # quiet polls (about 5 minutes) before the catalog's review form is submitted
 
 
 def job_status(snapshot: dict[str, Any]) -> str:
@@ -149,8 +150,67 @@ class Driver:
         running = any(s["status"] == "IN_PROGRESS" for s in steps)
         if status == "AWAITING_HUMAN_INPUT" or not running or self.folder.exists("question.json"):
             self._chat(summary, awaiting=status == "AWAITING_HUMAN_INPUT")
+        self._catalog_stall(snapshot, status, summary)
         self._finish_poll(summary)
         return summary
+
+    # ---- the catalog's review form -------------------------------------------------------------
+
+    def _task_detail(self, task_id: str) -> dict[str, Any]:
+        detail = self.folder.load(f"tasks/{task_id}.json")
+        if detail is None:
+            detail = self._read(lambda: self.client.call("get_resource", {**self._identity(), "resource": "task", "taskId": task_id}),
+                                "get_resource task")
+            self.folder.save(f"tasks/{task_id}.json", detail)
+        return detail.get("task", detail) if isinstance(detail, dict) else {}
+
+    def _catalog_answered(self) -> bool:
+        return bool(self.state.get("catalog_answered")) or any(
+            str(d.get("reason", "")).startswith("the business function catalog") for d in self.folder.load("decisions.json", []))
+
+    def _catalog_stall(self, snapshot: dict[str, Any], status: str, summary: dict[str, Any]) -> None:
+        """The selection is sent in chat and AWS usually closes the review form itself once its confirmations are
+        answered. In live round 2 AWS took the confirmation as a new request ("already processed") and left the BLOCKING
+        form open, so the job waited for ever. After STALL_POLLS quiet polls the form gets AWS's own response template."""
+        pending = summary["waiting"]
+        quiet = status == "AWAITING_HUMAN_INPUT" and not summary["answered"] and (pending is None or pending.get("kind") == "chat")
+        self.state["quiet_polls"] = self.state.get("quiet_polls", 0) + 1 if quiet else 0
+        if self.state["quiet_polls"] < STALL_POLLS or not self._catalog_answered():
+            return
+        for task in open_tasks(snapshot):
+            task_id, step = str(task["taskId"]), f"task-{task['taskId']}"
+            body = self._task_detail(task_id)
+            if (body.get("uxComponentId") or task.get("uxComponentId")) != answers.CATALOG_COMPONENT or self.changes.receipt(step):
+                continue
+            content = answers.catalog_form_content(body, self.source_uri)
+            reason = "the catalog's review form stayed open after the selection was confirmed; AWS's own response template"
+            if content is None or self.mode == "interactive":
+                text = (f"{body.get('title') or 'Review business functions discovery results'}\n\nThe job has waited on this form since the "
+                        f"selection was confirmed in chat. AWS's response template: {json.dumps(body.get('_responseTemplate'))}")
+                options = (("Submit AWS's template",), (json.dumps(content),)) if content is not None else ((), ())
+                answer = self._waiting(Question(step, "form", text, *options), summary)
+                if answer is None:
+                    return
+                try:
+                    content = json.loads(answer.text)
+                except ValueError:
+                    self.folder.remove("answer.json")
+                    return
+                reason = answer.reason
+            else:
+                self.folder.decide(body.get("title") or "catalog review form", content, reason, task=task_id)
+            self.changes.apply(step, "complete_task", {"taskId": task_id, "content": content},
+                               lambda: self.client.change("complete_task", {**self._identity(), "taskId": task_id,
+                                                                            "content": json.dumps(content), "action": "APPROVE"}))
+            self.folder.event("catalog_form_submitted", task=task_id, reason=reason)
+            self._answered(step)
+            pending_now = self.folder.load("question.json")
+            if pending_now and pending_now.get("kind") == "chat":
+                self.folder.remove("question.json")
+            summary["answered"].append({"task": task_id, "kind": "form", "how": reason})
+            summary["waiting"] = None
+            self.state["quiet_polls"] = 0
+            return
 
     def _finish_poll(self, summary: dict[str, Any]) -> None:
         self.state["status"] = summary["status"]
@@ -167,12 +227,7 @@ class Driver:
         step = f"task-{task_id}"
         if self.changes.receipt(step) is not None or task_id in self.state.setdefault("ignored_tasks", []):
             return
-        detail = self.folder.load(f"tasks/{task_id}.json")
-        if detail is None:
-            detail = self._read(lambda: self.client.call("get_resource", {**self._identity(), "resource": "task", "taskId": task_id}),
-                                "get_resource task")
-            self.folder.save(f"tasks/{task_id}.json", detail)
-        body = detail.get("task", detail) if isinstance(detail, dict) else {}
+        body = self._task_detail(task_id)
         component = body.get("uxComponentId") or task.get("uxComponentId")
         schema = body.get("_outputSchema") or {}
         title = str(body.get("title") or task.get("title") or "")
@@ -223,6 +278,7 @@ class Driver:
             return
         question = answers.chat_question(message, awaiting=awaiting)
         if question is None:
+            self._answered(message_id)  # a question saved for it by an earlier version is no longer pending
             # Looked at again on every poll, so a message read as a notice is answered once AWS says it waits.
             if message_id not in self.state.setdefault("noted", []):
                 self.state["noted"].append(message_id)
@@ -231,6 +287,7 @@ class Driver:
         if question.kind == "chat" and not awaiting:
             # AWS also posts open offers ("Is there anything you'd like to know while the plan executes?"); the job
             # does not wait on them, so they are left unanswered unless AWS says the job awaits input (spike 1).
+            self._answered(question.id)
             return
         answer = answers.autonomous(question) if self.mode == "autonomous" else None
         if answer is None:
@@ -251,6 +308,8 @@ class Driver:
                            lambda: self.api.send(identity["workspaceId"], identity["jobId"], answer.text, answer.interaction_origin_id, token),
                            settle)
         self._answered(question.id)
+        if question.kind == "catalog":
+            self.state["catalog_answered"] = True
         summary["answered"].append({"message": message_id, "kind": question.kind, "how": answer.reason})
 
     # ---- waiting for the person ----------------------------------------------------------------
