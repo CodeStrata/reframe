@@ -118,8 +118,9 @@ By default teardown runs automatically after retrieval; `--keep` skips it. Refra
 1. stop the job, wait until it has stopped, delete it;
 2. delete the workspace;
 3. check account-wide that the run's connectors are gone; if one is still listed, call `DeleteConnector` once and record the result; if AWS refuses, report the connector by name as left over (its IAM role is removed in step 4, so it can no longer reach anything) and check again on the next run;
-4. destroy the project Terraform root, then the bootstrap root, each from a saved plan that is checked to destroy only what the run created;
-5. a final read-only check that nothing tagged with the run remains.
+4. delete any detached network interface AWS Transform left in the run's own VPC (status `available`, description "Elastic network interface managed by AWS AWSTransform service"); it blocks the security group and subnet from being deleted;
+5. destroy the project Terraform root, then the bootstrap root, each from a saved plan that is checked to destroy only what the run created; a destroy that stops part way is planned again for what is left and continued;
+6. a final read-only check that nothing tagged with the run remains. AWS's tag index can keep entries for a while after deletion, so each entry it still lists is checked against its own service, and only one that still exists counts.
 
 ## 5. Modes
 
@@ -162,6 +163,8 @@ One interactive run must also finish with every answer sent through `reframe ans
 - The job's status stays EXECUTING while the optional "Add collaborators" form is open, even after every step has succeeded.
 - AWS lists no job artifacts. The outputs are in the source bucket under `transform-output/<job>/`.
 - Connectors outlive their workspace. After the earlier run, the connector was gone some time after its workspace was deleted. After spike 1 it was still listed, and `DeleteConnector` was refused as not authorized for the signing-in role (an earlier attempt returned HTTP 500). Open question: which permission `DeleteConnector` needs, and whether the owner's role can be given it.
+- AWS Transform leaves a detached network interface in the graph's VPC after the job. Until it is deleted, the security group and subnet cannot be, and the Terraform AWS provider stopped responding twice while waiting on them.
+- AWS's tag index still listed five deleted resources (a VPC endpoint and four security group rules) after teardown; each was NotFound in EC2.
 - AWS Transform workspaces are visible only to their members. The MCP server's identity owns everything Reframe creates, so the owner's own web-app user does not see it unless added as a collaborator.
 - The AWS Transform CLI (`atx`) covers only "AWS Transform custom", not mainframe, so Reframe uses the MCP server's API client.
 - From creating the workspace to the requirements being written took about 45 minutes.
