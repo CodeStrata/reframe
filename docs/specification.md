@@ -136,15 +136,20 @@ It skips the graph-database files and AWS's internal state. It checks every arch
 
 ### Stage 8: report
 
-Reframe builds one self-contained HTML report in the run folder (`outputs/report/index.html`, no network needed to view it):
+Reframe builds one self-contained HTML report in the run folder (`outputs/report/index.html`, no network needed to view it). It is written for business users and functional subject-matter experts first, so it starts at the highest level and goes down one level at a time:
 
-- **Overview:** the source and commit, the run's dates, counts of domains, functions, programs and requirements by type, and AWS's coverage figures;
-- **Business domains and functions:** each function's requirements, with its programs, batch jobs, screens and data stores, and the source programs each requirement traces to;
-- **Requirements and business rules:** every requirement in one searchable, filterable table (by domain, function and type); the business rules AWS extracted, from each function's traceability file (rule, program, disposition such as captured or not applicable, and the requirements it backs), with AWS's rule counts; and AWS's open questions from each requirements document;
-- **Data model:** AWS's data model;
-- **Assessment:** classification of the source files, codebase issues, missing and unsupported files, and the scheduler data;
-- **AWS's own pages:** links to AWS's coverage report and business function catalog, unpacked beside it;
-- **Decisions:** every answer Reframe gave AWS on the person's behalf, and why.
+1. **Overview:** what was assessed (the source, its commit and SHA-256, the date), the key numbers (business domains, business functions, capabilities, requirements, business rules, open questions), and each business domain as a card with its description and review progress.
+2. **Business domain:** its description from AWS's catalog and its business functions, each with its description and counts.
+3. **Business function:** its description, its capabilities (AWS's user stories), the notes that apply to the whole function (global preconditions, job dependencies), and its open questions.
+4. **Capability:** the user story; its schedule and restart and recovery notes when AWS gives them; each requirement in plain words, labelled by when it applies (always, when something happens, while a condition holds, if something goes wrong); under each requirement, the business rules that back it (rule name, its IF/THEN text and its source program); and the capability's open questions with the owner AWS names.
+
+Names and descriptions come from AWS's business function catalog, not from folder names. Programs that AWS assigned to no business function are shown as their own group. The business rules AWS set aside as technical (disposition not applicable) are counted on each function and listed only on request, with AWS's reason.
+
+A breadcrumb leads back up, and a search box finds any requirement, rule or question.
+
+**Review.** Every requirement, business rule and open question can be marked Agree, Needs change or Question, with a comment. Marks are kept in the reviewer's browser, progress is shown on each domain and function, and the reviewer downloads their review as a CSV file (for a spreadsheet) or a JSON file, each naming the run, the source's SHA-256 and the reviewer. Reframe does not send reviews anywhere.
+
+**Technical detail,** in its own section: every requirement in one filterable table; every business rule, with its disposition; the programs, batch jobs, screens and data stores of each function; AWS's data model; the assessment (classification of the source files, codebase issues, missing and unsupported files); links to AWS's coverage report and business function catalog, unpacked beside the report; and every answer Reframe gave AWS on the person's behalf, and why.
 
 `reframe report --open` rebuilds it and opens it.
 

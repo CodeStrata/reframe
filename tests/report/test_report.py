@@ -15,14 +15,40 @@ from tests.fakes import FakeRunner
 
 REQUIREMENTS = """# Card Payments — Requirements
 
+
+## Global Preconditions
+
+- The payment store is available.
+
+
 ## 1. Payment Entry
+As a payments clerk, I want each payment recorded so that the account balance is right.
+
+**Restart/Recovery:** A failed run leaves no partial output.
+
 ### Requirements
-REQ-F-001: [Event-driven] When the operator enters a payment, the system shall record it.
+
+REQ-F-001: [Event-driven] When the operator enters a payment, the system shall record it in `PAYFILE`.
+
 REQ-F-002: [Unwanted] If the amount is zero, then the system shall reject it with 'Amount required'.
+
 ### Non-Functional Requirements
-REQ-N-001: The system shall respond within two seconds.
+
+REQ-N-001: [Ubiquitous] The system shall respond within two seconds.
+
 ### Open Questions
-- Is a negative amount ever valid?
+
+OQ-001: Is a negative amount ever valid? — Owner: payments business owner
+
+OQ-002: [Unverified — content not supported by its cited rule; confirm] The system shall print a receipt.
+
+
+---
+
+
+## Generation Notes
+
+Generated from 3 rules.
 """
 TRACEABILITY = """function: CardPayments
 summary:
@@ -49,6 +75,8 @@ def spec_zip():
         z.writestr("spec/Payments/CardPayments/traceability.yaml", TRACEABILITY)
         z.writestr("spec/Payments/CardPayments/discovery/programs.yaml", "programs:\n- name: PAY01C\n  type: COBOL\n  execution: online\n")
         z.writestr("spec/data-model.md", "# Data Model\n\n| Data Store | Type |\n|---|---|\n| PAYFILE | VSAM |\n")
+        z.writestr("spec/Unassigned-Programs/requirements.md", "# Unassigned Programs — Requirements\n\n## 1. Date Utility\nAs a team, I want dates checked.\n\n"
+                   "### Requirements\n\nREQ-F-001: [Ubiquitous] The system shall check dates.\n")
     return buffer.getvalue()
 
 
@@ -82,16 +110,33 @@ class RetrieveAndReportTest(unittest.TestCase):
         downloaded = [argv[argv.index("--key") + 1] for argv in self.fake.ran("aws", "s3api", "get-object")]
         self.assertNotIn("transform-output/job-1/spec_gen/spec_gen_specs_1.zip", downloaded)
         self.assertFalse(any("Internal-DO-NOT-TOUCH" in k or "neptune-quads" in k for k in downloaded))
-        self.assertEqual(summary["totals"]["by_type"], {"REQ-F": 2, "REQ-N": 1})
+        self.assertEqual(summary["totals"]["by_type"], {"REQ-F": 3, "REQ-N": 1})  # two functions
         self.assertEqual(summary["totals"]["captured_rules"], 2)
+        self.assertEqual(summary["totals"]["open_questions"], 2)
+        catalog = self.folder.path("outputs/catalog")
+        catalog.mkdir(parents=True, exist_ok=True)
+        (catalog / "business_domains.json").write_text(json.dumps({"domains": [{"name": "Payments", "description": "Take and post payments."}]}))
+        (catalog / "business_function.csv").write_text("bf_name,bf_id,bf_description,bd_id,bd_name,bd_description\n"
+                                                       "Card Payments,BF-1,Records card payments.,BD-1,Payments,Take and post payments.\n")
         page = build.build(self.folder).read_text()
         data = json.loads(page.split('<script id="data" type="application/json">')[1].split("</script>")[0].replace("<\\/", "</"))
-        self.assertEqual([r["id"] for r in data["requirements"]], ["REQ-F-001", "REQ-F-002", "REQ-N-001"])
-        self.assertEqual(data["requirements"][0]["programs"], ["PAY01C"])
+        self.assertEqual([(d["name"], d["kind"]) for d in data["domains"]], [("Payments", "business"), ("Programs not in a business function", "unassigned")])
+        function = data["functions"][0]
+        self.assertEqual((function["name"], function["description"]), ("Card Payments", "Records card payments."))
+        self.assertEqual([n["heading"] for n in function["notes"]], ["Global Preconditions", "Generation Notes"])
+        capability = data["capabilities"][0]
+        self.assertEqual(capability["story"], "As a payments clerk, I want each payment recorded so that the account balance is right.")
+        self.assertEqual(capability["fields"], {"Restart/Recovery": "A failed run leaves no partial output."})
+        self.assertEqual([r["code"] for r in data["requirements"][:3]], ["REQ-F-001", "REQ-F-002", "REQ-N-001"])
+        first = data["requirements"][0]
+        self.assertEqual((first["key"], first["programs"], first["rules"]), ("Payments/CardPayments/REQ-F-001", ["PAY01C"], ["Payments/CardPayments/r1"]))
         self.assertEqual(data["rules"][0]["requirements"], ["REQ-F-001"])
+        questions = [(q["code"], q["owner"], q["unverified"]) for q in data["questions"]]
+        self.assertEqual(questions, [("OQ-001", "payments business owner", False), ("OQ-002", "", True)])
         self.assertEqual(data["questions"][0]["text"], "Is a negative amount ever valid?")
         self.assertIn("<table>", data["data_model"])
         self.assertEqual(data["classification"], [["COBOL", 1]])
+        self.assertIn("Business review: demo", page)
         self.assertNotIn("http://", page.replace("http://www.w3.org", ""))  # nothing loaded from the network
         self.assertNotIn("https://", page)
 

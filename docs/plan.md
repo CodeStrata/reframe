@@ -41,3 +41,14 @@ These follow the owner's direction; change any of them before the build finishes
 - Unknown questions in autonomous mode: AWS's default when it marks one, recorded; otherwise wait for `reframe answer`.
 - Teardown: only on `reframe teardown`, after the full list is shown and consent is recorded.
 - Where it runs: locally on the owner's Mac.
+
+## Pipeline 2, part 1: business review of the AWS Transform results
+
+The AWS Transform results are kept and shown so that business users and functional subject-matter experts can review them, before the second assessment (with Claude's code-modernization plugin, on the same source snapshot) is specified. Specification section 4, stage 8.
+
+| Story | Title | Specification | Done when |
+|---|---|---|---|
+| P2-01 | Read AWS's documents in full | §4 stage 8 | Domain and function names and descriptions come from AWS's catalog; capabilities, user stories, schedules, recovery notes, requirements, open questions and owners are read from every requirements document; each open question in AWS's files is counted once |
+| P2-02 | Business review report, from overview down to each requirement | §4 stage 8 | Overview, domain, function and capability levels, each requirement with the business rules behind it, a breadcrumb and search; technical detail in its own section; checked on the outputs of every live run |
+| P2-03 | Review marks and their export | §4 stage 8 | Agree, Needs change or Question with a comment on each requirement, rule and open question; progress per domain and function; CSV and JSON downloads naming the run, the source's SHA-256 and the reviewer |
+

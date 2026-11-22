@@ -6,15 +6,15 @@ All runs used one AWS account in `us-east-1`, a new Neptune Serverless graph per
 
 ## Results
 
-| Run | Mode | Source | Business functions | Requirements | Business rules | Open questions | Answers typed by a person |
-|---|---|---|---|---|---|---|---|
-| 1 | autonomous | GitHub URL (CardDemo) | 15 | 1,392 | 1,633 | 97 | 0 |
-| 2 | autonomous | local folder (CardDemo) | 13 | 1,451 | 1,633 | 91 | 0 |
-| 3 | autonomous | local ZIP (CardDemo's card authorization application, 40 files) | 2 | 225 | 155 | 11 | 0 |
-| 4 | autonomous | GitHub URL (CardDemo) | 15 | 1,408 | 1,632 | 93 | 0 |
-| 5 | interactive | local ZIP (card authorization) | 3 | 214 | 153 | 14 | 6, all through `reframe answer` |
+| Run | Mode | Source | Business functions | Requirements | Business rules | Technical steps set aside | Open questions | Answers typed by a person |
+|---|---|---|---|---|---|---|---|---|
+| 1 | autonomous | GitHub URL (CardDemo) | 15 | 1,392 | 860 | 773 | 253 | 0 |
+| 2 | autonomous | local folder (CardDemo) | 13 | 1,451 | 883 | 750 | 254 | 0 |
+| 3 | autonomous | local ZIP (CardDemo's card authorization application, 40 files) | 2 | 225 | 90 | 65 | 44 | 0 |
+| 4 | autonomous | GitHub URL (CardDemo) | 15 | 1,408 | 877 | 755 | 262 | 0 |
+| 5 | interactive | local ZIP (card authorization) | 3 | 214 | 98 | 55 | 44 | 6, all through `reframe answer` |
 
-In every run each requirement and rule in AWS's `traceability.yaml` files appears in the report, and every report tab renders.
+Business rules are the rules AWS kept (disposition "captured"); the technical steps are the rules it set aside as not applicable, such as opening a file. In every run each requirement, rule and open question in AWS's files appears in the report. The open-question counts were first recorded wrongly, because the report read the separator lines instead of AWS's `OQ-` lines; they were corrected with the business review report, which reads every question (see the plan's part 1 of pipeline 2).
 
 Run 4 is the one that went from `reframe run` to the report with nothing but the sign-in. AWS's questions and forms were all answered by Reframe. Runs 1 to 3 and 5 each found a case the CLI did not handle yet (see below). The CLI was fixed and the run's worker restarted with `reframe resume`; the same AWS job carried on each time, and nothing was created twice.
 

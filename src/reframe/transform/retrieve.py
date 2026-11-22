@@ -20,6 +20,7 @@ from reframe.core.runfolder import RunFolder
 from reframe.core.shell import Aws
 from reframe.source.s3 import Bucket, download, list_keys
 from reframe.source.snapshot import check_archive
+from reframe.transform.documents import count_questions
 from reframe.transform.traceability import load as load_traceability
 
 REQUIREMENT = re.compile(r"^(REQ-[A-Z]+)-\d+", re.M)
@@ -101,10 +102,11 @@ def summarize(requirements: Path) -> dict[str, Any]:
         rules = (load_traceability(trace).get("summary") or {}) if trace.exists() else {}
         functions.append({"domain": relative[0] if len(relative) > 1 else "", "function": relative[-1] if relative else "",
                           "path": "/".join(relative), "requirements": counts,
-                          "open_questions": len(re.findall(r"^### Open Questions", text, re.M)), "rules": rules})
+                          "open_questions": count_questions(text), "rules": rules})
     totals = {"requirements": sum(sum(f["requirements"].values()) for f in functions),
               "by_type": {}, "rules": sum(int(f["rules"].get("total_rules", 0) or 0) for f in functions),
-              "captured_rules": sum(int(f["rules"].get("captured", 0) or 0) for f in functions)}
+              "captured_rules": sum(int(f["rules"].get("captured", 0) or 0) for f in functions),
+              "open_questions": sum(f["open_questions"] for f in functions)}
     for f in functions:
         for kind, count in f["requirements"].items():
             totals["by_type"][kind] = totals["by_type"].get(kind, 0) + count
