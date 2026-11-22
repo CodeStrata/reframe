@@ -1,3 +1,0 @@
-#!/bin/sh
-# Repository-local entry point; no installation or shell evaluation of user data.
-exec python3 "$(dirname "$0")/scripts/reframe.py" "$@"
