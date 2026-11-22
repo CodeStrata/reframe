@@ -200,6 +200,9 @@ class AnswersTest(unittest.TestCase):
     def test_open_offer_is_not_a_question_even_when_awaiting(self):
         text = "The reimagine workflow has been initiated.\n\nYou can now:\n- Ask questions\n\nWhat would you like to do next?"
         self.assertIsNone(answers.chat_question(system("m", text, "t"), awaiting=True))
+        started = ("**Reimagine workflow initiated successfully!**\n\nThe specification will be ready shortly. "
+                   "Feel free to ask questions or check on job progress while the analysis runs.")
+        self.assertIsNone(answers.chat_question(system("m", started, "t"), awaiting=True))
 
     def test_bold_confirmation_recognised(self):
         self.assertEqual(answers.chat_question(system("m", "x\n**Do you want to proceed?**", "t")).kind, "confirm")

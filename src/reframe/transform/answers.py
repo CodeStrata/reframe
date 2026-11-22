@@ -41,7 +41,7 @@ CONFIRM_QUESTION = re.compile(r"\b(proceed|confirm)\b[^?]*\?")
 # AWS asking again for the catalog selection it already got (live round 2, after its review form was submitted).
 RESELECT = re.compile(r"\bselect the business functions?(\(s\))? to re-?imagine\b")
 # Offers AWS posts after an action ("What would you like to do next?"); the job never waits on them.
-OPEN_OFFER = re.compile(r"^(what would you like to do next\?|is there anything (else )?you'?d like)")
+OPEN_OFFER = re.compile(r"^(what would you like to do next\?|is there anything (else )?you'?d like)|\bfeel free to ask\b")
 
 
 # AWS spelling out the reply it wants ("To move forward, please reply: **Yes, proceed**"); sent as given when affirmative.
@@ -191,7 +191,7 @@ def chat_question(message: dict[str, Any], awaiting: bool = False) -> Question |
         return Question(message_id, "confirm", text, ("Yes", "No"), ("yes", "no"))
     if closing in CONFIRM or CONFIRM_QUESTION.search(closing):
         return Question(message_id, "confirm", text, ("Yes, proceed", "No"), ("Yes, proceed.", "No."))
-    if OPEN_OFFER.match(closing):
+    if OPEN_OFFER.search(closing):
         return None
     if needs_answer(text) or (awaiting and "please wait" not in normalize(text)):
         return Question(message_id, "chat", text)
