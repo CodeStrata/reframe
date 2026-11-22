@@ -12,6 +12,8 @@ again: no remaining changes means it finished; otherwise the remaining creations
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
 import shutil
 import subprocess
@@ -84,7 +86,8 @@ class Terraform:
         arguments = ["init", "-input=false", "-no-color"]
         for key, value in (backend or {}).items():
             arguments.append(f"-backend-config={key}={value}")
-        self._tf(root, *arguments, timeout=900)
+        with cache_lock():
+            self._tf(root, *arguments, timeout=900)
 
     def plan(self, root: str, destroy: bool = False) -> dict[str, Any]:
         name = "destroy.tfplan" if destroy else "apply.tfplan"
@@ -186,6 +189,20 @@ def _managed(plan: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _summary(plan: dict[str, Any]) -> dict[str, Any]:
     return {"changes": [{"address": c["address"], "actions": c["change"]["actions"]} for c in _managed(plan)]}
+
+
+@contextlib.contextmanager
+def cache_lock():
+    """Terraform's plugin cache is not safe for two inits at once: a second run read a half-written provider
+    ("exec format error") when two runs started together. Inits across runs wait for each other."""
+    cache = home() / "terraform-plugin-cache"
+    cache.mkdir(parents=True, exist_ok=True)
+    with (cache / ".reframe-init.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 def only_creates(plan: dict[str, Any]) -> list[str]:

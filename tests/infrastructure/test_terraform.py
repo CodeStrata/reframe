@@ -31,6 +31,24 @@ class PlanCheckTest(unittest.TestCase):
         with self.assertRaises(Stop):
             terraform.only_deletes(plan(("a", ["update"])), {"a"})
 
+    def test_inits_across_runs_wait_for_each_other(self):
+        import os, threading, time
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"REFRAME_HOME": tmp}):
+            order = []
+
+            def second():
+                with terraform.cache_lock():
+                    order.append("second")
+
+            with terraform.cache_lock():
+                thread = threading.Thread(target=second)
+                thread.start()
+                time.sleep(0.2)
+                order.append("first done")
+            thread.join(5)
+            self.assertEqual(order, ["first done", "second"])
+
     def test_names_fit_aws_limits(self):
         n = terraform.names("a" * 30, "abc123")
         self.assertLessEqual(len(n["bucket"]), 63)
