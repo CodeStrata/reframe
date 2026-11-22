@@ -135,6 +135,13 @@ class AnswersTest(unittest.TestCase):
         self.assertEqual(question.kind, "confirm")
         self.assertEqual(answers.autonomous(question).text, "yes")
 
+    def test_reply_yes_to_proceed_answered(self):
+        text = ("Your reimagine selection is ready.\n\n**Total: 14 business functions + 25 unassigned programs**\n\n"
+                'Reply "yes" to proceed with the reimagine workflow or "no" to cancel.')
+        question = answers.chat_question(system("m", text, "t"))
+        self.assertEqual(question.kind, "confirm")
+        self.assertEqual(answers.autonomous(question).text, "yes")
+
     def test_bold_confirmation_recognised(self):
         self.assertEqual(answers.chat_question(system("m", "x\n**Do you want to proceed?**", "t")).kind, "confirm")
 

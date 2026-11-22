@@ -68,6 +68,12 @@ class TeardownTest(unittest.TestCase):
         self.assertEqual(self.tf.destroyed, ["project", "bootstrap"])
         self.assertEqual(result["leftovers"]["exists"], [])
 
+    def test_job_from_job_json_when_run_json_lost_it(self):
+        self.folder.update(transform={"workspace_id": "ws-1", "connector_id": "con-1"})
+        self.folder.save("job.json", {"job_id": "job-1"})
+        kinds = {item["kind"]: item["id"] for item in teardown.inventory(self.ctx)}
+        self.assertEqual(kinds["AWS Transform job"], "job-1")
+
     def test_no_means_nothing_deleted(self):
         self.assertIsNone(teardown.ask(self.ctx, lambda prompt: "no", lambda text: None))
         self.assertFalse(self.folder.exists("teardown/consents.json"))

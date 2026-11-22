@@ -35,6 +35,13 @@ class WorkspaceTest(unittest.TestCase):
         self.assertEqual(again, ids)
         self.assertEqual(len(client.changed("create_workspace")), 1)
 
+    def test_resume_keeps_the_job_id(self):
+        client = FakeClient()
+        self.run_setup(client)
+        self.folder.update(transform={**self.folder.state["transform"], "job_id": "job-1"})
+        self.run_setup(client)
+        self.assertEqual(self.folder.state["transform"]["job_id"], "job-1")
+
     def test_uncertain_workspace_settled_by_its_own_name(self):
         client = FakeClient()
         client.workspaces.append({"id": "ws-9", "name": "reframe-demo-abc123"})

@@ -28,11 +28,21 @@ LABELS = {"aws_s3_bucket": "S3 bucket", "aws_iam_role": "IAM role", "aws_iam_rol
           "aws_route_table": "Route table", "aws_route_table_association": "Route table association"}
 
 
+def transform_ids(ctx: Context) -> dict[str, Any]:
+    """The run's AWS Transform IDs from run.json, with the job ID also taken from job.json, the driver's record of
+    its create_job receipt, so a job is never missed from teardown."""
+    ids = dict(ctx.state.get("transform") or {})
+    job = ctx.folder.load("job.json") if ctx.folder.exists("job.json") else {}
+    if not ids.get("job_id") and job.get("job_id"):
+        ids["job_id"] = job["job_id"]
+    return ids
+
+
 def inventory(ctx: Context) -> list[dict[str, Any]]:
     from reframe.infrastructure import network
     state = ctx.state
     items: list[dict[str, Any]] = []
-    transform = state.get("transform") or {}
+    transform = transform_ids(ctx)
     names = ctx.names()
     done = lambda step: ctx.changes.receipt(step) is not None  # noqa: E731
     if transform.get("job_id") and not done("teardown-delete-job"):
@@ -100,7 +110,7 @@ def delete(ctx: Context, consented: list[dict[str, Any]], say: Callable[[str], N
     from reframe.transform import teardown as transform_teardown
     if digest(inventory(ctx)) != digest(consented):
         raise Stop(Outcome.REFUSED, "the list of resources changed after consent; run reframe teardown again to see the new list")
-    state, transform, result = ctx.state, ctx.state.get("transform") or {}, {"at": iso(), "steps": []}
+    state, transform, result = ctx.state, transform_ids(ctx), {"at": iso(), "steps": []}
 
     def step(name: str, outcome: str) -> None:
         say(f"  {name}: {outcome}\n")

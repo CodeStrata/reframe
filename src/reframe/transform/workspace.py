@@ -91,6 +91,6 @@ def set_up(client: TransformClient, folder: RunFolder, changes: Changes, *, work
         raise Stop(Outcome.WAITING_HUMAN, f"the reimagine connector is {status or 'not active'} after {ACTIVE_WAIT_SECONDS // 60} minutes; "
                                           "reframe resume checks it again")
     ids = {"workspace_id": workspace_id, "connector_id": connector_id}
-    folder.update(transform=ids)
+    folder.update(transform={**(folder.state.get("transform") or {}), **ids})  # keeps the job id on resume
     folder.event("transform_ready", connector_status=status)
     return ids

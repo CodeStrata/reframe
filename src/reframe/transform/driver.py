@@ -101,6 +101,9 @@ class Driver:
 
     def _ensure_job(self) -> None:
         if self.state.get("job_id"):
+            recorded = self.folder.state.get("transform") or {}
+            if recorded.get("job_id") != self.state["job_id"]:
+                self.folder.update(transform={**recorded, "job_id": self.state["job_id"]})
             return
 
         def find():

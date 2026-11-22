@@ -33,8 +33,9 @@ OBJECTIVE = ("does this objective match your goals?",)
 OUTPUT_LANGUAGE = ("would you like your output translated into any of these languages, or would you prefer english only?",)
 PROCEED_PLAN = ("proceed with this plan?",)
 CONFIRM = ("do you want to proceed?",)
-# AWS's confirmation after the catalog reply (live run, November 2026) ends: Reply "yes" to confirm or "no" to cancel.
-REPLY_YES = re.compile(r'^reply "?yes"? to confirm\b')
+# AWS confirms the catalog selection twice (live run, November 2026), ending with: Reply "yes" to confirm or "no" to
+# cancel; then: Reply "yes" to proceed with the reimagine workflow or "no" to cancel.
+REPLY_YES = re.compile(r'^reply "?yes"? to (confirm|proceed)\b')
 MENU_OPTION = re.compile(r"^\s*(\d+)\.\s+([^:\n]+?)\s*(?::|$)", re.M)
 EVERYTHING = "Everything: every business domain in the catalog and the unassigned programs"
 
