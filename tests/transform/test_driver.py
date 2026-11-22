@@ -206,6 +206,12 @@ class AnswersTest(unittest.TestCase):
                 "or would you prefer to view the missing/unsupported file details first?")
         self.assertEqual(answers.autonomous(answers.chat_question(system("m", text, "t"))).text, "Yes, proceed.")
 
+    def test_statement_confirmation_recognised(self):
+        text = ('Please confirm to proceed with the reimagine workflow for the "Card Authorization Management" domain and '
+                "unassigned programs. This will finalize business function discovery and initiate spec generation for modernization.")
+        question = answers.chat_question(system("m", text, "t"), awaiting=True)
+        self.assertEqual((question.kind, question.options[0], answers.autonomous(question).text), ("confirm", "Yes, proceed", "Yes, proceed."))
+
     def test_open_offer_is_not_a_question_even_when_awaiting(self):
         text = "The reimagine workflow has been initiated.\n\nYou can now:\n- Ask questions\n\nWhat would you like to do next?"
         self.assertIsNone(answers.chat_question(system("m", text, "t"), awaiting=True))
@@ -215,6 +221,9 @@ class AnswersTest(unittest.TestCase):
         executing = ("Your job is now executing.\n\nThe Amazon Neptune cluster in your account is storing the artifacts. "
                      "You can monitor progress or ask me for status updates as the workflow runs.")
         self.assertIsNone(answers.chat_question(system("m", executing, "t"), awaiting=True))
+        notified = ("Reimagine workflow started. Specification generation is now running.\n\nYou'll be notified when the "
+                    "specifications are ready. Feel free to query results or check status at any time.")
+        self.assertIsNone(answers.chat_question(system("m", notified, "t"), awaiting=True))
 
     def test_bold_confirmation_recognised(self):
         self.assertEqual(answers.chat_question(system("m", "x\n**Do you want to proceed?**", "t")).kind, "confirm")
