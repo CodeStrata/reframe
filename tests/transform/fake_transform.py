@@ -63,8 +63,8 @@ class FakeApi:
 
     def send(self, workspace_id, job_id, text, interaction_origin_id=None, idempotency_token=None):
         self.sent.append({"text": text, "origin": interaction_origin_id})
-        message = {"messageId": f"user-{len(self.sent)}", "messageOrigin": "USER", "text": text,
-                   "createdAt": "2026-11-21T18:30:00"}
+        latest = max((str(m.get("createdAt", "")) for m in self._messages), default="2026-11-21T00:00:00")
+        message = {"messageId": f"user-{len(self.sent)}", "messageOrigin": "USER", "text": text, "createdAt": latest + ".5"}
         self._messages.append(message)
         return {"message": message}
 

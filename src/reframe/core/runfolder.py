@@ -89,7 +89,7 @@ class RunFolder:
         os.replace(temporary, path)
         return path
 
-    def event(self, kind: str, **detail: Any) -> None:
+    def event(self, kind: str, /, **detail: Any) -> None:
         path = self.path("events.jsonl")
         with path.open("a") as log:
             log.write(json.dumps({"at": iso(), "event": kind, **detail}, sort_keys=True, default=str) + "\n")
