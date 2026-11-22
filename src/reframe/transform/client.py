@@ -145,14 +145,16 @@ class TransformClient:
                         async def one(name, arguments):
                             if name not in tools:
                                 raise NotSent(f"the server does not offer {name}")
-                            check_arguments(name, getattr(tools[name], "inputSchema", None) or {}, arguments)
+                            tool = tools[name]
+                            schema = getattr(tool, "inputSchema", None) or getattr(tool, "input_schema", None) or {}
+                            check_arguments(name, schema if isinstance(schema, dict) else {}, arguments)
                             sent.append(name)
                             result = await session.call_tool(name, arguments)
-                            value = getattr(result, "structuredContent", None)
+                            value = getattr(result, "structuredContent", None) or getattr(result, "structured_content", None)
                             if not value:
                                 value = {"content": [{"type": "text", "text": block.text} for block in result.content
                                                      if getattr(block, "type", "") == "text"]}
-                            if getattr(result, "isError", False):
+                            if getattr(result, "isError", False) or getattr(result, "is_error", False):
                                 raise Rejected(name, failure_reason(value))
                             try:
                                 return unwrap(value)

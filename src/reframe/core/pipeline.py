@@ -62,7 +62,7 @@ class Context:
                 "region": state["region"]}
 
     def stage(self, name: str) -> None:
-        self.folder.update(stage=name, status="RUNNING", updated_at=iso())
+        self.folder.update(stage=name, status="RUNNING", message=None, updated_at=iso())
         self.folder.event("stage", stage=name)
 
 
