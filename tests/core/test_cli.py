@@ -15,7 +15,8 @@ class CliTest(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             cli.parser().parse_args(["run"])
         args = cli.parser().parse_args(["run", "--source", "x", "--profile", "p"])
-        self.assertEqual((args.mode, args.region, args.keep), ("autonomous", "us-east-1", False))
+        self.assertEqual((args.mode, args.region), ("autonomous", "us-east-1"))
+        self.assertFalse(hasattr(args, "keep"))  # resources are removed only by reframe teardown
 
     def test_no_command_prints_help(self):
         with contextlib.redirect_stdout(io.StringIO()) as out:

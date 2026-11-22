@@ -33,13 +33,12 @@ def parser() -> argparse.ArgumentParser:
     top.add_argument("--version", action="version", version=f"reframe {__version__}")
     commands = top.add_subparsers(dest="command", metavar="<command>")
 
-    run = commands.add_parser("run", help="Create the AWS resources, run the assessment, download the results and tear down")
+    run = commands.add_parser("run", help="Create the AWS resources, run the assessment, download the results and build the report; the resources stay until reframe teardown")
     run.add_argument("--source", required=True, help="the mainframe source: a local folder, a local .zip file, or a GitHub URL")
     run.add_argument("--profile", required=True, help="the AWS CLI profile to sign in with")
     run.add_argument("--ref", help="for a Git checkout or URL: the branch, tag or commit to assess (default: HEAD)")
     run.add_argument("--mode", choices=("autonomous", "interactive"), default="autonomous",
                      help="autonomous: Reframe answers AWS and records why; interactive: answer each question with reframe answer")
-    run.add_argument("--keep", action="store_true", help="keep the AWS resources after retrieval; remove them later with reframe teardown")
     run.add_argument("--region", default="us-east-1", help="AWS region (default: us-east-1)")
     run.add_argument("--project", help="project name used in resource names (default: from the source's name)")
     run.add_argument("--graph", default=None, help="new, existing (choose from a list) or the name of an existing Neptune cluster "
