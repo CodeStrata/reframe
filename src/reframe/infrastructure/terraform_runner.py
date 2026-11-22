@@ -97,6 +97,33 @@ class Terraform:
         raw = json.loads(self._tf(root, "output", "-json", "-no-color", timeout=300))
         return {key: value.get("value") for key, value in raw.items()}
 
+    def inventory(self, root: str, backend: dict[str, str] | None = None) -> list[dict[str, Any]]:
+        """Every managed resource in the root's state, with a readable name and ID, for the teardown list."""
+        if not (self.base / root / "terraform.tfstate").exists() and backend is None:
+            return []
+        self.init(root, backend)
+        shown = json.loads(self._tf(root, "show", "-json", "-no-color", timeout=300) or "{}")
+        items: list[dict[str, Any]] = []
+
+        def walk(module: dict[str, Any]) -> None:
+            for resource in module.get("resources") or []:
+                if resource.get("mode") != "managed":
+                    continue
+                values = resource.get("values") or {}
+                name = next((values.get(k) for k in ("bucket", "name", "identifier", "cluster_identifier", "db_subnet_group_name")
+                             if isinstance(values.get(k), str) and values.get(k)), None)
+                items.append({"root": root, "address": resource["address"], "type": resource["type"],
+                              "name": name or values.get("tags", {}).get("Name") if isinstance(values.get("tags"), dict) else name,
+                              "id": values.get("id")})
+            for child in module.get("child_modules") or []:
+                walk(child)
+
+        walk((shown.get("values") or {}).get("root_module") or {})
+        return items
+
+    def vpc_id(self, items: list[dict[str, Any]]) -> str | None:
+        return next((i["id"] for i in items if i["type"] == "aws_vpc"), None)
+
     # ---- stage 2 -------------------------------------------------------------------------------
 
     def apply(self, root: str, changes: Changes, backend: dict[str, str] | None = None) -> dict[str, Any]:
