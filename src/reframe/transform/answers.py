@@ -41,7 +41,8 @@ CONFIRM_QUESTION = re.compile(r"\b(proceed|confirm)\b[^?]*\?")
 # AWS asking again for the catalog selection it already got (live round 2, after its review form was submitted).
 RESELECT = re.compile(r"\bselect the business functions?(\(s\))? to re-?imagine\b")
 # Offers AWS posts after an action ("What would you like to do next?"); the job never waits on them.
-OPEN_OFFER = re.compile(r"^(what would you like to do next\?|is there anything (else )?you'?d like)|\bfeel free to ask\b")
+OPEN_OFFER = re.compile(r"^(what would you like to do next\?|is there anything (else )?you'?d like)|\bfeel free to ask\b"
+                        r"|\byou can monitor progress\b|\bask me for (status|progress)( updates)?\b")
 
 
 # AWS spelling out the reply it wants ("To move forward, please reply: **Yes, proceed**"); sent as given when affirmative.

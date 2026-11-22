@@ -22,6 +22,21 @@ class CliTest(unittest.TestCase):
             self.assertEqual(cli.main([]), 2)
         self.assertIn("usage: reframe", out.getvalue())
 
+    def test_answer_hint_without_options(self):
+        import os, tempfile
+        from unittest import mock
+        from reframe.core import commands
+        from reframe.core.runfolder import new_run
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"REFRAME_HOME": tmp}):
+            folder = new_run("demo")
+            folder.save("question.json", {"id": "m", "kind": "chat", "text": "Which format?", "options": [], "asked_at": "t"})
+            args = type("Args", (), {"run": None, "choices": [], "text": None})()
+            with mock.patch.object(commands, "say") as say:
+                commands.answer(args)
+            text = "".join(call.args[0] for call in say.call_args_list)
+        self.assertIn('Answer with reframe answer --text "..."', text)
+        self.assertNotIn("<number>", text)
+
 
 if __name__ == "__main__":
     unittest.main()

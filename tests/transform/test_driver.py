@@ -212,6 +212,9 @@ class AnswersTest(unittest.TestCase):
         started = ("**Reimagine workflow initiated successfully!**\n\nThe specification will be ready shortly. "
                    "Feel free to ask questions or check on job progress while the analysis runs.")
         self.assertIsNone(answers.chat_question(system("m", started, "t"), awaiting=True))
+        executing = ("Your job is now executing.\n\nThe Amazon Neptune cluster in your account is storing the artifacts. "
+                     "You can monitor progress or ask me for status updates as the workflow runs.")
+        self.assertIsNone(answers.chat_question(system("m", executing, "t"), awaiting=True))
 
     def test_bold_confirmation_recognised(self):
         self.assertEqual(answers.chat_question(system("m", "x\n**Do you want to proceed?**", "t")).kind, "confirm")

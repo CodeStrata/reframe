@@ -201,7 +201,7 @@ def answer(args) -> int:
         for number, label in enumerate(question.options, 1):
             say(f"  {number}. {label}\n")
         hint = ("reframe answer <number> [<number>...]" if question.kind in ("catalog", "select") else "reframe answer <number>")
-        say(f"\nAnswer with {hint}" + (", or " if question.options else "") + "reframe answer --text \"...\"\n")
+        say("\nAnswer with " + (f"{hint}, or " if question.options else "") + "reframe answer --text \"...\"\n")
         return 0
     try:
         choices = [int(c) for c in args.choices]
