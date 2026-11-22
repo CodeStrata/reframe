@@ -1,9 +1,9 @@
 """Stage 8: one self-contained HTML report of the run's results (specification section 4, stage 8).
 
-outputs/report/index.html, with its data inline and no network needed to view it:
-overview, business domains and functions, every requirement in one searchable table, the business rules
-from each function's traceability file, AWS's open questions, the data model, the assessment, links to
-AWS's own coverage report and catalog, and Reframe's decisions.
+outputs/report/index.html, with its data inline and no network needed to view it. It is written for business users and
+functional subject-matter experts first: an overview, then each business domain, each business function, each
+capability, and each requirement with the business rules behind it. Every requirement, rule and open question can be
+marked Agree, Needs change or Question, and a reviewer downloads their marks. Technical detail has its own section.
 """
 
 from __future__ import annotations
@@ -18,35 +18,14 @@ from typing import Any
 import yaml
 
 from reframe.core.runfolder import RunFolder, iso
+from reframe.transform import documents
 from reframe.transform.traceability import load as load_traceability
 
-REQUIREMENT_LINE = re.compile(r"^(REQ-([A-Z]+)-\d+):\s*(?:\[([^\]]+)\]\s*)?(.*)$")
-SECTION = re.compile(r"^##\s+(?:\d+\.\s+)?(.+?)\s*$")
+UNASSIGNED = {"key": "unassigned", "name": "Programs not in a business function", "kind": "unassigned",
+              "description": "Programs AWS Transform assessed that it did not place in any business function."}
 
 
 # ---- reading AWS's files -------------------------------------------------------------------------
-
-
-def parse_requirements(text: str) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    """Requirements (id, type, pattern, text, capability) and open questions (capability, text) from one requirements.md."""
-    requirements, questions = [], []
-    capability, sub = "", ""
-    for raw in text.splitlines():
-        line = raw.strip()
-        if line.startswith("## "):
-            match = SECTION.match(line)
-            capability, sub = (match.group(1) if match else line[3:]), ""
-            continue
-        if line.startswith("### "):
-            sub = line[4:].strip()
-            continue
-        match = REQUIREMENT_LINE.match(line)
-        if match:
-            requirements.append({"id": match.group(1), "type": match.group(2), "pattern": match.group(3) or "",
-                                 "text": match.group(4), "capability": capability})
-        elif sub.casefold() == "open questions" and line.startswith(("-", "*")) or (sub.casefold() == "open questions" and re.match(r"^\d+\.", line)):
-            questions.append({"capability": capability, "text": re.sub(r"^([-*]|\d+\.)\s*", "", line)})
-    return requirements, questions
 
 
 def _yaml(path: Path) -> Any:
@@ -63,50 +42,101 @@ def _json(path: Path) -> Any:
         return None
 
 
+def _rules(trace: dict[str, Any], fid: str) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
+    """The function's rules, and for each requirement code the keys of the rules that back it."""
+    rules, backing = [], {}
+    for item in trace.get("requirements") or []:
+        if isinstance(item, dict) and item.get("req_id"):
+            backing.setdefault(str(item["req_id"]), []).extend(f"{fid}/{r}" for r in item.get("rule_ids") or [])
+    for rule in trace.get("rules") or []:
+        if not isinstance(rule, dict) or not rule.get("rule_id"):
+            continue
+        key = f"{fid}/{rule['rule_id']}"
+        req_ids = rule.get("req_ids") or []
+        if isinstance(req_ids, str):
+            req_ids = re.findall(r"REQ-[A-Z]+-\d+", req_ids)
+        for code in req_ids:
+            if key not in backing.setdefault(str(code), []):
+                backing[str(code)].append(key)
+        rules.append({"key": key, "function": fid, "id": str(rule["rule_id"]), "name": str(rule.get("rule_name") or ""),
+                      "text": str(rule.get("rule_text") or ""), "program": str(rule.get("program") or ""),
+                      "disposition": str(rule.get("disposition") or ""), "reason": str(rule.get("reason") or ""),
+                      "requirements": [str(c) for c in req_ids]})
+    return rules, backing
+
+
 def collect(folder: RunFolder) -> dict[str, Any]:
     outputs = folder.path("outputs")
     spec = outputs / "requirements" / "spec"
     if not spec.is_dir():
         spec = outputs / "requirements"
-    functions, requirements, rules, questions = [], [], [], []
+    catalog = documents.catalog(outputs)
+    domains: dict[str, dict[str, Any]] = {}
+    functions, capabilities, requirements, rules, questions = [], [], [], [], []
     for document in sorted(spec.rglob("requirements.md")):
         parts = document.parent.relative_to(spec).parts
-        domain = parts[0] if len(parts) > 1 else "(none)"
-        function = parts[-1] if parts else document.parent.name
-        reqs, opens = parse_requirements(document.read_text(errors="replace"))
-        trace = load_traceability(document.parent / "traceability.yaml")
+        if not parts:
+            continue
+        fid = "/".join(parts)
+        parsed = documents.parse(document.read_text(errors="replace"))
+        listed = catalog["functions"].get(documents.squeeze(parts[-1]))
+        if len(parts) == 1:
+            domain = dict(UNASSIGNED)
+        else:
+            known = catalog["domains"].get(documents.squeeze(parts[0])) or (
+                catalog["domains"].get(documents.squeeze(listed["domain"])) if listed else None)
+            name = known["name"] if known else documents.spaced(parts[0])
+            domain = {"key": documents.squeeze(name), "name": name, "description": known["description"] if known else "",
+                      "kind": "technical" if documents.squeeze(name) == "technical" else "business"}
+        domain = domains.setdefault(domain["key"], {**domain, "functions": []})
+        domain["functions"].append(fid)
+
+        trace_file = document.parent / "traceability.yaml"
+        trace = load_traceability(trace_file) if trace_file.exists() else {}  # a function may come without one
+        function_rules, backing = _rules(trace, fid)
+        rules += function_rules
+        rule_programs = {r["key"]: r["program"] for r in function_rules}
+        used: set[str] = set()
+        function = {"id": fid, "domain": domain["key"], "name": listed["name"] if listed else (parsed["title"] or documents.spaced(parts[-1])),
+                    "description": listed["description"] if listed else "", "capabilities": [],
+                    "notes": [{"heading": n["heading"], "html": render_markdown(n["markdown"]), "technical": n["technical"]} for n in parsed["notes"]],
+                    "summary": trace.get("summary") or {}}
+        for found in parsed["capabilities"]:
+            cid = f"{fid}#{found['number']}"
+            capability = {"id": cid, "function": fid, "number": found["number"], "title": found["title"], "story": found["story"],
+                          "fields": found["fields"], "other": render_markdown(found["other"]) if found["other"] else "",
+                          "requirements": [], "questions": []}
+            for item in found["requirements"]:
+                key = f"{fid}/{item['code']}"
+                backed = backing.get(item["code"], [])
+                used.update(backed)
+                requirements.append({"key": key, "code": item["code"], "kind": item["kind"], "pattern": item["pattern"], "text": item["text"],
+                                     "capability": cid, "function": fid, "rules": backed,
+                                     "programs": sorted({rule_programs.get(r, "") for r in backed} - {""})})
+                capability["requirements"].append(key)
+            for item in found["questions"]:
+                key = f"{fid}/{item['code']}"
+                questions.append({"key": key, "code": item["code"], "text": item["text"], "owner": item["owner"],
+                                  "unverified": item["unverified"], "capability": cid, "function": fid})
+                capability["questions"].append(key)
+            capabilities.append(capability)
+            function["capabilities"].append(cid)
+        function["other_rules"] = [r["key"] for r in function_rules if r["disposition"] == "captured" and r["key"] not in used]
+        function["set_aside"] = [r["key"] for r in function_rules if r["disposition"] != "captured" and r["key"] not in used]
         discovery = document.parent / "discovery"
         programs = (_yaml(discovery / "programs.yaml") or {}).get("programs") or []
         jobs = (_yaml(discovery / "batch-jobs.yaml") or {}).get("jobs") or {}
         screens = (_yaml(discovery / "screens.yaml") or {}).get("screens") or []
         stores = (_yaml(discovery / "data-stores.yaml") or {}).get("data_stores") or []
-        backing: dict[str, list[str]] = {}
-        for item in trace.get("requirements") or []:
-            if isinstance(item, dict):
-                backing[str(item.get("req_id"))] = [str(r) for r in item.get("rule_ids") or []]
-        rule_programs = {}
-        for rule in trace.get("rules") or []:
-            if not isinstance(rule, dict):
-                continue
-            rule_programs[str(rule.get("rule_id"))] = str(rule.get("program") or "")
-            req_ids = rule.get("req_ids")
-            if isinstance(req_ids, str):
-                req_ids = re.findall(r"REQ-[A-Z]+-\d+", req_ids)
-            rules.append({"domain": domain, "function": function, "id": str(rule.get("rule_id") or ""), "program": str(rule.get("program") or ""),
-                          "name": str(rule.get("rule_name") or ""), "text": str(rule.get("rule_text") or rule.get("reason") or ""),
-                          "disposition": str(rule.get("disposition") or ""), "requirements": list(req_ids or [])})
-        for req in reqs:
-            req.update(domain=domain, function=function,
-                       programs=sorted({rule_programs.get(r, "") for r in backing.get(req["id"], [])} - {""}))
-        requirements += reqs
-        questions += [{**q, "domain": domain, "function": function} for q in opens]
         job_list = [j for group in (jobs.values() if isinstance(jobs, dict) else [jobs]) for j in (group or []) if isinstance(j, dict)]
-        functions.append({"domain": domain, "function": function, "summary": trace.get("summary") or {},
-                          "requirements": len(reqs), "open_questions": len(opens),
-                          "programs": [{"name": p.get("name"), "type": p.get("type"), "execution": p.get("execution")} for p in programs if isinstance(p, dict)],
-                          "jobs": [j.get("name") for j in job_list], "screens": [s.get("name") for s in screens if isinstance(s, dict)],
-                          "data_stores": [s.get("name") for s in stores if isinstance(s, dict)],
-                          "markdown": render_markdown(document.read_text(errors="replace"))})
+        function["technical"] = {"programs": [{"name": p.get("name"), "type": p.get("type"), "execution": p.get("execution")}
+                                              for p in programs if isinstance(p, dict)],
+                                 "jobs": [j.get("name") for j in job_list], "screens": [s.get("name") for s in screens if isinstance(s, dict)],
+                                 "data_stores": [s.get("name") for s in stores if isinstance(s, dict)]}
+        functions.append(function)
+
+    order = {**{key: i for i, key in enumerate(catalog["domains"])}}
+    ranked = sorted(domains.values(), key=lambda d: ({"business": 0, "technical": 1, "unassigned": 2}[d["kind"]], order.get(d["key"], 99), d["name"]))
     data_model = spec / "data-model.md"
     results = outputs / "aws" / "results"
     classification = next((_json(p) for p in sorted(results.glob("classification_*.json"))), None) or []
@@ -121,7 +151,8 @@ def collect(folder: RunFolder) -> dict[str, Any]:
                    "sha256": snapshot.get("sha256"), "name": Path(str(snapshot.get("source") or "")).name or snapshot.get("source")},
         "started_at": state.get("started_at"), "retrieved_at": state.get("retrieved_at"),
         "graph": (state.get("graph") or {}).get("kind"),
-        "functions": functions, "requirements": requirements, "rules": rules, "questions": questions,
+        "domains": ranked, "functions": functions, "capabilities": capabilities,
+        "requirements": requirements, "rules": rules, "questions": questions,
         "data_model": render_markdown(data_model.read_text(errors="replace")) if data_model.exists() else "",
         "classification": Counter(str(item.get("fileType") or "Unknown") for item in classification if isinstance(item, dict)).most_common(),
         "unclassified": [{"path": i.get("path"), "reason": i.get("reason")} for i in classification
@@ -212,11 +243,12 @@ def build(folder: RunFolder) -> Path:
     target = folder.path("outputs/report/index.html")
     target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     payload = json.dumps(data, default=str).replace("</", "<\\/")
-    page = TEMPLATE.replace("/*DATA*/", payload).replace("{{title}}", html.escape(f"Reframe report: {data['project'] or 'run'} {data['run']}"))
+    page = TEMPLATE.replace("/*DATA*/", payload).replace("{{title}}", html.escape(f"Business review: {data['project'] or 'run'}"))
     target.write_text(page)
     target.chmod(0o600)
     folder.update(report="outputs/report/index.html")
-    folder.event("report_built", functions=len(data["functions"]), requirements=len(data["requirements"]), rules=len(data["rules"]))
+    folder.event("report_built", functions=len(data["functions"]), requirements=len(data["requirements"]),
+                 rules=sum(r["disposition"] == "captured" for r in data["rules"]), questions=len(data["questions"]))
     return target
 
 

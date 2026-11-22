@@ -19,7 +19,7 @@ This is pipeline 1. The full design is in [docs/specification.md](docs/specifica
 | 4. AWS Transform setup | Reframe creates the workspace and the reimagine connector to the Neptune graph, and waits for the connector to be active. |
 | 5-6. Job | Reframe creates the job ("Assess and reimagine") and polls it every minute. AWS asks questions and shows forms along the way: the plan, the source location, the business function catalog and its confirmations. In autonomous mode Reframe answers each one and records why in `decisions.json`; in interactive mode it asks you. |
 | 7. Retrieval | When every step has succeeded, including "Generate requirements", Reframe downloads the requirements, the assessment and the business function catalog from S3. |
-| 8. Report | One self-contained HTML page with tabs for the overview, domains and functions, requirements, business rules, open questions, data model, assessment and decisions. It has search, filters, and light and dark themes. |
+| 8. Report | One self-contained HTML page for business users and subject-matter experts to review: from the overview down by business domain, business function and capability to each requirement and the business rules behind it, with review marks a reviewer can download. Technical detail has its own section. |
 | 9. Teardown | Only when you run `reframe teardown`. See [Removing the AWS resources](#removing-the-aws-resources). |
 
 Every change Reframe makes in AWS is written down before it is sent and confirmed after, so a run that stops can be resumed with `reframe resume` without creating anything twice. A run takes about an hour, most of it AWS Transform's own work.
@@ -168,7 +168,7 @@ Everything for a run is in `~/.reframe/projects/<project>/runs/<run id>/`:
 
 | Path | What it holds |
 |---|---|
-| `outputs/report/index.html` | The report. Rebuild it with `reframe report`. |
+| `outputs/report/index.html` | The business review report. Rebuild it with `reframe report`. |
 | `outputs/requirements/` | AWS's requirements per business function, with `traceability.yaml` linking rules to requirements. |
 | `outputs/aws/` | AWS's assessment results. |
 | `outputs/catalog/` | The business function catalog (`delivery.zip`, unpacked). |
@@ -176,6 +176,15 @@ Everything for a run is in `~/.reframe/projects/<project>/runs/<run id>/`:
 | `events.jsonl` | The run's event log. |
 | `changes/` | The record of every change Reframe made in AWS: what it meant to do, and AWS's receipt. |
 | `worker.log` | The background worker's output. |
+
+## Reviewing the results with the business
+
+`reframe report --open` opens the business review report. It is one HTML file with everything inside it, so you can send it to business users and functional subject-matter experts as it is; they need only a browser.
+
+- **It starts at the top:** what was assessed and the business domains. From a domain they go to its business functions, from a function to its capabilities (AWS's user stories), and from a capability to each requirement in plain words, with the business rules behind it and AWS's open questions for the business. A breadcrumb leads back up, and the search box finds any requirement, rule or question.
+- **They mark what they read:** Agree, Needs change or Question on each requirement, business rule and open question, with a comment. Progress shows on every domain, function and capability. Marks stay in their browser.
+- **They send their review back:** under **Your review** they enter their name and download their marks as a CSV file (for a spreadsheet) or a JSON file. Each row names the domain, function, capability, item, mark and comment, and the file names the run and the source's SHA-256, so a review always matches the code that was assessed.
+- **Technical detail** (all requirements and rules in tables, the data model, the assessment, AWS's own pages and Reframe's answers) is in its own section, for engineers.
 
 ## Removing the AWS resources
 
