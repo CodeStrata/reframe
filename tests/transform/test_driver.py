@@ -115,6 +115,9 @@ class DriverTest(unittest.TestCase):
         self.assertEqual(json.loads(completed[0]["content"]), template)
         self.step(d, waiting)
         self.assertEqual(len(self.client.changed("complete_task")), 1)
+        self.step(d, waiting, system("m5", "Please select the business function(s) to Re-Imagine before continuing.", "2026-11-21T18:40:00"))
+        self.assertEqual(self.api.sent[-1], self.api.sent[0])  # the same selection, structured against the catalog message
+        self.assertEqual(self.api.sent[-1]["origin"], "m2")
 
     def test_stalled_catalog_form_with_foreign_bucket_asks(self):
         d, waiting, template = self.stalled_after_catalog()

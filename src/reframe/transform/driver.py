@@ -164,6 +164,14 @@ class Driver:
             self.folder.save(f"tasks/{task_id}.json", detail)
         return detail.get("task", detail) if isinstance(detail, dict) else {}
 
+    def _same_selection(self) -> Answer | None:
+        """The catalog selection Reframe already sent, sent again as a structured reply to the same catalog message."""
+        sent = [d for d in self.folder.load("decisions.json", []) if str(d.get("reason", "")).startswith("the business function catalog")]
+        if not sent or not sent[-1].get("message"):
+            return None
+        return Answer(str(sent[-1]["answer"]), "AWS asked for the catalog selection again; Reframe sent the same selection",
+                      str(sent[-1]["message"]))
+
     def _catalog_answered(self) -> bool:
         return bool(self.state.get("catalog_answered")) or any(
             str(d.get("reason", "")).startswith("the business function catalog") for d in self.folder.load("decisions.json", []))
@@ -289,7 +297,9 @@ class Driver:
             # does not wait on them, so they are left unanswered unless AWS says the job awaits input (spike 1).
             self._answered(question.id)
             return
-        answer = answers.autonomous(question) if self.mode == "autonomous" else None
+        answer = self._same_selection() if question.kind == "reselect" else None
+        if answer is None and question.kind != "reselect":
+            answer = answers.autonomous(question) if self.mode == "autonomous" else None
         if answer is None:
             answer = self._waiting(question, summary)
             if answer is None:

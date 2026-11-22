@@ -38,6 +38,8 @@ CONFIRM = ("do you want to proceed?",)
 # "Please confirm: Proceed with the reimagine for these selections? (yes/no)". They are recognised by shape, not wording.
 YES_NO = re.compile(r'\(\s*yes\s*/\s*no\s*\)|\breply\s+"?yes"?\b|"yes"\s+or\s+"no"|\byes\s+or\s+no\b')
 CONFIRM_QUESTION = re.compile(r"\b(proceed|confirm)\b[^?]*\?")
+# AWS asking again for the catalog selection it already got (live round 2, after its review form was submitted).
+RESELECT = re.compile(r"\bselect the business functions?(\(s\))? to re-?imagine\b")
 # Offers AWS posts after an action ("What would you like to do next?"); the job never waits on them.
 OPEN_OFFER = re.compile(r"^(what would you like to do next\?|is there anything (else )?you'?d like)")
 
@@ -91,7 +93,7 @@ class Question:
 
     id: str
     kind: str
-    """plan, catalog, confirm, select, chat or form"""
+    """plan, catalog, reselect, confirm, select, chat or form"""
     text: str
     options: tuple[str, ...] = ()
     replies: tuple[str, ...] = ()
@@ -168,6 +170,8 @@ def chat_question(message: dict[str, Any], awaiting: bool = False) -> Question |
         return Question(message_id, "confirm", text, ("English only",), ("English only, no translations.",))
     if closing in PROCEED_PLAN:
         return Question(message_id, "confirm", text, ("Yes", "No"), ("Yes, proceed with this plan.", "No."))
+    if RESELECT.search(normalize(text)):
+        return Question(message_id, "reselect", text)
     if closing in CONFIRM or is_confirmation(closing):
         return Question(message_id, "confirm", text, ("Yes", "No"), ("yes", "no"))
     if OPEN_OFFER.match(closing):
