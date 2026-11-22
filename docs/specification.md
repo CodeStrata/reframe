@@ -75,7 +75,7 @@ Reframe uploads the snapshot to the source bucket and checks the object's checks
 
 ### Stage 4: AWS Transform setup
 
-Reframe creates the workspace, the S3 connector and the reimagine connector, accepts the connectors and waits until each is ACTIVE. It records each one's ID from AWS's reply.
+Reframe creates the workspace and the reimagine connector (type `mainframe_modernization|reimagine|1`, configured from Terraform's outputs), accepts the connector with the reimagine role and waits until it is ACTIVE. It records each ID from AWS's reply. No separate S3 connector is needed: the job reads the source from the location Reframe gives in AWS's source-location form, and writes its outputs through the reimagine connector to the source bucket.
 
 ### Stage 5: job
 
@@ -87,7 +87,8 @@ Reframe polls the job and its open tasks and chat. It answers each question as f
 
 | AWS asks | Autonomous mode | Interactive mode |
 |---|---|---|
-| Which plan to run | "Assess and reimagine" | The same question through `reframe answer` |
+| Which plan to run | "Assess and reimagine", with the setup answers (English only, no collaborators) in the same reply | The same question through `reframe answer` |
+| Where the source is (the source-location form) | The S3 location of the uploaded snapshot | The same answer; the form is answered from the run's own record |
 | Which business functions to reimagine (the catalog's chat message) | One structured chat reply naming every business domain in the catalog and the unassigned programs | The catalog's options through `reframe answer` |
 | "Do you want to proceed?" after the selection | "Yes, proceed." | `reframe answer` |
 | Any other blocking question with options | AWS's default option, recorded as Reframe's decision | `reframe answer` |
@@ -96,7 +97,7 @@ Reframe polls the job and its open tasks and chat. It answers each question as f
 
 Selection is answered the way the web app does it: `SendMessage` with the reply text and `interactionResults` naming the catalog message. The review form "Review business functions discovery results" is not submitted; its own hint sends the selection to chat.
 
-The job is done when every step in its plan has SUCCEEDED. AWS keeps the job's own status at EXECUTING while a non-blocking form is open, so Reframe does not wait for COMPLETED. A step that fails stops the run with AWS's reason.
+The job is done when every step in its plan has SUCCEEDED and the plan includes "Generate requirements". (Before the selection, the plan holds only the assessment steps, so "every step succeeded" alone is not enough.) AWS keeps the job's own status at EXECUTING while a non-blocking form is open, so Reframe does not wait for COMPLETED. A step that fails stops the run with AWS's reason.
 
 ### Stage 7: retrieval
 

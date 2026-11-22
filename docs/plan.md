@@ -18,7 +18,7 @@ Status: draft for the owner's agreement, with [the specification](specification.
 | 3 | Preflight | §4 stage 0 | Each missing piece stops the run with the exact fix |
 | 4 | Source snapshot and upload | §4 stages 1, 3 | The archive's SHA-256 matches the object in S3 |
 | 5 | Terraform roots and apply | §4 stage 2 | Plans that only add, applied; outputs recorded |
-| 6 | AWS Transform setup: workspace and connectors | §4 stage 4 | Connectors ACTIVE, IDs recorded from AWS's replies |
+| 6 | AWS Transform setup: workspace and reimagine connector | §4 stage 4 | Connector ACTIVE, IDs recorded from AWS's replies |
 | 7 | Job creation and the driver loop | §4 stages 5, 6 | The job is polled and its tasks classified; done means every plan step SUCCEEDED |
 | 8 | Answers: plan choice, function selection by structured chat reply, confirmation, defaults | §4 stage 6, §5 | Autonomous answers recorded in `decisions.json` |
 | 9 | Interactive mode: `reframe answer` | §5 | Every waiting question can be answered from the CLI |
