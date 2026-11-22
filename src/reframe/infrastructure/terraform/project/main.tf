@@ -45,6 +45,22 @@ variable "neptune_max_capacity" {
   default     = 8
 }
 
+variable "existing_graph" {
+  description = "An existing Neptune cluster the person chose, used exactly as it is: never managed, changed or destroyed here."
+  type = object({
+    name                = string
+    cluster_arn         = string
+    cluster_resource_id = string
+    configuration       = map(string)
+  })
+  default = null
+  validation {
+    condition = var.existing_graph == null || try(length(setsubtract(["s3BucketArn", "neptuneClusterArn", "neptuneClusterResourceId",
+    "neptuneBulkUploadRoleArn", "vpcSubnetIds", "vpcSecurityGroupId"], keys(var.existing_graph.configuration))) == 0, false)
+    error_message = "An existing graph needs all six connector values."
+  }
+}
+
 locals {
   prefix = "reframe-${var.project}-${var.run}"
 }
@@ -69,6 +85,7 @@ module "repo" {
 
 module "neptune_graph" {
   source         = "../modules/neptune_graph"
+  count          = var.existing_graph == null ? 1 : 0
   name           = "${local.prefix}-kg"
   bucket_name    = module.repo.bucket
   max_capacity   = var.neptune_max_capacity
@@ -76,12 +93,24 @@ module "neptune_graph" {
   final_snapshot = false
 }
 
+locals {
+  graph = var.existing_graph != null ? {
+    cluster_arn         = var.existing_graph.cluster_arn
+    cluster_resource_id = var.existing_graph.cluster_resource_id
+    configuration       = var.existing_graph.configuration
+    } : {
+    cluster_arn         = module.neptune_graph[0].cluster_arn
+    cluster_resource_id = module.neptune_graph[0].cluster_resource_id
+    configuration       = tomap(module.neptune_graph[0].connector_configuration)
+  }
+}
+
 module "reimagine_role" {
   source              = "../modules/reimagine_role"
   role_name           = "${local.prefix}-rmg"
   bucket_name         = module.repo.bucket
-  cluster_arn         = module.neptune_graph.cluster_arn
-  cluster_resource_id = module.neptune_graph.cluster_resource_id
+  cluster_arn         = local.graph.cluster_arn
+  cluster_resource_id = local.graph.cluster_resource_id
 }
 
 output "bucket" {
@@ -91,7 +120,8 @@ output "bucket" {
 output "reimagine_connector" {
   description = "What Reframe creates the reimagine connector from."
   value = {
-    configuration = module.neptune_graph.connector_configuration
+    configuration = local.graph.configuration
     role_arn      = module.reimagine_role.role_arn
+    graph         = var.existing_graph != null ? "existing" : "new"
   }
 }
