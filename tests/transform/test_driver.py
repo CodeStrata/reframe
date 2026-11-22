@@ -137,6 +137,16 @@ class DriverTest(unittest.TestCase):
         self.step(d, snapshot("EXECUTING", [("Reimagine", "IN_PROGRESS")]), system("m2", "Adding steps to your plan...", "2026-11-21T18:31:00"))
         self.assertFalse(self.folder.exists("question.json"))
 
+    def test_saved_question_shows_the_newer_reading(self):
+        d = self.driver("interactive")
+        d._ensure_job()
+        self.folder.save("question.json", {"id": "m1", "kind": "chat", "text": "x", "options": [], "asked_at": "earlier"})
+        text = "Please confirm to proceed with the reimagine workflow for the domain."
+        self.step(d, snapshot("AWAITING_HUMAN_INPUT", [("Discover business functions", "PENDING_HUMAN_INPUT")]),
+                  system("m1", text, "2026-11-21T18:30:00"))
+        saved = self.folder.load("question.json")
+        self.assertEqual((saved["kind"], saved["options"][0], saved["asked_at"]), ("confirm", "Yes, proceed", "earlier"))
+
     def test_interactive_waits_for_answer(self):
         d = self.driver("interactive")
         d._ensure_job()

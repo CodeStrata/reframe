@@ -336,6 +336,9 @@ class Driver:
             self.folder.save("question.json", {**question.as_json(), "asked_at": iso(self.clock())})
             self.folder.remove("answer.json")
             self.folder.event("question_waiting", id=question.id, kind=question.kind)
+        elif (pending.get("kind"), pending.get("options")) != (question.kind, list(question.options)):
+            # The same message, read differently by a newer Reframe: show the new options; an answer already given stays.
+            self.folder.save("question.json", {**question.as_json(), "asked_at": pending.get("asked_at") or iso(self.clock())})
         reply = self.folder.load("answer.json")
         if reply and reply.get("id") == question.id:
             return Answer(reply["text"], reply.get("reason", "answered by the person"), question.interaction_origin_id)
