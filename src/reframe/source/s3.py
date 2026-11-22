@@ -70,7 +70,7 @@ def upload(aws: Aws, folder: RunFolder, changes: Changes, bucket: Bucket, data: 
     if not matches(found):
         raise Stop(Outcome.FAILED, "the uploaded source does not match the snapshot's SHA-256")
     record = {"uri": f"s3://{bucket.name}/{key}", "key": key, "sha256": digest_hex, "version_id": receipt.get("version_id")}
-    folder.update(source=record)
+    folder.update(upload=record)
     folder.event("uploaded", key=key, bytes=len(data))
     return record
 
