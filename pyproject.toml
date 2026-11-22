@@ -9,7 +9,7 @@ description = "Run an AWS Transform mainframe assessment end to end from one com
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = ["mcp>=2,<3", "PyYAML>=6,<7"]
+dependencies = ["mcp>=2,<3", "PyYAML>=6,<7", "rich>=13,<15"]
 
 [project.scripts]
 reframe = "reframe.core.cli:main"
