@@ -282,6 +282,11 @@ class Driver:
             return
         message_id = str(message["messageId"])
         step = f"reply-{message_id}"
+        pending = self.folder.load("question.json")
+        if pending and not str(pending.get("id", "")).startswith("task-") and pending.get("id") != message_id:
+            # AWS has said something since; a question saved for an older message is no longer pending.
+            self.folder.remove("question.json")
+            self.folder.remove("answer.json")
         if self.changes.receipt(step) is not None:
             return
         question = answers.chat_question(message, awaiting=awaiting)

@@ -128,6 +128,15 @@ class DriverTest(unittest.TestCase):
         self.assertEqual(self.client.changed("complete_task"), [])
         self.assertEqual(self.folder.load("question.json")["kind"], "form")
 
+    def test_question_for_an_older_message_is_cleared(self):
+        d = self.driver("interactive")
+        d._ensure_job()
+        awaiting = snapshot("AWAITING_HUMAN_INPUT", [("Discover business functions", "PENDING_HUMAN_INPUT")])
+        self.step(d, awaiting, system("m1", "Which output format would you like?", "2026-11-21T18:30:00"))
+        self.assertEqual(self.folder.load("question.json")["id"], "m1")
+        self.step(d, snapshot("EXECUTING", [("Reimagine", "IN_PROGRESS")]), system("m2", "Adding steps to your plan...", "2026-11-21T18:31:00"))
+        self.assertFalse(self.folder.exists("question.json"))
+
     def test_interactive_waits_for_answer(self):
         d = self.driver("interactive")
         d._ensure_job()
