@@ -9,7 +9,7 @@ description = "Run an AWS Transform mainframe assessment end to end from one com
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = ["mcp>=2,<3"]
+dependencies = ["mcp>=2,<3", "PyYAML>=6,<7"]
 
 [project.scripts]
 reframe = "reframe.core.cli:main"
@@ -19,3 +19,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "reframe.infrastructure" = ["terraform/*/*.tf", "terraform/modules/*/*.tf"]
+"reframe.report" = ["template.html"]
