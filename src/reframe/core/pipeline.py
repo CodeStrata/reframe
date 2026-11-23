@@ -20,7 +20,8 @@ STAGES = ("preflight", "snapshot", "infrastructure", "upload", "transform", "job
 
 
 def terraform_binary(explicit: str | None) -> str:
-    return explicit or os.environ.get("REFRAME_TERRAFORM") or shutil.which("terraform") or "terraform"
+    from reframe.core.setup import saved_terraform
+    return explicit or os.environ.get("REFRAME_TERRAFORM") or saved_terraform() or shutil.which("terraform") or "terraform"
 
 
 @dataclass

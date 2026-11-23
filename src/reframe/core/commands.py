@@ -17,7 +17,8 @@ say = sys.stdout.write
 
 
 def _fail(stop: Stop) -> int:
-    sys.stderr.write(f"{stop.outcome.value}: {stop.message}\n")
+    from reframe.core import ui
+    ui.error(f"{stop.outcome.value}: {stop.message}")
     return EXIT_CODES[stop.outcome]
 
 
@@ -38,30 +39,53 @@ def _start_worker(folder: RunFolder, task: str = "run") -> int:
 
 
 def run(args) -> int:
-    from reframe.core import pipeline
+    """With --source, start at once and ask nothing; without it, the guided run (reframe.core.guide)."""
+    if not args.source:
+        from reframe.core import guide
+        return guide.run(args)
+    from reframe.core.setup import load_config
+    saved = load_config()
+    profile = args.profile or saved.get("profile")
+    if not profile:
+        return _fail(Stop(Outcome.REFUSED, "no AWS profile: pass --profile, or run reframe setup once to choose and save one"))
+    return start(source=args.source, profile=profile, ref=args.ref, mode=args.mode, region=args.region or saved.get("region") or "us-east-1",
+                 project=args.project, graph=args.graph, terraform=args.terraform, foreground=args.foreground)
+
+
+def start(*, source: str, profile: str, ref: str | None, mode: str, region: str, project: str | None, graph: str | None,
+          terraform: str | None, foreground: bool) -> int:
+    """Stage 0 and the Neptune choice here, then stages 1 to 8 in a background worker (or this terminal)."""
+    from reframe.core import pipeline, ui
     from reframe.source.snapshot import kind
     try:
-        kind(args.source)
-        source = args.source if kind(args.source) == "git-url" else str(Path(args.source).expanduser().resolve())
-        project = args.project or project_name(args.source.rstrip("/").removesuffix(".zip"))
+        kind(source)
+        source = source if kind(source) == "git-url" else str(Path(source).expanduser().resolve())
+        project = project or project_name(source.rstrip("/").removesuffix(".zip"))
         folder = new_run(project)
     except (Stop, ReframeError) as error:
         return _fail(error if isinstance(error, Stop) else Stop(Outcome.REFUSED, str(error)))
-    folder.update(project=project, source=source, ref=args.ref, mode=args.mode, graph_arg=args.graph, profile=args.profile,
-                  region=args.region, terraform=pipeline.terraform_binary(args.terraform), started_at=iso(), stage="preflight", status="RUNNING")
-    say(f"Run {folder.root.name} for {project} ({args.mode} mode)\nRun folder: {folder.root}\n")
+    folder.update(project=project, source=source, ref=ref, mode=mode, graph_arg=graph, profile=profile,
+                  region=region, terraform=pipeline.terraform_binary(terraform), started_at=iso(), stage="preflight", status="RUNNING")
+    ui.section(f"Run {folder.root.name}")
+    ui.hint(f"{project} · {mode} mode · run folder {folder.root}")
     ctx = pipeline.Context.load(folder)
     try:
+        ui.hint("Checking everything the run needs (preflight)…")
         pipeline.prepare(ctx, _prompt, say)
     except Stop as stop:
         pipeline.record_stop(ctx, stop)
         return _fail(stop)
-    graph = ctx.state["graph"]
-    say(f"Neptune graph: {'existing cluster ' + graph['name'] if graph['kind'] == 'existing' else 'a new graph for this run'}\n")
-    if args.foreground:
+    graph_state = ctx.state["graph"]
+    ui.ok("Preflight passed")
+    ui.ok("Neptune: " + ("existing cluster " + graph_state["name"] if graph_state["kind"] == "existing" else "a new graph for this run"))
+    if foreground:
         return worker(type("Args", (), {"folder": str(folder.root), "task": "run"})())
     pid = _start_worker(folder)
-    say(f"Started in the background (process {pid}). Follow it with:\n  reframe status\n  reframe events --follow\n")
+    ui.console.print()
+    ui.panel(f"The run continues in the background (process {pid}); it takes about an hour.\n"
+             "Follow it:        reframe status   ·   reframe events --follow\n"
+             + ("Answer AWS:       reframe answer\n" if mode == "interactive" else "")
+             + "When it is done:  reframe report --open   ·   reframe teardown", "Started", "green")
     return 0
 
 
@@ -129,36 +153,45 @@ NEXT = {Outcome.WAITING_SIGNIN.value: "sign in with aws sso login --profile {pro
         Outcome.FAILED.value: "read the message and worker.log; reframe resume tries again, reframe teardown removes the resources"}
 
 
+STATUS_STYLE = {"DONE": "bold green", "RUNNING": "bold bright_cyan", "WAITING_HUMAN": "bold yellow", "WAITING_SIGNIN": "bold yellow",
+                "UNCERTAIN": "bold yellow", "REFUSED": "bold red", "FAILED": "bold red"}
+STEP_STYLE = {"SUCCEEDED": "[green]✓ succeeded[/]", "IN_PROGRESS": "[bright_cyan]● in progress[/]", "PENDING_HUMAN_INPUT": "[yellow]? waiting for input[/]",
+              "FAILED": "[red]✗ failed[/]", "NOT_STARTED": "[dim]not started[/]"}
+
+
 def status(args) -> int:
+    from reframe.core import ui
     try:
         folder = find_run(args.run)
     except Stop as stop:
         return _fail(stop)
     state, pid = folder.state, folder.worker_pid()
-    say(f"Run {folder.root.name}: {state.get('project')} from {state.get('source')} ({state.get('mode')} mode)\n")
-    say(f"Stage: {state.get('stage')} | status: {state.get('status')}" + (f" | worker running (process {pid})" if pid else "") + "\n")
+    ui.section(f"Run {folder.root.name} · {state.get('project')}")
+    ui.hint(f"{state.get('source')} · {state.get('mode')} mode" + (f" · worker running (process {pid})" if pid else ""))
+    ui.state("Status", f"{state.get('status')} · stage {state.get('stage')}", STATUS_STYLE.get(str(state.get("status")), "bold yellow"))
     if state.get("graph"):
         graph = state["graph"]
-        say(f"Neptune: {'existing cluster ' + graph['name'] if graph['kind'] == 'existing' else 'new graph'}\n")
+        ui.state("Neptune", "existing cluster " + graph["name"] if graph["kind"] == "existing" else "a new graph", "")
     job = state.get("job")
     if job:
-        say(f"AWS Transform job: {job['status']} (poll {job['poll']} at {job['at']})\n")
-        for step in job.get("steps") or []:
-            say(f"  - {step['name']}: {step['status']}\n")
+        ui.state("AWS Transform job", f"{job['status']} (poll {job['poll']} at {job['at']})", "")
+        steps = job.get("steps") or []
+        if steps:
+            ui.table(("Plan step", ""), [(step["name"], STEP_STYLE.get(step["status"], step["status"])) for step in steps])
     question = folder.load("question.json")
     if question:
-        say(f"\nAWS is waiting for an answer ({question['kind']}). See it with: reframe answer\n")
-    if state.get("message"):
-        say(f"\n{state['message']}\n")
+        ui.warn(f"AWS is waiting for an answer ({question['kind']}). See it with: reframe answer")
+    if state.get("message") and not state.get("torn_down"):  # the run's last message predates the teardown
+        ui.say(state["message"])
     if state.get("report"):
-        say(f"Report: {folder.path(state['report'])}\n")
+        ui.state("Report", str(folder.path(state["report"])), "bright_cyan")
     if state.get("torn_down"):
-        say(f"Torn down at {state['torn_down']}.\n")
+        ui.ok(f"Torn down at {state['torn_down']}.")
     hint = NEXT.get(str(state.get("status")))
     if hint and not pid:
-        say("Next: " + hint.format(profile=state.get("profile")) + "\n")
+        ui.state("Next", hint.format(profile=state.get("profile")), "bright_cyan")
     elif state.get("status") == Outcome.DONE.value and not state.get("torn_down"):
-        say("Next: open the report with reframe report --open; remove the AWS resources with reframe teardown\n")
+        ui.state("Next", "open the report with reframe report --open; remove the AWS resources with reframe teardown", "bright_cyan")
     return 0
 
 

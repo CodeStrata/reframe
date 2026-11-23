@@ -14,6 +14,7 @@ from reframe import __version__
 
 HANDLERS = {
     "run": "reframe.core.commands:run",
+    "setup": "reframe.core.guide:setup_only",
     "status": "reframe.core.commands:status",
     "events": "reframe.core.commands:events",
     "answer": "reframe.core.commands:answer",
@@ -33,18 +34,22 @@ def parser() -> argparse.ArgumentParser:
     top.add_argument("--version", action="version", version=f"reframe {__version__}")
     commands = top.add_subparsers(dest="command", metavar="<command>")
 
-    run = commands.add_parser("run", help="Create the AWS resources, run the assessment, download the results and build the report; the resources stay until reframe teardown")
-    run.add_argument("--source", required=True, help="the mainframe source: a local folder, a local .zip file, or a GitHub URL")
-    run.add_argument("--profile", required=True, help="the AWS CLI profile to sign in with")
+    run = commands.add_parser("run", help="Assess mainframe source with AWS Transform: with no options, a guided run that checks and sets up "
+                              "everything first; the AWS resources stay until reframe teardown")
+    run.add_argument("--source", help="the mainframe source: a local folder, a local .zip file, or a GitHub URL; given, nothing is asked "
+                     "and the prerequisites are assumed to be set up")
+    run.add_argument("--profile", help="the AWS CLI profile to sign in with (default: the one saved by the guided setup)")
     run.add_argument("--ref", help="for a Git checkout or URL: the branch, tag or commit to assess (default: HEAD)")
     run.add_argument("--mode", choices=("autonomous", "interactive"), default="autonomous",
                      help="autonomous: Reframe answers AWS and records why; interactive: answer each question with reframe answer")
-    run.add_argument("--region", default="us-east-1", help="AWS region (default: us-east-1)")
+    run.add_argument("--region", help="AWS region (default: the one saved by the guided setup, then us-east-1)")
     run.add_argument("--project", help="project name used in resource names (default: from the source's name)")
     run.add_argument("--graph", default=None, help="new, existing (choose from a list) or the name of an existing Neptune cluster "
                      "(default: interactive mode asks; autonomous mode creates a new graph)")
     run.add_argument("--terraform", help="the Terraform binary to use (default: REFRAME_TERRAFORM, then terraform on PATH)")
     run.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
+
+    commands.add_parser("setup", help="Check and set up the prerequisites and the AWS sign-in, without starting a run")
 
     status = commands.add_parser("status", help="The run's stage, the job's plan steps, any waiting question and the next step")
     _run_option(status)
@@ -80,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.command:
         parser().print_help()
         return 2
+    from reframe.core.setup import use_saved_paths
+    use_saved_paths()
     module, _, name = HANDLERS[args.command].partition(":")
     try:
         handler = getattr(importlib.import_module(module), name)

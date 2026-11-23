@@ -27,93 +27,83 @@ Every change Reframe makes in AWS is written down before it is sent and confirme
 ## What you need
 
 - macOS or Linux, with Python 3.10 or later.
-- [uv](https://docs.astral.sh/uv/), Git, the [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) and [Terraform](https://developer.hashicorp.com/terraform/install) 1.10 or later.
+- [uv](https://docs.astral.sh/uv/) to install Reframe. The guided run checks the rest and offers to install what is missing: Git, the [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html), [Terraform](https://developer.hashicorp.com/terraform/install) 1.10 or later and the AWS Transform MCP server.
 - An AWS account where AWS Transform is available (Reframe uses `us-east-1` by default), and an AWS CLI profile that signs in with IAM Identity Center (`aws sso login`).
 - That profile needs permission to create and delete S3 buckets, IAM roles, a VPC with subnets and security groups, a Neptune Serverless cluster, and an AWS Transform workspace, connector and job.
 
 ## Install
 
-1. Install Reframe from the `v2` branch:
+You need macOS or Linux (on Windows, use WSL2), Python 3.10 or later, and [uv](https://docs.astral.sh/uv/). Install Reframe from a clone of this repository on the `v2` branch:
 
-   ```bash
-   uv tool install "git+https://github.com/sknampally/reframe@v2"
-   ```
+```bash
+uv tool install --reinstall --editable ~/path/to/reframe
+```
 
-2. Fetch the AWS Transform MCP server once. Reframe runs this exact version and never downloads it during a run:
-
-   ```bash
-   uvx --from awslabs.aws-transform-mcp-server==0.2.4 python -c pass
-   ```
-
-3. Check that both work:
-
-   ```bash
-   reframe --version
-   ```
-
-   ```bash
-   terraform version
-   ```
-
-   If `terraform` on your PATH is older than 1.10, point Reframe at a newer binary with `--terraform /path/to/terraform` on `reframe run`, or set `REFRAME_TERRAFORM` in your shell:
-
-   ```bash
-   export REFRAME_TERRAFORM=/path/to/terraform
-   ```
-
-To update Reframe later, run the install command again with `--reinstall`:
+Or, without a clone, straight from GitHub:
 
 ```bash
 uv tool install --reinstall "git+https://github.com/sknampally/reframe@v2"
 ```
 
-## Run an assessment
+Check it with `reframe --version`. With the editable install, `git pull` in the clone updates Reframe; reinstall only when `pyproject.toml` changes.
 
-1. Sign in. Reframe never signs in for you; it uses the profile you name:
+Everything else a run needs is checked, and installed on request, by the guided run below.
 
-   ```bash
-   aws sso login --profile my-profile
-   ```
+## Run an assessment: the guided way
 
-2. Start a run with one of the three source forms. Each command checks everything first, then starts the work in the background and returns.
+```bash
+reframe run
+```
 
-   A GitHub repository (add `--ref <branch, tag or commit>` to pick a version):
+Reframe guides you through five steps and checks each answer before going on:
 
-   ```bash
-   reframe run --source https://github.com/aws-samples/aws-mainframe-modernization-carddemo --profile my-profile
-   ```
+1. **Prerequisites.** A table of what a run needs and what this computer has: Git, the AWS CLI v2, uv, Terraform 1.10 or later and the AWS Transform MCP server (Claude Code is listed as optional, for pipeline 2). For anything missing it shows the install command for your operating system and offers to run it; nothing is installed without your yes. Reframe installs Terraform itself: the pinned HashiCorp release, checked against HashiCorp's SHA-256 sums, kept in `~/.reframe/tools` and used from there, so your PATH, your shell files and any older Terraform stay as they are.
+2. **AWS sign-in.** Choose one of your AWS CLI profiles and the region. If the profile is not signed in, Reframe offers to run `aws sso login` for you; you sign in in your browser, and Reframe never sees your credentials. With no profiles, it offers `aws configure sso`.
+3. **Source.** A GitHub or Git URL (checked with Git, and optionally a branch, tag or commit), a local folder, or a local ZIP file.
+4. **Choices.** Autonomous or interactive (see below), the project name used in AWS resource names, and a new Neptune graph or an existing cluster.
+5. **Summary.** What will be created, then one yes to start. The run continues in the background.
 
-   A local folder:
+Your profile, region and tool paths are saved in `~/.reframe/config.json` as the next run's defaults. To check the prerequisites and sign in without starting a run:
 
-   ```bash
-   reframe run --source ~/code/my-mainframe-app --profile my-profile
-   ```
+```bash
+reframe setup
+```
 
-   A local ZIP file:
+### Follow the run
 
-   ```bash
-   reframe run --source ~/Downloads/my-mainframe-app.zip --profile my-profile
-   ```
+```bash
+reframe status
+```
 
-   The project name in the AWS resource names comes from the source's name. Set your own with `--project`, using lower-case letters, digits and hyphens (at most 30 characters).
+```bash
+reframe events --follow
+```
 
-3. Follow it:
+`reframe status` shows the stage, the AWS Transform job's plan steps, any question waiting for you and what to do next. Every command acts on your latest run; add `--run <run id>` for another one. The run ID is printed when the run starts.
 
-   ```bash
-   reframe status
-   ```
+Open the report when the run is done:
 
-   ```bash
-   reframe events --follow
-   ```
+```bash
+reframe report --open
+```
 
-   `reframe status` shows the stage, the AWS Transform job's plan steps, any question waiting for you and what to do next. Every command acts on your latest run; add `--run <run id>` for another one. The run ID is printed when the run starts.
+### Run without questions
 
-4. Open the report when the run is done:
+When the prerequisites are set up (for example after `reframe setup`, or on a build machine), give the source and Reframe asks nothing. The profile and region default to the ones you saved:
 
-   ```bash
-   reframe report --open
-   ```
+```bash
+reframe run --source https://github.com/aws-samples/aws-mainframe-modernization-carddemo
+```
+
+```bash
+reframe run --source ~/code/my-mainframe-app --profile my-profile --mode interactive
+```
+
+```bash
+reframe run --source ~/Downloads/my-mainframe-app.zip --project my-app
+```
+
+Add `--ref <branch, tag or commit>` for a Git source, `--region` for another region, `--graph new|existing|<cluster name>` for the Neptune choice, and `--terraform /path/to/terraform` (or `REFRAME_TERRAFORM`) for a Terraform of your own.
 
 ### Autonomous or interactive
 

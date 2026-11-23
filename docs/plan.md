@@ -30,6 +30,9 @@ Status: draft for the owner's agreement, with [the specification](specification.
 | P1-12 | `status` and `events` | §3 | Shows stage, plan steps, waiting question and next step |
 | P1-13 | Live acceptance from the CLI | §9 | Every run in section 9 passes; results recorded without identifiers |
 | P1-14 | README | | Written last, from the tested commands |
+| P1-18 | Guided prerequisites: check, install on request, remember | §3 | Each missing tool is named with its install command for macOS or Linux and installed only on a yes; Terraform is installed by Reframe and checked against HashiCorp's SHA-256 sums; the MCP server is fetched once; paths are saved and used |
+| P1-19 | Guided run: sign-in, source and choices | §3 | `reframe run` with no arguments chooses a profile, checks or starts the sign-in, takes and checks the source, asks the mode, project and Neptune choice, shows a summary, and starts on one yes; `reframe run --source` asks nothing |
+| P1-20 | The look of the first console | §3 | Header panel, coloured status, tables and numbered choices in the guided run and `reframe status`; plain output without a terminal |
 
 ## Decisions
 
