@@ -5,7 +5,9 @@
 2. Every resource is listed at once and the person types yes.
 3. The consent (who, when, the list and its hash) is recorded before anything is deleted. If the list
    changes before deletion starts, consent is asked again.
-4. Deletion runs in order: job, workspace, connector check, network interfaces, project root, bootstrap root.
+4. Deletion runs in order: job, workspace, connector check; for pipeline 2, Claude's named graph on an existing cluster
+   and then the graph loader, waiting until AWS releases the loader's network interfaces (docs/pipeline-2.md); network
+   interfaces AWS Transform left; project root; bootstrap root.
 5. A read-only check reports anything tagged with the run that still exists.
 """
 
@@ -29,7 +31,8 @@ LABELS = {"aws_s3_bucket": "S3 bucket", "aws_iam_role": "IAM role", "aws_iam_rol
           "aws_s3_bucket_policy": "S3 bucket policy", "aws_s3_bucket_versioning": "S3 bucket versioning",
           "aws_s3_bucket_ownership_controls": "S3 bucket ownership setting",
           "aws_s3_bucket_public_access_block": "S3 bucket public access block",
-          "aws_s3_bucket_server_side_encryption_configuration": "S3 bucket encryption setting"}
+          "aws_s3_bucket_server_side_encryption_configuration": "S3 bucket encryption setting",
+          "aws_lambda_function": "Lambda function (pipeline 2 graph loader)", "aws_cloudwatch_log_group": "Log group (graph loader)"}
 
 
 def _name(resource: dict[str, Any]) -> str:
@@ -81,7 +84,7 @@ def digest(items: list[dict[str, Any]]) -> str:
     return hashlib.sha256(json.dumps(items, sort_keys=True).encode()).hexdigest()
 
 
-def describe(items: list[dict[str, Any]], graph: dict[str, Any] | None) -> str:
+def describe(items: list[dict[str, Any]], graph: dict[str, Any] | None, claude_graph: str | None = None) -> str:
     lines = [f"Reframe will delete these {len(items)} AWS resources, all created by this run:", ""]
     width = max((len(i["kind"]) for i in items), default=10)
     for number, item in enumerate(items, 1):
@@ -89,8 +92,13 @@ def describe(items: list[dict[str, Any]], graph: dict[str, Any] | None) -> str:
     if any(i["kind"] == "VPC" for i in items):
         lines += ["", "AWS Transform can leave a network interface in this run's VPC while the job is deleted. Reframe also deletes",
                   "any such interface it finds in that VPC (described as managed by AWS Transform), so the VPC can be deleted."]
+    if any(i["kind"].startswith("Lambda function") for i in items):
+        lines += ["", "Pipeline 2's graph loader is deleted first. AWS takes a while to release its network interfaces, and",
+                  "Reframe waits for that before it deletes the network."]
     if graph and graph.get("kind") == "existing":
         lines += ["", f"The existing Neptune cluster {graph['name']} is not in the list: Reframe never changes or deletes it."]
+    if claude_graph:
+        lines += [f"Claude's named graph ({claude_graph}) is dropped from that cluster; AWS Transform's graph is not touched."]
     return "\n".join(lines) + "\n"
 
 
@@ -100,7 +108,9 @@ def ask(ctx: Context, prompt: Callable[[str], str], say: Callable[[str], None]) 
     if not items:
         say("This run has no AWS resources left to delete.\n")
         return None
-    say(describe(items, ctx.state.get("graph")))
+    loaded = ((ctx.state.get("claude") or {}).get("graph") or {})
+    existing = (ctx.state.get("graph") or {}).get("kind") == "existing"
+    say(describe(items, ctx.state.get("graph"), loaded.get("graph") if existing and loaded.get("loaded_at") else None))
     try:
         answer = prompt(f"Type yes to delete all {len(items)} resources, or anything else to keep them: ").strip()
     except EOFError:
@@ -137,6 +147,19 @@ def delete(ctx: Context, consented: list[dict[str, Any]], say: Callable[[str], N
     if transform.get("connector_id"):
         step("connector", transform_teardown.delete_connector(ctx.api(), ctx.folder, ctx.changes, transform["connector_id"], ctx.names()["connector"]))
     tf = ctx.terraform()
+    from reframe.claude import load
+    dropped = load.drop_for_teardown(ctx)
+    if dropped:
+        step("Claude's graph on the existing cluster", dropped)
+    if any(i["kind"].startswith("Lambda function") for i in consented):
+        project_items = tf.inventory("project", ctx.backend())
+        function = next((i["name"] for i in project_items if i["type"] == "aws_lambda_function"), None)
+        deleted = tf.destroy("project", ctx.changes, ctx.backend(), targets=["module.graph_loader"], step="terraform-project-destroy-graph-loader")["deleted"]
+        step("pipeline 2 graph loader (Terraform)", f"destroyed {len(deleted)}")
+        vpc = tf.vpc_id(project_items)
+        if vpc and function:
+            waited = network.wait_for_lambda_interfaces(ctx.aws, vpc, function)
+            step("graph loader's network interfaces", f"released after {waited // 60} min {waited % 60} s")
     if any(i["from"].startswith("Terraform project") for i in consented):
         vpc = tf.vpc_id(tf.inventory("project", ctx.backend()))
         for attempt in range(1, 4):

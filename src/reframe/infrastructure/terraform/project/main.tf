@@ -61,6 +61,18 @@ variable "existing_graph" {
   }
 }
 
+variable "graph_loader" {
+  description = "Pipeline 2: create the graph loader function that loads Claude's graph into the cluster (docs/pipeline-2.md, stage C7)."
+  type        = bool
+  default     = false
+}
+
+variable "graph_loader_zip" {
+  description = "The graph loader's package, built by Reframe; needed when graph_loader is true."
+  type        = string
+  default     = ""
+}
+
 locals {
   prefix = "reframe-${var.project}-${var.run}"
 }
@@ -111,6 +123,21 @@ module "reimagine_role" {
   bucket_name         = module.repo.bucket
   cluster_arn         = local.graph.cluster_arn
   cluster_resource_id = local.graph.cluster_resource_id
+}
+
+module "graph_loader" {
+  source              = "../modules/graph_loader"
+  count               = var.graph_loader ? 1 : 0
+  name                = "${local.prefix}-kgload"
+  zip                 = var.graph_loader_zip
+  subnet_ids          = split(",", local.graph.configuration["vpcSubnetIds"])
+  security_group_id   = local.graph.configuration["vpcSecurityGroupId"]
+  cluster_resource_id = local.graph.cluster_resource_id
+}
+
+output "graph_loader" {
+  description = "Pipeline 2's graph loader function, when it was created."
+  value       = var.graph_loader ? module.graph_loader[0].function_name : null
 }
 
 output "bucket" {
