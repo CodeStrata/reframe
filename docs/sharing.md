@@ -33,13 +33,26 @@ The review marks in a published copy stay in each reader's browser, as in the or
 
 The reports of a full CardDemo run (pipeline 1 and pipeline 2, same snapshot) are published into `reports/carddemo/` in the repository and linked from the README, so anyone can read them from GitHub or a clone. CardDemo is AWS's public sample, so its results can be shared. A newer run replaces the copy in a later commit.
 
-## 4. A static site on AWS (S-03, S-04)
+## 4. The reports in your AWS account (S-03, S-04)
 
-For clients on AWS, the reports are served from their own account:
+The owner's decision (23 November 2026): published reports are open only to people who can already sign in to the AWS account. So there is no public website and no CloudFront. The reports sit in a private S3 bucket, and each reader opens them with their own AWS sign-in.
 
-- **Infrastructure:** a Terraform root of its own, `site`, apart from any run, creates:
-  - a private S3 bucket (encrypted, versioned, public access blocked);
-  - a CloudFront distribution that reads the bucket through origin access control, over HTTPS with CloudFront's own certificate, or a custom domain and certificate when the owner gives them.
-- **Publishing:** `reframe publish --run <id> --to aws` makes the cleaned copy of section 2 and uploads it under the run's path, then prints the address.
-- **Lifetime:** the site outlives the runs. It is removed only by its own teardown, which lists what the site's records say it created, asks for consent and deletes by those records.
-- **Who can open it (S-04)** is the owner's choice, to be settled before it is built: anyone with the link, an IP allow list, or a sign-in in front of CloudFront.
+**The bucket (S-03).** A Terraform root of its own, `reports`, apart from any run, creates one bucket per account and region:
+
+- private: all public access blocked, objects owned by the bucket owner, and a policy that refuses any request not over TLS;
+- encrypted and versioned;
+- tagged `ManagedBy=reframe` and `ReframeStore=reports`;
+- with its state and records in `~/.reframe/reports-store/`.
+
+Reframe creates it the first time a report is uploaded, from a plan checked to only create.
+
+**The commands.** They sign in with the saved profile and region, or `--profile` and `--region`.
+
+| Command | What it does |
+|---|---|
+| `reframe publish [--run <id>] --to aws` | Makes the cleaned copy of section 2 and uploads it under `<project>/<run>/` in the bucket, with a receipt. |
+| `reframe reports` | Lists the reports in the bucket: project, run, source and when each was published. |
+| `reframe reports open <project>/<run>` | Downloads that report with your AWS sign-in into `~/.reframe/reports-store/cache/`, and opens it in your browser. |
+| `reframe reports teardown` | Lists the bucket and how many objects it holds from the store's own records, asks for `yes`, and removes the bucket with its contents. |
+
+**Who can open them (S-04).** Only someone whose AWS sign-in may read the bucket: `s3:ListBucket` and `s3:GetObject` on it. That is anyone the account already trusts with S3 reads, and no one else. Readers can also download a report from the S3 console. Nothing is reachable without signing in to the account.
