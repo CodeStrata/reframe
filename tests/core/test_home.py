@@ -36,6 +36,7 @@ class HomeTest(unittest.TestCase):
         self.assertIn("choose 1", home.next_step(None))
         done = self.make("alpha", "2026-11-01T10:00:00Z", status="DONE", stage="report")
         self.assertIn("choose 5", home.next_step(home.runs()[0]))
+        self.assertIn("choose 6", home.next_step(home.runs()[0]))
         done.update(torn_down="2026-11-01T12:00:00Z")
         self.assertIn("another run", home.next_step(home.runs()[0]))
 

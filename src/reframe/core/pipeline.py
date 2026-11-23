@@ -97,8 +97,9 @@ def prepare(ctx: Context, prompt: Callable[[str], str] | None, say: Callable[[st
 # ---- the worker ----------------------------------------------------------------------------------
 
 
-def work(ctx: Context) -> Outcome:
-    """Stages 1 to 8. Returns DONE, or raises Stop with the outcome to record."""
+def work(ctx: Context, on_resources: Callable[[], Any] | None = None) -> Outcome:
+    """Stages 1 to 8. Returns DONE, or raises Stop with the outcome to record. on_resources runs once the run's AWS
+    resources exist (pipeline 2 starts there, alongside this pipeline)."""
     from reframe.source import s3, snapshot
 
     state = ctx.state
@@ -115,6 +116,8 @@ def work(ctx: Context) -> Outcome:
     tf.variables("project", {"region": state["region"], "project": state["project"], "run": run, **(state["graph"]["variables"])})
     outputs = tf.apply("project", ctx.changes, ctx.backend())["outputs"]
     bucket = s3.Bucket(outputs["bucket"], state["account"])
+    if on_resources is not None:
+        on_resources()
 
     ctx.stage("upload")
     upload = s3.upload(ctx.aws, ctx.folder, ctx.changes, bucket, snapshot.archive_bytes(ctx.folder, record), record["sha256"])

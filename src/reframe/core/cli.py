@@ -21,6 +21,8 @@ HANDLERS = {
     "resume": "reframe.core.commands:resume",
     "report": "reframe.core.commands:report",
     "teardown": "reframe.core.commands:teardown",
+    "claude": "reframe.core.commands:claude",
+    "compare": "reframe.core.commands:compare",
     "worker": "reframe.core.commands:worker",
 }
 
@@ -75,12 +77,27 @@ def parser() -> argparse.ArgumentParser:
     _run_option(report)
     report.add_argument("--open", action="store_true", help="open the report in the browser")
 
+    claude = command("claude", "Pipeline 2: assess the same snapshot with Claude's code-modernization plugin, show it in the same "
+                     "business review, load its graph into the run's Neptune cluster, and compare it with AWS Transform's results")
+    _run_option(claude)
+    claude.add_argument("--auth", choices=("subscription", "bedrock"), default=None,
+                        help="how Claude signs in: your Claude subscription (default) or Amazon Bedrock with the run's AWS profile")
+    claude.add_argument("--max-agents", type=int, default=None, help="the agent limit for rule extraction (default: 600)")
+    claude.add_argument("--mode", choices=("autonomous", "interactive"), default=None, help="default: the run's mode")
+    claude.add_argument("--graph-load", choices=("yes", "no"), default=None,
+                        help="load Claude's graph into the cluster (default: yes on a graph the run created, no on an existing cluster)")
+    claude.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
+
+    compare = command("compare", "Build the page comparing AWS Transform's and Claude's results again")
+    _run_option(compare)
+    compare.add_argument("--open", action="store_true", help="open the page in the browser")
+
     teardown = command("teardown", "List every AWS resource the run created, ask for consent, record it, then remove them")
     _run_option(teardown)
 
     worker = commands.add_parser("worker")  # internal: the background worker started by run, resume and teardown
     worker.add_argument("folder")
-    worker.add_argument("--task", choices=("run", "teardown"), default="run")
+    worker.add_argument("--task", choices=("run", "teardown", "claude"), default="run")
     return top
 
 

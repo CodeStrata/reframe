@@ -1,6 +1,6 @@
 # Reframe specification: pipeline 2, the Claude assessment and the comparison
 
-Status: draft for the owner's agreement. Stories are built from it ([the plan](plan.md), pipeline 2). Parts marked *(spike)* are settled by the spikes P2-01 and P2-02 before they are built.
+Status: draft for the owner's agreement. Stories are built from it ([the plan](plan.md), pipeline 2). The spikes P2-01 and P2-02 settled the parts they were asked to settle; what they found is in [spikes/p2-01-plugin.md](spikes/p2-01-plugin.md) and [spikes/p2-02-neptune.md](spikes/p2-02-neptune.md) and is written into the stages below. Amazon Bedrock is built but not yet tried on a live run.
 
 ## 1. Goal
 
@@ -29,12 +29,24 @@ Out of scope: the plugin's planning and build steps (`modernize-brief`, `moderni
 
 | Command | What it does |
 |---|---|
-| `reframe claude [--run <id>] [--auth subscription\|bedrock] [--max-agents <n>]` | Runs stages C0 to C7 (below) on a pipeline 1 run, in the background worker. |
+| `reframe claude [--run <id>] [--auth subscription\|bedrock] [--max-agents <n>] [--mode autonomous\|interactive] [--graph-load yes\|no]` | Runs stages C0 to C8 (below) on a run, in its own background worker, alongside pipeline 1 once the run's AWS resources exist. `--max-agents` defaults to 600; `--mode` to the run's mode; `--graph-load` to yes on a graph the run created and no on an existing cluster. |
 | `reframe compare [--run <id>] [--open]` | Builds the comparison page again from both results, and opens it. |
 
 `reframe status`, `events`, `answer`, `resume`, `report` and `teardown` cover pipeline 2 as well. The home screen shows both pipelines for each run and has menu entries for both commands.
 
-**The guided run.** In `reframe run`'s choices step, one more question: *After AWS Transform finishes, assess the same snapshot with Claude?* The default answer is yes. With yes, Reframe also asks how Claude signs in (section 4, stage C0) and the agent limit for rule extraction (stage C4), and the worker continues into pipeline 2 as soon as pipeline 1 is done. With no, the home screen suggests `reframe claude` once pipeline 1 is done.
+**The guided run.** In `reframe run`'s choices step, one more question: *Assess the same snapshot with Claude as well?* The default answer is yes. With yes, Reframe also asks how Claude signs in (section 4, stage C0) and the agent limit for rule extraction (stage C4). With no, the home screen suggests `reframe claude` later.
+
+### Alongside pipeline 1
+
+Pipeline 2 doesn't wait for AWS Transform. What it needs is the snapshot (pipeline 1's stage 1) and the run's Neptune graph (stage 2). So when pipeline 2 is wanted:
+
+1. **Start.** As soon as pipeline 1's AWS resources exist, pipeline 1's worker starts pipeline 2's own worker. `reframe claude` on a run that is already past stage 2 starts it at once.
+2. **Two workers, one run folder.** Each pipeline has its own lock and its own status (`run.json`'s `claude` key for pipeline 2). Changes to `run.json` and the decisions file are made under a file lock, so the two workers never overwrite each other. A pipeline 2 question in interactive mode has its own question file; `reframe answer` shows pipeline 1's first, then pipeline 2's.
+3. **The work in parallel:**
+   - Stages C0 to C7 run while AWS Transform works: the plugin's steps, retrieval, the generated requirements, and Claude's graph in the same cluster.
+   - The graph load goes into Claude's own named graph, so it can't disturb AWS Transform's.
+4. **Waiting for the comparison.** Stage C8 builds Claude's review at once, then waits for AWS Transform's results before it compares them. If pipeline 1 stops, pipeline 2 stops too and says so. `reframe resume` continues pipeline 1, and the comparison follows when both are done.
+5. **Teardown** refuses while either worker is running.
 
 ## 4. Stages
 
@@ -44,22 +56,37 @@ Each stage records an intent before it starts and a receipt when it ends, in the
 
 Checked before anything runs, each failure stopping with the exact fix:
 
-- pipeline 1 is done for the run, and the run is not torn down;
+- pipeline 1's snapshot and AWS resources exist (its stages 1 and 2 are done), and the run is not torn down;
 - Claude Code is installed and signed in for the chosen way:
   - **subscription** (default): the person's own Claude Code sign-in;
-  - **bedrock**: Claude Code's Amazon Bedrock settings, either with the run's AWS profile and region or with a Bedrock API key the person has set in their environment. Reframe passes the key through to Claude Code and never writes it anywhere. *(spike: the exact settings and the models available in the region)*
-- the plugin is installed at the pinned version;
+  - **bedrock**: Claude Code's Amazon Bedrock settings (`CLAUDE_CODE_USE_BEDROCK=1` and the run's region), either with the run's AWS profile (its exported short-lived credentials, as Terraform gets them) or with a Bedrock API key the person has set in their environment (`AWS_BEARER_TOKEN_BEDROCK`). Reframe passes the key through to Claude Code and never writes it anywhere. A model chosen with `ANTHROPIC_MODEL` is passed on.
+- the plugin, at the version Reframe pins: Reframe fetches the plugin's folder from Anthropic's plugin repository at one pinned commit into `~/.reframe/tools/code-modernization/` and loads it with `claude --plugin-dir`, so every run uses the same plugin whatever the marketplace holds, and nothing is installed into the person's Claude Code settings;
 - `python3` 3.8 or later, which the plugin's scripts need;
 - the plugin's usage counts are turned off for Reframe's runs (`CODE_MODERNIZATION_TELEMETRY=0`): Reframe does not need them.
 
 The guided setup offers to install or sign in to anything missing, only on a yes, as in pipeline 1.
+
+### How Claude Code is run
+
+Each plugin step is one headless `claude -p` run in the workspace (spike P2-01):
+
+- **Environment:** built from nothing: no variable from the shell that started Reframe, except a chosen model and, for Bedrock, the sign-in.
+- **Policy:** `--settings` with a policy file kept outside the workspace (`claude-policy.json` in the run folder), so the plugin can't change it. A workspace's own settings are ignored when Claude Code hasn't been told to trust the folder, which a background run can't do. The policy:
+  - allows reading anything and the plugin's agents and workflows;
+  - allows writing only under `analysis/`, with absolute paths;
+  - denies writing under `legacy/` and `.claude/`;
+  - denies the web tools;
+  - turns the shell sandbox on (no writes outside the workspace, no network).
+- **Plugin:** loaded with `--plugin-dir` from the pinned folder.
+- **Logs and receipts:** the step's stream-json log is kept in `claude-logs/`. Its last line gives the outcome, turns, tokens and cost, which are recorded in the step's receipt (`claude-steps/<step>.json`).
+- **Stops:** a step that ends on Claude's usage limit or a sign-in problem stops the run with the fix. `reframe resume` continues it.
 
 ### Stage C1: workspace
 
 The workspace is `claude/` in the run folder:
 
 - `legacy/<project>/`: the run's snapshot unpacked, read-only, after its SHA-256 is checked against the one pipeline 1 recorded. A different hash stops the run.
-- `.claude/settings.json`: allows reading everything and writing only `analysis/`; denies edits under `legacy/` (as the plugin's README recommends).
+- `.claude/settings.json`: the same permission rules as the policy, for anyone who opens the workspace in Claude Code by hand (as the plugin's README recommends).
 - `analysis/<project>/INTENT.md`: written by Reframe, with the goal "understand it first", so the plugin asks nothing twice.
 
 Nothing from AWS Transform's results is in the workspace, so Claude's assessment is independent of AWS's.
@@ -69,7 +96,9 @@ Nothing from AWS Transform's results is in the workspace, so Claude's assessment
 `modernize-preflight <project>`. Its five questions need a person (scope, build and test, bespoke build tooling, prior attempts, what is off limits):
 
 - **autonomous**: Reframe answers from what it knows, each answer recorded with its reason in the decisions file: the complete source as snapshotted, analysis only, no build in this pass, a prior assessment by AWS Transform kept apart, nothing may change. Anything Reframe does not know is answered "Don't know".
-- **interactive**: the person answers with `reframe answer`.
+- **interactive**: the person answers each question with `reframe answer` before the step runs, choosing Reframe's answer, "Don't know", or their own text.
+
+Headless, the plugin has no question pop-up (spike P2-01), so the answers go into the step's prompt. The plugin writes them word for word in `PREFLIGHT.md`, with who gave them.
 
 ### Stage C3: assess and map
 
@@ -77,13 +106,22 @@ Nothing from AWS Transform's results is in the workspace, so Claude's assessment
 
 ### Stage C4: rule extraction
 
-Before `modernize-extract-rules <project>` starts, Reframe shows the plugin's estimate: shards, agents and tokens.
+Before `modernize-extract-rules <project>` starts, Reframe runs the plugin's own shard builder (`scripts/make_shards.py`), then works out the estimate by the plugin's rule of thumb:
 
-- In the guided run, interactive mode or the agent limit, the person confirms it.
-- In autonomous mode, the run goes ahead only within `--max-agents`. An estimate above the limit stops the run and waits (`reframe answer`) with the estimate.
-- The plugin's own question before a large run is answered the same way. *(spike: how the plugin asks headless, and where the estimate is read)*
+- **Agents:** 10 to 15 per shard, or 15 to 40 for a tiny system.
+- **Tokens:** about 16,000 per agent.
+- **Time:** about 8 agents finishing per minute.
 
-A stopped extraction resumes with the plugin's own run ID, so finished agents are not paid for twice.
+CardDemo is 37 shards: 370 to 555 agents, up to about 9 million tokens and 70 minutes.
+
+What happens next depends on the mode:
+
+- **Autonomous** (and the guided run, where the person sets the limit): the step goes ahead when the upper estimate is within `--max-agents`. Above the limit, the run stops and waits; `reframe answer` raises the limit for this run or cancels.
+- **Interactive:** the person confirms the estimate with `reframe answer`.
+
+The plugin asks before a run of more than 12 shards, but it can't ask headless. So Reframe's prompt tells it the estimate was confirmed and within the limit, and to launch all shards without asking again.
+
+If extraction stops on Claude's usage limit, `reframe resume` continues the same Claude session (`--resume`). The plugin then resumes its workflow from the run ID it recorded, so finished agents are not paid for twice.
 
 ### Stage C5: retrieval
 
@@ -108,22 +146,31 @@ One more headless Claude step, with Reframe's own prompt, turns the plugin's res
 - Every requirement must cite at least one rule card or a `file:line` in the snapshot. One that cites neither is dropped and counted.
 - Each requirement, function and capability is marked **generated by Reframe from Claude's results**, everywhere it is shown, and kept in its own file apart from the plugin's.
 
-### Stage C7: Claude's graph in Neptune *(spike)*
+### Stage C7: Claude's graph in Neptune
 
-Reframe loads Claude's map and rules into the run's Neptune cluster: domains, modules, data stores, flows and rules, and the edges between them. Each element carries the source (`claude`), the run, and the snapshot's SHA-256, so it is never mixed up with AWS Transform's.
+AWS Transform's graph in Neptune is RDF, queried with SPARQL. AWS loads it from N-Quads files under the job's output folder, into one named graph per job, with its own vocabulary under `http://aws.amazon.com/transformkg/ontology/`. Programs are `Executable` resources with a `name` (spike P2-02).
 
-- **A new graph** (created by pipeline 1): loaded, then checked with a query that counts what was loaded.
-- **An existing cluster**: loaded only after the person's yes. Autonomous mode skips the load and records why. Teardown removes only the elements Reframe loaded, found by the run's ID, never by name.
+**Claude's graph:**
+- **Format:** N-Quads, in its own named graph `urn:reframe:graph:claude:<run>`, with Reframe's small vocabulary under `urn:reframe:claude:ontology:`. It holds domains, modules, jobs, screens, data stores, the map's edges, flows with their steps, rule cards with the module each cites, and generated requirements with the rule cards behind them.
+- **Provenance:** every resource IRI starts `urn:reframe:claude:<run>:`. The graph records the snapshot's SHA-256, the plugin's version and commit, and when it was loaded.
+- **Links to AWS's graph:** modules carry the program name, so a SPARQL query joins Claude's rules to AWS's programs without writing anything into AWS's graph.
 
-The spike settles three things:
+**How it gets there:**
+1. The file is written to `outputs/claude/graph.nq` and uploaded to the run's source bucket under `reframe/claude-graph/`.
+2. It is bulk-loaded by the run's **graph loader**: a small AWS Lambda function in the run's app subnets, with the app security group. That group is the only one the cluster admits on port 8182.
+3. The function signs its requests with IAM and can start a bulk load (format `nquads`, through the cluster's existing bulk-loader role), read a load's status, run a SPARQL query, and run a SPARQL update.
+4. The project Terraform root creates the function, its role and its log group when pipeline 2 runs (`graph_loader = true`). Like every plan, it is checked to only create before it is applied.
+5. After the load, Reframe checks the graph with a query that counts Claude's resources by type, and records the counts.
 
-- what AWS Transform itself writes into the graph;
-- the load format;
-- how a load reaches the private cluster, for example from a function in the run's VPC using the existing bulk-loader role and the run's bucket.
+**A graph the run created** is loaded by default.
 
-Any component this needs is created by the project Terraform root with receipts, and removed by teardown.
+**An existing cluster** is loaded only after the person's yes. With no answer (autonomous mode without `--graph-load yes`), the load is skipped and the decision recorded.
+
+**Teardown:** on an existing cluster, `DROP GRAPH <urn:reframe:graph:claude:<run>>` removes exactly what Reframe loaded, by the graph name the run recorded, and nothing of AWS's.
 
 ### Stage C8: report and comparison
+
+Claude's review is built as soon as stage C7 is done. The comparison and the AI pairing wait until pipeline 1 has retrieved AWS Transform's results (see Alongside pipeline 1).
 
 **Claude's business review.** The same report as stage 8 of pipeline 1, in its own tab:
 
@@ -150,8 +197,10 @@ Every number links down to the items behind it in both reports. The page states 
 
 `reframe teardown` also lists what pipeline 2 added:
 
-- the components of stage C7;
-- the graph elements Reframe loaded into an existing cluster.
+- the graph loader of stage C7: its function, role and log group, which are in the project Terraform root, so they are in the run's Terraform state;
+- on an existing cluster, Claude's named graph, dropped first, through the loader, before the loader is removed.
+
+The loader's function leaves two network interfaces in the run's subnets for a while after it is deleted, and the subnets and security groups can't be deleted until AWS releases them. So teardown deletes the loader first, waits for its interfaces to be released, then destroys the rest.
 
 It removes them with the same consent. The `claude/` workspace stays in the run folder with the rest of the run's records.
 

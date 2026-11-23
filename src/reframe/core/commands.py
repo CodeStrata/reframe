@@ -10,10 +10,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-from reframe.core.errors import EXIT_CODES, Outcome, ReframeError, Stop
+from reframe.core.errors import EXIT_CODES, NotSent, Outcome, ReframeError, Stop
 from reframe.core.runfolder import RunFolder, find_run, iso, new_run, project_name
 
-say = sys.stdout.write
+def say(text: str) -> None:
+    sys.stdout.write(text)  # the current stdout, so output can be redirected
 
 
 def _fail(stop: Stop) -> int:
@@ -53,7 +54,7 @@ def run(args) -> int:
 
 
 def start(*, source: str, profile: str, ref: str | None, mode: str, region: str, project: str | None, graph: str | None,
-          terraform: str | None, foreground: bool) -> int:
+          terraform: str | None, foreground: bool, claude: dict[str, Any] | None = None) -> int:
     """Stage 0 and the Neptune choice here, then stages 1 to 8 in a background worker (or this terminal)."""
     from reframe.core import pipeline, ui
     from reframe.source.snapshot import kind
@@ -69,6 +70,10 @@ def start(*, source: str, profile: str, ref: str | None, mode: str, region: str,
     ui.section(f"Run {folder.root.name}")
     ui.hint(f"{project} · {mode} mode · run folder {folder.root}")
     ctx = pipeline.Context.load(folder)
+    if claude:
+        from reframe.claude import pipeline as claude_pipeline
+        claude_pipeline.request(ctx, auth=claude.get("auth", "subscription"), max_agents=claude.get("max_agents"), mode=mode)
+        folder.update(claude_after=True)
     try:
         ui.hint("Checking everything the run needs (preflight)…")
         pipeline.prepare(ctx, _prompt, say)
@@ -82,11 +87,31 @@ def start(*, source: str, profile: str, ref: str | None, mode: str, region: str,
         return worker(type("Args", (), {"folder": str(folder.root), "task": "run"})())
     pid = _start_worker(folder)
     ui.console.print()
-    ui.panel(f"The run continues in the background (process {pid}); it takes about an hour.\n"
+    ui.panel(f"The run continues in the background (process {pid}); it takes about an hour"
+             + ("; the Claude assessment runs alongside it from when the Neptune graph exists, about two hours" if claude else "") + ".\n"
              "Follow it:        reframe status   ·   reframe events --follow\n"
              + ("Answer AWS:       reframe answer\n" if mode == "interactive" else "")
              + "When it is done:  reframe report --open   ·   reframe teardown", "Started", "green")
     return 0
+
+
+def _claude_wanted(folder: RunFolder) -> bool:
+    claude_state = folder.state.get("claude") or {}
+    return bool(claude_state.get("requested_at")) and claude_state.get("status") != Outcome.DONE.value
+
+
+def start_claude_if_ready(folder: RunFolder) -> int | None:
+    """Pipeline 2 runs alongside pipeline 1 (docs/pipeline-2.md): its worker starts once the run's snapshot and AWS
+    resources exist, if pipeline 2 is wanted and its worker is not already running. Returns the new worker's process."""
+    from reframe.claude import pipeline as claude_pipeline
+    from reframe.core import pipeline
+    if not _claude_wanted(folder) or folder.worker_pid("claude") or folder.state.get("torn_down"):
+        return None
+    if not claude_pipeline.ready(pipeline.Context.load(folder)):
+        return None
+    pid = _start_worker(folder, "claude")
+    folder.event("claude_worker_started", pid=pid)
+    return pid
 
 
 def resume(args) -> int:
@@ -94,26 +119,38 @@ def resume(args) -> int:
         folder = find_run(args.run)
     except Stop as stop:
         return _fail(stop)
-    pid = folder.worker_pid()
-    if pid:
-        say(f"Run {folder.root.name} is already running (process {pid}).\n")
-        return 0
     state = folder.state
-    if state.get("status") == Outcome.DONE.value:
+    started = []
+    if state.get("status") != Outcome.DONE.value:
+        pid = folder.worker_pid("run")
+        if pid:
+            say(f"Run {folder.root.name}: pipeline 1 is already running (process {pid}).\n")
+        else:
+            if state.get("graph") is None:
+                from reframe.core import pipeline
+                ctx = pipeline.Context.load(folder)
+                try:
+                    pipeline.prepare(ctx, _prompt, say)
+                except Stop as stop:
+                    pipeline.record_stop(ctx, stop)
+                    return _fail(stop)
+            if args.foreground:
+                return worker(type("Args", (), {"folder": str(folder.root), "task": "run"})())
+            started.append(f"pipeline 1 (process {_start_worker(folder)})")
+    if _claude_wanted(folder):
+        pid = folder.worker_pid("claude")
+        if pid:
+            say(f"Run {folder.root.name}: pipeline 2 is already running (process {pid}).\n")
+        elif args.foreground and state.get("status") == Outcome.DONE.value:
+            return worker(type("Args", (), {"folder": str(folder.root), "task": "claude"})())
+        else:
+            new = start_claude_if_ready(folder)
+            if new:
+                started.append(f"pipeline 2 (process {new})")
+    if started:
+        say(f"Run {folder.root.name} resumed in the background: {' and '.join(started)}. Follow it with reframe status.\n")
+    elif state.get("status") == Outcome.DONE.value and not _claude_wanted(folder):
         say(f"Run {folder.root.name} is done. {state.get('message', '')}\n")
-        return 0
-    if state.get("graph") is None:
-        from reframe.core import pipeline
-        ctx = pipeline.Context.load(folder)
-        try:
-            pipeline.prepare(ctx, _prompt, say)
-        except Stop as stop:
-            pipeline.record_stop(ctx, stop)
-            return _fail(stop)
-    if args.foreground:
-        return worker(type("Args", (), {"folder": str(folder.root), "task": "run"})())
-    pid = _start_worker(folder)
-    say(f"Run {folder.root.name} resumed in the background (process {pid}). Follow it with reframe status.\n")
     return 0
 
 
@@ -121,14 +158,21 @@ def worker(args) -> int:
     from reframe.core import pipeline
     folder = RunFolder(Path(args.folder))
     ctx = pipeline.Context.load(folder)
+    task = getattr(args, "task", "run")
+    lock = "claude" if task == "claude" else "run"
     try:
-        folder.lock()
+        folder.lock(lock)
     except Stop as stop:
         return _fail(stop)
     try:
-        folder.event("worker_started", pid=os.getpid())
-        outcome = pipeline.work(ctx)
-        say(f"{outcome.value}: {folder.state.get('message', '')}\n")
+        folder.event("worker_started", pid=os.getpid(), task=task)
+        if task == "claude":
+            return _claude_work(ctx)
+        if task == "run" and folder.state.get("status") != Outcome.DONE.value:
+            outcome = pipeline.work(ctx, on_resources=lambda: start_claude_if_ready(folder))
+            say(f"{outcome.value}: {folder.state.get('message', '')}\n")
+        # pipeline 2 asked for after pipeline 1's resources existed, and not running: start it now
+        start_claude_if_ready(folder)
         return 0
     except Stop as stop:
         pipeline.record_stop(ctx, stop)
@@ -140,7 +184,83 @@ def worker(args) -> int:
         traceback.print_exc()
         return _fail(stop)
     finally:
-        folder.unlock()
+        folder.unlock(lock)
+
+
+def _claude_work(ctx) -> int:
+    from reframe.claude import pipeline as claude_pipeline
+    try:
+        outcome = claude_pipeline.work(ctx)
+        say(f"pipeline 2 {outcome.value}: {(ctx.state.get('claude') or {}).get('message', '')}\n")
+        return 0
+    except Stop as stop:
+        claude_pipeline.record_stop(ctx, stop)
+        return _fail(stop)
+    except NotSent as error:  # an expired AWS sign-in (graph stage) waits for the person, like pipeline 1
+        stop = Stop(Outcome.WAITING_SIGNIN, f"{error}. Sign in with aws sso login --profile {ctx.state.get('profile')}, then run reframe resume")
+        claude_pipeline.record_stop(ctx, stop)
+        return _fail(stop)
+    except Exception as error:  # noqa: BLE001 - recorded so status can show it; the traceback is in worker.log
+        stop = Stop(Outcome.FAILED, f"{type(error).__name__}: {str(error)[:400]}")
+        claude_pipeline.record_stop(ctx, stop)
+        import traceback
+        traceback.print_exc()
+        return _fail(stop)
+
+
+def claude(args) -> int:
+    """Pipeline 2 on a run whose pipeline 1 is done: record the request, then the worker runs stages C0 to C8."""
+    from reframe.claude import pipeline as claude_pipeline
+    from reframe.core import pipeline, ui
+    try:
+        folder = find_run(args.run)
+    except Stop as stop:
+        return _fail(stop)
+    state = folder.state
+    if state.get("torn_down"):
+        return _fail(Stop(Outcome.REFUSED, f"run {folder.root.name} is torn down; pipeline 2 needs a run whose resources are still there"))
+    ctx = pipeline.Context.load(folder)
+    settings = claude_pipeline.request(ctx, auth=args.auth, max_agents=args.max_agents, mode=args.mode, graph_load=args.graph_load)
+    if (folder.state.get("claude") or {}).get("status") == Outcome.DONE.value:
+        ui.ok(f"Pipeline 2 is already done for run {folder.root.name}. reframe compare --open shows the comparison.")
+        return 0
+    pid = folder.worker_pid("claude")
+    if pid:
+        ui.ok(f"Run {folder.root.name}: pipeline 2 is already running (process {pid}).")
+        return 0
+    if not claude_pipeline.ready(ctx):
+        if folder.worker_pid("run"):
+            ui.ok(f"Recorded. Run {folder.root.name}'s pipeline 1 starts pipeline 2 as soon as its AWS resources exist.")
+            return 0
+        return _fail(Stop(Outcome.REFUSED, f"run {folder.root.name} has no AWS resources yet and pipeline 1 is not running; pipeline 2 is "
+                                           "recorded and starts when reframe resume has made them"))
+    ui.section(f"Run {folder.root.name} · pipeline 2 · Claude assessment")
+    ui.hint(f"{settings['mode']} mode · sign-in: {settings['auth']} · agent limit {settings['max_agents']}")
+    if args.foreground:
+        return worker(type("Args", (), {"folder": str(folder.root), "task": "claude"})())
+    pid = _start_worker(folder, "claude")
+    ui.panel(f"Pipeline 2 runs in the background (process {pid}), alongside pipeline 1 if it is still running; on CardDemo it "
+             "takes about two hours.\n"
+             "Follow it:        reframe status   ·   reframe events --follow\n"
+             "When it is done:  reframe compare --open   ·   reframe teardown", "Started", "green")
+    return 0
+
+
+def compare(args) -> int:
+    from reframe.report import build as builder
+    from reframe.report import compare as comparison
+    try:
+        folder = find_run(args.run)
+        if not folder.exists("outputs/claude/model.json"):
+            raise Stop(Outcome.REFUSED, "this run has no Claude results yet; run reframe claude first")
+    except Stop as stop:
+        return _fail(stop)
+    builder.build_claude(folder)
+    path = comparison.build(folder)
+    say(f"Comparison: {path}\n")
+    if args.open:
+        subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(path)], check=False)
+    return 0
 
 
 # ---- reading the run -----------------------------------------------------------------------------
@@ -185,14 +305,58 @@ def status(args) -> int:
         ui.say(state["message"])
     if state.get("report"):
         ui.state("Report", str(folder.path(state["report"])), "bright_cyan")
-    if state.get("torn_down"):
-        ui.ok(f"Torn down at {state['torn_down']}.")
     hint = NEXT.get(str(state.get("status")))
+    claude_state = state.get("claude") or {}
     if hint and not pid:
         ui.state("Next", hint.format(profile=state.get("profile")), "bright_cyan")
-    elif state.get("status") == Outcome.DONE.value and not state.get("torn_down"):
-        ui.state("Next", "open the report with reframe report --open; remove the AWS resources with reframe teardown", "bright_cyan")
+    elif state.get("status") == Outcome.DONE.value and not state.get("torn_down") and not claude_state:
+        ui.state("Next", "open the report with reframe report --open; assess the same snapshot with Claude: reframe claude; "
+                         "remove the AWS resources with reframe teardown", "bright_cyan")
+    _claude_status(folder, state)
+    if state.get("torn_down"):
+        ui.ok(f"Torn down at {state['torn_down']}.")
     return 0
+
+
+CLAUDE_NEXT = {Outcome.WAITING_SIGNIN.value: "sign in (claude auth login, or the AWS sign-in for Bedrock), then reframe resume",
+               Outcome.WAITING_HUMAN.value: "answer with reframe answer, or after Claude's usage limit resets run reframe resume",
+               Outcome.REFUSED.value: "fix what the message says, then reframe claude",
+               Outcome.FAILED.value: "read the message and worker.log, then reframe resume",
+               Outcome.UNCERTAIN.value: "run reframe resume; it settles the change from AWS's state"}
+
+
+def _claude_status(folder: RunFolder, state: dict[str, Any]) -> None:
+    from reframe.core import ui
+    claude_state = state.get("claude") or {}
+    if not claude_state:
+        return
+    ui.section("Pipeline 2 · Claude assessment")
+    status = str(claude_state.get("status"))
+    ui.state("Status", f"{status} · stage {claude_state.get('stage', 'not started')}", STATUS_STYLE.get(status, "bold yellow"))
+    claude_pid = folder.worker_pid("claude")
+    ui.hint(f"sign-in {claude_state.get('auth')} · agent limit {claude_state.get('max_agents')} · {claude_state.get('mode')} mode"
+            + (f" · worker running (process {claude_pid})" if claude_pid else ""))
+    if folder.load("claude-question.json"):
+        ui.warn("Pipeline 2 is waiting for an answer. See it with: reframe answer")
+    from reframe.claude.steps import receipts
+    rows = []
+    order = {"preflight": 0, "assess": 1, "map": 2, "extract-rules": 3}
+    for name, value in sorted(receipts(folder).items(), key=lambda item: order.get(item[0], 9)):
+        rows.append((name, "[green]✓ done[/]" if value.get("ok") else f"[yellow]{value.get('problem') or 'running'}[/]",
+                     (f"{value.get('seconds', 0) // 60} min" if value.get("seconds") else "") + (" (from the spike)" if value.get("seeded_from") else ""),
+                     f"{sum((value.get('tokens') or {}).values()) / 1e6:.1f}M tokens" if value.get("tokens") else ""))
+    if rows:
+        ui.table(("Plugin step", "", "", ""), rows)
+    if claude_state.get("message"):
+        ui.say(claude_state["message"])
+    if claude_state.get("graph", {}).get("loaded_at"):
+        g = claude_state["graph"]
+        ui.state("Neptune", f"Claude's graph loaded: {g.get('quads')} quads; {g.get('rules_joined_to_aws_programs')} rules join AWS's programs", "")
+    if status == Outcome.DONE.value:
+        ui.state("Next", "reframe compare --open shows the comparison; reframe report --open each business review; reframe teardown removes "
+                         "the AWS resources", "bright_cyan")
+    elif status in CLAUDE_NEXT and not folder.worker_pid("claude"):
+        ui.state("Next", CLAUDE_NEXT[status], "bright_cyan")
 
 
 def events(args) -> int:
@@ -225,8 +389,13 @@ def answer(args) -> int:
         return _fail(stop)
     pending = folder.load("question.json")
     if not pending:
-        say("AWS is not waiting for an answer.\n")
+        claude_pending = folder.load("claude-question.json")  # pipeline 1's question comes first
+        if claude_pending:
+            return _answer_claude(folder, claude_pending, args)
+        say("Nothing is waiting for an answer.\n")
         return 0
+    if pending.get("kind") == "claude":
+        return _answer_claude(folder, pending, args)
     question = answers.Question(pending["id"], pending["kind"], pending["text"], tuple(pending.get("options") or ()),
                                 tuple(pending.get("replies") or ()), pending.get("interaction_origin_id"), pending.get("schema") or {})
     if not args.choices and not args.text:
@@ -250,6 +419,33 @@ def answer(args) -> int:
     return 0
 
 
+def _answer_claude(folder: RunFolder, pending: dict[str, Any], args) -> int:
+    """A pipeline 2 question (the plugin's preflight answers, the rule-extraction estimate, loading an existing cluster)."""
+    options = pending.get("options") or []
+    if not args.choices and not args.text:
+        say(f"Pipeline 2 asks (since {pending.get('asked_at')}):\n\n{pending['text'].strip()}\n\n")
+        for number, label in enumerate(options, 1):
+            say(f"  {number}. {label}\n")
+        say("\nAnswer with reframe answer <number>" + (", or reframe answer --text \"...\"" if pending["id"].startswith("claude-preflight") else "") + "\n")
+        return 0
+    if args.text and not pending["id"].startswith("claude-preflight"):
+        sys.stderr.write("this question takes one of the numbered options\n")
+        return 2
+    if args.choices:
+        if len(args.choices) != 1 or not args.choices[0].isdigit() or not 1 <= int(args.choices[0]) <= len(options):
+            sys.stderr.write(f"choose one number from 1 to {len(options)}\n")
+            return 2
+        text = options[int(args.choices[0]) - 1]
+        text = text.removeprefix("Reframe's answer: ")
+    else:
+        text = args.text.strip()
+    folder.save("claude-answer.json", {"id": pending["id"], "text": text, "reason": "answered with reframe answer", "at": iso()})
+    folder.event("answer_given", id=pending["id"])
+    say(f"Answer recorded: {text[:300]}\n")
+    say("The worker uses it within a minute.\n" if folder.worker_pid("claude") else "Run reframe resume to continue.\n")
+    return 0
+
+
 # ---- report and teardown -------------------------------------------------------------------------
 
 
@@ -263,6 +459,8 @@ def report(args) -> int:
         return _fail(stop)
     path = build.build(folder)
     say(f"Report: {path}\n")
+    if folder.exists("outputs/claude/model.json"):
+        say(f"Claude's report: {build.build_claude(folder)}\n")
     if args.open:
         subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(path)], check=False)
     return 0
@@ -275,9 +473,9 @@ def teardown(args) -> int:
         folder = find_run(args.run)
     except Stop as stop:
         return _fail(stop)
-    pid = folder.worker_pid()
+    pid = folder.worker_pid("run") or folder.worker_pid("claude")
     if pid:
-        return _fail(Stop(Outcome.REFUSED, f"the run's worker is still running (process {pid}); wait for it to stop, or stop it, first"))
+        return _fail(Stop(Outcome.REFUSED, f"a worker is still running this run (process {pid}); wait for it to stop, or stop it, first"))
     if not sys.stdin.isatty():
         return _fail(Stop(Outcome.REFUSED, "reframe teardown asks for consent, so it needs a terminal"))
     ctx = pipeline.Context.load(folder)
@@ -286,10 +484,15 @@ def teardown(args) -> int:
         consented = stage.ask(ctx, _prompt, say)
         if consented is None:
             return 0
-        say("\nDeleting, in order. This takes about 15 minutes with a new Neptune graph.\n")
+        say("\nDeleting, in order. This takes about 15 minutes with a new Neptune graph"
+            + (", and about 20 more while AWS releases the graph loader's network interfaces" if any(i["kind"].startswith("Lambda") for i in consented) else "")
+            + ".\n")
         result = stage.delete(ctx, consented, say)
     except Stop as stop:
         return _fail(stop)
+    except NotSent as error:
+        return _fail(Stop(Outcome.WAITING_SIGNIN, f"{error}. Sign in with aws sso login --profile {folder.state.get('profile')}, "
+                                                  "then run reframe teardown again; nothing more was deleted"))
     finally:
         folder.unlock()
     left = result["leftovers"]

@@ -13,6 +13,8 @@ Every change to AWS goes through Changes.apply:
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
 import os
 import re
@@ -109,22 +111,47 @@ class RunFolder:
     def state(self) -> dict[str, Any]:
         return self.load("run.json", {})
 
+    @contextlib.contextmanager
+    def records(self):
+        """Pipelines 1 and 2 can run at once on one run folder (docs/pipeline-2.md, Alongside pipeline 1), so every
+        read-change-write of run.json and decisions.json happens under one file lock."""
+        path = self.path(".records.lock")
+        with path.open("a") as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+
     def update(self, **values: Any) -> dict[str, Any]:
-        state = self.state
-        state.update(values)
-        self.save("run.json", state)
-        return state
+        with self.records():
+            state = self.state
+            state.update(values)
+            self.save("run.json", state)
+            return state
+
+    def merge(self, key: str, **values: Any) -> dict[str, Any]:
+        """Change some fields of one part of run.json (pipeline 2's "claude") without touching the rest."""
+        with self.records():
+            state = self.state
+            part = dict(state.get(key) or {})
+            part.update(values)
+            state[key] = part
+            self.save("run.json", state)
+            return part
 
     def decide(self, question: str, answer: Any, reason: str, **detail: Any) -> None:
         """Record an answer Reframe gave on the owner's behalf, and why (autonomous mode, section 5)."""
-        decisions = self.load("decisions.json", [])
-        decisions.append({"at": iso(), "question": question, "answer": answer, "reason": reason, **detail})
-        self.save("decisions.json", decisions)
+        with self.records():
+            decisions = self.load("decisions.json", [])
+            decisions.append({"at": iso(), "question": question, "answer": answer, "reason": reason, **detail})
+            self.save("decisions.json", decisions)
 
-    # ---- single worker -------------------------------------------------------------------------
+    # ---- one worker per pipeline -----------------------------------------------------------------
+    # Pipeline 1's worker holds run.lock and pipeline 2's holds claude.lock, so each pipeline has at most one worker.
 
-    def lock(self) -> None:
-        path = self.path("run.lock")
+    def lock(self, name: str = "run") -> None:
+        path = self.path(f"{name}.lock")
         if path.exists():
             try:
                 pid = int(path.read_text().strip())
@@ -139,13 +166,13 @@ class RunFolder:
         path.write_text(str(os.getpid()))
         path.chmod(0o600)
 
-    def unlock(self) -> None:
-        path = self.path("run.lock")
+    def unlock(self, name: str = "run") -> None:
+        path = self.path(f"{name}.lock")
         if path.exists() and path.read_text().strip() == str(os.getpid()):
             path.unlink()
 
-    def worker_pid(self) -> int | None:
-        path = self.path("run.lock")
+    def worker_pid(self, name: str = "run") -> int | None:
+        path = self.path(f"{name}.lock")
         try:
             pid = int(path.read_text().strip())
             os.kill(pid, 0)

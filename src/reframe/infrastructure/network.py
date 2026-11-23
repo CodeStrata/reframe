@@ -11,9 +11,10 @@ against its own service; only one that still exists counts as left over.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
-from reframe.core.errors import NotSent
+from reframe.core.errors import NotSent, Outcome, Stop
 from reframe.core.runfolder import Changes
 from reframe.core.shell import Aws
 
@@ -33,6 +34,22 @@ def delete_interfaces(aws: Aws, changes: Changes, vpc_id: str) -> list[str]:
                       lambda i=interface: aws.write("ec2", "delete-network-interface", "--network-interface-id", i["id"]))
         deleted.append(interface["id"])
     return deleted
+
+
+def wait_for_lambda_interfaces(aws: Aws, vpc_id: str, function: str, timeout: float = 2700, poll: float = 30,
+                               sleep=time.sleep, clock=time.time) -> int:
+    """After the graph loader is deleted, AWS keeps its network interfaces for a while (spike P2-02) and the subnets and
+    security groups cannot be deleted until they go. Waits until none is left; returns the seconds waited."""
+    started = clock()
+    while True:
+        reply = aws.read("ec2", "describe-network-interfaces", "--filters", f"Name=vpc-id,Values={vpc_id}",
+                         "Name=interface-type,Values=lambda", f"Name=description,Values=AWS Lambda VPC ENI-{function}*")
+        if not reply.get("NetworkInterfaces"):
+            return int(clock() - started)
+        if clock() - started > timeout:
+            raise Stop(Outcome.WAITING_HUMAN, f"AWS has not released the graph loader's network interfaces after {timeout // 60:.0f} minutes; "
+                                              "run reframe teardown again later")
+        sleep(poll)
 
 
 def tagged(aws: Aws, run: str, project: str) -> list[str]:
@@ -74,6 +91,13 @@ def still_exists(aws: Aws, arn: str) -> bool | None:
         if service == "iam" and resource.startswith("role/"):
             aws.read("iam", "get-role", "--role-name", resource.rsplit("/", 1)[-1])
             return True
+        if service == "lambda" and resource.startswith("function:"):
+            aws.read("lambda", "get-function", "--function-name", resource.split(":", 1)[1])
+            return True
+        if service == "logs" and resource.startswith("log-group:"):
+            name = resource.split(":", 1)[1].removesuffix(":*")
+            found = aws.read("logs", "describe-log-groups", "--log-group-name-prefix", name).get("logGroups") or []
+            return any(g.get("logGroupName") == name for g in found)
         if service == "rds" and resource.startswith("cluster:"):
             aws.read("neptune", "describe-db-clusters", "--db-cluster-identifier", resource.split(":", 1)[1])
             return True
@@ -85,7 +109,8 @@ def still_exists(aws: Aws, arn: str) -> bool | None:
             return True
     except NotSent as error:
         text = str(error)
-        if any(marker in text for marker in ("NotFound", "(404)", "NoSuchEntity", "not found", "does not exist", "Not Found")):
+        if any(marker in text for marker in ("NotFound", "(404)", "NoSuchEntity", "not found", "does not exist", "Not Found",
+                                             "ResourceNotFoundException")):
             return False
         raise
     return None

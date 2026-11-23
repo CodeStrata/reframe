@@ -42,15 +42,19 @@ class Terraform:
 
     # ---- files ---------------------------------------------------------------------------------
 
-    def install(self) -> None:
-        """Copy the packaged roots and modules into the run folder once."""
-        if (self.base / "project" / "main.tf").exists():
+    def install(self, refresh: bool = False) -> None:
+        """Copy the packaged roots and modules into the run folder once; refresh copies them again (pipeline 2 adds
+        the graph loader to a run made before it existed). Only .tf files are copied, so state and plans stay."""
+        if (self.base / "project" / "main.tf").exists() and not refresh:
             return
         source = resources.files("reframe.infrastructure") / "terraform"
         with resources.as_file(source) as path:
-            shutil.copytree(path, self.base, dirs_exist_ok=True)
-        for item in self.base.rglob("*"):
-            item.chmod(0o700 if item.is_dir() else 0o600)
+            for item in sorted(Path(path).rglob("*.tf")):  # only Reframe's own files: .terraform/, state and plans stay as they are
+                target = self.base / item.relative_to(path)
+                for folder in reversed(target.relative_to(self.base).parents):
+                    (self.base / folder).mkdir(parents=True, exist_ok=True, mode=0o700)
+                shutil.copyfile(item, target)
+                target.chmod(0o600)
 
     def variables(self, root: str, values: dict[str, Any]) -> None:
         self.folder.save(f"terraform/{root}/reframe.auto.tfvars.json", values)
@@ -91,11 +95,12 @@ class Terraform:
             self._tf(root, *arguments, timeout=900)
             own_providers(self.base / root / ".terraform" / "providers")
 
-    def plan(self, root: str, destroy: bool = False) -> dict[str, Any]:
+    def plan(self, root: str, destroy: bool = False, targets: list[str] | None = None) -> dict[str, Any]:
         name = "destroy.tfplan" if destroy else "apply.tfplan"
         for attempt in range(PLAN_ATTEMPTS):
             try:
-                self._tf(root, "plan", "-input=false", "-no-color", *(["-destroy"] if destroy else []), f"-out={name}", timeout=1800)
+                self._tf(root, "plan", "-input=false", "-no-color", *(["-destroy"] if destroy else []), *[f"-target={t}" for t in targets or []],
+                         f"-out={name}", timeout=1800)
                 break
             except Stop as stop:
                 # A plan changes nothing, so a provider that stopped responding is tried again.
@@ -123,7 +128,7 @@ class Terraform:
                 if resource.get("mode") != "managed":
                     continue
                 values = resource.get("values") or {}
-                name = next((values.get(k) for k in ("bucket", "name", "identifier", "cluster_identifier", "db_subnet_group_name")
+                name = next((values.get(k) for k in ("bucket", "name", "function_name", "identifier", "cluster_identifier", "db_subnet_group_name")
                              if isinstance(values.get(k), str) and values.get(k)), None)
                 items.append({"root": root, "address": resource["address"], "type": resource["type"],
                               "name": name or values.get("tags", {}).get("Name") if isinstance(values.get("tags"), dict) else name,
@@ -139,9 +144,9 @@ class Terraform:
 
     # ---- stage 2 -------------------------------------------------------------------------------
 
-    def apply(self, root: str, changes: Changes, backend: dict[str, str] | None = None) -> dict[str, Any]:
+    def apply(self, root: str, changes: Changes, backend: dict[str, str] | None = None, step: str | None = None) -> dict[str, Any]:
         """Plan, check that the plan only creates, apply it, and record what was created and the outputs."""
-        step = f"terraform-{root}-apply"
+        step = step or f"terraform-{root}-apply"
         if changes.receipt(step) is not None:
             return changes.receipt(step)
         self.init(root, backend)
@@ -169,23 +174,24 @@ class Terraform:
 
     # ---- stage 8 -------------------------------------------------------------------------------
 
-    def destroy(self, root: str, changes: Changes, backend: dict[str, str] | None = None) -> dict[str, Any]:
-        """Plan a destroy, check it deletes only what this run created, and apply it."""
-        step = f"terraform-{root}-destroy"
+    def destroy(self, root: str, changes: Changes, backend: dict[str, str] | None = None, targets: list[str] | None = None,
+                step: str | None = None) -> dict[str, Any]:
+        """Plan a destroy (of the whole root, or only `targets`), check it deletes only what this run created, and apply it."""
+        step = step or f"terraform-{root}-destroy"
         if changes.receipt(step) is not None:
             return changes.receipt(step)
         created = set(self.folder.load(f"terraform/{root}/created.json") or [])
         self.init(root, backend)
 
         def check_and_destroy() -> dict[str, Any]:
-            plan = self.plan(root, destroy=True)
+            plan = self.plan(root, destroy=True, targets=targets)
             deleted = only_deletes(plan, created)
             if deleted:
                 self._tf(root, "apply", "-input=false", "-no-color", "destroy.tfplan", timeout=3600, changes=True)
             return {"deleted": deleted}
 
         def settle():
-            plan = self.plan(root, destroy=True)
+            plan = self.plan(root, destroy=True, targets=targets)
             return {"deleted": [], "settled_from": "nothing left to destroy"} if not only_deletes(plan, created) else None
 
         receipt = changes.apply(step, "terraform destroy", {"root": root}, check_and_destroy, settle)
