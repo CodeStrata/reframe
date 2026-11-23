@@ -1,6 +1,6 @@
 # Reframe specification: pipeline 2, the Claude assessment and the comparison
 
-Status: draft for the owner's agreement. Stories are built from it ([the plan](plan.md), pipeline 2, parts 2 to 4). Parts marked *(spike)* are settled by the spikes P2-04 and P2-05 before they are built.
+Status: draft for the owner's agreement. Stories are built from it ([the plan](plan.md), pipeline 2). Parts marked *(spike)* are settled by the spikes P2-01 and P2-02 before they are built.
 
 ## 1. Goal
 
