@@ -90,8 +90,8 @@ Specification: [sharing.md](sharing.md). An epic of its own, outside pipelines 1
 |---|---|---|---|
 | S-01 | `reframe publish`: a cleaned copy of a run's reports | §2 | AWS Transform's review, Claude's review, the comparison and the plugin's own pages are copied with an index page. Account IDs, ARNs, bucket names, S3 locations, job, workspace and connector IDs, profile names, e-mail addresses and local paths are removed. A check of the copy finds none left, or nothing is written |
 | S-02 | The CardDemo reports in the repository | §3 | The reports of a full CardDemo run are in `reports/carddemo/`, linked from the README, and open in a browser from a clone with no Reframe run |
-| S-03 | A static site on AWS for the reports | §4 | One Terraform root creates a private, encrypted S3 bucket and a CloudFront distribution that reads it through origin access control. `reframe publish --to aws` uploads a published copy and prints the address. The site outlives runs and is removed only by its own teardown, by its own records |
-| S-04 | Who can open the site | §4 | The owner's choice of access is built and documented, for example open to anyone with the link, limited to an IP range, or behind a sign-in |
+| S-03 | The reports in a private S3 bucket | §4 | One Terraform root creates a private, encrypted, versioned S3 bucket that refuses requests not over TLS. `reframe publish --to aws` uploads a cleaned copy under `<project>/<run>/`. The bucket outlives runs and is removed only by `reframe reports teardown`, by its own records |
+| S-04 | Opening the reports with an AWS sign-in | §4 | `reframe reports` lists what is published and `reframe reports open` downloads a report with the reader's own AWS sign-in and opens it. Nothing can be read without access to the account (owner's decision, 23 November 2026). The CardDemo reports are uploaded and opened this way |
 
 ## Later pipelines
 

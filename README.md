@@ -259,6 +259,24 @@ This copies a run's reports into a folder that anyone can open in a browser, wit
 
 Before anything is written, Reframe removes the AWS account ID, ARNs, S3 locations, the run's resource names, AWS IDs, your profile name, e-mail addresses and local paths. It then checks the whole copy and refuses to write if any are left.
 
+**In your AWS account, for people who can sign in to it:**
+
+```bash
+reframe publish --to aws
+```
+
+This uploads the cleaned copy to a private bucket in your account: encrypted, versioned, with no public access, refusing any request not over TLS. Reframe creates the bucket the first time, with its own Terraform state in `~/.reframe/reports-store`. Only someone whose AWS sign-in may read the bucket can open the reports; there is no public address.
+
+```bash
+reframe reports
+```
+
+```bash
+reframe reports open carddemo-p2/bcc1e3
+```
+
+`reframe reports` lists what is published. `reframe reports open` downloads one with your AWS sign-in and opens it in your browser. People with access can also download a report from the S3 console. `reframe reports teardown` removes the bucket and everything in it, after you consent to the list.
+
 **Try it without running anything:** [the CardDemo reports](reports/carddemo/index.html) in this repository are a published copy of a full run of both pipelines on AWS's CardDemo sample. Clone the repository and open `reports/carddemo/index.html` in a browser.
 
 ## Code layout

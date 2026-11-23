@@ -267,10 +267,55 @@ def publish(args) -> int:
     from reframe.report.publish import publish as make
     try:
         folder = find_run(args.run)
-        manifest = make(folder, Path(args.to).expanduser().resolve())
+        if args.to != "aws":
+            manifest = make(folder, Path(args.to).expanduser().resolve())
+            say(f"Published {len(manifest['files'])} pages to {Path(args.to).expanduser()}; open index.html there.\n")
+            return 0
+        import tempfile
+        from reframe.report.store import Store, signed_in
+        store = Store(signed_in(getattr(args, "profile", None), getattr(args, "region", None)))
+        with tempfile.TemporaryDirectory() as scratch:
+            copy = Path(scratch) / "copy"
+            manifest = make(folder, copy)
+            prefix = store.upload(copy, str(manifest["project"]), str(manifest["run"]))
     except Stop as stop:
         return _fail(stop)
-    say(f"Published {len(manifest['files'])} pages to {Path(args.to).expanduser()}; open index.html there.\n")
+    except NotSent as error:
+        return _fail(Stop(Outcome.WAITING_SIGNIN, f"{error}. Sign in with aws sso login, then run it again"))
+    say(f"Published {len(manifest['files'])} pages to the private reports bucket in your AWS account, under {prefix}\n"
+        f"Anyone who can sign in to the account opens it with: reframe reports open {prefix.rstrip('/')}\n")
+    return 0
+
+
+def reports(args) -> int:
+    from reframe.core import ui
+    from reframe.report.store import Store, open_in_browser, signed_in
+    try:
+        store = Store(signed_in(args.profile, args.region))
+        if args.action == "open":
+            if not args.path:
+                raise Stop(Outcome.REFUSED, "name the report to open: reframe reports open <project>/<run>; reframe reports lists them")
+            page = store.download(args.path)
+            say(f"Downloaded with your AWS sign-in to {page.parent}\n")
+            open_in_browser(page)
+            return 0
+        if args.action == "teardown":
+            if not sys.stdin.isatty():
+                raise Stop(Outcome.REFUSED, "reframe reports teardown asks for consent, so it needs a terminal")
+            store.teardown(_prompt, say)
+            return 0
+        found = store.reports()
+    except Stop as stop:
+        return _fail(stop)
+    except NotSent as error:
+        return _fail(Stop(Outcome.WAITING_SIGNIN, f"{error}. Sign in with aws sso login, then run it again"))
+    if not found:
+        say("No reports are published to AWS yet. Publish one with: reframe publish --run <id> --to aws\n")
+        return 0
+    ui.section(f"Reports in {store.bucket}")
+    ui.table(("Report", "Project", "Commit", "Published"), [(r["path"], str(r["project"]), str(r["commit"] or "")[:12], str(r["published_at"])[:16])
+                                                           for r in found], ("bold", None, "dim", "dim"))
+    ui.hint("Open one with: reframe reports open <project>/<run>")
     return 0
 
 
