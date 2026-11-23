@@ -56,3 +56,34 @@ Reframe creates it the first time a report is uploaded, from a plan checked to o
 | `reframe reports teardown` | Lists the bucket and how many objects it holds from the store's own records, asks for `yes`, and removes the bucket with its contents. |
 
 **Who can open them (S-04).** Only someone whose AWS sign-in may read the bucket: `s3:ListBucket` and `s3:GetObject` on it. That is anyone the account already trusts with S3 reads, and no one else. Readers can also download a report from the S3 console. Nothing is reachable without signing in to the account.
+
+## 5. A link that asks for the AWS sign-in (S-05 to S-08)
+
+The owner's goal (23 November 2026): an engineer finishes a run and sends a link; the architect or stakeholder opens it in a browser and signs in with their own AWS identity, with nothing to download.
+
+**What the spike found (S-05).**
+- The organization's IAM Identity Center runs in `us-west-2` and belongs to another account, the one that manages the organization. The run's account reaches it only as a member.
+- An application for Reframe's reports can only be added there by an Identity Center administrator, in the console. AWS offers no API for a custom SAML application.
+- Everything else lives in the run's account.
+
+**How it works.**
+- **CloudFront** serves the private reports bucket through origin access control, over HTTPS on its own `cloudfront.net` address. The bucket stays private: CloudFront is the only thing allowed to read it.
+- **Amazon Cognito** handles the sign-in: a user pool whose only way in is the organization's IAM Identity Center, federated as a SAML identity provider. Nobody gets a separate password, and the user pool has no users of its own.
+- **An edge function** (Lambda@Edge, Node.js, viewer request) checks every request before CloudFront serves anything:
+  - a request with a valid Cognito session cookie (a JWT, its signature checked against the user pool's keys, issuer, audience and expiry) is served;
+  - a request without one is sent to the sign-in, straight to IAM Identity Center;
+  - the sign-in returns to `/_reframe/callback`, which exchanges the code for tokens and sets the session cookie, marked secure, HTTP-only and same-site.
+- **Who may open reports** is decided in IAM Identity Center, by assigning the Reframe reports application to people or groups.
+
+**Commands.**
+- `reframe publish --to aws` uploads as before and prints the report's link.
+- `reframe reports url <project>/<run>` prints the link again.
+- `reframe reports site` shows the settings the Identity Center administrator needs for the application:
+  - the assertion consumer service URL;
+  - the audience;
+  - the attribute for e-mail.
+- `reframe reports site --idp-metadata <url>` connects the application once the administrator gives its metadata URL.
+
+**Until that is done,** the link exists but nobody can sign in, so nothing is exposed.
+
+**Removal.** `reframe reports teardown` also removes CloudFront, the edge function and the user pool, by the store's records. AWS keeps an edge function's copies for a while after CloudFront stops using it. If it can't be deleted yet, teardown says so, and running it again later finishes the job.

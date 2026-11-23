@@ -92,6 +92,10 @@ Specification: [sharing.md](sharing.md). An epic of its own, outside pipelines 1
 | S-02 | The CardDemo reports in the repository | §3 | The reports of a full CardDemo run are in `reports/carddemo/`, linked from the README, and open in a browser from a clone with no Reframe run |
 | S-03 | The reports in a private S3 bucket | §4 | One Terraform root creates a private, encrypted, versioned S3 bucket that refuses requests not over TLS. `reframe publish --to aws` uploads a cleaned copy under `<project>/<run>/`. The bucket outlives runs and is removed only by `reframe reports teardown`, by its own records |
 | S-04 | Opening the reports with an AWS sign-in | §4 | `reframe reports` lists what is published and `reframe reports open` downloads a report with the reader's own AWS sign-in and opens it. Nothing can be read without access to the account (owner's decision, 23 November 2026). The CardDemo reports are uploaded and opened this way |
+| S-05 | Spike: the AWS sign-in for a link | §5 | It is recorded where IAM Identity Center lives, what the run's account can create, and what an Identity Center administrator must do |
+| S-06 | CloudFront in front of the private bucket | §5 | The reports are served over HTTPS on a CloudFront address; the bucket is readable only by that distribution; direct S3 requests are refused |
+| S-07 | Sign in with IAM Identity Center before any page | §5 | Without a valid session every request is sent to the sign-in; a forged or expired cookie is refused; the Identity Center settings are printed for the administrator and connected from the metadata URL |
+| S-08 | The link from reframe publish | §5 | `reframe publish --to aws` and `reframe reports url` print the report's link; the README says how an engineer shares it and what the administrator does once |
 
 ## Later pipelines
 
