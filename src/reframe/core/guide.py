@@ -40,6 +40,19 @@ def _show(tools: list[setup.Tool]) -> None:
 
 
 def _install(tool: setup.Tool, m: setup.Machine) -> None:
+    if tool.install == "reframe-plugin":
+        from reframe.claude import plugin
+        ui.say(f"Reframe fetches Claude's code-modernization plugin {plugin.VERSION} from Anthropic's plugin repository at one pinned commit "
+               "into ~/.reframe/tools, and loads it only for its own Claude runs. Nothing is installed into your Claude Code settings.")
+        if not ui.yes(f"Fetch it now? ({tool.note})", default=True):
+            return
+        try:
+            with ui.console.status("Fetching the plugin…"):
+                plugin.fetch()
+            ui.ok(f"code-modernization plugin {plugin.VERSION} ready")
+        except Exception as error:  # noqa: BLE001 - shown to the person; nothing was changed
+            ui.fail(f"The plugin was not fetched: {error}")
+        return
     if tool.install == "reframe":
         ui.say(f"Reframe can install Terraform {setup.TERRAFORM_VERSION} for {m.name} from HashiCorp, check it against "
                "HashiCorp's SHA-256 sums, and keep it in ~/.reframe/tools. Your PATH and shell files are not changed.")
@@ -80,7 +93,9 @@ def prerequisites(m: setup.Machine) -> bool:
             ui.ok("Everything a run needs is ready.")
             return True
         uv_missing = not next(t for t in tools if t.key == "uv").ready
-        todo = [t for t in required + optional if t.key not in offered and not (t.key == "mcp" and uv_missing)]
+        claude_missing = not next(t for t in tools if t.key == "claude").ready
+        todo = [t for t in required + optional if t.key not in offered and not (t.key == "mcp" and uv_missing)
+                and not (t.key == "plugin" and claude_missing)]
         if not todo:
             break  # every missing tool was offered once; what is left was declined, did not install, or waits for uv
         for tool in todo:
@@ -213,7 +228,43 @@ def choices(chosen_source: str) -> dict[str, Any]:
     graph = ("new", "existing")[ui.choose("Neptune graph for AWS Transform", [
         ("A new graph for this run", "its own private network; billed until reframe teardown"),
         ("An existing Neptune cluster", "Reframe lists the clusters in the region and checks each; used as it is, never changed")]) - 1]
-    return {"mode": mode, "project": project, "graph": graph}
+    picked = {"mode": mode, "project": project, "graph": graph, "claude": None}
+    picked["claude"] = claude_choice()
+    return picked
+
+
+def claude_choice() -> dict[str, Any] | None:
+    """Pipeline 2, offered with yes as the default: after AWS Transform finishes, the same snapshot is assessed with Claude."""
+    from reframe.claude import plugin, preflight
+    from reframe.claude.pipeline import DEFAULT_MAX_AGENTS
+    from reframe.claude.runner import environment
+    ui.section("Pipeline 2")
+    ui.say("After AWS Transform finishes, Reframe can assess the same snapshot with Claude's code-modernization plugin, show its "
+           "results in the same business review, and build a page comparing the two.")
+    if not ui.yes("Assess the same snapshot with Claude afterwards?", default=True):
+        ui.hint("Later, run: reframe claude")
+        return None
+    auth = ("subscription", "bedrock")[ui.choose("How should Claude sign in?", [
+        ("Your Claude subscription", "Claude Code's own sign-in (claude auth login)"),
+        ("Amazon Bedrock", "Claude models billed to the AWS account, with this AWS profile or AWS_BEARER_TOKEN_BEDROCK")]) - 1]
+    if auth == "subscription":
+        status = preflight.auth_status(environment("subscription"))
+        if status.get("loggedIn"):
+            ui.ok(f"Claude Code is signed in ({status.get('subscriptionType') or status.get('authMethod') or 'signed in'}).")
+        else:
+            ui.warn("Claude Code is not signed in.")
+            if ui.yes("Run claude auth login now? You sign in in your browser.", default=True):
+                setup.run_in_terminal("claude auth login")
+    if not plugin.fetched():
+        ui.say(f"Reframe uses the code-modernization plugin {plugin.VERSION}, fetched from Anthropic's plugin repository at a pinned commit.")
+        if ui.yes("Fetch it now?", default=True):
+            with ui.console.status("Fetching the plugin…"):
+                plugin.fetch()
+            ui.ok(f"Plugin {plugin.VERSION} ready.")
+    ui.hint("Rule extraction starts many agents at once: on CardDemo about 370 to 555, up to about 9 million tokens and an hour.")
+    limit = ui.ask("Agent limit for rule extraction (Reframe stops and asks if the estimate is higher)", str(DEFAULT_MAX_AGENTS),
+                   check=lambda v: None if v.isdigit() and int(v) > 0 else "Enter a whole number of agents")
+    return {"auth": auth, "max_agents": int(limit)}
 
 
 def summary(chosen_source: str, ref: str | None, sign: setup.SignIn, picked: dict[str, Any]) -> bool:
@@ -221,7 +272,9 @@ def summary(chosen_source: str, ref: str | None, sign: setup.SignIn, picked: dic
     rows = [("Source", chosen_source + (f" @ {ref}" if ref else "")),
             ("AWS", f"{sign.profile} · {sign.region} · account …{(sign.account or '')[-4:]}"),
             ("Mode", picked["mode"]), ("Project", picked["project"]),
-            ("Neptune", "a new graph, billed until reframe teardown" if picked["graph"] == "new" else "an existing cluster, chosen next")]
+            ("Neptune", "a new graph, billed until reframe teardown" if picked["graph"] == "new" else "an existing cluster, chosen next"),
+            ("Then", (f"Claude assessment of the same snapshot ({picked['claude']['auth']}, up to {picked['claude']['max_agents']} agents)"
+                      if picked.get("claude") else "AWS Transform only; reframe claude adds the Claude assessment later"))]
     ui.table(("", ""), rows, ("bold", None))
     ui.say("Reframe will create S3 buckets, IAM roles" + (", a private network and a Neptune Serverless graph" if picked["graph"] == "new" else "") +
            ", and an AWS Transform workspace, connector and job. A run takes about an hour. Nothing is removed until you run reframe teardown.")
@@ -257,7 +310,7 @@ def run(args) -> int:
         ui.hint("Stopped. Nothing was started or created.")
         return 130
     return commands.start(source=chosen, profile=sign.profile, ref=ref, mode=picked["mode"], region=sign.region, project=picked["project"],
-                          graph=picked["graph"], terraform=None, foreground=bool(getattr(args, "foreground", False)))
+                          graph=picked["graph"], terraform=None, foreground=bool(getattr(args, "foreground", False)), claude=picked.get("claude"))
 
 
 def setup_only(args) -> int:
