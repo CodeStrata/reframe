@@ -33,6 +33,7 @@ Status: draft for the owner's agreement, with [the specification](specification.
 | P1-18 | Guided prerequisites: check, install on request, remember | §3 | Each missing tool is named with its install command for macOS or Linux and installed only on a yes; Terraform is installed by Reframe and checked against HashiCorp's SHA-256 sums; the MCP server is fetched once; paths are saved and used |
 | P1-19 | Guided run: sign-in, source and choices | §3 | `reframe run` with no arguments chooses a profile, checks or starts the sign-in, takes and checks the source, asks the mode, project and Neptune choice, shows a summary, and starts on one yes; `reframe run --source` asks nothing |
 | P1-20 | The look of the first console | §3 | Header panel, coloured status, tables and numbered choices in the guided run and `reframe status`; plain output without a terminal |
+| P1-21 | Home screen and help in the look of the first console | §3 | `reframe` alone shows the header, the runs with their status, the suggested next step and a numbered menu that runs each command; `reframe --help` and each command's help show tables of commands and options with examples; plain help and exit code 2 without a terminal |
 
 ## Decisions
 

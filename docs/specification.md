@@ -33,6 +33,7 @@ Out of scope for pipeline 1: anything that uses the downloaded requirements (che
 
 | Command | What it does |
 |---|---|
+| `reframe` | The home screen, in a terminal: the runs with their status, the suggested next step, and a numbered menu of the commands below (section 3, The home screen and help). |
 | `reframe run` | The guided run: checks and sets up the prerequisites, the AWS sign-in and the source, asks for each choice, then starts stages 0 to 8 (below). |
 | `reframe run --source <folder \| file.zip \| github-url> [--profile <aws-profile>] [--ref <branch-tag-or-commit>] [--mode autonomous\|interactive] [--graph new\|existing\|<cluster-name>]` | Runs stages 0 to 8 in a background worker and returns, with no questions: the prerequisites are assumed to be set up. The profile defaults to the one saved by the guided setup. |
 | `reframe setup` | The guided setup alone: prerequisites and the AWS sign-in, without starting a run. |
@@ -58,6 +59,17 @@ Region defaults to `us-east-1` (`--region` to change it). `--run <id>` picks a r
 5. **Summary and start.** What will be created and that the Neptune graph is billed until `reframe teardown`, then one yes to start.
 
 The chosen profile, region and tool paths are saved in `~/.reframe/config.json` as the next run's defaults. `reframe status` uses the same styling. Without a terminal, `reframe run` needs `--source`.
+
+### The home screen and help
+
+`reframe` on its own, in a terminal, opens the home screen in the look of the first console (v1):
+
+1. The REFRAME header panel.
+2. The runs, most recent first: run ID, project, status (coloured), stage, start time, and whether its AWS resources are still in place. With no runs, a welcome panel says to choose 1.
+3. The suggested next step for the latest run, in the words `reframe status` uses.
+4. A numbered menu in a panel: start a guided run, run status, answer a waiting question, resume, open the report, event log, teardown, setup, help, exit. An action on a run asks which run, with the latest as the default. After each action the home screen is shown again; 0, Ctrl+C or Ctrl+D leaves it.
+
+`reframe --help` and each command's `--help` use the same look: the header (for `reframe --help`), a table of commands or options with what each does, and common examples. Without a terminal, `reframe` prints the help as plain text and exits with code 2, as before; no question is asked.
 
 ## 4. Stages
 
