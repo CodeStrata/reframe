@@ -18,6 +18,18 @@ SELECT = [{"actionType": "SELECT", "data": {"selectInteractionData": {"options":
     {"label": 'Reimagine business domain "Payments"', "value": 'Reimagine business domain "Payments"'},
     {"label": 'Reimagine business function "Refunds"', "value": 'Reimagine business function "Refunds"'},
     {"label": "Reimagine unassigned programs", "value": "Reimagine unassigned programs"}]}}}]
+# The readiness menu after the selection, as AWS worded it on 23 November 2026.
+READINESS = ("**Readiness Summary for Your Reimagine Selection:**\n\nYou have selected 2 business domains (Payments, Accounts) plus "
+             "unassigned programs. Here's what's ready:\n\n- **3 business functions** across the 2 domains\n- **4 unassigned programs** "
+             "to include\n- \u26a0\ufe0f 1 missing file (in Payments)\n\n**What would you like to do?**\n\n"
+             "1. **Proceed** with reimagining all 3 business functions and 4 unassigned programs\n"
+             "2. **Switch selection** to different business domains or functions\n"
+             "3. **Drop unassigned programs** and reimagine only the 3 business functions in the named domains\n\n"
+             "Please reply with your choice.")
+NO_ACTION = ("Your reimagine workflow for those business domains and unassigned programs is already in progress. The system has "
+             "started generating modernization requirements for:\n\n- Payments\n- Accounts\n- Unassigned programs\n\n"
+             "No further action is needed at this time. The workflow will continue processing, and you can check on results as "
+             "they become available.")
 LOCATION_SCHEMA = {"type": "object", "required": ["assetLocation"], "properties": {"assetLocation": {"type": "string"},
                                                                                   "optInChatBox": {"type": "boolean"}}}
 
@@ -118,6 +130,40 @@ class DriverTest(unittest.TestCase):
         self.step(d, waiting, system("m5", "Please select the business function(s) to Re-Imagine before continuing.", "2026-11-21T18:40:00"))
         self.assertEqual(self.api.sent[-1], self.api.sent[0])  # the same selection, structured against the catalog message
         self.assertEqual(self.api.sent[-1]["origin"], "m2")
+
+    def readiness_after_catalog(self, mode="autonomous", menu=READINESS):
+        d = self.driver(mode)
+        d._ensure_job()
+        template = {"isBPDEnabled": True, "s3Uri": "s3://reframe-demo-abc123-src/transform-output/job-1/business-functions/delivery.zip"}
+        self.client.tasks["t2"] = {"title": "Review business functions discovery results", "uxComponentId": answers.CATALOG_COMPONENT,
+                                   "blockingType": "BLOCKING", "_outputSchema": {}, "_responseTemplate": template}
+        tasks = [{"taskId": "t2", "status": "AWAITING_HUMAN_INPUT", "blockingType": "BLOCKING"}]
+        waiting = snapshot("AWAITING_HUMAN_INPUT", [("Discover business functions", "PENDING_HUMAN_INPUT")], tasks)
+        self.step(d, waiting, system("m2", CATALOG, "2026-11-23T03:38:19", SELECT))
+        self.step(d, waiting, system("m3", "A confirmation is required before proceeding. **Proceed with reimagining the selected business "
+                                           "domains?**\n\nPlease reply **yes** to confirm or **no** to cancel.", "2026-11-23T03:39:16"))
+        self.step(d, waiting, system("m4", menu, "2026-11-23T03:40:18"))
+        return d, waiting
+
+    def test_readiness_menu_answered_with_its_proceed_choice(self):
+        d, waiting = self.readiness_after_catalog()
+        self.assertEqual([m["text"] for m in self.api.sent][1:],
+                         ["yes", "1. Proceed with reimagining all 3 business functions and 4 unassigned programs"])
+        self.assertFalse(self.folder.exists("question.json"))
+        self.step(d, waiting, system("m5", NO_ACTION, "2026-11-23T03:41:00"))
+        self.assertFalse(self.folder.exists("question.json"))  # a notice, not a question
+        self.assertEqual(len(self.api.sent), 3)
+
+    def test_review_form_never_submitted_over_a_question_with_choices(self):
+        # A menu Reframe does not recognise waits as a chat question. Before 23 November 2026 the stall rule counted those
+        # polls as quiet and submitted the review form over it, and AWS asked for the selection again.
+        menu = READINESS.replace("Please reply with your choice.", "Let me know which option you prefer.")
+        d, waiting = self.readiness_after_catalog(menu=menu)
+        self.assertEqual(self.folder.load("question.json")["kind"], "chat")
+        for _ in range(8):
+            self.step(d, waiting)
+        self.assertEqual(self.client.changed("complete_task"), [])
+        self.assertEqual(self.folder.load("question.json")["id"], "m4")
 
     def test_stalled_catalog_form_with_foreign_bucket_asks(self):
         d, waiting, template = self.stalled_after_catalog()
@@ -250,6 +296,21 @@ class AnswersTest(unittest.TestCase):
         notified = ("Reimagine workflow started. Specification generation is now running.\n\nYou'll be notified when the "
                     "specifications are ready. Feel free to query results or check status at any time.")
         self.assertIsNone(answers.chat_question(system("m", notified, "t"), awaiting=True))
+
+    def test_readiness_menu(self):
+        question = answers.chat_question(system("m", READINESS, "t"), awaiting=True)
+        self.assertEqual(question.kind, "choice")
+        self.assertEqual(question.options[1], "Switch selection to different business domains or functions")
+        self.assertEqual(answers.autonomous(question).text, "1. Proceed with reimagining all 3 business functions and 4 unassigned programs")
+        self.assertEqual(answers.interactive(question, [3], None).text,
+                         "3. Drop unassigned programs and reimagine only the 3 business functions in the named domains")
+        two = READINESS.replace("2. **Switch selection**", "2. **Proceed** only")
+        self.assertIsNone(answers.autonomous(answers.chat_question(system("m", two, "t"), awaiting=True)))
+        self.assertTrue(answers.offers_choices(READINESS))
+        self.assertFalse(answers.offers_choices(NO_ACTION))
+
+    def test_no_further_action_is_a_notice(self):
+        self.assertIsNone(answers.chat_question(system("m", NO_ACTION, "t"), awaiting=True))
 
     def test_bold_confirmation_recognised(self):
         self.assertEqual(answers.chat_question(system("m", "x\n**Do you want to proceed?**", "t")).kind, "confirm")

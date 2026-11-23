@@ -11,6 +11,7 @@ A chat question is recognised by its closing line, because AWS puts it at the en
 | "Proceed with this plan?"              | 20 November 2026                 | yes                                                  |
 | the business function catalog (SELECT) | spike 1, 21 November 2026        | every business domain and the unassigned programs    |
 | "Do you want to proceed?" after it     | spike 1, 21 November 2026        | "Yes, proceed."                                      |
+| the readiness menu after it            | 23 November 2026                 | its one numbered choice that starts with "Proceed"   |
 | the source-location form               | 17, 20 and 21 November 2026      | the uploaded snapshot's S3 location                  |
 
 Interactive mode turns each of these into a Question for reframe answer; the source-location form is
@@ -42,9 +43,14 @@ CONFIRM_QUESTION = re.compile(r"\b(proceed|confirm)\b[^?]*\?")
 RESELECT = re.compile(r"\bselect the business functions?(\(s\))? to re-?imagine\b")
 # Offers AWS posts after an action ("What would you like to do next?"); the job never waits on them.
 OPEN_OFFER = re.compile(r"^(what would you like to do next\?|is there anything (else )?you'?d like)|\bfeel free to\b"
-                        r"|\byou can (now )?monitor\b|\bask me for (status|progress)( updates)?\b|\byou'?ll be notified\b")
+                        r"|\byou can (now )?monitor\b|\bask me for (status|progress)( updates)?\b|\byou'?ll be notified\b"
+                        r"|\bno further action is needed\b|\byou can check on (the )?results\b")
 # A confirmation worded as a statement: "Please confirm to proceed with the reimagine workflow for ..."
 PLEASE_CONFIRM = re.compile(r"^please confirm\b")
+# The readiness menu after the selection (live run, 23 November 2026): numbered choices ("Proceed with reimagining all
+# 15 business functions and 25 unassigned programs", "Switch selection ...", "Drop unassigned programs ...") closing
+# with "Please reply with your choice." It has no question mark, so it is recognised by that closing line.
+REPLY_CHOICE = re.compile(r"^(please )?reply with (your|the|one) (choice|option|selection|number)\b")
 
 
 # AWS spelling out the reply it wants ("To move forward, please reply: **Yes, proceed**"); sent as given when affirmative.
@@ -83,6 +89,15 @@ def menu_options(text: str) -> tuple[tuple[str, str], ...]:
     return options if len(options) >= 2 else ()
 
 
+def plain(text: str) -> str:
+    return text.replace("**", "").replace("__", "")
+
+
+def offers_choices(text: str) -> bool:
+    """AWS offers numbered choices or asks for a reply: the job waits on it. A notice does neither."""
+    return bool(menu_options(plain(text))) or bool(re.search(r"\breply\b", closing_line(text)))
+
+
 def setup_message(choice: str) -> str:
     """One reply with every setup answer, so AWS has nothing left to ask before it builds the plan. It names no
     workspace, job, connector or archive: AWS refuses identifiers in its chat."""
@@ -108,7 +123,7 @@ class Question:
 
     id: str
     kind: str
-    """plan, catalog, reselect, confirm, select, chat or form"""
+    """plan, catalog, reselect, confirm, choice, select, chat or form"""
     text: str
     options: tuple[str, ...] = ()
     replies: tuple[str, ...] = ()
@@ -185,6 +200,11 @@ def chat_question(message: dict[str, Any], awaiting: bool = False) -> Question |
         return Question(message_id, "confirm", text, ("English only",), ("English only, no translations.",))
     if closing in PROCEED_PLAN:
         return Question(message_id, "confirm", text, ("Yes", "No"), ("Yes, proceed with this plan.", "No."))
+    if REPLY_CHOICE.search(closing):
+        numbered = menu_options(plain(text))
+        if numbered:
+            return Question(message_id, "choice", text, tuple(label for _, label in numbered),
+                            tuple(f"{number}. {label}" for number, label in numbered))
     if RESELECT.search(normalize(text)):
         return Question(message_id, "reselect", text)
     instructed = instructed_reply(text)
@@ -213,6 +233,12 @@ def autonomous(question: Question) -> Answer | None:
         if "objective" in closing_line(question.text) and PLAN.casefold() not in normalize(question.text):
             return None
         return Answer(question.replies[0], f"AWS asked to confirm ({closing_line(question.text)!r}); Reframe confirmed")
+    if question.kind == "choice":
+        proceed = [reply for label, reply in zip(question.options, question.replies) if normalize(label).startswith("proceed")]
+        if len(proceed) == 1:
+            return Answer(proceed[0], "AWS's readiness menu after the selection: the one choice that proceeds with everything selected, "
+                                      "so the full source is assessed")
+        return None
     if question.kind == "select":
         return None  # AWS marks no default on the SELECT interactions recorded so far
     return None

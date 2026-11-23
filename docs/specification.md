@@ -142,11 +142,12 @@ Reframe polls the job every minute, with its open tasks and chat. It answers eac
 | Where the source is (the source-location form) | The S3 location of the uploaded snapshot | The same, from the run's own record |
 | Which business functions to reimagine (the catalog's chat message) | One structured chat reply naming every business domain in the catalog and the unassigned programs | The catalog's options through `reframe answer` |
 | "Do you want to proceed?" after the selection | "Yes, proceed." | `reframe answer` |
+| The readiness menu after the selection: numbered choices (proceed with everything selected, switch the selection, drop the unassigned programs) ending "Please reply with your choice." | The one choice that proceeds, sent as AWS numbers it; when no single choice starts with "Proceed", it waits for `reframe answer` | `reframe answer` |
 | Any other blocking question with options | AWS's default option when AWS marks one, recorded as Reframe's decision | `reframe answer` |
 | A blocking question with no default | Waits for `reframe answer` | `reframe answer` |
 | Non-blocking forms (for example "Add collaborators") | Left open | Left open |
 
-Selection is answered the way the web app does it: `SendMessage` with the reply text and `interactionResults` naming the catalog message. The review form "Review business functions discovery results" is not submitted; its own hint sends the selection to chat.
+Selection is answered the way the web app does it: `SendMessage` with the reply text and `interactionResults` naming the catalog message. The review form "Review business functions discovery results" is not submitted; its own hint sends the selection to chat. Only when the job has waited five quiet polls after the selection was confirmed does Reframe submit the form with AWS's own response template (AWS sometimes leaves it open). A poll is not quiet while a question that offers choices or asks for a reply is waiting: the form is never submitted over a question, because AWS then asks for the selection again. A message saying no action is needed is a notice, not a question.
 
 The job is done when every step in its plan has SUCCEEDED and the plan includes "Generate requirements". (Before the selection, the plan holds only the assessment steps, so "every step succeeded" alone is not enough.) AWS keeps the job's own status at EXECUTING while a non-blocking form is open, so Reframe does not wait for COMPLETED. A step that fails stops the run with AWS's reason.
 
