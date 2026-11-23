@@ -8,23 +8,21 @@ Pipeline 2 then assesses the same snapshot with Claude's [code-modernization plu
 
 The design is in [docs/specification.md](docs/specification.md) (pipeline 1) and [docs/pipeline-2.md](docs/pipeline-2.md) (pipeline 2), the stories are in [docs/plan.md](docs/plan.md), and the live test results are in [docs/acceptance.md](docs/acceptance.md).
 
-## The pipeline
+## How it works
 
-![How a pipeline 1 run works: ten stages from preflight to the report, with teardown only on request; you sign in, answer AWS's questions in interactive mode, read the report and consent to teardown; next, pipeline 2 adds Claude's graph to the same Neptune cluster](docs/images/pipeline-1.svg)
+![How a Reframe run works: start and snapshot, the AWS resources, then pipeline 1 (AWS Transform) and pipeline 2 (Claude) side by side on the same snapshot, the reports with the comparison, sharing, and teardown only on request; you sign in, answer questions or set Claude's agent limit, review and compare, and consent to teardown](docs/images/reframe.svg)
 
-| Stage | What happens |
+| Step | What happens |
 |---|---|
-| 0. Preflight | Checks Git, the AWS CLI, uv, Terraform 1.10 or later, your AWS sign-in, the source and that AWS Transform is ready in the region. Nothing is created if a check fails. |
-| 1. Snapshot | The source becomes one deterministic ZIP: a folder as it is, a Git checkout or URL at the commit you choose with `--ref`, or your ZIP after a safety check. |
-| 2. AWS resources | Terraform creates a state bucket, then the source bucket, the IAM roles and a new Neptune Serverless graph in its own private network. You can use an existing Neptune cluster instead (see below). |
-| 3. Upload | The snapshot goes to the source bucket with a SHA-256 checksum. |
-| 4. AWS Transform setup | Reframe creates the workspace and the reimagine connector to the Neptune graph, and waits for the connector to be active. |
-| 5-6. Job | Reframe creates the job ("Assess and reimagine") and polls it every minute. AWS asks questions and shows forms along the way: the plan, the source location, the business function catalog and its confirmations. In autonomous mode Reframe answers each one and records why in `decisions.json`; in interactive mode it asks you. |
-| 7. Retrieval | When every step has succeeded, including "Generate requirements", Reframe downloads the requirements, the assessment and the business function catalog from S3. |
-| 8. Report | One self-contained HTML page for business users and subject-matter experts to review: from the overview down by business domain, business function and capability to each requirement and the business rules behind it, with review marks a reviewer can download. Technical detail has its own section. |
-| 9. Teardown | Only when you run `reframe teardown`. See [Removing the AWS resources](#removing-the-aws-resources). |
+| 1. Start | `reframe run` checks the prerequisites and your AWS sign-in, takes the source (a folder, a ZIP file or a GitHub URL) and makes one snapshot of it, with its SHA-256. |
+| 2. AWS resources | Terraform creates the buckets, the IAM roles and a Neptune graph, or uses an existing Neptune cluster. Both pipelines start from here. |
+| Pipeline 1: AWS Transform | The snapshot is uploaded, and Reframe drives the AWS Transform job to the end, answering its questions in autonomous mode, then downloads the requirements, business rules and assessment. |
+| Pipeline 2: Claude | Alongside AWS Transform, Claude's code-modernization plugin assesses the same snapshot. Reframe puts its results in AWS Transform's shape, with generated requirements, and loads Claude's graph into the same Neptune cluster. Optional, and offered by default. |
+| 3. Reports | AWS Transform's business review, Claude's business review in the same layout, and a page comparing the two. |
+| 4. Share | `reframe publish` makes a copy of the reports, cleaned of your account's identifiers, that anyone can open. |
+| 5. Teardown | Only when you run `reframe teardown`, after you consent to the full list. |
 
-Every change Reframe makes in AWS is written down before it is sent and confirmed after, so a run that stops can be resumed with `reframe resume` without creating anything twice. A run takes about an hour, most of it AWS Transform's own work.
+Every change and step is written down before it starts and confirmed after, so a run that stops (an expired sign-in, Claude's usage limit) continues with `reframe resume` without repeating anything. Pipeline 1 takes about an hour; pipeline 2 about two, alongside it. The stage-by-stage detail is in [docs/specification.md](docs/specification.md) and [docs/pipeline-2.md](docs/pipeline-2.md).
 
 ## What you need
 
