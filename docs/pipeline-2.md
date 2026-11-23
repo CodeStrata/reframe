@@ -29,12 +29,24 @@ Out of scope: the plugin's planning and build steps (`modernize-brief`, `moderni
 
 | Command | What it does |
 |---|---|
-| `reframe claude [--run <id>] [--auth subscription\|bedrock] [--max-agents <n>] [--mode autonomous\|interactive] [--graph-load yes\|no]` | Runs stages C0 to C8 (below) on a pipeline 1 run, in the background worker. `--max-agents` defaults to 600; `--mode` to the run's mode; `--graph-load` to yes on a graph the run created and no on an existing cluster. |
+| `reframe claude [--run <id>] [--auth subscription\|bedrock] [--max-agents <n>] [--mode autonomous\|interactive] [--graph-load yes\|no]` | Runs stages C0 to C8 (below) on a run, in its own background worker, alongside pipeline 1 once the run's AWS resources exist. `--max-agents` defaults to 600; `--mode` to the run's mode; `--graph-load` to yes on a graph the run created and no on an existing cluster. |
 | `reframe compare [--run <id>] [--open]` | Builds the comparison page again from both results, and opens it. |
 
 `reframe status`, `events`, `answer`, `resume`, `report` and `teardown` cover pipeline 2 as well. The home screen shows both pipelines for each run and has menu entries for both commands.
 
-**The guided run.** In `reframe run`'s choices step, one more question: *After AWS Transform finishes, assess the same snapshot with Claude?* The default answer is yes. With yes, Reframe also asks how Claude signs in (section 4, stage C0) and the agent limit for rule extraction (stage C4), and the worker continues into pipeline 2 as soon as pipeline 1 is done. With no, the home screen suggests `reframe claude` once pipeline 1 is done.
+**The guided run.** In `reframe run`'s choices step, one more question: *Assess the same snapshot with Claude as well?* The default answer is yes. With yes, Reframe also asks how Claude signs in (section 4, stage C0) and the agent limit for rule extraction (stage C4). With no, the home screen suggests `reframe claude` later.
+
+### Alongside pipeline 1
+
+Pipeline 2 doesn't wait for AWS Transform. What it needs is the snapshot (pipeline 1's stage 1) and the run's Neptune graph (stage 2). So when pipeline 2 is wanted:
+
+1. **Start.** As soon as pipeline 1's AWS resources exist, pipeline 1's worker starts pipeline 2's own worker. `reframe claude` on a run that is already past stage 2 starts it at once.
+2. **Two workers, one run folder.** Each pipeline has its own lock and its own status (`run.json`'s `claude` key for pipeline 2). Changes to `run.json` and the decisions file are made under a file lock, so the two workers never overwrite each other. A pipeline 2 question in interactive mode has its own question file; `reframe answer` shows pipeline 1's first, then pipeline 2's.
+3. **The work in parallel:**
+   - Stages C0 to C7 run while AWS Transform works: the plugin's steps, retrieval, the generated requirements, and Claude's graph in the same cluster.
+   - The graph load goes into Claude's own named graph, so it can't disturb AWS Transform's.
+4. **Waiting for the comparison.** Stage C8 builds Claude's review at once, then waits for AWS Transform's results before it compares them. If pipeline 1 stops, pipeline 2 stops too and says so. `reframe resume` continues pipeline 1, and the comparison follows when both are done.
+5. **Teardown** refuses while either worker is running.
 
 ## 4. Stages
 
@@ -44,7 +56,7 @@ Each stage records an intent before it starts and a receipt when it ends, in the
 
 Checked before anything runs, each failure stopping with the exact fix:
 
-- pipeline 1 is done for the run, and the run is not torn down;
+- pipeline 1's snapshot and AWS resources exist (its stages 1 and 2 are done), and the run is not torn down;
 - Claude Code is installed and signed in for the chosen way:
   - **subscription** (default): the person's own Claude Code sign-in;
   - **bedrock**: Claude Code's Amazon Bedrock settings (`CLAUDE_CODE_USE_BEDROCK=1` and the run's region), either with the run's AWS profile (its exported short-lived credentials, as Terraform gets them) or with a Bedrock API key the person has set in their environment (`AWS_BEARER_TOKEN_BEDROCK`). Reframe passes the key through to Claude Code and never writes it anywhere. A model chosen with `ANTHROPIC_MODEL` is passed on.
@@ -157,6 +169,8 @@ AWS Transform's graph in Neptune is RDF, queried with SPARQL. AWS loads it from 
 **Teardown:** on an existing cluster, `DROP GRAPH <urn:reframe:graph:claude:<run>>` removes exactly what Reframe loaded, by the graph name the run recorded, and nothing of AWS's.
 
 ### Stage C8: report and comparison
+
+Claude's review is built as soon as stage C7 is done. The comparison and the AI pairing wait until pipeline 1 has retrieved AWS Transform's results (see Alongside pipeline 1).
 
 **Claude's business review.** The same report as stage 8 of pipeline 1, in its own tab:
 

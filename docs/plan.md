@@ -62,7 +62,7 @@ Decisions agreed with the owner:
 - **Agent limit:** set before rule extraction.
 - **Rule pairing:** by program, and an AI pass that is labelled as AI output.
 - **Plugin usage counts:** off.
-- **When it runs:** as its own command, and offered with the default answer yes in the guided run, so it follows AWS Transform automatically.
+- **When it runs:** as its own command, and offered with the default answer yes in the guided run. It starts as soon as the run's Neptune graph exists, alongside AWS Transform (P2-15).
 
 | Story | Title | Specification | Done when |
 |---|---|---|---|
@@ -80,6 +80,18 @@ Decisions agreed with the owner:
 | P2-12 | AI pairing of rules, labelled | §4 C8 | A Claude step proposes rule pairs, each with a reason and a confidence, marked as AI output, which a person can mark right or wrong |
 | P2-13 | The comparison page | §4 C8 | Overview first, then domains, programs, rules and what only one tool found. Every number links to the items in both reports, and the model-output caveat is stated |
 | P2-14 | Live acceptance and README | §7 | Every point of the specification's section 7 passes from the CLI. The README describes pipeline 2 from the tested commands |
+| P2-15 | Pipeline 2 alongside pipeline 1 | §3 Alongside pipeline 1 | Pipeline 2 starts when pipeline 1's AWS resources exist, in its own worker with its own lock; the two workers never overwrite each other's records; the comparison waits for AWS Transform's results; a stop in pipeline 1 stops pipeline 2 with the reason; a fresh guided CardDemo run with the default answers goes through both |
+
+## Sharing the results
+
+Specification: [sharing.md](sharing.md). An epic of its own, outside pipelines 1 and 2: the results of a run, shared with people who don't run Reframe.
+
+| Story | Title | Specification | Done when |
+|---|---|---|---|
+| S-01 | `reframe publish`: a cleaned copy of a run's reports | §2 | AWS Transform's review, Claude's review, the comparison and the plugin's own pages are copied with an index page. Account IDs, ARNs, bucket names, S3 locations, job, workspace and connector IDs, profile names, e-mail addresses and local paths are removed. A check of the copy finds none left, or nothing is written |
+| S-02 | The CardDemo reports in the repository | §3 | The reports of a full CardDemo run are in `reports/carddemo/`, linked from the README, and open in a browser from a clone with no Reframe run |
+| S-03 | A static site on AWS for the reports | §4 | One Terraform root creates a private, encrypted S3 bucket and a CloudFront distribution that reads it through origin access control. `reframe publish --to aws` uploads a published copy and prints the address. The site outlives runs and is removed only by its own teardown, by its own records |
+| S-04 | Who can open the site | §4 | The owner's choice of access is built and documented, for example open to anyone with the link, limited to an IP range, or behind a sign-in |
 
 ## Later pipelines
 
