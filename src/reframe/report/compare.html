@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<style>
+:root{--bg:#f6f6f3;--panel:#fff;--ink:#1d1d1b;--muted:#5f5f5a;--line:#e1e0da;--accent:#2f5d8a;--accent-soft:#e7eef6;
+  --agree:#2f7a4b;--agree-soft:#e6f3ea;--change:#a8620c;--change-soft:#fbf0e1;--ask:#7a3fa8;--ask-soft:#f1e9f8;--warn:#9a6a12;--bad:#a33a2c;--code:#f0efea;--quote:#f3f6f9}
+@media (prefers-color-scheme:dark){:root{--bg:#151514;--panel:#1e1e1c;--ink:#ecebe6;--muted:#a5a49e;--line:#33332f;--accent:#8db6df;--accent-soft:#223040;
+  --agree:#7cc79a;--agree-soft:#1d2e23;--change:#e3a95b;--change-soft:#33281a;--ask:#c39be6;--ask-soft:#2c2236;--warn:#e0b85c;--bad:#e8897b;--code:#2a2a27;--quote:#1f262d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--accent)}button{font:inherit;cursor:pointer}
+header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+.bar{max-width:1200px;margin:0 auto;padding:12px 24px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.brand{flex:1;min-width:240px}.brand h1{font-size:18px;margin:0}.brand div{color:var(--muted);font-size:13px}
+.bar input[type=search]{width:300px;max-width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 12px;border-radius:8px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.views{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;gap:4px}
+.views a{padding:8px 12px;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent}.views a.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+main{max-width:1200px;margin:0 auto;padding:18px 24px 80px}
+.crumbs{font-size:13px;color:var(--muted);margin-bottom:10px}.crumbs a{text-decoration:none}.crumbs span{margin:0 6px}
+h2{font-size:24px;margin:4px 0 6px}h3{font-size:17px;margin:22px 0 10px}
+.lead{color:var(--muted);max-width:820px;margin:0 0 16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+.numbers{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:14px 0 18px}
+.numbers div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}.numbers b{display:block;font-size:24px}.numbers span{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;color:var(--ink);text-decoration:none}
+.card:hover{border-color:var(--accent)}.card h4{margin:0 0 4px;font-size:16px}.card p{margin:0 0 10px;color:var(--muted);font-size:14px}
+.counts{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}.counts b{color:var(--ink)}
+.progress{margin-top:10px;font-size:12px;color:var(--muted)}.progress i{display:block;height:6px;border-radius:3px;background:var(--line);margin-top:4px;overflow:hidden}
+.progress i b{display:block;height:100%;background:var(--agree)}
+.caprow{display:flex;gap:14px;align-items:flex-start}.caprow .num{font-weight:700;color:var(--accent);min-width:26px}
+.story{background:var(--quote);border-left:4px solid var(--accent);padding:10px 14px;border-radius:6px;margin:8px 0 12px}
+.fields{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:14px;margin:0 0 12px}.fields dt{color:var(--muted)}.fields dd{margin:0}
+.item{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.item.agree{border-left-color:var(--agree)}.item.change{border-left-color:var(--change)}.item.question{border-left-color:var(--ask)}
+.item .head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;font-size:13px;color:var(--muted)}
+.item .text{font-size:15px}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-size:12px}
+.tag.grey{background:var(--code);color:var(--muted)}.tag.warn{background:var(--change-soft);color:var(--change)}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:13px}
+.marks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.marks button{border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:4px 10px;border-radius:16px;font-size:13px}
+.marks button[aria-pressed=true].agree{background:var(--agree-soft);color:var(--agree);border-color:var(--agree)}
+.marks button[aria-pressed=true].change{background:var(--change-soft);color:var(--change);border-color:var(--change)}
+.marks button[aria-pressed=true].question{background:var(--ask-soft);color:var(--ask);border-color:var(--ask)}
+.marks textarea{flex-basis:100%;min-height:54px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px}
+details{margin-top:8px}summary{cursor:pointer;color:var(--accent);font-size:14px}
+.rules{margin:8px 0 0 10px;padding-left:12px;border-left:2px solid var(--line)}.rules .item{margin-top:8px}
+.pager{display:flex;justify-content:space-between;gap:12px;margin:18px 0}
+.muted{color:var(--muted)}.small{font-size:13px}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}th{background:var(--panel);font-weight:600}
+.scroll{overflow-x:auto}
+.tablebox{max-height:72vh;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.datatable{table-layout:fixed;width:100%;min-width:760px}.datatable th{position:sticky;top:0;z-index:1;box-shadow:0 1px 0 var(--line)}
+.datatable td{overflow-wrap:anywhere}.datatable td.id{white-space:nowrap;overflow-wrap:normal}.datatable td.id a{text-decoration:none}
+.datatable tbody tr:hover{background:var(--accent-soft)}.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.tools input,.tools select{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.tools input{flex:1;min-width:220px}.tools select{max-width:260px}.tools select:disabled{opacity:.55}.doc h2{font-size:18px}.doc h3,.doc h4{font-size:15px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}.tabs a{padding:6px 12px;border:1px solid var(--line);border-radius:16px;text-decoration:none;color:var(--muted);font-size:14px}.tabs a.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);max-width:520px;width:92vw;padding:20px}
+dialog::backdrop{background:rgba(0,0,0,.35)}dialog label{display:block;font-size:14px;margin:10px 0 4px}dialog input{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.note{background:var(--change-soft);color:var(--change);padding:8px 12px;border-radius:8px;font-size:13px;margin-bottom:12px}
+@media (max-width:720px){.bar,.views,main{padding-left:16px;padding-right:16px}.bar input[type=search]{width:100%}}
+@media print{header .bar input,header .bar .btn,.views,.marks button,.pager{display:none}header{position:static}.item{break-inside:avoid}body{background:#fff}}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.side h4{margin:0 0 8px;font-size:14px;color:var(--muted)}
+.cmp td.n{font-variant-numeric:tabular-nums;font-size:18px;font-weight:600;white-space:nowrap}.yes{color:var(--agree)}.no{color:var(--muted)}
+.bar2{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--line);margin-top:4px}.bar2 i{display:block;background:var(--accent)}
+@media (max-width:860px){.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand"><h1 id="title"></h1><div id="subtitle"></div></div>
+    <a class="btn" href="../report/index.html">AWS Transform's review</a>
+    <a class="btn" href="../claude/report/index.html">Claude's review</a>
+  </div>
+  <nav class="views" id="views"></nav>
+</header>
+<main id="main"></main>
+<script id="data" type="application/json">/*DATA*/</script>
+<script>
+const D = JSON.parse(document.getElementById('data').textContent);
+const $ = id => document.getElementById(id);
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const prose = v => esc(v).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\n/g, '<br>');
+const VIEWS = [['', 'Overview'], ['domains', 'Domains'], ['programs', 'Programs'], ['rules', 'Rules by program'], ['ai', 'AI-paired rules'], ['only', 'Only one tool']];
+const STORE = 'reframe-compare:' + (D.project || '') + ':' + D.run + ':' + String(D.source.sha256 || '').slice(0, 16);
+let marks = {}; try { marks = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch (e) {}
+function save(){ try { localStorage.setItem(STORE, JSON.stringify(marks)); } catch (e) {} }
+const link = (href, label) => href ? '<a href="' + esc(href) + '">' + label + '</a>' : label;
+const awsSearch = q => D.links.aws + '#/search/' + encodeURIComponent(q), claudeSearch = q => D.links.claude + '#/search/' + encodeURIComponent(q);
+const CAVEAT = '<p class="note">Both results are model output: AWS Transform\'s and Claude\'s. Two runs of either tool can find different domains, rules and wording, so read differences as things to check, not as errors. Claude\'s business functions, capabilities and requirements were generated by Reframe from the plugin\'s results.</p>';
+
+function overview(){
+  let h = '<h2>AWS Transform and Claude, side by side</h2>' + CAVEAT +
+    '<p class="lead">Both tools assessed the same snapshot of ' + esc(D.source.name || 'the source') + ' (' + esc(D.source.files || '') + ' files, SHA-256 ' + esc(String(D.source.sha256 || '').slice(0, 16)) + '…). ' +
+    'Start here, then go down to domains, programs and rules. Every number links to the items behind it in each review.</p>';
+  h += '<div class="panel"><div class="scroll"><table class="cmp"><thead><tr><th></th><th>AWS Transform</th><th>Claude</th><th></th></tr></thead><tbody>' +
+    D.numbers.map(([label, a, c, note]) => '<tr><td><b>' + esc(label) + '</b></td><td class="n">' + (a == null ? '<span class="muted small">not given</span>' : link(D.links.aws, a)) +
+      '</td><td class="n">' + link(D.links.claude, c) + '</td><td class="small muted">' + esc(note) + '</td></tr>').join('') + '</tbody></table></div></div>';
+  const both = D.programs.filter(p => p.in_aws && p.in_claude).length;
+  h += '<div class="numbers">' + [[both, 'programs and jobs both tools covered'], [D.only.aws_programs.length, 'programs and jobs only AWS Transform covered'],
+    [D.only.claude_programs.length, 'programs and jobs only Claude covered'], [D.pairs_by_program.length, 'programs where both wrote rules'],
+    [D.ai.ran ? D.ai.pairs.length : '–', 'rule pairs proposed by AI']].map(([n, l]) => '<div><b>' + n + '</b><span>' + esc(l) + '</span></div>').join('') + '</div>';
+  h += '<p class="small muted">AWS Transform results retrieved ' + esc(D.aws_at || '') + ' · Claude assessment finished ' + esc(D.claude_at || '') + ' · page built ' + esc(D.generated_at) + '</p>';
+  return h;
+}
+function domains(){
+  let h = '<h2>Domains, aligned by the programs they share</h2>' + CAVEAT + '<p class="lead">AWS Transform groups the system into business domains and functions; Claude\'s assessment into functional domains. ' +
+    'For each AWS domain, the Claude domains holding the same programs are listed with how many programs they share.</p>';
+  h += D.aws_domains.map(d => '<div class="panel"><h3 style="margin-top:0">' + link(d.link, esc(d.name)) + ' <span class="small muted">' + d.functions + ' functions · ' + d.programs.length + ' programs</span></h3>' +
+    (d.matches.length ? '<table><tbody>' + d.matches.map(m => '<tr><td style="width:34%">' + esc(m.name) + '</td><td style="width:22%">' + m.shared.length + ' shared (' + Math.round(100 * m.share) + '% of AWS\'s)<div class="bar2"><i style="width:' + Math.round(100 * m.share) + '%"></i></div></td><td class="small">' +
+      m.shared.map(p => '<code>' + esc(p) + '</code>').join(' ') + '</td></tr>').join('') + '</tbody></table>' : '<p class="muted">No Claude domain holds these programs.</p>') + '</div>').join('');
+  h += '<h3>Claude\'s domains</h3><div class="scroll panel"><table><thead><tr><th>Claude domain</th><th>Programs</th><th>Also in AWS Transform</th><th>Only Claude</th></tr></thead><tbody>' +
+    D.claude_domains.map(d => '<tr><td>' + link(d.link, esc(d.name)) + '</td><td>' + d.programs.length + '</td><td>' + d.shared.length + '</td><td class="small">' + d.only_claude.map(p => '<code>' + esc(p) + '</code>').join(' ') + '</td></tr>').join('') + '</tbody></table></div>';
+  return h;
+}
+let filter = {q: '', side: ''};
+function programs(){
+  const q = filter.q.toLowerCase();
+  const rows = D.programs.filter(p => (!q || (p.program + ' ' + p.claude_domains.join(' ') + ' ' + p.aws_functions.map(f => f.name).join(' ')).toLowerCase().includes(q)) &&
+    (!filter.side || (filter.side === 'both' ? p.in_aws && p.in_claude : filter.side === 'aws' ? p.in_aws && !p.in_claude : !p.in_aws && p.in_claude)));
+  let h = '<h2>Programs</h2><p class="lead">Each program, the AWS function and Claude domain it sits in, and how many business rules each tool wrote about it.</p>';
+  h += '<div class="panel"><div class="tools"><input type="search" id="pq" value="' + esc(filter.q) + '" placeholder="Filter by program, function or domain"><select id="ps">' +
+    [['', 'Every program'], ['both', 'Covered by both'], ['aws', 'Only AWS Transform'], ['claude', 'Only Claude']].map(([v, l]) => '<option value="' + v + '"' + (filter.side === v ? ' selected' : '') + '>' + l + '</option>').join('') +
+    '</select><span class="muted small" style="align-self:center">' + rows.length + ' of ' + D.programs.length + '</span></div>' +
+    '<div class="tablebox"><table class="datatable"><colgroup><col style="width:130px"><col><col><col style="width:90px"><col style="width:90px"></colgroup><thead><tr><th>Program</th><th>AWS Transform function</th><th>Claude domain</th><th>AWS rules</th><th>Claude rules</th></tr></thead><tbody>' +
+    rows.map(p => '<tr><td class="id"><code>' + esc(p.program) + '</code></td><td>' + (p.aws_functions.map(f => link(f.link, esc(f.name))).join('<br>') || '<span class="muted">–</span>') + '</td><td>' +
+      (esc(p.claude_domains.join(', ')) || '<span class="muted">–</span>') + '</td><td>' + (p.aws_rules ? link(awsSearch(p.program), p.aws_rules) : '0') + '</td><td>' + (p.claude_rules ? link(claudeSearch(p.program), p.claude_rules) : '0') + '</td></tr>').join('') +
+    '</tbody></table></div></div>';
+  return h;
+}
+function ruleBox(r, side){ return '<div class="item"><div class="head"><span class="tag grey">' + side + '</span>' + (r.id && side === 'Claude' ? '<code>' + esc(r.id) + '</code>' : '') + (r.priority ? '<span class="tag">' + esc(r.priority) + '</span>' : '') +
+  (r.link ? '<a href="' + esc(r.link) + '">open in the review</a>' : '') + '</div><div class="text"><b>' + prose(r.name) + '</b><br>' + prose(r.text) + '</div></div>'; }
+let ruleProgram = '';
+function rules(){
+  const list = D.pairs_by_program, chosen = list.find(g => g.program === ruleProgram) || list[0];
+  let h = '<h2>Rules by program</h2>' + CAVEAT + '<p class="lead">For each program both tools wrote rules about, the two lists side by side. This pairing is by program only: it does not claim two rules are the same.</p>';
+  if (!list.length) return h + '<p class="muted">No program has rules from both tools.</p>';
+  h += '<div class="panel"><div class="tools"><select id="rp">' + list.map(g => '<option value="' + esc(g.program) + '"' + (g === chosen ? ' selected' : '') + '>' + esc(g.program) + ' (AWS ' + g.aws.length + ' · Claude ' + g.claude.length + ')</option>').join('') + '</select></div>';
+  h += '<div class="two"><div class="side"><h4>AWS Transform: ' + chosen.aws.length + ' rules</h4>' + chosen.aws.map(r => ruleBox(r, 'AWS Transform')).join('') + '</div>' +
+    '<div class="side"><h4>Claude: ' + chosen.claude.length + ' rule cards</h4>' + chosen.claude.map(r => ruleBox(r, 'Claude')).join('') + '</div></div></div>';
+  return h;
+}
+const RELATION = {conflicting: 'Conflicting', same: 'Same rule', overlapping: 'Overlapping'};
+let aiFilter = '';
+function ai(){
+  let h = '<h2>Rules paired by AI</h2><p class="note">' + esc(D.ai.note || 'AI output.') + '</p>';
+  if (!D.ai.ran) return h + '<p class="muted">The AI pairing has not run for this comparison.</p>';
+  const by = {}; D.ai.pairs.forEach(p => by[p.relation] = (by[p.relation] || 0) + 1);
+  h += '<div class="numbers">' + Object.entries(RELATION).map(([k, l]) => '<div><b>' + (by[k] || 0) + '</b><span>' + l + '</span></div>').join('') + '</div>';
+  const order = {conflicting: 0, same: 1, overlapping: 2}, conf = {high: 0, medium: 1, low: 2};
+  const shown = D.ai.pairs.filter(p => !aiFilter || p.relation === aiFilter).sort((a, b) => (order[a.relation] - order[b.relation]) || (conf[a.confidence] - conf[b.confidence]));
+  h += '<p class="lead">Conflicting pairs come first: the two tools describe the same behaviour differently. Mark each pair Right or Wrong. Your marks stay in this browser; download them below.</p>' +
+    '<div class="tools"><select id="ar"><option value="">Every pair (' + D.ai.pairs.length + ')</option>' + Object.entries(RELATION).map(([k, l]) => '<option value="' + k + '"' + (aiFilter === k ? ' selected' : '') + '>' + l + ' (' + (by[k] || 0) + ')</option>').join('') +
+    '</select><button class="btn" id="dl">Download my marks (CSV)</button></div>';
+  h += shown.map((p, i) => { const k = p.aws + '|' + p.claude, m = marks[k] || '';
+    return '<div class="panel"><div class="head small muted" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><span class="tag' + (p.relation === 'conflicting' ? ' warn' : '') + '">' + esc(RELATION[p.relation] || p.relation) + '</span><span class="tag grey">Confidence: ' + esc(p.confidence) + '</span><span class="tag grey">AI output</span></div>' +
+      '<p>' + esc(p.reason) + '</p><div class="two">' + ruleBox(p.aws_rule, 'AWS Transform') + ruleBox(p.claude_rule, 'Claude') + '</div>' +
+      '<div class="marks" data-pair="' + esc(k) + '"><button class="agree" aria-pressed="' + (m === 'right') + '" data-v="right">✓ Right</button><button class="change" aria-pressed="' + (m === 'wrong') + '" data-v="wrong">✗ Wrong</button></div></div>'; }).join('');
+  return h;
+}
+function only(){
+  let h = '<h2>What only one tool found</h2>' + CAVEAT;
+  h += '<div class="two"><div class="panel"><h3 style="margin-top:0">Programs only AWS Transform covered (' + D.only.aws_programs.length + ')</h3><p>' + D.only.aws_programs.map(p => '<code>' + esc(p) + '</code>').join(' ') + '</p></div>' +
+    '<div class="panel"><h3 style="margin-top:0">Programs only Claude covered (' + D.only.claude_programs.length + ')</h3><p>' + D.only.claude_programs.map(p => '<code>' + esc(p) + '</code>').join(' ') + '</p></div></div>';
+  h += '<div class="two"><div class="side"><h4>AWS Transform rules in programs Claude wrote no rule about (' + D.only.aws_rules_unpaired.length + ')</h4>' + D.only.aws_rules_unpaired.slice(0, 200).map(r => ruleBox(r, 'AWS Transform')).join('') + '</div>' +
+    '<div class="side"><h4>Claude rule cards in programs AWS Transform wrote no rule about (' + D.only.claude_rules_unpaired.length + ')</h4>' + D.only.claude_rules_unpaired.slice(0, 200).map(r => ruleBox(r, 'Claude')).join('') + '</div></div>';
+  return h;
+}
+function route(){
+  const view = (location.hash || '#/').slice(2).split('/')[0];
+  $('views').innerHTML = VIEWS.map(([id, label]) => '<a href="#/' + id + '" class="' + (id === view ? 'on' : '') + '">' + label + '</a>').join('');
+  $('main').innerHTML = ({'': overview, domains, programs, rules, ai, only}[view] || overview)();
+}
+document.addEventListener('input', e => { if (e.target.id === 'pq') { filter.q = e.target.value; const at = e.target.selectionStart; route(); const i = $('pq'); i.focus(); i.setSelectionRange(at, at); } });
+document.addEventListener('change', e => { if (e.target.id === 'ps') { filter.side = e.target.value; route(); } if (e.target.id === 'rp') { ruleProgram = e.target.value; route(); } if (e.target.id === 'ar') { aiFilter = e.target.value; route(); } });
+document.addEventListener('click', e => {
+  const b = e.target.closest('.marks button'); if (b) { const k = b.closest('.marks').dataset.pair; marks[k] = marks[k] === b.dataset.v ? '' : b.dataset.v; save(); route(); return; }
+  if (e.target.id === 'dl') { const rows = [['aws_rule', 'claude_rule', 'relation', 'confidence', 'reason', 'your_mark', 'project', 'run', 'source_sha256']].concat(
+    D.ai.pairs.map(p => [p.aws, p.claude, p.relation, p.confidence, p.reason, marks[p.aws + '|' + p.claude] || '', D.project, D.run, D.source.sha256]));
+    const body = rows.map(r => r.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + body], {type: 'text/csv'})); a.download = 'ai-pairs-' + (D.project || 'run') + '.csv'; document.body.appendChild(a); a.click(); a.remove(); }
+});
+window.addEventListener('hashchange', route);
+$('title').textContent = 'AWS Transform and Claude compared' + (D.project ? ': ' + D.project : '');
+$('subtitle').textContent = 'The same snapshot, assessed by both' + (D.source.commit ? ' · ' + String(D.source.commit).slice(0, 12) : '');
+route();
+</script>
+</body>
+</html>
