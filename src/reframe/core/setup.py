@@ -145,6 +145,8 @@ def install_command(key: str, m: Machine) -> str | None:
         return "reframe" if mac or linux else None
     if key == "mcp":
         return f"uvx --from {MCP_SERVER} python -c pass"
+    if key == "plugin":
+        return "reframe-plugin" if mac or linux else None
     if key == "claude":
         return "brew install --cask claude-code" if mac and m.brew else "curl -fsSL https://claude.ai/install.sh | bash" if mac or linux else None
     return None
@@ -154,7 +156,8 @@ def check(m: Machine, which: Callable[[str], str | None] = shutil.which) -> list
     tools = [Tool("git", "Git", "any"), Tool("aws", "AWS CLI", "version 2"), Tool("uv", "uv (uvx)", "any"),
              Tool("terraform", "Terraform", ".".join(map(str, MINIMUM_TERRAFORM)) + " or later"),
              Tool("mcp", "AWS Transform MCP server", MCP_SERVER.split("==")[1]),
-             Tool("claude", "Claude Code", "any", optional=True, note="for pipeline 2")]
+             Tool("claude", "Claude Code", "any", optional=True, note="for pipeline 2"),
+             Tool("plugin", "code-modernization plugin", "1.1.0, pinned", optional=True, note="for pipeline 2")]
     for tool in tools:
         tool.install = install_command(tool.key, m)
     git, aws, uvx, claude = which("git"), which("aws"), which("uvx"), which("claude")
@@ -176,6 +179,11 @@ def check(m: Machine, which: Callable[[str], str | None] = shutil.which) -> list
         tools[4].note = "needs uv first"
     tools[5].path, tools[5].found = claude, _version(["claude", "--version"], r"(\d+\.\d+\.\d+)") if claude else None
     tools[5].ready = bool(tools[5].found)
+    from reframe.claude import plugin
+    tools[6].found = f"{plugin.VERSION} at {plugin.COMMIT[:12]}" if plugin.fetched() else None
+    tools[6].ready = plugin.fetched()
+    if not claude:
+        tools[6].note = "needs Claude Code first"
     return tools
 
 
