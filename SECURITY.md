@@ -1,6 +1,6 @@
 # Security and public-content policy
 
-This is a public documentation foundation with no deployed service or executable runtime. Security reporting and publication discipline still apply.
+This repository holds no deployed service. Security reporting and publication discipline still apply.
 
 ## Never publish
 

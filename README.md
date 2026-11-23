@@ -1,353 +1,293 @@
 # Reframe
 
-**From legacy mainframe code to evidence-backed modernization plans.**
+Reframe runs an AWS Transform assessment of a mainframe codebase from one command and brings the results back as a report you can read: business domains and functions, requirements, business rules, open questions and the data model.
 
-Reframe is an open-source CLI for understanding mainframe applications before rebuilding them. It connects pinned source code to AWS Transform assessments, optional independent AI review, human decisions, HTML wireframe drafts, and AI-assisted development lifecycle (**AI-DLC**) handoff packages.
+You give it the source as a local folder, a local ZIP file or a GitHub URL. Reframe creates the AWS resources with Terraform, uploads a snapshot of the source, drives the AWS Transform job to the end, downloads what AWS produced and builds an HTML report. The AWS resources stay until you remove them with `reframe teardown`, which lists every resource first and asks for your consent.
 
-**Reframe prepares a modernization project; it does not translate the application into production code, deploy a target system, or prove runtime equivalence.** The target language and architecture are decisions for the implementing team.
+Pipeline 2 then assesses the same snapshot with Claude's [code-modernization plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-modernization), shows its results in the same business review, adds its graph to the same Neptune cluster, and builds a page comparing the two assessments (see [Pipeline 2](#pipeline-2-the-claude-assessment-and-the-comparison)).
 
-[![CI](https://github.com/sknampally/reframe/actions/workflows/ci.yml/badge.svg)](https://github.com/sknampally/reframe/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-POC%20%7C%20offline--tested-orange)](docs/limitations.md)
-
-> **Project maturity:** The CLI and offline workflows have been exercised with fixtures. A CardDemo AWS assessment has reached a human-review gate, but uninterrupted live AWS/provider acceptance, production application buildout, and behavioral equivalence are **not** established. Generated implementation packages remain drafts until required reviews and evidence gates are satisfied.
-
-## Why Reframe?
-
-Modernizing COBOL, CICS, VSAM and JCL is not simply converting syntax. Teams must recover business rules, data semantics, screen behavior, batch dependencies, operational assumptions and the decisions that exist outside the code. AI-generated documents can accelerate discovery, but need traceable evidence and human approval.
-
-Reframe organizes that work into a controlled, repeatable preparation flow:
-
-- **Source-first:** Pin a Git repository revision or supplied source package and preserve provenance.
-- **Assessment-backed:** Use AWS Transform to inventory and analyze the mainframe workload.
-- **Reviewable:** Optionally run an executor and independent reviewer; keep unresolved findings visible.
-- **Human-informed, not human-dependent:** Add business clarifications and future-state ideas when available. Source-only draft preparation remains possible.
-- **Mode-aware:** Prepare *Functional Parity* or *Reimagine* design drafts without confusing intended changes with verified legacy behavior.
-- **Portable handoff:** Export HTML previews and AI-DLC packages for a subsequent implementation team.
+The design is in [docs/specification.md](docs/specification.md) (pipeline 1) and [docs/pipeline-2.md](docs/pipeline-2.md) (pipeline 2), the stories are in [docs/plan.md](docs/plan.md), and the live test results are in [docs/acceptance.md](docs/acceptance.md).
 
 ## How it works
 
-Reframe is an orchestrator. It runs on your workstation, drives an AWS Transform assessment, hands bounded evidence to separate AI agents, and stops for a person at every approval.
+![How a Reframe run works: start and snapshot, the AWS resources, then pipeline 1 (AWS Transform) and pipeline 2 (Claude) side by side on the same snapshot, the reports with the comparison, sharing, and teardown only on request; you sign in, answer questions or set Claude's agent limit, review and compare, and consent to teardown](docs/images/reframe.svg)
 
-![Reframe orchestrator hub: source in, AI-DLC package out, AWS Transform and people above, and the executor, reviewer and wireframe agents below](docs/images/orchestration-layer.svg)
+| Step | What happens |
+|---|---|
+| 1. Start | `reframe run` checks the prerequisites and your AWS sign-in, takes the source (a folder, a ZIP file or a GitHub URL) and makes one snapshot of it, with its SHA-256. |
+| 2. AWS resources | Terraform creates the buckets, the IAM roles and a Neptune graph, or uses an existing Neptune cluster. Both pipelines start from here. |
+| Pipeline 1: AWS Transform | The snapshot is uploaded, and Reframe drives the AWS Transform job to the end, answering its questions in autonomous mode, then downloads the requirements, business rules and assessment. |
+| Pipeline 2: Claude | Alongside AWS Transform, Claude's code-modernization plugin assesses the same snapshot. Reframe puts its results in AWS Transform's shape, with generated requirements, and loads Claude's graph into the same Neptune cluster. Optional, and offered by default. |
+| 3. Reports | AWS Transform's business review, Claude's business review in the same layout, and a page comparing the two. |
+| 4. Share | `reframe publish` makes a copy of the reports, cleaned of your account's identifiers, that anyone can open. |
+| 5. Teardown | Only when you run `reframe teardown`, after you consent to the full list. |
 
-| Part | Runs as | What it does |
-| --- | --- | --- |
-| **Orchestrator** | The `reframe` CLI on your machine | Pins the source revision, uploads it to AWS Transform, seals the findings, gives each agent only the evidence it needs, enforces the model-call budget, records approvals and writes the packages. It is the only part that touches files or AWS. |
-| **AWS Transform** | Your AWS account, in a private sandbox | Inventories programs, data and jobs, generates technical documentation and extracts business rules. |
-| **Executor agent** | Claude Sonnet by default (Codex or Kiro optional) | Reads the source and the AWS findings and writes a candidate specification, with every rule cited to a file and line. |
-| **Reviewer agent** | Claude Opus, always a different model from the executor | Checks the candidate against the same evidence and returns `PASS`, `REWORK` (back to the executor) or `BLOCKED` (needs a person). |
-| **Wireframe agent** | Codex or Claude, your choice | Turns the approved specification into linked HTML wireframes, an API reference and OpenAPI contracts. |
-| **People** | You and your reviewers | Approve the assessment, answer SME questions, approve the specification and the wireframes. A model's `PASS` never counts as approval. |
+Every change and step is written down before it starts and confirmed after, so a run that stops (an expired sign-in, Claude's usage limit) continues with `reframe resume` without repeating anything. Pipeline 1 takes about an hour; pipeline 2 about two, alongside it. The stage-by-stage detail is in [docs/specification.md](docs/specification.md) and [docs/pipeline-2.md](docs/pipeline-2.md).
 
-The agents run with no tools, so they cannot read files, call AWS or change anything. They return JSON, and the orchestrator decides what happens next.
+## What you need
 
-A run moves through four phases: assess, validate, wireframes and package, with a human approval after each of the first three. After the assessment is approved you choose a route. **Skip** goes straight to draft wireframes and a draft AI-DLC ZIP, built from the AWS findings alone and labelled unverified. **Review** runs phases 2 to 4 and is the only route that produces the approved package. Every step is saved, so you can stop at any point and continue later. See the [four-phase workflow](docs/four-phase-workflow.md) and [multi-agent workflow](architecture/multi-agent-workflow.md) for more detail.
+- macOS or Linux, with Python 3.10 or later.
+- [uv](https://docs.astral.sh/uv/) to install Reframe. The guided run checks the rest and offers to install what is missing: Git, the [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html), [Terraform](https://developer.hashicorp.com/terraform/install) 1.10 or later and the AWS Transform MCP server.
+- An AWS account where AWS Transform is available (Reframe uses `us-east-1` by default), and an AWS CLI profile that signs in with IAM Identity Center (`aws sso login`).
+- That profile needs permission to create and delete S3 buckets, IAM roles, a VPC with subnets and security groups, a Neptune Serverless cluster, and an AWS Transform workspace, connector and job.
 
-## How to run
+## Install
 
-**Supported workstations:** macOS or Linux. On Windows, use Ubuntu under WSL2.
-
-### 1. Install the tools
-
-| Tool | Needed for | Check it with |
-| --- | --- | --- |
-| Git | Always | `git --version` |
-| uv with Python 3.10+ | Always | `uv --version` |
-| AWS CLI v2 | Running an assessment | `aws --version` |
-| OpenTofu 1.5+ | Creating the AWS sandbox | `tofu version` |
-| Claude Code CLI | Executor and reviewer agents | `claude --version` |
-| Codex CLI | Only if Codex writes the wireframes | `codex --version` |
-| Kiro CLI | Only if Kiro is the executor | `kiro-cli --version` |
-
-The [platform installation guide](docs/platform-install.md) and [engineer setup guide](docs/engineer-setup.md) have install commands for each tool and fixes for PATH problems.
-
-### 2. Sign in
-
-Sign in to each service you will use. Reframe checks these, but it never collects credentials itself.
+You need macOS or Linux (on Windows, use WSL2), Python 3.10 or later, and [uv](https://docs.astral.sh/uv/). Install Reframe from a clone of this repository on the `v2` branch:
 
 ```bash
-aws sso login --profile your-profile
+uv tool install --reinstall --editable ~/path/to/reframe
 ```
+
+Or, without a clone, straight from GitHub:
 
 ```bash
-claude auth login
+uv tool install --reinstall "git+https://github.com/sknampally/reframe@v2"
 ```
 
-```bash
-codex login
-```
+Check it with `reframe --version`. With the editable install, `git pull` in the clone updates Reframe; reinstall only when `pyproject.toml` changes.
 
-`aws sts get-caller-identity --profile your-profile` confirms the AWS session. Your AWS identity needs permission to create an S3 bucket and IAM role for the sandbox and to use AWS Transform workspaces, jobs and connectors. Guided setup also connects to the AWS Transform application, which is a separate browser sign-in.
+Everything else a run needs is checked, and installed on request, by the guided run below.
 
-### 3. Install Reframe
-
-```bash
-git clone https://github.com/sknampally/reframe.git
-cd reframe
-uv tool install --force --managed-python --python 3.12 --editable .
-reframe --help
-```
-
-Keep this checkout in place and unchanged while a run is active: Reframe loads its prompts and contracts from it.
-
-### 4. Try the demo (optional)
-
-```bash
-reframe demo
-```
-
-The demo walks through every stage with simulated data. It calls no AWS or AI service.
-
-### 5. Run the guided flow
+## The home screen
 
 ```bash
 reframe
 ```
 
-Choose **1 · Guided start / continue**. You can also type `/flow` at any time to continue a saved run. The guide asks for:
+`reframe` on its own shows your runs (status, stage, when each started, and whether its AWS resources are still in place), the suggested next step, and a numbered menu: start a guided run, run status, answer a waiting question, resume, open the business review, event log, tear down, setup and help. An action on a run asks which run, with the latest as the default. After each action the home screen comes back; 0 or Ctrl+D leaves it, and Ctrl+C cancels an action. `reframe --help`, and `--help` after any command, shows the commands or options as a table with examples.
 
-- **Source:** a GitHub URL or a clean local Git checkout. Reframe pins the current commit.
-- **Workspace directory:** where outputs go. Reframe creates a `<repo>_assessment` folder inside it. Keep it private and outside this repository.
-- **Scope:** which business journey to assess, or the whole repository.
-- **AWS profile and region:** if your SSO session has expired, the guide offers to sign you in.
-- **Executor:** `claude` (default), `codex` or `kiro`.
-- **Wireframe provider:** `claude` or `codex`.
+## Run an assessment: the guided way
 
-Reframe then creates the sandbox with OpenTofu: one S3 bucket and one role per source. It checks that the role cannot read any other bucket in the account, then creates the AWS Transform workspace and connector. Nothing is uploaded until you confirm.
+```bash
+reframe run
+```
 
-### 6. Assess and approve
+Reframe guides you through five steps and checks each answer before going on:
 
-Confirm the source upload when asked. Reframe starts the AWS Transform job and waits for it to finish, which can take a while. If you leave, run `reframe` again and choose **1** to pick up the same job.
+1. **Prerequisites.** A table of what a run needs and what this computer has: Git, the AWS CLI v2, uv, Terraform 1.10 or later and the AWS Transform MCP server (Claude Code is listed as optional, for pipeline 2). For anything missing it shows the install command for your operating system and offers to run it; nothing is installed without your yes. Reframe installs Terraform itself: the pinned HashiCorp release, checked against HashiCorp's SHA-256 sums, kept in `~/.reframe/tools` and used from there, so your PATH, your shell files and any older Terraform stay as they are.
+2. **AWS sign-in.** Choose one of your AWS CLI profiles and the region. If the profile is not signed in, Reframe offers to run `aws sso login` for you; you sign in in your browser, and Reframe never sees your credentials. With no profiles, it offers `aws configure sso`.
+3. **Source.** A GitHub or Git URL (checked with Git, and optionally a branch, tag or commit), a local folder, or a local ZIP file.
+4. **Choices.** Autonomous or interactive (see below), the project name (a short label such as `carddemo`: it names the run's folder, `~/.reframe/projects/<project>/runs/<run>/`, and starts the name of every AWS resource the run creates, `reframe-<project>-<run>`), and a new Neptune graph or an existing cluster.
+5. **Summary.** What will be created, then one yes to start. The run continues in the background.
 
-When the findings are downloaded, Reframe lists the files to review, including `assessment-review.html`. Approve them with your name, a short note, and confirmation that the findings match the pinned source.
+Your profile, region and tool paths are saved in `~/.reframe/config.json` as the next run's defaults. To check the prerequisites and sign in without starting a run:
 
-### 7. Follow the review gates
+```bash
+reframe setup
+```
 
-After assessment approval, menu **1** takes you through these gates in order. Each one waits for a person. Typing `pause` at a gate stops without recording anything; choose **1** again to continue.
-
-1. **Business requirements.** Choose `generate`, `import`, or `none`. `generate` appears only when Reframe has verified that this account can run an AWS Transform requirements job. Otherwise the guide explains why and offers `import` (files exported from AWS, labeled *imported*) or `none`. Reframe never presents imported or missing requirements as generated.
-2. **Baseline context.** Give a Markdown file with clarifications, corrections, or constraints, or answer `none`. `none` is recorded as a valid answer. Admitted context is input from a named person, not source truth or approval.
-3. **Skip or review.**
-
-   | Choice | What runs | What you get |
-   | --- | --- | --- |
-   | **skip** (default) | Wireframe agent only, using the AWS findings as they are. You record your name and why you trust them. | Draft HTML wireframes and a package labeled unverified |
-   | **review** | Executor and reviewer agents check the evidence program by program, then you answer SME questions and approve the specification | A reviewed specification, then wireframes and a package |
-
-4. **Specification review** (review route only). Open `preparation/review.html`. Add Markdown context or `none`, answer or defer the SME questions, then approve validation. A deferral is not an answer, and the affected work stays blocked.
-5. **Design plan.** Choose Functional Parity or Reimagine, a design version, the target stack, and any architecture constraints. Reframe records this before it generates detailed screens and APIs. Changing the plan later creates a new design version; the earlier one is kept.
-6. **Design review.** Open the wireframes (`index.html`, `api.html`, `openapi.json`). Add Markdown context or `none`. Then `approve`, `design-change` (regenerate the design and keep the specification), or `behavior-change` (return to the specification).
-7. **Package review.** Reframe builds the package and shows its file list, its exact SHA-256, the approvals it rests on, and the implementation blockers. Building it did not accept it. Add Markdown context or `none`, then `accept` that exact hash or ask for changes. On the skip route a second person must also accept the skipped validation.
-
-Accepting the package records your name, rationale, and the archive hash in `acceptance/ledger.jsonl`, outside the archive. Implementation readiness is reported separately and stays blocked while decisions are deferred or conflicts are open.
-
-**Validation calls.** The review route makes two calls for each program, two synthesis calls, and extra calls when a program needs correction. A new project has no call cap. A saved run keeps its recorded cap and the calls already used. If that cap is short, the guide states the count and asks before raising or removing it. A billed API key also stops at the saved dollar cap. Preparation, wireframe, and skip-draft calls are counted separately.
-
-After the package exists you can optionally export a **Functional Parity** or **Reimagine** design as a separate draft package with `reframe design-export` and `reframe package-export`.
-
-### 8. Check progress and find outputs
+### Follow the run
 
 ```bash
 reframe status
 ```
 
-`status` shows the current stage, the approvals recorded and the next command to run. `reframe resume` continues interrupted work. After a controller fix is reviewed and merged, use a clean committed checkout of that revision, reinstall, then record the new revision on the saved run:
-
 ```bash
-git checkout main
-git pull origin main
-uv tool install --force --reinstall --managed-python --python 3.12 --editable .
-reframe --workspace /path/to/private-poc upgrade-framework --note WHY
-reframe --workspace /path/to/private-poc status
-reframe --workspace /path/to/private-poc resume
+reframe events --follow
 ```
 
-`upgrade-framework` records this checkout. A prompt migration recorded for an earlier revision does not authorize this one. Run the upgrade command without `--adopt-prompts`. If its response is `Preparation prompts changed. The upgrade was not recorded.`, repeat that same command with `--adopt-prompts` and the same note. Do not add `--adopt-prompts` for any other response. This release does not change the preparation prompts.
+`reframe status` shows the stage, the AWS Transform job's plan steps, any question waiting for you and what to do next. Every command acts on your latest run; add `--run <run id>` for another one. The run ID is printed when the run starts.
+
+Open the report when the run is done:
 
 ```bash
-reframe --workspace /path/to/private-poc upgrade-framework --note WHY --adopt-prompts
-reframe --workspace /path/to/private-poc status
-reframe --workspace /path/to/private-poc resume
+reframe report --open
 ```
 
-That records the old and new prompt hashes for the calls and passed units already saved, then lets the saved review continue. It does not restart the assessment or the passed units.
+### Run without questions
 
-A run waiting at `AWAITING_VALIDATION_APPROVAL` with a reviewed specification and no validation approval can record this controller revision. `approve validation` checks the framework revision, so record the update before approval:
+When the prerequisites are set up (for example after `reframe setup`, or on a build machine), give the source and Reframe asks nothing. The profile and region default to the ones you saved:
 
 ```bash
-reframe --workspace /path/to/private-poc upgrade-framework --note WHY
-reframe --workspace /path/to/private-poc status
-reframe --workspace /path/to/private-poc decide --open --by NAME --answer WHY --disposition deferred --confirm
-reframe --workspace /path/to/private-poc approve validation --by NAME --note WHY
-reframe --workspace /path/to/private-poc review-site
+reframe run --source https://github.com/aws-samples/aws-mainframe-modernization-carddemo
 ```
-
-The upgrade keeps the specification, its review hash, the checkpoints, the assessment approval, the saved decisions, and the call count. It records the revision only when the preparation prompts are unchanged. A checkout that changes those prompts is refused, including with `--adopt-prompts`, because the reviewed specification stays bound to the saved prompt hash. Use the matching checkout or start a new workspace. `decide --open` records only questions that have no decision. Do not `resume`, and do not amend saved rationales unless you pass `--amend --confirm`. `review-site` is the wireframe provider call and runs only after validation approval.
-
-`YOUR_REASON`, `YOUR_APPROVAL_RATIONALE`, `YOUR_NAME`, and `YOUR_NOTE` are rejected. A saved run that already used those tokens replaces them explicitly:
 
 ```bash
-reframe --workspace /path/to/private-poc decide --placeholders --amend --confirm --by NAME --answer RATIONALE --disposition deferred
-reframe --workspace /path/to/private-poc upgrade-framework --note WHY
-reframe --workspace /path/to/private-poc approve validation --by NAME --note RATIONALE
-reframe --workspace /path/to/private-poc review-site
+reframe run --source ~/code/my-mainframe-app --profile my-profile --mode interactive
 ```
-
-The saved wireframe counter is not lowered just because `screens.json` is absent. An empty `previews/business-1` does not prove the provider was skipped. `recover-ui-call --confirm --note WHY` releases only a reservation the controller recorded before dispatch, with no provider receipt and no spending change. A failed reply, invalid reply, or dispatched call without a receipt stays counted and needs reconciliation. Receipts, the spending ledger, and earlier audit events stay in place. `review-site` keeps that unexplained count and numbers the next provider call after it.
-
-The amendment keeps every previous answer, the batch history, and the superseded validation approval, then returns the run to `AWAITING_VALIDATION_APPROVAL`. `upgrade-framework` can record this controller revision in that state when the preparation prompts are unchanged. It still refuses a prompt change. `review-site` checks the context budget before it reserves a call or creates an output directory. A request that does not fit is split into explicit stages. References across those stages are kept, conflicting ids are rejected, and the merged screen and API model is checked against the complete specification. A restart uses a saved provider receipt instead of calling again. Do not `resume` into preparation, and do not start an assessment.
-
-A saved correction that does not match the edit contract is rejected before any edit is applied. The same `reframe resume`, and menu 1, continue through that rejection and through one synthesis rework when a retry and the call budget remain. Progress is shown during that invocation. The run stops for a human approval, an exhausted allowance, an evidence failure, or a provider failure. It stops after three invalid candidates and prints the latest error. Another attempt is only:
 
 ```bash
-reframe --workspace /path/to/private-poc feedback --authorize-correction --by NAME --note WHY
-reframe --workspace /path/to/private-poc resume
+reframe run --source ~/Downloads/my-mainframe-app.zip --project my-app
 ```
 
-Plain `resume` does not reset that count. Passed units stay sealed, and no assessment job is created. This controller change does not change the preparation prompts. Add `--adopt-prompts` only when `upgrade-framework` responds `Preparation prompts changed. The upgrade was not recorded.`
+Add `--ref <branch, tag or commit>` for a Git source, `--region` for another region, `--graph new|existing|<cluster name>` for the Neptune choice, and `--terraform /path/to/terraform` (or `REFRAME_TERRAFORM`) for a Terraform of your own.
 
-`reframe status` separates the project phase, the saved assessment service state, whether assessment approval is recorded, the last local action, and the required human action. A historical `AWAITING_ASSESSMENT_APPROVAL` service record is not the current blocker after assessment approval, while validation is still pending. Question counts are total, answered, deferred, and remaining. Deferral is not an answer, and the affected implementation stays blocked. Menu 1 records every still-open question in one confirmed batch and leaves saved decisions unchanged. A reviewed change to a saved decision uses `reframe decide --amend --confirm` and keeps the previous answer.
+### Autonomous or interactive
 
-Tracked API spend is the local ledger for billed API calls. An API dollar cap of 0 is a real budget and blocks the next billed API call. Subscription and other provider usage are unmeasured, and that absence is not a zero-dollar charge.
+Autonomous is the default: Reframe answers AWS on your behalf and writes each answer and its reason to the run's `decisions.json`. It chooses "Assess and reimagine", gives the uploaded source's location, and selects every business domain plus the unassigned programs, so the whole source is assessed.
 
-Inside the workspace folder:
-
-| Folder | Contents |
-| --- | --- |
-| `runs/<run>/` | Sealed AWS findings and `assessment-review.html` |
-| `preparation/` | Executor and reviewer output and `review.html` |
-| `previews/` | Wireframe sites, for both the skip and review routes |
-| `packages/` | Draft ZIPs and the built packages (`package-<version>.zip`, `skip-<version>.zip`) |
-| `acceptance/ledger.jsonl` | Hash-chained package acceptances, outside every archive |
-| `requirements/` | Requirements capability, jobs, and imported sets with their original files |
-| `human-review-context/` | Markdown context, gate records, dispositions, and conflicts |
-| `versions/` | Immutable version manifests that approvals are bound to |
-| `last-stop.json` | The most recent stop: cause, recovery class, and next safe command |
-| `reports/index.html` | Links to every report for this run |
-
-### Running without the menu
-
-Every step is also a command, for scripts or for picking up one step by hand. `NAME`, `WHY`, and `RATIONALE` stand for your own values; the CLI refuses them if they are copied unchanged. Approvals need `--by` and `--note`, and nothing is approved by default.
+To make the choices yourself, add `--mode interactive`:
 
 ```bash
-W=/path/to/private-poc
-reframe --workspace "$W" assess --allow-new-assessment --wait
-reframe --workspace "$W" approve assessment --by NAME --note WHY --confirm-source-match
-
-# Requirements and baseline context (both may be none)
-reframe --workspace "$W" requirements status
-reframe --workspace "$W" requirements import --requirements requirements.md --traceability traceability.yaml --function FUNCTION_ID --by NAME --note WHY
-reframe --workspace "$W" requirements none --by NAME
-reframe --workspace "$W" context import --file notes.md --by NAME --role architect --category clarification --gate baseline
-reframe --workspace "$W" context none --gate baseline --by NAME
-
-# Skip route
-reframe --workspace "$W" design-plan --mode functional-parity --language java --by NAME
-reframe --workspace "$W" preview --skip-validation --by NAME --note WHY --provider claude --name draft-1
-reframe --workspace "$W" approve design --by NAME --note WHY
-
-# Review route
-reframe --workspace "$W" validate
-reframe --workspace "$W" questions --state open --groups
-reframe --workspace "$W" decide --question QUESTION_ID --by NAME --answer RATIONALE --disposition resolved
-reframe --workspace "$W" approve validation --by NAME --note WHY
-reframe --workspace "$W" design-plan --mode reimagine --language java --constraint "Keep the nightly batch window" --by NAME
-reframe --workspace "$W" review-site --provider claude
-reframe --workspace "$W" feedback --scope design --by NAME --note WHY
-reframe --workspace "$W" approve specifications --by NAME --note WHY
-
-# Both routes: build, review, and accept the exact package
-reframe --workspace "$W" package
-reframe --workspace "$W" package-review
-reframe --workspace "$W" approve verification-skip --by NAME --note WHY   # skip route, a second person
-reframe --workspace "$W" accept-package --sha256 PACKAGE_SHA256 --by NAME --note WHY
+reframe run --source ~/code/my-mainframe-app --profile my-profile --mode interactive
 ```
 
-When a run stops, `reframe --workspace "$W" status` names the cause, the recovery class, and the next safe command. `reframe --workspace "$W" recovery-plan` is a read-only check of saved hashes, receipts, and the approvals that need renewal. An uncertain provider call is settled with `reconcile-operation`, and conflicting shared screen or API definitions with `reconcile-design`; neither erases a counted call.
-
-The [CLI guide](docs/cli-guide.md) covers every command and flag, including design exports, comparing two assessments and recovering from a blocked run.
-
-## What the package contains
-
-The package is one ZIP. The skip route also keeps its earlier draft ZIP unchanged. Each file below is written by the function named, on the routes marked. A mode export is the optional `package-export` draft.
-
-| File | Contents | Written by | Review | Skip | Mode export |
-| --- | --- | --- | --- | --- | --- |
-| `ai-dlc.json` | Phase, verification, boundaries, workflow status, readiness and blockers | `package()`, `reframe_preview.run()`, `package_skip()`, `reframe_optional.package_export()` | ✓ | ✓ | ✓ |
-| `package-manifest.json` | FR-10 items carried, and any item stated absent | `reframe_acceptance.fr10_manifest()` | ✓ | ✓ | |
-| `checksums.json` | SHA-256 of every file | `package()`, `package_skip()`, `reframe_preview.run()`, `reframe_optional.package_export()` | ✓ | ✓ | ✓ |
-| `provenance.json` | Source pin, framework revision, providers, assessment hash | `package()`, `reframe_preview.run()` | ✓ | ✓ | |
-| `specification.json` | Business specification (reviewed on the review route only) | `package()`, `reframe_preview.run()`, `reframe_optional.package_export()` | ✓ | ✓ | ✓ |
-| `decisions.json`, `approvals.json` | SME decisions and current approvals | `package()` | ✓ | | |
-| `decisions-needed.json`, `assumptions.json`, `rules.json`, `rules.html` | Open questions, the recorded skip decision, imported rule catalog | `reframe_preview.run()` | | ✓ | |
-| `traceability.json`, `assessment-evidence.json` | Rules, tests, coverage, assessment-only evidence | `package()` | ✓ | | |
-| `acceptance-catalog.json` | Acceptance criteria per imported rule, all `NOT RUN` | `reframe_preview.run()` | | ✓ | |
-| `requirements-evidence.json`, `requirements-<function>-*` | Active requirements set and its provenance statement; imported originals unchanged | `package_extras()` | ✓ | ✓ | |
-| `human-context.json` | Context submissions, dispositions, gate records, conflicts | `package_extras()` | ✓ | ✓ | |
-| `approval-history.json` | Current and superseded approvals | `package_extras()` | ✓ | ✓ | |
-| `design-plan.json`, `design-inventory.json` | Mode, target constraints, and the screen/API inventory saved before detail | `package_extras()` | ✓ | plan only | |
-| `api-completeness.json`, `superseded-definitions.json` | API contract gaps; definitions replaced by a recorded reconciliation | `review_site()` via `package_extras()` | ✓ | | |
-| `review.html`, `index.html`, `api.html`, `usage.html` | Wireframes, API reference, usage | `review_site()`, `reframe_preview.run()`, `reframe_optional.package_export()` | ✓ | `index.html` | `api.html`, `usage.html` |
-| `screens.json`, `api-contracts.json`, `openapi.json` | Screen model, API contracts, OpenAPI 3 | `review_site()`, `reframe_preview.run()` | contracts, OpenAPI | screens, contracts | screens, OpenAPI |
-| `current-state.html`, `design.json`, `inventories.json`, `manifest.json`, `context-conflicts.json` | Mode export design and its inputs | `reframe_optional.package_export()` | | | ✓ |
-| `deltas.json`, `future-state.html`, `future-screens.json` | Reimagine proposals, unapproved until a person approves each | `reframe_optional.design_export()` | Reimagine | | Reimagine |
-| `sme-architect-review.html` | The preparation report the approval was bound to | `package()` | ✓ | | |
-| `implementation-backlog.json`, `monorepo-layout.txt`, `*-prompt.md` | Dependency-ordered backlog and section tasks | `package()`, `reframe_preview.run()` | ✓ | ✓ | backlog |
-| `modernization-sequence.json`, `capability-map.json`, `parallel-validation.json`, `field-inventory.json`, `batch-inventory.json`, `api-boundary.json`, `governance.json`, `extraction-reading.json`, `rule-coverage.json`, `legacy-requirements.json` | Handoff records: every step `NOT_STARTED`, every capability unassigned, every comparison `NOT RUN` | `reframe_handoff.write_into()` | ✓ | ✓ | ✓ |
-| `AGENTS.md`, `SKILL.md`, `skill-*.md` | Agent instructions, written into the export | `package()`, `reframe_preview.run()`, `reframe_handoff.write_into()` | ✓ | ✓ | ✓ |
-| `README.md`, `reframe-notice.md` | How to read the package; notice for copied Reframe material | all package writers | ✓ | ✓ | ✓ |
-
-The skill files exist only inside each exported package. The repository does not install a skills directory. The acceptance ledger is never inside an archive, so no hash refers to itself.
-
-## Deliverables and quality gates
-
-Reframe separates preparation outputs from completed modernization:
-
-| Output | Purpose | Evidence boundary |
-| --- | --- | --- |
-| Source and assessment records | Inventory, dependencies, data and extracted rules | Source-pinned; verify Transform coverage |
-| Business review and wireframes | Screens, navigation, rules and proposed journeys | Generated material, not automatically approved |
-| Human decision records | Clarifications, conflicts, approvals and deferrals | Preserve provenance and unresolved decisions |
-| AI-DLC handoff packages | Requirements, designs, guidance and test planning inputs | Opt-in mode packages are **DRAFT**, not complete build contracts |
-| Target application | Implemented and operated by a downstream team | **Not generated or validated by this POC** |
-
-Financial rules, authorization, EBCDIC data conversion, batch restart, concurrency and data equivalence require explicit validation. The [quality gates](quality-gates/README.md), [contracts](contracts/README.md), and [limitations](docs/limitations.md) describe the controls.
-
-## Documentation
-
-| Start with | Read |
-| --- | --- |
-| Install on your workstation | [Platform installation](docs/platform-install.md) · [Engineer setup](docs/engineer-setup.md) |
-| Operate Reframe | [CLI guide](docs/cli-guide.md) · [Terminal console](docs/terminal-console.md) |
-| Understand the process | [Four-phase workflow](docs/four-phase-workflow.md) · [Multi-agent workflow](architecture/multi-agent-workflow.md) |
-| Examine security boundaries | [Sandbox infrastructure](infrastructure/README.md) · [Security policy](SECURITY.md) |
-| Review methodology | [Modernization methodology](methodology/modernization.md) · [Quality gates](quality-gates/README.md) |
-| Reproduce a safe example | [CardDemo example](examples/carddemo/README.md) · [Assessment comparison](docs/assessment-comparison.md) |
-| Contribute | [Contributing](CONTRIBUTING.md) · [Third-party guidance](THIRD_PARTY.md) |
-
-## Development and CI
-
-Run the offline test suite from the repository with its dependencies installed:
+When AWS asks something, `reframe status` says so. See the question and its numbered options:
 
 ```bash
-PYTHONPATH=tests python -m unittest discover -s tests
-reframe --help
+reframe answer
 ```
 
-The [CI workflow](.github/workflows/ci.yml) is configured for pull requests and pushes to `develop` (integration) and `main` (release). Feature branches open pull requests into `develop`. It runs three jobs in parallel: offline tests, a package build check, and a pinned gitleaks secret scan. **The badge reflects GitHub's actual workflow result; it is not a claim of live AWS acceptance.** No AWS credentials or paid model calls are required by CI.
+Answer with the option numbers (several for the catalog, such as `reframe answer 2 3`), or in your own words:
 
-## Author and attribution
+```bash
+reframe answer 1
+```
 
-Satish Kumar Nampally created Reframe. The project repository is [https://github.com/sknampally/reframe](https://github.com/sknampally/reframe).
+```bash
+reframe answer --text "Reimagine business domain \"Payments\""
+```
 
-The [MIT license](LICENSE) permits commercial use, modification, and redistribution, subject to its terms. A copy or a substantial portion of Reframe must keep the copyright notice and the permission notice.
+The worker sends your answer within a minute. In autonomous mode, a question Reframe does not recognise also waits for `reframe answer`.
 
-Public acknowledgment and a link to the repository are appreciated. The MIT license does not require them.
+### Neptune: a new graph or an existing cluster
 
-## Security, licensing and scope
+By default each run creates its own Neptune Serverless graph in a private network with no internet access. It bills until you run `reframe teardown`.
 
-Keep source assessments, account identifiers, credentials and client documents in private workspaces—**never in this public repository or public issues**. Do not upload third-party source without authorization. Reframe itself is [MIT licensed](LICENSE); [AWS CardDemo](https://github.com/aws-samples/aws-mainframe-modernization-carddemo) remains an independent sample under its own license. See [SECURITY.md](SECURITY.md) and [THIRD_PARTY.md](THIRD_PARTY.md).
+To use a Neptune cluster you already have, pass `--graph existing` to choose from a list, or `--graph <cluster name>`. With no `--graph`, interactive mode lists the clusters in the region and asks. Reframe uses an existing cluster as it is and never changes or deletes it. It offers one only if it meets every need: available with an instance, Serverless, engine 1.4.5.1 or later, IAM authentication, encryption, subnets in two availability zones with an S3 gateway endpoint, a security group pair, and a bulk-loader role that can read the run's source bucket. For each cluster it rejects, it says why.
 
-This framework has been developed with AI assistance. Humans are responsible for interpreting evidence, approving decisions and validating any resulting application.
+## If a run stops
+
+`reframe status` names what happened and the next step. The usual cases:
+
+| Status | What to do |
+|---|---|
+| `WAITING_SIGNIN` | Your AWS sign-in expired. Run `aws sso login --profile my-profile`, then `reframe resume`. |
+| `WAITING_HUMAN` | AWS is waiting for an answer: run `reframe answer`, then answer it. |
+| `UNCERTAIN` | A change was sent but its result is unknown. `reframe resume` checks AWS's state before doing anything again. |
+| `FAILED` or `REFUSED` | Read the message and `worker.log` in the run folder, fix what it says, then `reframe resume`. |
+
+`reframe resume` continues from where the run stopped. Nothing with a receipt is done again.
+
+## Results
+
+Everything for a run is in `~/.reframe/projects/<project>/runs/<run id>/`:
+
+| Path | What it holds |
+|---|---|
+| `outputs/report/index.html` | The business review report. Rebuild it with `reframe report`. |
+| `outputs/requirements/` | AWS's requirements per business function, with `traceability.yaml` linking rules to requirements. |
+| `outputs/aws/` | AWS's assessment results. |
+| `outputs/catalog/` | The business function catalog (`delivery.zip`, unpacked). |
+| `decisions.json` | Every answer Reframe gave on your behalf, and why. |
+| `events.jsonl` | The run's event log. |
+| `changes/` | The record of every change Reframe made in AWS: what it meant to do, and AWS's receipt. |
+| `worker.log` | The background worker's output. |
+
+## Reviewing the results with the business
+
+`reframe report --open` opens the business review report. It is one HTML file with everything inside it, so you can send it to business users and functional subject-matter experts as it is; they need only a browser.
+
+- **It starts at the top:** what was assessed and the business domains. From a domain they go to its business functions, from a function to its capabilities (AWS's user stories), and from a capability to each requirement in plain words, with the business rules behind it and AWS's open questions for the business. A breadcrumb leads back up, and the search box finds any requirement, rule or question.
+- **They mark what they read:** Agree, Needs change or Question on each requirement, business rule and open question, with a comment. Progress shows on every domain, function and capability. Marks stay in their browser.
+- **They send their review back:** under **Your review** they enter their name and download their marks as a CSV file (for a spreadsheet) or a JSON file. Each row names the domain, function, capability, item, mark and comment, and the file names the run and the source's SHA-256, so a review always matches the code that was assessed.
+- **Technical detail** (all requirements and rules in tables, the data model, the assessment, AWS's own pages and Reframe's answers) is in its own section, for engineers.
+
+## Removing the AWS resources
+
+```bash
+reframe teardown
+```
+
+Teardown runs in your terminal and asks before it deletes anything:
+
+1. It lists every AWS resource the run created, taken only from the run's own records: the AWS Transform job, workspace and connector from their creation receipts, and everything in the run's Terraform state. Nothing is found by name.
+2. You type `yes` to delete them all. Anything else keeps them. Your consent, with the list and its hash, is saved in `teardown/consents.json`.
+3. It deletes in order: the job, the workspace, the connector, any network interface AWS Transform left in the run's own network, the project resources, then the state bucket. With a new Neptune graph this takes about 15 minutes.
+4. It checks every resource tagged with the run and reports anything still in AWS.
+
+Two things you may see at the end:
+
+- The AWS Transform connector may be left over. Some roles are not allowed to call DeleteConnector, and AWS often removes the connector itself a little later. Its IAM role is deleted, so it can reach nothing.
+- AWS's tag index can list deleted resources for a while. Reframe checks each one in its own service and reports only what still exists.
+
+If the list changes between your `yes` and the deletion, Reframe stops and asks again. An existing Neptune cluster you chose is never in the list.
+
+## Pipeline 2: the Claude assessment and the comparison
+
+Pipeline 2 runs on a pipeline 1 run that is done and not torn down. The guided `reframe run` offers it, with yes as the default: after AWS Transform finishes, the same worker carries on with Claude. On a run you already have:
+
+```bash
+reframe claude
+```
+
+| Stage | What happens |
+|---|---|
+| C0. Preflight | Checks Claude Code and its sign-in, Python 3, and the code-modernization plugin. Reframe fetches the plugin itself, at one pinned commit of Anthropic's plugin repository, and loads it only for its own runs. Nothing is installed into your Claude Code settings. |
+| C1. Workspace | The run's snapshot is unpacked read-only in the run folder, after its SHA-256 is checked against the one pipeline 1 assessed. Nothing of AWS Transform's results is in it. |
+| C2-C4. The plugin's steps | `preflight`, `assess`, `map` and `extract-rules`, each run headless with `claude -p`. Before rule extraction Reframe shows the plugin's estimate (on CardDemo, 37 shards: about 370 to 555 agents, up to about 9 million tokens and an hour) and goes ahead only within your agent limit. |
+| C5. Retrieval | The plugin's files are kept as written and read into the report: the assessment, the map, the rule cards and the open questions. The snapshot is checked again, to prove nothing changed. |
+| C6. Requirements | Claude's plugin writes rule cards, not requirements. Reframe asks Claude, one domain at a time, to write requirements in AWS Transform's shape from those rule cards. Each one must cite a rule card or a source line that exists, and each is labelled **generated by Reframe from Claude's results**. |
+| C7. Graph | Claude's map and rules go into the run's Neptune cluster as their own named graph, beside AWS Transform's, through a small loader function in the run's private network. |
+| C8. Reports | Claude's business review, in the same layout as AWS Transform's, and the comparison page. |
+
+Options:
+
+- `--auth subscription` (the default) signs Claude in with your Claude subscription. `--auth bedrock` uses Amazon Bedrock with the run's AWS profile, or a Bedrock API key in `AWS_BEARER_TOKEN_BEDROCK`.
+- `--max-agents` sets the agent limit for rule extraction (default 600).
+- `--graph-load yes` loads Claude's graph into an existing Neptune cluster. A graph the run created is loaded by default.
+- If Claude's usage limit is reached, the run stops and says so. When the limit resets, `reframe resume` continues where it stopped.
+
+```bash
+reframe compare --open
+```
+
+This opens the comparison page. It starts with the numbers side by side, then goes down:
+
+- **Domains:** each AWS domain with the Claude domains that hold the same programs.
+- **Programs:** each program, and which tool covered it.
+- **Rules by program:** the two tools' rules about the same program, side by side.
+- **AI-paired rules:** pairs proposed by Claude, labelled as AI output, each with a reason and a confidence. You mark each pair Right or Wrong.
+- **Only one tool:** what only one tool found.
+
+Both results are model output, and the page says so.
+
+`reframe teardown` also removes pipeline 2's loader function. It waits until AWS has released the function's network interfaces, about 20 minutes, before it deletes the network.
+
+## Sharing the reports
+
+```bash
+reframe publish --to reports/my-system
+```
+
+This copies a run's reports into a folder that anyone can open in a browser, without Reframe or access to your AWS account:
+
+- AWS Transform's review, Claude's review and the comparison, with their links working inside the copy;
+- the plugin's own report and interactive map;
+- an index page naming the source, its commit and SHA-256, and when each assessment ran.
+
+Before anything is written, Reframe removes the AWS account ID, ARNs, S3 locations, the run's resource names, AWS IDs, your profile name, e-mail addresses and local paths. It then checks the whole copy and refuses to write if any are left.
+
+**Try it without running anything:** [the CardDemo reports](reports/carddemo/index.html) in this repository are a published copy of a full run of both pipelines on AWS's CardDemo sample. Clone the repository and open `reports/carddemo/index.html` in a browser.
+
+## Code layout
+
+| Folder | What it does |
+|---|---|
+| `src/reframe/core/` | The CLI, the run folder and its change records, preflight, the stage pipeline and teardown |
+| `src/reframe/source/` | Taking the source snapshot and uploading it to S3 |
+| `src/reframe/infrastructure/` | The Terraform roots and modules, the Neptune cluster checks and the network clean-up |
+| `src/reframe/transform/` | AWS Transform: the MCP client, the workspace and connector, the job driver, answering questions, retrieval |
+| `src/reframe/claude/` | Pipeline 2: the pinned plugin, running Claude Code headless, the workspace, the plugin's steps, retrieval, the generated requirements and the graph load |
+| `src/reframe/report/` | The business review reports and the comparison page |
+| `tests/` | Offline tests for each folder above; they run on every pull request |
+
+Run the tests from a checkout:
+
+```bash
+python -m unittest discover -s tests -t .
+```
+
+## Next
+
+Pipelines 3 and 4 are noted in [docs/plan.md](docs/plan.md) and will be specified after pipelines 1 and 2 have been tested together:
+
+- **Pipeline 3** reconciles the two assessments where they disagree.
+- **Pipeline 4** produces the final requirements, business rules and wireframes.
+
+Earlier work stays in the repository's history: the build before this rebuild ends at commit `000b816`, and the first release is tagged `v0.3.0`.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

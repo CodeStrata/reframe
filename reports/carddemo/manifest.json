@@ -1,0 +1,15 @@
+{
+ "published_at": "2026-11-23T14:28:55Z",
+ "run": "bcc1e3",
+ "project": "carddemo-p2",
+ "source_sha256": "d9a77d549248727883ce64930d337dd6518322d4dead65a418eafd1eb402541a",
+ "commit": "59cc6c2fd7ebd7ef7925cad552a01a4b8b6e4d5e",
+ "files": [
+  "aws/index.html",
+  "claude/index.html",
+  "claude/plugin/REPORT.html",
+  "claude/plugin/TOPOLOGY.html",
+  "comparison/index.html",
+  "index.html"
+ ]
+}
