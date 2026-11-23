@@ -247,6 +247,22 @@ Both results are model output, and the page says so.
 
 `reframe teardown` also removes pipeline 2's loader function. It waits until AWS has released the function's network interfaces, about 20 minutes, before it deletes the network.
 
+## Sharing the reports
+
+```bash
+reframe publish --to reports/my-system
+```
+
+This copies a run's reports into a folder that anyone can open in a browser, without Reframe or access to your AWS account:
+
+- AWS Transform's review, Claude's review and the comparison, with their links working inside the copy;
+- the plugin's own report and interactive map;
+- an index page naming the source, its commit and SHA-256, and when each assessment ran.
+
+Before anything is written, Reframe removes the AWS account ID, ARNs, S3 locations, the run's resource names, AWS IDs, your profile name, e-mail addresses and local paths. It then checks the whole copy and refuses to write if any are left.
+
+**Try it without running anything:** [the CardDemo reports](reports/carddemo/index.html) in this repository are a published copy of a full run of both pipelines on AWS's CardDemo sample. Clone the repository and open `reports/carddemo/index.html` in a browser.
+
 ## Code layout
 
 | Folder | What it does |

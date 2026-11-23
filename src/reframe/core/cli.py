@@ -23,6 +23,7 @@ HANDLERS = {
     "teardown": "reframe.core.commands:teardown",
     "claude": "reframe.core.commands:claude",
     "compare": "reframe.core.commands:compare",
+    "publish": "reframe.core.commands:publish",
     "worker": "reframe.core.commands:worker",
 }
 
@@ -91,6 +92,10 @@ def parser() -> argparse.ArgumentParser:
     compare = command("compare", "Build the page comparing AWS Transform's and Claude's results again")
     _run_option(compare)
     compare.add_argument("--open", action="store_true", help="open the page in the browser")
+
+    publish = command("publish", "Copy a run's reports, cleaned of the AWS account's identifiers, into a folder others can open")
+    _run_option(publish)
+    publish.add_argument("--to", required=True, help="the folder to write the copy into, for example reports/carddemo")
 
     teardown = command("teardown", "List every AWS resource the run created, ask for consent, record it, then remove them")
     _run_option(teardown)

@@ -263,6 +263,17 @@ def compare(args) -> int:
     return 0
 
 
+def publish(args) -> int:
+    from reframe.report.publish import publish as make
+    try:
+        folder = find_run(args.run)
+        manifest = make(folder, Path(args.to).expanduser().resolve())
+    except Stop as stop:
+        return _fail(stop)
+    say(f"Published {len(manifest['files'])} pages to {Path(args.to).expanduser()}; open index.html there.\n")
+    return 0
+
+
 # ---- reading the run -----------------------------------------------------------------------------
 
 
