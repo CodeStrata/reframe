@@ -30,11 +30,15 @@ def _run_option(parser: argparse.ArgumentParser) -> None:
 
 
 def parser() -> argparse.ArgumentParser:
-    top = argparse.ArgumentParser(prog="reframe", description="Run an AWS Transform mainframe assessment end to end and bring back its requirements.")
+    from reframe.core.helptext import Parser
+    top = Parser(prog="reframe", description="Run an AWS Transform mainframe assessment end to end and bring back its requirements.")
     top.add_argument("--version", action="version", version=f"reframe {__version__}")
     commands = top.add_subparsers(dest="command", metavar="<command>")
 
-    run = commands.add_parser("run", help="Assess mainframe source with AWS Transform: with no options, a guided run that checks and sets up "
+    def command(name: str, help: str) -> argparse.ArgumentParser:
+        return commands.add_parser(name, help=help, description=help)
+
+    run = command("run", "Assess mainframe source with AWS Transform: with no options, a guided run that checks and sets up "
                               "everything first; the AWS resources stay until reframe teardown")
     run.add_argument("--source", help="the mainframe source: a local folder, a local .zip file, or a GitHub URL; given, nothing is asked "
                      "and the prerequisites are assumed to be set up")
@@ -46,32 +50,32 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--project", help="project name used in resource names (default: from the source's name)")
     run.add_argument("--graph", default=None, help="new, existing (choose from a list) or the name of an existing Neptune cluster "
                      "(default: interactive mode asks; autonomous mode creates a new graph)")
-    run.add_argument("--terraform", help="the Terraform binary to use (default: REFRAME_TERRAFORM, then terraform on PATH)")
+    run.add_argument("--terraform", help="the Terraform binary to use (default: REFRAME_TERRAFORM, then the one Reframe installed, then terraform on PATH)")
     run.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
 
-    commands.add_parser("setup", help="Check and set up the prerequisites and the AWS sign-in, without starting a run")
+    command("setup", "Check and set up the prerequisites and the AWS sign-in, without starting a run")
 
-    status = commands.add_parser("status", help="The run's stage, the job's plan steps, any waiting question and the next step")
+    status = command("status", "The run's stage, the job's plan steps, any waiting question and the next step")
     _run_option(status)
 
-    events = commands.add_parser("events", help="The run's event log")
+    events = command("events", "The run's event log")
     _run_option(events)
     events.add_argument("--follow", action="store_true", help="keep printing new events")
 
-    answer = commands.add_parser("answer", help="Show AWS's waiting question, or answer it")
+    answer = command("answer", "Show AWS's waiting question, or answer it")
     _run_option(answer)
     answer.add_argument("choices", nargs="*", help="option numbers as listed by reframe answer")
     answer.add_argument("--text", help="a free-text answer, for a question without options")
 
-    resume = commands.add_parser("resume", help="Continue a run that stopped; nothing with a receipt is repeated")
+    resume = command("resume", "Continue a run that stopped; nothing with a receipt is repeated")
     _run_option(resume)
     resume.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
 
-    report = commands.add_parser("report", help="Build the HTML report from the run's downloads again")
+    report = command("report", "Build the HTML report from the run's downloads again")
     _run_option(report)
     report.add_argument("--open", action="store_true", help="open the report in the browser")
 
-    teardown = commands.add_parser("teardown", help="List every AWS resource the run created, ask for consent, record it, then remove them")
+    teardown = command("teardown", "List every AWS resource the run created, ask for consent, record it, then remove them")
     _run_option(teardown)
 
     worker = commands.add_parser("worker")  # internal: the background worker started by run, resume and teardown
@@ -83,6 +87,10 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     if not args.command:
+        from reframe.core import ui
+        if ui.interactive():
+            from reframe.core.home import main as home
+            return home()
         parser().print_help()
         return 2
     from reframe.core.setup import use_saved_paths

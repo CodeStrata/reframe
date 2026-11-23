@@ -49,6 +49,14 @@ Check it with `reframe --version`. With the editable install, `git pull` in the 
 
 Everything else a run needs is checked, and installed on request, by the guided run below.
 
+## The home screen
+
+```bash
+reframe
+```
+
+`reframe` on its own shows your runs (status, stage, when each started, and whether its AWS resources are still in place), the suggested next step, and a numbered menu: start a guided run, run status, answer a waiting question, resume, open the business review, event log, tear down, setup and help. An action on a run asks which run, with the latest as the default. After each action the home screen comes back; 0 or Ctrl+D leaves it, and Ctrl+C cancels an action. `reframe --help`, and `--help` after any command, shows the commands or options as a table with examples.
+
 ## Run an assessment: the guided way
 
 ```bash
@@ -60,7 +68,7 @@ Reframe guides you through five steps and checks each answer before going on:
 1. **Prerequisites.** A table of what a run needs and what this computer has: Git, the AWS CLI v2, uv, Terraform 1.10 or later and the AWS Transform MCP server (Claude Code is listed as optional, for pipeline 2). For anything missing it shows the install command for your operating system and offers to run it; nothing is installed without your yes. Reframe installs Terraform itself: the pinned HashiCorp release, checked against HashiCorp's SHA-256 sums, kept in `~/.reframe/tools` and used from there, so your PATH, your shell files and any older Terraform stay as they are.
 2. **AWS sign-in.** Choose one of your AWS CLI profiles and the region. If the profile is not signed in, Reframe offers to run `aws sso login` for you; you sign in in your browser, and Reframe never sees your credentials. With no profiles, it offers `aws configure sso`.
 3. **Source.** A GitHub or Git URL (checked with Git, and optionally a branch, tag or commit), a local folder, or a local ZIP file.
-4. **Choices.** Autonomous or interactive (see below), the project name used in AWS resource names, and a new Neptune graph or an existing cluster.
+4. **Choices.** Autonomous or interactive (see below), the project name (a short label such as `carddemo`: it names the run's folder, `~/.reframe/projects/<project>/runs/<run>/`, and starts the name of every AWS resource the run creates, `reframe-<project>-<run>`), and a new Neptune graph or an existing cluster.
 5. **Summary.** What will be created, then one yes to start. The run continues in the background.
 
 Your profile, region and tool paths are saved in `~/.reframe/config.json` as the next run's defaults. To check the prerequisites and sign in without starting a run:
