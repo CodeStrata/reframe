@@ -209,7 +209,7 @@ class CommandTest(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()) as err, contextlib.redirect_stdout(io.StringIO()):
             code = cli.main(["claude"])
         self.assertNotEqual(code, 0)
-        self.assertIn("pipeline 1 is not done", err.getvalue())
+        self.assertIn("no AWS resources yet", err.getvalue())
         claude = folder.state["claude"]
         self.assertEqual((claude["auth"], claude["max_agents"], claude["mode"]), ("subscription", 600, "autonomous"))
 
@@ -219,7 +219,7 @@ class CommandTest(unittest.TestCase):
         from reframe.core import cli
         from reframe.core.runfolder import new_run
         folder = new_run("demo")
-        folder.save("question.json", {"id": "claude-estimate", "kind": "claude", "text": "Run 37 shards?", "options": ["Run it", "Cancel"], "asked_at": "t"})
+        folder.save("claude-question.json", {"id": "claude-estimate", "kind": "claude", "text": "Run 37 shards?", "options": ["Run it", "Cancel"], "asked_at": "t"})
         with contextlib.redirect_stdout(io.StringIO()) as out:
             self.assertEqual(cli.main(["answer"]), 0)
         self.assertIn("Run 37 shards?", out.getvalue())
@@ -227,11 +227,11 @@ class CommandTest(unittest.TestCase):
             self.assertEqual(cli.main(["answer", "--text", "free"]), 2)
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(cli.main(["answer", "1"]), 0)
-        self.assertEqual(folder.load("answer.json")["text"], "Run it")
-        folder.save("question.json", {"id": "claude-preflight-3", "kind": "claude", "text": "Bespoke build?", "options": ["Reframe's answer: Don't know"], "asked_at": "t"})
+        self.assertEqual(folder.load("claude-answer.json")["text"], "Run it")
+        folder.save("claude-question.json", {"id": "claude-preflight-3", "kind": "claude", "text": "Bespoke build?", "options": ["Reframe's answer: Don't know"], "asked_at": "t"})
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(cli.main(["answer", "1"]), 0)
-        self.assertEqual(folder.load("answer.json")["text"], "Don't know")
+        self.assertEqual(folder.load("claude-answer.json")["text"], "Don't know")
 
 
 class InstallTest(unittest.TestCase):

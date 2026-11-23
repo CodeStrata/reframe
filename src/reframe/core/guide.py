@@ -239,9 +239,9 @@ def claude_choice() -> dict[str, Any] | None:
     from reframe.claude.pipeline import DEFAULT_MAX_AGENTS
     from reframe.claude.runner import environment
     ui.section("Pipeline 2")
-    ui.say("After AWS Transform finishes, Reframe can assess the same snapshot with Claude's code-modernization plugin, show its "
-           "results in the same business review, and build a page comparing the two.")
-    if not ui.yes("Assess the same snapshot with Claude afterwards?", default=True):
+    ui.say("Reframe can also assess the same snapshot with Claude's code-modernization plugin, alongside AWS Transform: it starts as "
+           "soon as the run's Neptune graph exists, shows its results in the same business review, and builds a page comparing the two.")
+    if not ui.yes("Assess the same snapshot with Claude as well?", default=True):
         ui.hint("Later, run: reframe claude")
         return None
     auth = ("subscription", "bedrock")[ui.choose("How should Claude sign in?", [
@@ -273,7 +273,7 @@ def summary(chosen_source: str, ref: str | None, sign: setup.SignIn, picked: dic
             ("AWS", f"{sign.profile} · {sign.region} · account …{(sign.account or '')[-4:]}"),
             ("Mode", picked["mode"]), ("Project", picked["project"]),
             ("Neptune", "a new graph, billed until reframe teardown" if picked["graph"] == "new" else "an existing cluster, chosen next"),
-            ("Then", (f"Claude assessment of the same snapshot ({picked['claude']['auth']}, up to {picked['claude']['max_agents']} agents)"
+            ("Alongside", (f"Claude assessment of the same snapshot, from when Neptune is ready ({picked['claude']['auth']}, up to {picked['claude']['max_agents']} agents)"
                       if picked.get("claude") else "AWS Transform only; reframe claude adds the Claude assessment later"))]
     ui.table(("", ""), rows, ("bold", None))
     ui.say("Reframe will create S3 buckets, IAM roles" + (", a private network and a Neptune Serverless graph" if picked["graph"] == "new" else "") +

@@ -151,15 +151,15 @@ def extract_resume_prompt(system: str) -> str:
 
 def wait_for_answer(folder: RunFolder, qid: str, text: str, options: list[str], poll: float = 10.0, sleep: Callable[[float], None] = time.sleep) -> str:
     """Ask the person through reframe answer and wait for the reply (interactive mode)."""
-    pending = folder.load("question.json")
+    pending = folder.load("claude-question.json")  # its own files: pipeline 1 may be asking at the same time
     if not pending or pending.get("id") != qid:
-        folder.save("question.json", {"id": qid, "kind": "claude", "text": text, "options": options, "asked_at": iso()})
+        folder.save("claude-question.json", {"id": qid, "kind": "claude", "text": text, "options": options, "asked_at": iso()})
         folder.event("question", id=qid, kind="claude")
     while True:
-        reply = folder.load("answer.json")
+        reply = folder.load("claude-answer.json")
         if reply and reply.get("id") == qid:
-            folder.remove("answer.json")
-            folder.remove("question.json")
+            folder.remove("claude-answer.json")
+            folder.remove("claude-question.json")
             folder.event("answer_used", id=qid)
             return reply["text"]
         sleep(poll)

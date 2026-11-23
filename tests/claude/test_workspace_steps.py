@@ -142,9 +142,9 @@ class StepsTest(Base):
         self.assertIn("37 shards", steps.extract_prompt("demo", size, 600))
 
     def test_answers_are_waited_for(self):
-        self.folder.save("answer.json", {"id": "q1", "text": "Run it"})
+        self.folder.save("claude-answer.json", {"id": "q1", "text": "Run it"})
         self.assertEqual(steps.wait_for_answer(self.folder, "q1", "?", ["Run it"], sleep=lambda s: None), "Run it")
-        self.assertFalse(self.folder.exists("question.json"))
+        self.assertFalse(self.folder.exists("claude-question.json"))
 
 
 if __name__ == "__main__":

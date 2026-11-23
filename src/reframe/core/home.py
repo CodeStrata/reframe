@@ -61,7 +61,7 @@ def runs() -> list[Run]:
         except (OSError, ValueError):
             continue
         folder = RunFolder(path.parent)
-        found.append(Run(folder, state, bool(folder.worker_pid())))
+        found.append(Run(folder, state, bool(folder.worker_pid("run") or folder.worker_pid("claude"))))
     return sorted(found, key=lambda r: str(r.state.get("started_at") or ""), reverse=True)
 
 

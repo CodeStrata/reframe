@@ -23,10 +23,7 @@ def state(ctx: Context) -> dict[str, Any]:
 
 
 def update(ctx: Context, **values: Any) -> dict[str, Any]:
-    current = state(ctx)
-    current.update(values)
-    ctx.folder.update(claude=current)
-    return current
+    return ctx.folder.merge("claude", **values)  # under the run folder's records lock: pipeline 1 may be writing too
 
 
 def stage(ctx: Context, name: str) -> None:
@@ -47,6 +44,28 @@ def request(ctx: Context, *, auth: str = "subscription", max_agents: int | None 
                   max_agents=int(max_agents or current.get("max_agents") or DEFAULT_MAX_AGENTS),
                   mode=mode or current.get("mode") or ctx.state.get("mode") or "autonomous",
                   graph_load=graph_load or current.get("graph_load"), status=current.get("status") or "REQUESTED")
+
+
+def ready(ctx: Context) -> bool:
+    """Pipeline 2 can start once pipeline 1 has the snapshot (stage 1) and the AWS resources (stage 2)."""
+    return ctx.folder.exists("snapshot.json") and ctx.changes.receipt("terraform-project-apply") is not None
+
+
+def wait_for_pipeline_1(ctx: Context, poll: float = 60, sleep=None) -> None:
+    """The comparison needs AWS Transform's results. Waits for pipeline 1; if it stops, pipeline 2 stops and says why."""
+    import time
+    sleep = sleep or time.sleep
+    while True:
+        run = ctx.folder.state
+        if run.get("status") == Outcome.DONE.value and run.get("retrieved_at"):
+            return
+        if run.get("torn_down"):
+            raise Stop(Outcome.REFUSED, "the run was torn down before AWS Transform's results were retrieved")
+        status = str(run.get("status"))
+        if status not in ("RUNNING", "None") and not ctx.folder.worker_pid("run"):
+            raise Stop(Outcome.WAITING_HUMAN, f"pipeline 1 stopped ({status}: {str(run.get('message') or '')[:200]}). Claude's review is "
+                                              "ready; reframe resume continues pipeline 1, and the comparison follows when it is done")
+        sleep(poll)
 
 
 def claude_code(ctx: Context):
@@ -75,8 +94,8 @@ def work(ctx: Context) -> Outcome:
     from reframe.claude import preflight, steps
     from reframe.claude import workspace as ws
     run = ctx.state
-    if run.get("status") != Outcome.DONE.value or not run.get("retrieved_at"):
-        raise Stop(Outcome.REFUSED, "pipeline 1 is not done for this run; pipeline 2 assesses the snapshot pipeline 1 assessed, once it is done")
+    if not ready(ctx):
+        raise Stop(Outcome.REFUSED, "pipeline 1 has not made the run's snapshot and AWS resources yet; pipeline 2 starts when it has")
     if run.get("torn_down"):
         raise Stop(Outcome.REFUSED, "this run is torn down; pipeline 2 needs the run's snapshot and Neptune graph")
     settings = state(ctx)
@@ -153,6 +172,10 @@ def work(ctx: Context) -> Outcome:
     stage(ctx, "report")
     from reframe.report import build, compare
     path = build.build_claude(ctx.folder)
+    update(ctx, report=str(path.relative_to(ctx.folder.root)))
+    stage(ctx, "waiting for AWS Transform")
+    wait_for_pipeline_1(ctx)
+    stage(ctx, "comparison")
     compare.pair_with_ai(ctx.folder, claude)
     comparison = compare.build(ctx.folder)
     build.build(ctx.folder)  # AWS Transform's review gains its links to Claude's review and the comparison

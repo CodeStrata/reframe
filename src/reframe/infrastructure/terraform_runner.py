@@ -128,7 +128,7 @@ class Terraform:
                 if resource.get("mode") != "managed":
                     continue
                 values = resource.get("values") or {}
-                name = next((values.get(k) for k in ("bucket", "name", "identifier", "cluster_identifier", "db_subnet_group_name")
+                name = next((values.get(k) for k in ("bucket", "name", "function_name", "identifier", "cluster_identifier", "db_subnet_group_name")
                              if isinstance(values.get(k), str) and values.get(k)), None)
                 items.append({"root": root, "address": resource["address"], "type": resource["type"],
                               "name": name or values.get("tags", {}).get("Name") if isinstance(values.get("tags"), dict) else name,
