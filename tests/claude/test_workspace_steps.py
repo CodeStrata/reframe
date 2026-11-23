@@ -113,6 +113,31 @@ class StepsTest(Base):
         steps.run_step(self.folder, claude, analysis, "extract-rules", "start", resume_prompt="resume it")
         self.assertEqual((claude.calls[1]["resume"], claude.calls[1]["prompt"]), ("s-9", "resume it"))
 
+    def test_missing_modules_make_extraction_incomplete_and_resume_follows_up(self):
+        workspace.create(self.folder)
+        analysis = workspace.paths(self.folder)["analysis"]
+        incomplete = {"confirmedRules": 181, "rerunModules": [{"name": "COPAUA0C"}, {"name": "COTRTLIC"}],
+                      "stats": {"confirmed": 181, "failedModules": ["COPAUA0C", "COTRTLIC"], "skippedPhases": ["P0 panel"]}}
+        complete = {"confirmedRules": 260, "rerunModules": [], "stats": {"confirmed": 260, "failedModules": [], "skippedPhases": []}}
+
+        class Claude(FakeClaude):
+            def run(self, name, prompt, timeout=0, resume=None, schema=None):
+                result = super().run(name, prompt, timeout, resume, schema)
+                (self.analysis / "rules_result.json").write_text(json.dumps(incomplete if len(self.calls) == 1 else complete))
+                return result
+        claude = Claude(analysis, [(StepResult("extract-rules-1", True, session_id="s-1"), ["BUSINESS_RULES.md"]),
+                                   (StepResult("extract-rules-2", True, session_id="s-2"), ["BUSINESS_RULES.md"])])
+        with self.assertRaises(Stop) as stop:
+            steps.run_step(self.folder, claude, analysis, "extract-rules", "start", resume_prompt="resume", system="demo")
+        self.assertEqual(stop.exception.outcome, Outcome.WAITING_HUMAN)
+        self.assertIn("2 modules missing", stop.exception.message)
+        self.assertEqual(self.folder.load("claude-steps/extract-rules.json")["problem"], "incomplete")
+        record = steps.run_step(self.folder, claude, analysis, "extract-rules", "start", resume_prompt="resume", system="demo")
+        self.assertTrue(record["ok"])
+        self.assertIsNone(claude.calls[1]["resume"])  # a fresh session, as the plugin says
+        self.assertIn("args.modules", claude.calls[1]["prompt"])
+        self.assertEqual(record["follow_ups"], 1)
+
     def test_autonomous_preflight_answers_are_decisions(self):
         answers = steps.preflight_answers(self.folder, "autonomous", self.sha, ask=None)
         self.assertEqual(len(answers), 5)

@@ -148,7 +148,7 @@ def work(ctx: Context) -> Outcome:
 
     stage(ctx, "extract rules")
     steps.run_step(ctx.folder, claude, places["analysis"], "extract-rules", steps.extract_prompt(system, size, limit),
-                   resume_prompt=steps.extract_resume_prompt(system))
+                   resume_prompt=steps.extract_resume_prompt(system), system=system)
     changed = ws.changed(ctx.folder)
     if changed:
         raise Stop(Outcome.FAILED, f"{len(changed)} file(s) in the snapshot changed during the plugin's steps (for example {changed[0]}); "

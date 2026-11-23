@@ -59,23 +59,67 @@ def stop_for(result: StepResult, step: str) -> Stop:
     return Stop(Outcome.FAILED, f"the plugin's {step} step did not finish: {result.text[-300:]}")
 
 
-def run_step(folder: RunFolder, claude: ClaudeCode, analysis: Path, step: str, prompt: str, resume_prompt: str | None = None) -> dict[str, Any]:
+MAX_FOLLOW_UPS = 3
+
+
+def extraction_gaps(analysis: Path) -> dict[str, Any] | None:
+    """What the plugin's own result says is missing after rule extraction: modules that failed or must run again (for
+    example cut off by Claude's usage limit), and phases it skipped. None when nothing is missing (spike P2-01, f6bb30)."""
+    path = analysis / "rules_result.json"
+    try:
+        result = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    stats = result.get("stats") if isinstance(result.get("stats"), dict) else {}
+    rerun = [m.get("name") if isinstance(m, dict) else str(m) for m in result.get("rerunModules") or []]
+    failed = [str(m) for m in stats.get("failedModules") or []]
+    skipped = [str(m) for m in stats.get("skippedPhases") or []]
+    if not rerun and not failed:
+        return None
+    return {"rerun": rerun, "failed": failed, "skipped_phases": skipped, "confirmed": stats.get("confirmed") or result.get("confirmedRules")}
+
+
+def follow_up_prompt(system: str) -> str:
+    return (f"The last {PREFIX}extract-rules {system} run ended with modules to run again (rerunModules in "
+            f"analysis/{system}/rules_result.json). Run the follow-up the command describes: invoke the extract-rules workflow by name for "
+            f"the same system with args.modules set to exactly those modules (taken from analysis/{system}/extract-rules.modules.json) and "
+            f"no resumeFromRunId. Merge its confirmedRules, dataObjects and stats into analysis/{system}/rules_result.json, de-duplicating "
+            "by source and name; leave in rerunModules and failedModules only what is still missing; then render BUSINESS_RULES.md and "
+            "DATA_OBJECTS.md again with the plugin's render_rules.py. The question pop-up is not available here; do not ask.")
+
+
+def run_step(folder: RunFolder, claude: ClaudeCode, analysis: Path, step: str, prompt: str, resume_prompt: str | None = None,
+             system: str | None = None) -> dict[str, Any]:
     done = folder.load(f"claude-steps/{step}.json")
     if done and done.get("ok"):
         return done
     attempt = (done or {}).get("attempt", 0) + 1
     resume = (done or {}).get("session_id") if done and done.get("problem") == "limit" and resume_prompt else None
-    folder.event("claude_step", step=step, attempt=attempt, resume=bool(resume))
-    _save(folder, step, {"ok": False, "attempt": attempt, "started_at": iso(), "session_id": (done or {}).get("session_id")})
-    result = claude.run(f"{step}-{attempt}", resume_prompt if resume else prompt, timeout=STEP_HOURS.get(step, 2) * 3600, resume=resume)
+    follow_up = bool(done and done.get("problem") == "incomplete" and system)
+    if follow_up and (done or {}).get("follow_ups", 0) >= MAX_FOLLOW_UPS:
+        raise Stop(Outcome.FAILED, f"rule extraction still has modules missing after {MAX_FOLLOW_UPS} follow-up runs; see claude-steps/{step}.json")
+    folder.event("claude_step", step=step, attempt=attempt, resume=bool(resume), follow_up=follow_up)
+    _save(folder, step, {"ok": False, "attempt": attempt, "started_at": iso(), "session_id": (done or {}).get("session_id"),
+                         "follow_ups": (done or {}).get("follow_ups", 0) + (1 if follow_up else 0)})
+    text = follow_up_prompt(system) if follow_up else resume_prompt if resume else prompt
+    result = claude.run(f"{step}-{attempt}", text, timeout=STEP_HOURS.get(step, 2) * 3600, resume=None if follow_up else resume)
     expected = analysis / EXPECTED[step]
     if result.ok and not expected.exists():
         result.ok, result.problem = False, "failed"
         result.text = f"{EXPECTED[step]} was not written. {result.text[-300:]}"
-    record = {**result.as_json(), "attempt": attempt, "finished_at": iso(), "step": step}
+    gaps = extraction_gaps(analysis) if step == "extract-rules" and result.ok else None
+    if gaps:  # the plugin finished its turn, but its own result lists modules that did not run
+        result.ok, result.problem = False, "incomplete"
+    record = {**result.as_json(), "attempt": attempt, "finished_at": iso(), "step": step, "gaps": gaps,
+              "follow_ups": (done or {}).get("follow_ups", 0) + (1 if follow_up else 0)}
     _save(folder, step, record)
     folder.event("claude_step_done", step=step, ok=result.ok, minutes=round(result.seconds / 60, 1), cost_usd=round(result.cost_usd, 2),
                  denials=len(result.denials))
+    if gaps:
+        raise Stop(Outcome.WAITING_HUMAN, f"rule extraction finished with {len(gaps['rerun'] or gaps['failed'])} modules missing "
+                                          f"(for example {(gaps['rerun'] or gaps['failed'])[0]}), most likely cut off by Claude's usage limit"
+                                          + (f", and skipped {', '.join(gaps['skipped_phases'])}" if gaps["skipped_phases"] else "")
+                                          + ". When the limit has reset, reframe resume runs the plugin's follow-up for just those modules")
     if not result.ok:
         raise stop_for(result, step)
     return record
