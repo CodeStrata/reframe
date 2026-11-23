@@ -35,10 +35,29 @@ class CliTest(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn("reframe setup", err.getvalue())
 
-    def test_no_command_prints_help(self):
-        with contextlib.redirect_stdout(io.StringIO()) as out:
+    def test_no_command_without_a_terminal_prints_help(self):
+        from unittest import mock
+        with mock.patch("reframe.core.ui.interactive", return_value=False), contextlib.redirect_stdout(io.StringIO()) as out:
             self.assertEqual(cli.main([]), 2)
-        self.assertIn("usage: reframe", out.getvalue())
+        text = out.getvalue()
+        for expected in ("REFRAME", "Commands", "reframe teardown", "Examples", "reframe run --source"):
+            self.assertIn(expected, text)
+        self.assertNotIn("reframe worker", text)
+
+    def test_command_help_is_a_table_of_options(self):
+        with contextlib.redirect_stdout(io.StringIO()) as out, self.assertRaises(SystemExit) as stop:
+            cli.main(["status", "--help"])
+        self.assertEqual(stop.exception.code, 0)
+        text = out.getvalue()
+        for expected in ("reframe status", "The run's stage", "Options", "--run <run>", "Examples"):
+            self.assertIn(expected, text)
+
+    def test_a_wrong_argument_still_gives_argparse_usage(self):
+        with contextlib.redirect_stderr(io.StringIO()) as err, self.assertRaises(SystemExit) as stop:
+            cli.main(["status", "--nonsense"])
+        self.assertEqual(stop.exception.code, 2)
+        self.assertIn("usage: reframe", err.getvalue())
+        self.assertIn("unrecognized arguments: --nonsense", err.getvalue())
 
     def test_answer_hint_without_options(self):
         import os, tempfile
