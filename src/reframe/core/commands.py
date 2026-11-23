@@ -282,8 +282,12 @@ def publish(args) -> int:
         return _fail(stop)
     except NotSent as error:
         return _fail(Stop(Outcome.WAITING_SIGNIN, f"{error}. Sign in with aws sso login, then run it again"))
-    say(f"Published {len(manifest['files'])} pages to the private reports bucket in your AWS account, under {prefix}\n"
-        f"Anyone who can sign in to the account opens it with: reframe reports open {prefix.rstrip('/')}\n")
+    say(f"Published {len(manifest['files'])} pages to the private reports bucket in your AWS account, under {prefix}\n")
+    if store.url(prefix):
+        say(f"Share this link; it asks for the AWS sign-in: {store.url(prefix)}\n")
+    else:
+        say(f"Anyone who can sign in to the account opens it with: reframe reports open {prefix.rstrip('/')}\n"
+            "For a link to share instead, run reframe reports site once.\n")
     return 0
 
 
@@ -298,6 +302,28 @@ def reports(args) -> int:
             page = store.download(args.path)
             say(f"Downloaded with your AWS sign-in to {page.parent}\n")
             open_in_browser(page)
+            return 0
+        if args.action == "url":
+            if not args.path:
+                raise Stop(Outcome.REFUSED, "name the report: reframe reports url <project>/<run>")
+            link = store.url(args.path)
+            if not link:
+                raise Stop(Outcome.REFUSED, "there is no link yet; run reframe reports site once to create it")
+            say(link + "\n")
+            return 0
+        if args.action == "site":
+            site = store.enable_site(args.idp_metadata)
+            ui.section("The link that asks for the AWS sign-in")
+            ui.state("Address", site["url"], "bright_cyan")
+            if site.get("identity_center"):
+                ui.ok("Connected to IAM Identity Center: people assigned to the Reframe reports application can sign in.")
+            else:
+                ui.warn("Not connected to IAM Identity Center yet, so nobody can sign in. Your Identity Center administrator, in the "
+                        "account that owns it, adds a custom SAML 2.0 application with these values:")
+                ui.table(("", ""), [("Application ACS URL", site["acs_url"]), ("Application SAML audience", site["audience"]),
+                                    ("Attribute mapping", "Subject → ${user:email} (emailAddress); email → ${user:email}"),
+                                    ("Assign", "the people or groups who may open reports")], ("bold", None))
+                ui.hint("Then they give you the application's metadata URL, and you run: reframe reports site --idp-metadata <url>")
             return 0
         if args.action == "teardown":
             if not sys.stdin.isatty():

@@ -23,6 +23,10 @@ from reframe.core.runfolder import Changes, RunFolder, home, iso
 from reframe.core.shell import Aws
 
 ROOT = "reports"
+# Enabling the link changes these existing resources (the bucket's policy gains CloudFront; connecting Identity Center
+# changes the client, the edge function, CloudFront and the callback); nothing else may change (docs/sharing.md, section 5).
+SITE_UPDATES = frozenset({"aws_s3_bucket_policy.reports", "aws_cognito_user_pool_client.site", "aws_lambda_function.edge",
+                          "aws_cloudfront_distribution.site", "terraform_data.callback"})
 
 
 def store_folder() -> RunFolder:
@@ -67,6 +71,34 @@ class Store:
         tf.apply(ROOT, self.changes)
         self.folder.event("reports_store_ready")
         return self.bucket
+
+    # ---- the link that asks for the AWS sign-in (S-06 to S-08) ----------------------------------------------------------
+
+    @property
+    def site(self) -> dict[str, Any] | None:
+        return self.folder.state.get("site")
+
+    def enable_site(self, idp_metadata_url: str | None = None) -> dict[str, Any]:
+        """CloudFront, the Cognito sign-in and the edge check; with idp_metadata_url, connected to IAM Identity Center."""
+        self.ensure()
+        state = self.folder.state
+        url = idp_metadata_url or state.get("idp_metadata_url") or ""
+        if url and not url.startswith("https://"):
+            raise Stop(Outcome.REFUSED, "the Identity Center metadata URL starts with https://")
+        step = f"terraform-reports-site-{hashlib.sha256(url.encode()).hexdigest()[:12]}" if url else "terraform-reports-site"
+        tf = self.terraform()
+        tf.install(refresh=True)
+        tf.variables(ROOT, {"region": self.aws.region, "bucket_name": state["bucket_name"], "site": True, "idp_metadata_url": url})
+        receipt = tf.apply(ROOT, self.changes, step=step, may_update=SITE_UPDATES)
+        site = receipt["outputs"].get("site")
+        if not site:
+            raise Stop(Outcome.FAILED, "the reports root did not report the site")
+        self.folder.update(site=site, idp_metadata_url=url or None)
+        self.folder.event("reports_site", identity_center=bool(url))
+        return site
+
+    def url(self, path: str) -> str | None:
+        return f"{self.site['url']}/{path.strip('/')}/" if self.site else None
 
     def upload(self, copy: Path, project: str, run: str) -> str:
         bucket = self.ensure()
@@ -130,14 +162,22 @@ class Store:
         consents = self.folder.load("teardown/consents.json", [])
         consents.append({"at": iso(), "by": getpass.getuser(), "answer": answer, "resources": items, "objects": count})
         self.folder.save("teardown/consents.json", consents)
-        deleted = self.terraform().destroy(ROOT, self.changes)["deleted"]
+        try:
+            deleted = self.terraform().destroy(ROOT, self.changes)["deleted"]
+        except Stop as stop:
+            if "replicated" in stop.message.casefold():  # AWS keeps an edge function's copies for a while after CloudFront drops it
+                raise Stop(Outcome.WAITING_HUMAN, "everything else is removed, but AWS still holds copies of the sign-in edge function; "
+                                                  "run reframe reports teardown again in an hour or two to finish") from None
+            raise
         say(f"Deleted {len(deleted)} resources, the bucket with its contents among them.\n")
         stamp = iso().replace(":", "")
         for step in ("terraform-reports-apply", "terraform-reports-destroy"):  # archived, so a later publish creates a new bucket
             for kind in ("intent", "receipt"):
                 if self.folder.exists(f"changes/{step}.{kind}.json"):
                     self.folder.rename(f"changes/{step}.{kind}.json", f"changes/{step}.{kind}-done-{stamp}.json")
-        self.folder.update(torn_down=iso(), bucket_name=None)
+        self.folder.update(torn_down=iso(), bucket_name=None, site=None, idp_metadata_url=None)
+        for receipt in self.folder.root.glob("changes/terraform-reports-site*.json"):
+            receipt.rename(receipt.with_name(receipt.name.replace(".json", f".done-{stamp}.json")))
         return True
 
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 import contextlib
 import fcntl
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -49,7 +50,7 @@ class Terraform:
             return
         source = resources.files("reframe.infrastructure") / "terraform"
         with resources.as_file(source) as path:
-            for item in sorted(Path(path).rglob("*.tf")):  # only Reframe's own files: .terraform/, state and plans stay as they are
+            for item in sorted([*Path(path).rglob("*.tf"), *Path(path).rglob("*.mjs")]):  # only Reframe's own files: .terraform/, state and plans stay
                 target = self.base / item.relative_to(path)
                 for folder in reversed(target.relative_to(self.base).parents):
                     (self.base / folder).mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -144,8 +145,10 @@ class Terraform:
 
     # ---- stage 2 -------------------------------------------------------------------------------
 
-    def apply(self, root: str, changes: Changes, backend: dict[str, str] | None = None, step: str | None = None) -> dict[str, Any]:
-        """Plan, check that the plan only creates, apply it, and record what was created and the outputs."""
+    def apply(self, root: str, changes: Changes, backend: dict[str, str] | None = None, step: str | None = None,
+              may_update: frozenset[str] = frozenset()) -> dict[str, Any]:
+        """Plan, check that the plan only creates (or updates, replaces only the addresses in may_update), apply it, and record
+        what was created and the outputs."""
         step = step or f"terraform-{root}-apply"
         if changes.receipt(step) is not None:
             return changes.receipt(step)
@@ -153,8 +156,8 @@ class Terraform:
 
         def check_and_apply() -> dict[str, Any]:
             plan = self.plan(root)
-            created = only_creates(plan)
-            if created:
+            created = only_creates(plan, may_update)
+            if created or any(c["change"]["actions"] != ["no-op"] for c in _managed(plan)):
                 self._tf(root, "apply", "-input=false", "-no-color", "apply.tfplan", timeout=3600, changes=True)
             previous = (self.folder.load(f"terraform/{root}/created.json") or [])
             everything = sorted(set(previous) | set(created))
@@ -163,7 +166,7 @@ class Terraform:
 
         def settle():
             plan = self.plan(root)
-            if not only_creates(plan):
+            if not only_creates(plan, may_update) and all(c["change"]["actions"] == ["no-op"] for c in _managed(plan)):
                 return {"created": self.folder.load(f"terraform/{root}/created.json") or [], "outputs": self.outputs(root),
                         "settled_from": "an empty plan"}
             return None
@@ -253,13 +256,18 @@ def cache_lock():
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
-def only_creates(plan: dict[str, Any]) -> list[str]:
-    """The addresses a plan creates. Any update, replacement or deletion is refused before apply."""
+def only_creates(plan: dict[str, Any], may_update: frozenset[str] = frozenset()) -> list[str]:
+    """The addresses a plan creates. Any update, replacement or deletion is refused before apply, except an update or
+    replacement of an address named in may_update (matched with its [index] removed)."""
     created, refused = [], []
     for change in _managed(plan):
         actions = change["change"]["actions"]
+        address = change["address"]
         if actions == ["create"]:
-            created.append(change["address"])
+            created.append(address)
+        elif actions in (["update"], ["delete", "create"], ["create", "delete"]) and re.sub(r"\[\d+\]", "", address) in may_update:
+            if "create" in actions:
+                created.append(address)
         elif actions != ["no-op"]:
             refused.append(f"{change['address']} ({'/'.join(actions)})")
     if refused:

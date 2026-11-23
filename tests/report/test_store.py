@@ -120,3 +120,20 @@ class StoreTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PlanCheckTest(unittest.TestCase):
+    def plan(self, *changes):
+        return {"resource_changes": [{"mode": "managed", "address": a, "change": {"actions": acts}} for a, acts in changes]}
+
+    def test_named_updates_only(self):
+        from reframe.core.errors import Stop
+        from reframe.infrastructure.terraform_runner import only_creates
+        from reframe.report.store import SITE_UPDATES
+        plan = self.plan(("aws_cloudfront_distribution.site[0]", ["create"]), ("aws_s3_bucket_policy.reports", ["update"]),
+                         ("terraform_data.callback[0]", ["delete", "create"]))
+        self.assertEqual(only_creates(plan, SITE_UPDATES), ["aws_cloudfront_distribution.site[0]", "terraform_data.callback[0]"])
+        with self.assertRaises(Stop):
+            only_creates(self.plan(("aws_s3_bucket.reports", ["update"])), SITE_UPDATES)
+        with self.assertRaises(Stop):
+            only_creates(self.plan(("aws_s3_bucket_policy.reports", ["update"])))

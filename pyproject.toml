@@ -18,5 +18,5 @@ reframe = "reframe.core.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"reframe.infrastructure" = ["terraform/*/*.tf", "terraform/modules/*/*.tf"]
+"reframe.infrastructure" = ["terraform/*/*.tf", "terraform/*/*.mjs", "terraform/modules/*/*.tf"]
 "reframe.report" = ["template.html", "compare.html"]

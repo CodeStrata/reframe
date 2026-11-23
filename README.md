@@ -277,6 +277,20 @@ reframe reports open carddemo-p2/bcc1e3
 
 `reframe reports` lists what is published. `reframe reports open` downloads one with your AWS sign-in and opens it in your browser. People with access can also download a report from the S3 console. `reframe reports teardown` removes the bucket and everything in it, after you consent to the list.
 
+**A link to share, that asks for the AWS sign-in.** Set it up once per account:
+
+```bash
+reframe reports site
+```
+
+This puts CloudFront in front of the private bucket, with a sign-in step through your organization's IAM Identity Center. It prints the link's address, and the values your Identity Center administrator needs to add a custom SAML 2.0 application for Reframe reports. They assign the people or groups who may open reports and give you the application's metadata URL, which you connect with:
+
+```bash
+reframe reports site --idp-metadata <metadata URL>
+```
+
+From then on, `reframe publish --to aws` prints each report's link, and `reframe reports url <project>/<run>` prints it again. Whoever opens it signs in with their own AWS identity and reads the report in the browser, with nothing to download. Before the connection is made, the link exists but nobody can sign in.
+
 **Try it without running anything:** [the CardDemo reports](reports/carddemo/index.html) in this repository are a published copy of a full run of both pipelines on AWS's CardDemo sample. Clone the repository and open `reports/carddemo/index.html` in a browser.
 
 ## Code layout
