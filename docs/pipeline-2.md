@@ -121,6 +121,8 @@ What happens next depends on the mode:
 
 The plugin asks before a run of more than 12 shards, but it can't ask headless. So Reframe's prompt tells it the estimate was confirmed and within the limit, and to launch all shards without asking again.
 
+The plugin can also end its turn normally while modules are still missing, for example when the limit had not reset when a run was resumed: its own `rules_result.json` then lists failed modules and `rerunModules`. Reframe reads that file and treats extraction as done only when nothing is missing. Otherwise the run stops and says how many modules are missing and why, and `reframe resume` runs the follow-up the plugin describes: the same workflow on just those modules, in a fresh session, merged in and rendered again (at most three follow-ups).
+
 If extraction stops on Claude's usage limit, `reframe resume` continues the same Claude session (`--resume`). The plugin then resumes its workflow from the run ID it recorded, so finished agents are not paid for twice.
 
 ### Stage C5: retrieval
