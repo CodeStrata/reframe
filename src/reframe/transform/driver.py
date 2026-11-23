@@ -188,7 +188,12 @@ class Driver:
         answered. In live round 2 AWS took the confirmation as a new request ("already processed") and left the BLOCKING
         form open, so the job waited for ever. After STALL_POLLS quiet polls the form gets AWS's own response template."""
         pending = summary["waiting"]
-        quiet = status == "AWAITING_HUMAN_INPUT" and not summary["answered"] and (pending is None or pending.get("kind") == "chat")
+        # A waiting chat message counts as quiet only when it is a notice no rule recognised. One that offers choices or
+        # asks for a reply is a question: submitting the form over it makes AWS ask for the selection again (23 November 2026).
+        saved = self.folder.load("question.json") or {}
+        question_waits = pending is not None and pending.get("kind") == "chat" and answers.offers_choices(str(saved.get("text") or ""))
+        quiet = status == "AWAITING_HUMAN_INPUT" and not summary["answered"] and (pending is None or pending.get("kind") == "chat") \
+            and not question_waits
         self.state["quiet_polls"] = self.state.get("quiet_polls", 0) + 1 if quiet else 0
         if self.state["quiet_polls"] < STALL_POLLS or not self._catalog_answered():
             return
