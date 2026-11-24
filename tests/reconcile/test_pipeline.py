@@ -15,7 +15,7 @@ class PipelineTest(InputsTest):
         self.data = inputs([pair("a1", "c1", "same"), pair("a2", "c2", "overlapping")], extra=[("a9", "aws", "PROG1")])
         self.folder.save("outputs/comparison/ai-pairs.json", {"complete": True, "pairs": self.data["pairs"]})
         self.patches = [mock.patch.object(inputlib, "rules", lambda folder: self.data["rules"]),
-                        mock.patch.object(inputlib, "questions", lambda folder: [{"tool": "aws", "text": "q"}])]
+                        mock.patch.object(inputlib, "questions", lambda folder: [{"tool": "aws", "key": "f/OQ-001", "code": "OQ-001", "text": "q", "owner": "BA", "rules": ["a2"]}])]
         for p in self.patches:
             p.start()
 
@@ -34,7 +34,7 @@ class PipelineTest(InputsTest):
         self.assertEqual((settings["round"], settings["status"]), (1, "REQUESTED"))
         pipeline.work(self.folder, claude=self.fake(good), claude_check=lambda: Report(True))
         rec = self.folder.state["reconcile"]
-        self.assertEqual((rec["status"], rec["stage"]), ("DONE", "decided"))
+        self.assertEqual((rec["status"], rec["stage"]), ("DONE", "done"))
         self.assertEqual(rec["decisions"], {"agreed": 1, "merged": 1, "kept": 1})
         self.assertEqual(rec["inputs"]["questions"], 1)
         self.assertEqual(len(self.folder.load("reconcile/agreed.json")), 1)

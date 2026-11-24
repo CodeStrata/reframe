@@ -126,6 +126,13 @@ The open questions of AWS Transform, the plugin and stage R4 are merged into one
 
 It is written as `reconcile/questions.csv` (for a spreadsheet, with an empty `answer` column) and `questions.json`. Put the answered file in the context folder and run `reframe reconcile` again.
 
+How it is built:
+
+- **What a question holds up:** the plugin's question its rule card; an AWS Transform question the rules behind its capability's requirements; a stage R4 question the rules of its unit.
+- **Merging:** questions are batched by the program of the rules they hold up (up to 40 a batch, four batches at once), so questions about the same code meet. The step reads only the questions, the documents and the answered questions, not the code. Reframe checks that every original is in exactly one merged question and that a settlement names a document or answer the step was given; a failed answer is asked once more, and if it fails again Reframe repairs it (an original in no question stands alone, one in two stays in the first, a settlement citing nothing given is removed). A batch whose questions and context are unchanged keeps its merge.
+- **The columns:** `id` (SME-001, or DEF-001 for a possible defect), `kind`, `question`, `owner`, `status` (open, settled by the context, or answered), `rules` (the rules it holds up), `originals` (the original questions it stands for), `from`, `evidence` (for a defect), `settled_by`, `settled_answer`, `answer`.
+- **Answers back:** an answered row is matched to a merged question by its `originals`, or by its `id` in the previous list. Its `rules` column is what stage R4 uses to give the answer only to the units it bears on (*Running again*).
+
 ### Stage R6: recommended requirements
 
 From the recommended rules, a headless step writes requirements in the same shape as the other two: domain → business function → capability (a user story) → requirements (functional and non-functional, with their EARS pattern) → the rules behind each.

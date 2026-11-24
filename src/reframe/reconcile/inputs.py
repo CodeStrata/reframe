@@ -120,13 +120,18 @@ def rules(folder: RunFolder) -> dict[str, dict[str, Any]]:
 
 
 def questions(folder: RunFolder) -> list[dict[str, Any]]:
-    """Both tools' open questions: AWS Transform's, and the plugin's rules marked as needing an SME."""
+    """Both tools' open questions: AWS Transform's, and the plugin's rules marked as needing an SME. Each names the rules
+    it holds up: the plugin's question its rule card; otherwise the rules behind its capability's requirements."""
     from reframe.report.build import collect, collect_claude
     found = []
     for tool, data in (("aws", collect(folder)), ("claude", collect_claude(folder))):
+        backing: dict[str, list[str]] = defaultdict(list)
+        for r in data.get("requirements") or []:
+            backing[r["capability"]] += [k for k in r.get("rules") or [] if k not in backing[r["capability"]]]
         for q in data.get("questions") or []:
+            holds = [f"claude/{q['rule']}"] if q.get("rule") else backing.get(q.get("capability"), [])
             found.append({"tool": tool, "key": q.get("key"), "code": q.get("code"), "text": q.get("text", ""), "owner": q.get("owner"),
-                          "function": q.get("function")})
+                          "function": q.get("function"), "rules": holds})
     return found
 
 
@@ -244,7 +249,8 @@ def gather(folder: RunFolder, context_folder: Path | None) -> dict[str, Any]:
     pairs = [p for p in pairing.get("pairs") or [] if p.get("aws") in all_rules and p.get("claude") in all_rules]
     read = context(folder, context_folder, places["analysis"] / "reframe" / "reconcile" / "context")
     read["marks"] = expand_marks(read["marks"], recommended_covers(folder))
-    gathered = {"at": iso(), "rules": all_rules, "pairs": pairs, "questions": questions(folder), "context": read,
+    asked = [{**q, "rules": [k for k in q.get("rules") or [] if k in all_rules]} for q in questions(folder)]
+    gathered = {"at": iso(), "rules": all_rules, "pairs": pairs, "questions": asked, "context": read,
                 "source_sha256": (folder.load("snapshot.json") or {}).get("sha256")}
     gathered["digest"] = hashlib.sha256(json.dumps({k: v for k, v in gathered.items() if k != "at"}, sort_keys=True).encode()).hexdigest()
     folder.save("reconcile/inputs/inputs.json", gathered)
