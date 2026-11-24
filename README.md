@@ -333,9 +333,9 @@ python -m unittest discover -s tests -t .
 
 ## Next
 
-Pipelines 3 and 4 are noted in [docs/plan.md](docs/plan.md) and will be specified after pipelines 1 and 2 have been tested together:
+Pipelines 3 and 4 come next, in [docs/plan.md](docs/plan.md):
 
-- **Pipeline 3** reconciles the two assessments where they disagree.
+- **Pipeline 3** reconciles the two assessments against the source code: specified in [docs/pipeline-3.md](docs/pipeline-3.md), not built yet.
 - **Pipeline 4** produces the final requirements, business rules and wireframes.
 
 Earlier work stays in the repository's history: the build before this rebuild ends at commit `000b816`, and the first release is tagged `v0.3.0`.
