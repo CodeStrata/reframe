@@ -96,6 +96,14 @@ Specification: [sharing.md](sharing.md). An epic of its own, outside pipelines 1
 
 S-06 to S-08, a link that opens a report in the browser after the AWS sign-in (CloudFront, Cognito federated with IAM Identity Center, and a sign-in check at the edge), were built and then dropped by the owner on 23 November 2026, before they were merged. Published reports stay in the private bucket and are opened or downloaded with each reader's own AWS sign-in. The AWS resources the link had created were removed by Reframe's records, and the three stories are closed as not planned.
 
+In their place (owner's decision, 24 November 2026), the reports stay in the private bucket and anyone who can sign in to the account opens or downloads them by project name:
+
+| Story | Title | Specification | Done when |
+|---|---|---|---|
+| S-09 | Find the reports bucket from any computer | §6 | `reframe reports` and `reframe reports open` work on a computer that did not publish: the bucket is found by its tags `ManagedBy=reframe` and `ReframeStore=reports` with the reader's own AWS sign-in. More than one such bucket is refused with the list. Teardown still goes only by the publisher's own records |
+| S-10 | Open or download a report by project | §6 | `reframe reports open <project>` opens the project's latest published run and `--run <run>` an older one; `reframe reports download <project> --to <folder>` saves a copy to keep or send, with a warning for a macOS-protected folder |
+| S-11 | One file to download from the S3 console | §6 | `reframe publish --to aws` also uploads `<project>/<run>/report.zip`, the same cleaned copy, so a reader without Reframe signs in to the AWS console and downloads one file. Republishing replaces it |
+
 ## Later pipelines
 
 Specified after pipelines 1 and 2 have been tested, first each on its own and then together.

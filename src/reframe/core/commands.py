@@ -269,7 +269,14 @@ def publish(args) -> int:
         folder = find_run(args.run)
         if args.to != "aws":
             manifest = make(folder, Path(args.to).expanduser().resolve())
-            say(f"Published {len(manifest['files'])} pages to {Path(args.to).expanduser()}; open index.html there.\n")
+            target = Path(args.to).expanduser()
+            say(f"Published {len(manifest['files'])} pages to {target}; open index.html there.\n")
+            from reframe.core import ui
+            from reframe.report.publish import protected_folder
+            if name := protected_folder(target):
+                ui.warn(f"{target} is inside your {name} folder, which macOS keeps private: unless your browser has access to that folder, "
+                        "index.html opens but its links do not. Publish to a folder outside Desktop, Documents and Downloads (for example "
+                        f"~/reframe-reports/{target.name}), or give the browser access in System Settings > Privacy & Security > Files and Folders.")
             return 0
         import tempfile
         from reframe.report.store import Store, signed_in

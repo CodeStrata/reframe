@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest import mock
 
 from reframe.core.runfolder import new_run
-from reframe.report.publish import Cleaner
+from reframe.report.publish import Cleaner, protected_folder
 
 
 class CleanerTest(unittest.TestCase):
@@ -48,6 +48,19 @@ class CleanerTest(unittest.TestCase):
     def test_card_numbers_and_hashes_are_left_alone(self):
         text = "card 4111111111111111, sha d9a77d549248727883ce64930d337dd6518322d4dead65a418eafd1eb402541a, amount 000000002525"
         self.assertEqual(self.cleaner.clean(text), text)
+
+
+
+class ProtectedFolderTest(unittest.TestCase):
+    def test_macos_private_folders_are_named(self):
+        with tempfile.TemporaryDirectory() as home:
+            home = Path(home)
+            self.assertEqual(protected_folder(home / "Desktop" / "carddemo", "darwin", home), "Desktop")
+            self.assertEqual(protected_folder(home / "Downloads" / "a" / "b", "darwin", home), "Downloads")
+            self.assertEqual(protected_folder(home / "Documents", "darwin", home), "Documents")
+            self.assertIsNone(protected_folder(home / "reframe-reports" / "carddemo", "darwin", home))
+            self.assertIsNone(protected_folder(home / "DesktopCopies" / "carddemo", "darwin", home))
+            self.assertIsNone(protected_folder(home / "Desktop" / "carddemo", "linux", home))
 
 
 if __name__ == "__main__":

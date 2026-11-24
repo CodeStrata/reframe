@@ -248,3 +248,5 @@ reframe teardown  # list the latest run's AWS resources, then remove them after 
 | `~/.reframe/reports-store/` | The private reports bucket's Terraform state and records, and `cache/` for reports opened with `reframe reports open` |
 
 `reframe publish` builds one more page, the copy's `index.html`, which links the three reports above with the source, its commit and SHA-256. It exists only in a published copy: open it with `reframe reports open <project>/<run>`, or from the folder you gave to `--to`.
+
+**On a Mac, publish outside Desktop, Documents and Downloads.** macOS keeps those folders private: a browser that has not been given access to one opens `index.html` but not the pages it links to. Reframe warns when you publish there. Use a folder such as `~/reframe-reports/<project>`, or give the browser access in System Settings > Privacy & Security > Files and Folders.
