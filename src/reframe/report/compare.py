@@ -161,7 +161,8 @@ def model(folder: RunFolder) -> dict[str, Any]:
                  "claude_programs": sorted((claude_programs | set(claude_by_program)) - (aws_programs | set(aws_by_program))),
                  "aws_rules_unpaired": [aws_index[k] for k in aws_index if k not in paired_aws and str(aws_index[k]["program"]).upper() not in claude_by_program][:2000],
                  "claude_rules_unpaired": [claude_index[k] for k in claude_index if k not in paired_claude and str(claude_index[k]["program"]).upper() not in aws_by_program][:2000]},
-        "links": {"aws": "../report/index.html", "claude": "../claude/report/index.html"},
+        "links": {"aws": "../report/index.html", "claude": "../claude/report/index.html",
+                  "reconciled": "../reconcile/index.html" if folder.exists("outputs/reconcile/index.html") else None},
     }
 
 

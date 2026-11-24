@@ -64,6 +64,40 @@ class PipelineTest(InputsTest):
         self.assertEqual((kept["aws:a9"]["round"], kept["group:c2"]["round"]), (2, 1))
         self.assertIn("SME-001", (self.folder.root / "claude" / "analysis" / "demo" / "reframe" / "reconcile" / "reconcile-r2-b1-answers.json").read_text())
 
+    def test_the_page_shows_each_decision_links_the_reviews_and_is_published(self):
+        import json
+        import re
+        from reframe.report import publish, reconciled
+        pipeline.request(self.folder, max_batches=5)
+        pipeline.work(self.folder, claude=self.fake(good), claude_check=lambda: Report(True))
+        self.assertEqual(self.folder.state["reconcile"]["page"], reconciled.PAGE)
+        page = self.folder.path(reconciled.PAGE).read_text()
+        data = json.loads(re.search(r'<script id="data" type="application/json">(.*?)</script>', page, re.S).group(1))
+        self.assertEqual(data["tool"]["key"], "reconciled")
+        merged = next(r for r in data["rules"] if r["decision"] == "merged")
+        self.assertEqual(sorted(o["key"] for o in merged["originals"]), ["a2", "c2"])
+        self.assertEqual(merged["evidence"], ["app/cbl/PROG1.cbl:1-3"])
+        self.assertEqual(data["evidence"]["app/cbl/PROG1.cbl:1-3"]["lines"], ["line 1", "line 2", "line 3"])  # read from the snapshot
+        self.assertEqual(data["reconcile"]["rules"], {"agreed": 1, "merged": 1, "kept": 1})
+        self.assertEqual([q["id"] for q in data["sme"]], ["SME-001"])
+        self.assertEqual(len(data["requirements"]), 3)
+        self.assertTrue(all(r["requirements"] for r in data["rules"]))  # every recommended rule backs a requirement
+        self.assertEqual([n[0] for n in data["nav"]], ["AWS Transform's review", "Claude's review", "AWS Transform and Claude compared"])
+        self.assertIn('"Reconciled review", "../reconcile/index.html"', self.folder.path("outputs/report/index.html").read_text())
+        self.assertIn('"reconciled": "../reconcile/index.html"', self.folder.path("outputs/comparison/index.html").read_text())
+
+        self.folder.path("outputs/requirements").mkdir(parents=True, exist_ok=True)
+        self.folder.save("outputs/claude/model.json", {})
+        self.folder.save("outputs/claude/requirements.json", {})
+        target = self.folder.root.parent / "copy"
+        manifest = publish.publish(self.folder, target)
+        self.assertIn("reconciled/index.html", manifest["files"])
+        self.assertIn("Reconciled review", (target / "index.html").read_text())
+        copied = (target / "reconciled" / "index.html").read_text()
+        self.assertIn("../aws/index.html", copied)
+        self.assertNotIn("../report/index.html", copied)
+        self.assertIn('"reconciled": "../reconciled/index.html"', (target / "comparison" / "index.html").read_text())
+
     def test_above_the_batch_limit_it_stops_and_says_how_to_go_ahead(self):
         pipeline.request(self.folder, max_batches=0)
         with self.assertRaisesRegex(Stop, r"reframe reconcile --max-batches 1"):

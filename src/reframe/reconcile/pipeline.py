@@ -2,7 +2,7 @@
 other two pipelines', and every stage can be run again: what is done is kept.
 
 R0 preflight · R1 inputs · R2 identical pairs agreed · R3 estimate (behind the batch limit) · R4 decisions against the source ·
-R5 the SME list · R6 the recommended requirements
+R5 the SME list · R6 the recommended requirements · R7 the reconciliation page
 """
 
 from __future__ import annotations
@@ -68,6 +68,16 @@ def claude_code(folder: RunFolder, auth: str):
     return ClaudeCode(places["root"], places["policy"], plugin.plugin_dir(), places["logs"], env)
 
 
+def page(folder: RunFolder) -> None:
+    """R7: the reconciliation page, and the other three pages built again so that they link to it."""
+    from reframe.report import build, compare, reconciled
+    reconciled.build_reconciled(folder)
+    build.build(folder)
+    build.build_claude(folder)
+    compare.build(folder)
+    update(folder, page=reconciled.PAGE)
+
+
 def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
     from reframe.reconcile import decide, inputs, questions, requirements, units
     settings = state(folder)
@@ -121,6 +131,9 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
     stage(folder, "requirements")
     written = requirements.build(folder, claude, gathered, found, kept, agreed, listed)
     update(folder, requirements={k: written[k] for k in ("requirements", "dropped", "rules_cited", "rules_total")})
+
+    stage(folder, "page")
+    page(folder)
 
     c = listed["counts"]
     update(folder, stage="done", status=Outcome.DONE.value, finished_at=iso(),

@@ -242,6 +242,8 @@ def build(folder: RunFolder) -> Path:
     data = collect(folder)
     if folder.exists("outputs/claude/report/index.html"):
         data["nav"] = [["Claude's review", "../claude/report/index.html"], ["AWS Transform and Claude compared", "../comparison/index.html"]]
+    if folder.exists("outputs/reconcile/index.html"):
+        data.setdefault("nav", []).append(["Reconciled review", "../reconcile/index.html"])
     target = folder.path("outputs/report/index.html")
     target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     payload = json.dumps(data, default=str).replace("</", "<\\/")
@@ -378,7 +380,8 @@ def collect_claude(folder: RunFolder) -> dict[str, Any]:
         "domains": domains, "functions": functions, "capabilities": capabilities, "requirements": requirements, "rules": rules, "questions": questions,
         "data_model": data_objects, "sections": sections, "classification": [], "unclassified": [], "issues": [], "decisions": decisions,
         "links": {"pages": pages},
-        "nav": [["AWS Transform's review", "../../report/index.html"], ["AWS Transform and Claude compared", "../../comparison/index.html"]],
+        "nav": [["AWS Transform's review", "../../report/index.html"], ["AWS Transform and Claude compared", "../../comparison/index.html"]]
+               + ([["Reconciled review", "../../reconcile/index.html"]] if folder.exists("outputs/reconcile/index.html") else []),
     }
 
 

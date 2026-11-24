@@ -156,13 +156,15 @@ How it is built: a recommended rule goes to the AWS function of the AWS rules it
 
 The comparison page links to it. `reframe publish` includes it as `reconciled/` in the copy, cleaned the same way, and the copy's index page gets a fourth card.
 
+How it is built: the page uses the same template as the two reviews, so marks, search, the technical tables and the downloads work the same way; its marks are kept apart from theirs. A recommended rule's key is `rec/<unit>/<n>`, which is how a mark made here reaches the next round (*Running again*). Each cited range is shown from the snapshot, up to 40 lines. The SME list is a tab of the technical detail, with a filter by kind and status and a CSV download in the shape of `reconcile/questions.csv`. When the page is built, the AWS Transform review, Claude's review and the comparison are built again so that each links to it. The home screen gets two entries, *Reconcile the two assessments* and *Open the reconciliation*, and a Reconcile column.
+
 ## 5. Run folder
 
 In addition to pipelines 1 and 2:
 
 - `reconcile/inputs/`: the items, open questions and the context as read (stage R1);
-- `reconcile/decisions/`: each batch's answer, with its input hash and round;
-- `reconcile/questions.csv`, `questions.json`;
+- `reconcile/decisions.json`: each unit's decision, with its input hash and round; `reconcile/steps.json`, the decision steps' time and usage; `reconcile/agreed.json`;
+- `reconcile/questions.csv`, `questions.json`, and the merges they came from (`sme-merges.json`, `sme-steps.json`);
 - `outputs/reconcile/`: the recommended rules, the recommended requirements and the page.
 
 ## 6. Code layout
