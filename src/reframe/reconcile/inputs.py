@@ -1,0 +1,226 @@
+"""Pipeline 3, stages R0 and R1: the preflight, and the inputs (docs/pipeline-3.md, section 4).
+
+The inputs are both tools' rules with their source citations, the comparison's pairs, both tools' open questions, and the
+person's context folder: documents, review exports and answered questions. They are saved in reconcile/inputs/, and the
+documents are copied into the Claude workspace (analysis/<project>/reframe/reconcile/context/) for the decision steps.
+"""
+
+from __future__ import annotations
+
+import csv
+import hashlib
+import json
+import re
+import shutil
+import zipfile
+from collections import defaultdict
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from reframe.core.errors import Outcome, Stop
+from reframe.core.runfolder import RunFolder, iso
+
+SOURCE_SUFFIXES = (".cbl", ".cob", ".jcl", ".cpy", ".bms", ".prc", ".proc", ".asm", ".pli", ".ctl")
+TEXT, PDF, WORD = (".md", ".markdown", ".txt"), (".pdf",), (".docx",)
+MARKS = {"Agree": "agree", "Needs change": "change", "Question": "question"}
+
+
+# ---- R0: preflight ----------------------------------------------------------------------------------------------------
+
+def preflight(folder: RunFolder, context: Path | None, auth: str = "subscription", claude_check=None) -> None:
+    """Checked before anything runs; each failure stops with the fix. Pipeline 3 needs no AWS resources."""
+    from reframe.claude import workspace
+    state = folder.state
+    claude = state.get("claude") or {}
+    if state.get("status") != Outcome.DONE.value or not state.get("retrieved_at"):
+        raise Stop(Outcome.REFUSED, "pipeline 1 is not done on this run; pipeline 3 reconciles both pipelines' results")
+    if claude.get("status") != Outcome.DONE.value:
+        raise Stop(Outcome.REFUSED, "pipeline 2 is not done on this run; run reframe claude (or reframe resume) first")
+    pairing = folder.load("outputs/comparison/ai-pairs.json") or {}
+    if not pairing.get("complete"):
+        raise Stop(Outcome.REFUSED, "the comparison's AI pairing of rules is not complete; reframe resume finishes it")
+    places = workspace.paths(folder)
+    if not places["hashes"].exists() or not places["legacy"].is_dir():
+        raise Stop(Outcome.REFUSED, "the run has no Claude workspace with the snapshot; pipeline 3 reads the source from it")
+    changed = workspace.changed(folder)
+    if changed:
+        raise Stop(Outcome.FAILED, f"{len(changed)} file(s) in the snapshot differ from what both pipelines assessed (for example "
+                                   f"{changed[0]}); pipeline 3 will not decide against a different source")
+    if context is not None and not context.is_dir():
+        raise Stop(Outcome.REFUSED, f"the context folder {context} does not exist")
+    if claude_check is None:
+        from reframe.claude import preflight as claude_preflight
+        claude_check = lambda: claude_preflight.check(auth)  # noqa: E731
+    report = claude_check()
+    if not report.ok:
+        signin = any(not c.ok and "sign-in" in c.name for c in report.checks)
+        raise Stop(Outcome.WAITING_SIGNIN if signin else Outcome.REFUSED, report.problems())
+
+
+# ---- R1: the rules and their source citations -------------------------------------------------------------------------
+
+def source_files(legacy: Path) -> dict[str, list[str]]:
+    """Program name -> the snapshot's source files with that stem, relative to the snapshot."""
+    found: dict[str, list[str]] = defaultdict(list)
+    for f in sorted(legacy.rglob("*")):
+        if f.is_file() and f.suffix.lower() in SOURCE_SUFFIXES:
+            found[f.stem.upper()].append(f.relative_to(legacy).as_posix())
+    return found
+
+
+def aws_citations(folder: RunFolder) -> dict[str, list[tuple[str | None, list[int]]]]:
+    """AWS Transform rule ID -> its traceability lines. They come in two shapes (spike P3-01, finding 5): line numbers in the
+    program's own file, or {file, lines} for another file such as a JCL procedure or a copybook."""
+    found: dict[str, list[tuple[str | None, list[int]]]] = {}
+    for path in sorted(folder.path("outputs/requirements").rglob("traceability.yaml")):
+        for rule in (yaml.safe_load(path.read_text()) or {}).get("rules") or []:
+            own, other = [], []
+            for entry in rule.get("traceability_lines") or []:
+                if isinstance(entry, dict):
+                    other.append((str(entry.get("file")), [int(n) for n in entry.get("lines") or [] if str(n).isdigit()]))
+                elif str(entry).isdigit():
+                    own.append(int(entry))
+            found[str(rule.get("rule_id"))] = ([(None, own)] if own else []) + other
+    return found
+
+
+def ranges(numbers: list[int]) -> str:
+    spans: list[list[int]] = []
+    for n in sorted(set(numbers)):
+        if spans and n == spans[-1][1] + 1:
+            spans[-1][1] = n
+        else:
+            spans.append([n, n])
+    return ",".join(f"{a}-{b}" if a != b else str(a) for a, b in spans)
+
+
+def rules(folder: RunFolder) -> dict[str, dict[str, Any]]:
+    """Every rule pipeline 3 can use, by key: AWS Transform's business rules and Claude's rule cards, with their citations."""
+    from reframe.claude.workspace import paths
+    from reframe.report.build import collect, collect_claude
+    files, traced = source_files(paths(folder)["legacy"]), aws_citations(folder)
+    found: dict[str, dict[str, Any]] = {}
+    for r in collect(folder)["rules"]:
+        if r.get("disposition") != "captured":
+            continue
+        cites = []
+        for file, lines in traced.get(str(r.get("id")), []):
+            for f in [file] if file else files.get(str(r.get("program")).upper(), []):
+                cites.append(f"{f}:{ranges(lines)}" if lines else f)
+        found[r["key"]] = {"tool": "aws", "key": r["key"], "id": r.get("id"), "name": r.get("name", ""), "text": r.get("text", ""),
+                           "program": str(r.get("program") or "").upper(), "function": r.get("function"),
+                           "cites": cites or files.get(str(r.get("program")).upper(), [])}
+    for r in collect_claude(folder)["rules"]:
+        found[r["key"]] = {"tool": "claude", "key": r["key"], "id": r.get("id"), "name": r.get("name", ""), "text": r.get("text", ""),
+                           "program": str(r.get("program") or "").upper(), "function": r.get("function"),
+                           "cites": [r["source"]] if r.get("source") else []}
+    return found
+
+
+def questions(folder: RunFolder) -> list[dict[str, Any]]:
+    """Both tools' open questions: AWS Transform's, and the plugin's rules marked as needing an SME."""
+    from reframe.report.build import collect, collect_claude
+    found = []
+    for tool, data in (("aws", collect(folder)), ("claude", collect_claude(folder))):
+        for q in data.get("questions") or []:
+            found.append({"tool": tool, "key": q.get("key"), "code": q.get("code"), "text": q.get("text", ""), "owner": q.get("owner"),
+                          "function": q.get("function")})
+    return found
+
+
+# ---- R1: the context folder -------------------------------------------------------------------------------------------
+
+def word_text(path: Path) -> str:
+    """The text of a Word (.docx) file, paragraph by paragraph, read with the standard library."""
+    with zipfile.ZipFile(path) as z:
+        xml = z.read("word/document.xml").decode("utf-8", errors="replace")
+    paragraphs = re.split(r"</w:p>", xml)
+    text = [re.sub(r"<[^>]+>", "", re.sub(r"<w:tab/>", "\t", p)) for p in paragraphs]
+    import html
+    return "\n".join(html.unescape(t).strip() for t in text if t.strip())
+
+
+def _review_export(data: Any) -> bool:
+    return isinstance(data, dict) and isinstance(data.get("marks"), list) and isinstance(data.get("source"), dict)
+
+
+def _answer_rows(path: Path) -> list[dict[str, str]] | None:
+    """Answered SME questions: a CSV with an answer column, or JSON with a questions list. None if the file is not one."""
+    if path.suffix.lower() == ".csv":
+        with path.open(newline="", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            if not reader.fieldnames or "answer" not in [c.strip().lower() for c in reader.fieldnames]:
+                return None
+            rows = [{(k or "").strip().lower(): (v or "").strip() for k, v in row.items()} for row in reader]
+    else:
+        data = json.loads(path.read_text())
+        if not (isinstance(data, dict) and isinstance(data.get("questions"), list)):
+            return None
+        rows = [{k: str(v or "").strip() for k, v in q.items()} for q in data["questions"] if isinstance(q, dict)]
+    return [r for r in rows if r.get("answer")]
+
+
+def context(folder: RunFolder, source: Path | None, target: Path) -> dict[str, Any]:
+    """Read the context folder by kind. Documents are copied (Word as text) to `target`, inside the Claude workspace."""
+    found: dict[str, Any] = {"folder": str(source) if source else None, "documents": [], "marks": {}, "answers": [], "ignored": []}
+    if source is None:
+        return found
+    sha = (folder.load("snapshot.json") or {}).get("sha256")
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir(parents=True, exist_ok=True)
+    for path in sorted(p for p in source.rglob("*") if p.is_file() and not p.name.startswith(".")):
+        name, suffix = path.relative_to(source).as_posix(), path.suffix.lower()
+        try:
+            if suffix == ".json":
+                data = json.loads(path.read_text())
+                if _review_export(data):
+                    if data["source"].get("sha256") != sha:
+                        found["ignored"].append({"file": name, "why": "a review of another snapshot"})
+                        continue
+                    for row in data["marks"]:
+                        status = MARKS.get(str(row.get("status")))
+                        if row.get("key") and status:
+                            found["marks"][row["key"]] = {"status": status, "comment": row.get("comment", ""), "reviewer": data.get("reviewer", ""),
+                                                          "file": name}
+                    continue
+            if suffix in (".csv", ".json"):
+                rows = _answer_rows(path)
+                if rows is not None:
+                    found["answers"] += [{**r, "file": name} for r in rows]
+                    continue
+            if suffix in TEXT + PDF:
+                copy = target / name
+            elif suffix in WORD:
+                copy = (target / name).with_suffix(".txt")
+            else:
+                found["ignored"].append({"file": name, "why": "not a document, review export or answered questions file Reframe reads"})
+                continue
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            if suffix in WORD:
+                copy.write_text(word_text(path))
+            else:
+                shutil.copyfile(path, copy)
+            found["documents"].append({"file": name, "kind": suffix.lstrip("."), "bytes": path.stat().st_size,
+                                       "read_as": copy.relative_to(target.parent.parent.parent).as_posix()})
+        except (OSError, ValueError, KeyError, zipfile.BadZipFile, UnicodeDecodeError) as error:
+            found["ignored"].append({"file": name, "why": f"could not be read ({type(error).__name__})"})
+    return found
+
+
+# ---- R1: everything, saved ---------------------------------------------------------------------------------------------
+
+def gather(folder: RunFolder, context_folder: Path | None) -> dict[str, Any]:
+    from reframe.claude.workspace import paths
+    places = paths(folder)
+    pairing = folder.load("outputs/comparison/ai-pairs.json") or {}
+    all_rules = rules(folder)
+    pairs = [p for p in pairing.get("pairs") or [] if p.get("aws") in all_rules and p.get("claude") in all_rules]
+    read = context(folder, context_folder, places["analysis"] / "reframe" / "reconcile" / "context")
+    gathered = {"at": iso(), "rules": all_rules, "pairs": pairs, "questions": questions(folder), "context": read,
+                "source_sha256": (folder.load("snapshot.json") or {}).get("sha256")}
+    gathered["digest"] = hashlib.sha256(json.dumps({k: v for k, v in gathered.items() if k != "at"}, sort_keys=True).encode()).hexdigest()
+    folder.save("reconcile/inputs/inputs.json", gathered)
+    return gathered
