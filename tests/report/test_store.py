@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -22,6 +23,9 @@ class FakeAws:
         self.calls.append(args)
         if args[:2] == ("s3", "cp"):
             source, target = Path(args[2]), args[3]
+            if source.is_file():
+                self.objects[target.removeprefix("s3://").split("/", 1)[1]] = source.read_bytes()
+                return {}
             for f in source.rglob("*"):
                 if f.is_file():
                     self.objects[target.removeprefix("s3://").split("/", 1)[1] + str(f.relative_to(source))] = f.read_bytes()
@@ -184,6 +188,19 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(page.read_text(), "<h1>demo new222</h1>")
         sync = [c for c in self.aws.calls if c[:2] == ("s3", "sync")][-1]
         self.assertIn("report.zip", sync[sync.index("--exclude") + 1])  # the zip is for the console, not for opening
+
+
+    def test_each_report_also_has_one_zip_for_the_console(self):
+        prefix = self.store.upload(self.copy("abc123"), "demo", "abc123")
+        archive = Path(self.tmp.name) / "report.zip"
+        archive.write_bytes(self.aws.objects[prefix + "report.zip"])
+        with zipfile.ZipFile(archive) as z:
+            self.assertEqual(sorted(z.namelist()), ["demo-abc123/aws/index.html", "demo-abc123/index.html", "demo-abc123/manifest.json"])
+            self.assertEqual(z.read("demo-abc123/index.html").decode(), "<h1>demo abc123</h1>")
+        zip_cp = [c for c in self.aws.calls if c[:2] == ("s3", "cp") and c[3].endswith("report.zip")]
+        self.assertEqual(len(zip_cp), 1)
+        self.assertIn("--sse", zip_cp[0])
+        self.assertEqual([r["run"] for r in self.store.reports()], ["abc123"])  # the zip is not a report of its own
 
 
 if __name__ == "__main__":

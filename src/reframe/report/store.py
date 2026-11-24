@@ -15,6 +15,7 @@ import string
 import subprocess
 import sys
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import Any, Callable
 
@@ -133,9 +134,16 @@ class Store:
         bucket = self.ensure()
         prefix = f"{project}/{run}/"
         digest = hashlib.sha256((copy / "manifest.json").read_bytes()).hexdigest()[:16]
-        self.changes.apply(f"upload-{project}-{run}-{digest}", "s3 cp --recursive", {"bucket": bucket, "prefix": prefix, "manifest": digest},
-                           lambda: self.aws.write("s3", "cp", str(copy), f"s3://{bucket}/{prefix}", "--recursive", "--sse", "AES256",
-                                                  "--only-show-errors", timeout=1800))
+
+        def send() -> dict[str, Any]:
+            with tempfile.TemporaryDirectory() as scratch:
+                archive = zipped(copy, Path(scratch) / "report.zip", f"{project}-{run}")
+                self.aws.write("s3", "cp", str(copy), f"s3://{bucket}/{prefix}", "--recursive", "--sse", "AES256", "--only-show-errors", timeout=1800)
+                self.aws.write("s3", "cp", str(archive), f"s3://{bucket}/{prefix}report.zip", "--sse", "AES256", "--only-show-errors", timeout=1800)
+            return {"zip": f"{prefix}report.zip"}
+
+        self.changes.apply(f"upload-{project}-{run}-{digest}", "s3 cp --recursive, and report.zip",
+                           {"bucket": bucket, "prefix": prefix, "manifest": digest}, send)
         self.folder.event("report_uploaded", project=project, run=run)
         return prefix
 
@@ -214,6 +222,16 @@ class Store:
                     self.folder.rename(f"changes/{step}.{kind}.json", f"changes/{step}.{kind}-done-{stamp}.json")
         self.folder.update(torn_down=iso(), bucket_name=None)
         return True
+
+
+def zipped(copy: Path, archive: Path, folder: str) -> Path:
+    """The published copy as one file (S-11), for readers who download it from the S3 console, which downloads files but
+    not folders. Everything sits in one folder, <project>-<run>/, so unzipping it spills nothing."""
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as out:
+        for item in sorted(copy.rglob("*")):
+            if item.is_file():
+                out.write(item, f"{folder}/{item.relative_to(copy).as_posix()}")
+    return archive
 
 
 def open_in_browser(path: Path) -> None:

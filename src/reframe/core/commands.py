@@ -288,7 +288,10 @@ def publish(args) -> int:
     except NotSent as error:
         return _fail(Stop(Outcome.WAITING_SIGNIN, f"{error}. Sign in with aws sso login, then run it again"))
     say(f"Published {len(manifest['files'])} pages to the private reports bucket in your AWS account, under {prefix}\n"
-        f"Anyone who can sign in to the account opens it with: reframe reports open {prefix.rstrip('/')}\n")
+        f"Anyone who can sign in to the account and read the bucket can now:\n"
+        f"  open the project's latest report:  reframe reports open {manifest['project']}\n"
+        f"  save this one in a folder:         reframe reports download {prefix.rstrip('/')} --to <folder>\n"
+        f"  without Reframe:                   download {prefix}report.zip from the bucket in the S3 console\n")
     return 0
 
 
