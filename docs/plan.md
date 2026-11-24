@@ -104,9 +104,25 @@ In their place (owner's decision, 24 November 2026), the reports stay in the pri
 | S-10 | Open or download a report by project | §6 | `reframe reports open <project>` opens the project's latest published run and `--run <run>` an older one; `reframe reports download <project> --to <folder>` saves a copy to keep or send, with a warning for a macOS-protected folder |
 | S-11 | One file to download from the S3 console | §6 | `reframe publish --to aws` also uploads `<project>/<run>/report.zip`, the same cleaned copy, so a reader without Reframe signs in to the AWS console and downloads one file. Republishing replaces it |
 
+## Pipeline 3: reconcile
+
+Specification: [pipeline-3.md](pipeline-3.md). It starts from the comparison of AWS Transform's and Claude's assessments, works on every rule except those both tools describe the same way, and decides each against the source code. It writes the recommended business rules, then the recommended requirements, and one SME question list. The person adds context: documents, review marks and answered questions (owner's decisions, 24 November 2026).
+
+| Story | Title | Specification | Done when |
+|---|---|---|---|
+| P3-01 | Spike: one batch decided against the source | §4 R4 | On CardDemo, the decision prompt and schema run on three batches (a conflict, overlapping pairs, one-sided rules). The evidence check passes or catches each answer, and the time and usage per batch are measured and written into the specification |
+| P3-02 | Preflight and inputs | §4 R0, R1 | `reframe reconcile` checks both pipelines, the complete pairing, the snapshot's SHA-256 and the sign-in, and runs on a torn-down run. The items, open questions and context are gathered: Markdown, text, PDF and Word documents; review exports, ignoring another snapshot's; answered questions |
+| P3-03 | Identical pairs agreed | §4 R2 | `same` pairs become recommended rules without an agent, citing both tools; a *Needs change* or *Question* mark sends a pair to R4 |
+| P3-04 | The estimate and limit | §3, §4 R3 | Items are batched by program; the estimate is shown, and Reframe stops and asks above `--max-batches` |
+| P3-05 | Decisions with evidence | §4 R4 | Every batch's answer has a decision per item; evidence is checked to exist, asked once more, then becomes `needs_sme`; decisions are stored with their input hash and round |
+| P3-06 | Running again with more context | §4 R4 *Running again* | A second run with one more answered question decides only the affected rules again and keeps the rest |
+| P3-07 | One SME list | §4 R5 | Both tools' open questions and R4's are merged, each original kept exactly once; answered ones are marked with their source; CSV and JSON out, answered files back in |
+| P3-08 | Recommended requirements | §4 R6 | Requirements in AWS Transform's frame, each citing a recommended rule; uncited ones dropped and counted; open questions carried; marked as recommended by Reframe |
+| P3-09 | The reconciliation page and publish | §4 R7 | The page as specified, linked from the comparison, with marks and downloads; `reframe publish` includes it as `reconciled/` with a fourth card |
+| P3-10 | Live acceptance and README | §7 | Every point of section 7 passes from the CLI; the README and `docs/cli.md` describe pipeline 3 from the tested commands |
+
 ## Later pipelines
 
 Specified after pipelines 1 and 2 have been tested, first each on its own and then together.
 
-- **Pipeline 3: reconcile.** It starts from the comparison of AWS Transform's and Claude's assessments. An agent looks only where the two do not match or disagree, and writes the final recommended business rules and requirements. The person can add context as Markdown, documents, PDFs and similar files.
 - **Pipeline 4: final requirements, business rules and wireframes.** It produces them, takes more human context (text, Markdown, documents, PDFs and similar), and gives the updated version of each. This is where Reframe ends.
