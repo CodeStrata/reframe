@@ -92,13 +92,15 @@ def parser() -> argparse.ArgumentParser:
     claude.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
 
     reconcile = command("reconcile", "Pipeline 3: decide every rule the two assessments do not agree on against the source code, with "
-                        "evidence Reframe checks; needs both pipelines done, and no AWS resources")
+                        "evidence Reframe checks, then write recommended requirements, one SME list and the reconciliation page; needs both "
+                        "pipelines done, and no AWS resources")
     _run_option(reconcile)
     reconcile.add_argument("--context", help="a folder of context: documents (Markdown, text, PDF, Word), review exports and answered questions")
     reconcile.add_argument("--auth", choices=("subscription", "bedrock"), default=None,
                            help="how Claude signs in (default: as for pipeline 2)")
     reconcile.add_argument("--max-batches", type=int, default=None, help="the limit for the decisions; Reframe stops and asks above it (default: 120)")
     reconcile.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
+    reconcile.add_argument("--open", action="store_true", help="open the reconciliation page instead of running")
 
     compare = command("compare", "Build the page comparing AWS Transform's and Claude's results again")
     _run_option(compare)

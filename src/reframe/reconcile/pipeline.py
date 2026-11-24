@@ -1,8 +1,8 @@
 """Pipeline 3, stage by stage (docs/pipeline-3.md, section 4). Its status lives under "reconcile" in run.json, beside the
 other two pipelines', and every stage can be run again: what is done is kept.
 
-R0 preflight · R1 inputs · R2 identical pairs agreed · R3 estimate (behind the batch limit) · R4 decisions against the source
-(R5 the SME list, R6 the recommended requirements and R7 the page follow in their own stories.)
+R0 preflight · R1 inputs · R2 identical pairs agreed · R3 estimate (behind the batch limit) · R4 decisions against the source ·
+R5 the SME list · R6 the recommended requirements · R7 the reconciliation page
 """
 
 from __future__ import annotations
@@ -68,8 +68,18 @@ def claude_code(folder: RunFolder, auth: str):
     return ClaudeCode(places["root"], places["policy"], plugin.plugin_dir(), places["logs"], env)
 
 
+def page(folder: RunFolder) -> None:
+    """R7: the reconciliation page, and the other three pages built again so that they link to it."""
+    from reframe.report import build, compare, reconciled
+    reconciled.build_reconciled(folder)
+    build.build(folder)
+    build.build_claude(folder)
+    compare.build(folder)
+    update(folder, page=reconciled.PAGE)
+
+
 def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
-    from reframe.reconcile import decide, inputs, units
+    from reframe.reconcile import decide, inputs, questions, requirements, units
     settings = state(folder)
     auth = settings.get("auth") or "subscription"
     context = Path(settings["context"]).expanduser() if settings.get("context") else None
@@ -112,8 +122,25 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
         d = kept[u["key"]]["decision"]
         counts[d] = counts.get(d, 0) + 1
     defects = sum(1 for u in found if str(kept[u["key"]].get("defect") or "").strip())
-    update(folder, stage="decided", status=Outcome.DONE.value, finished_at=iso(), decisions=counts, defects=defects, last=result,
+    update(folder, decisions=counts, defects=defects, last=result)
+
+    stage(folder, "questions")
+    listed = questions.build(folder, claude, gathered, found, kept)
+    update(folder, questions=listed["counts"], originals=listed["originals"])
+
+    stage(folder, "requirements")
+    written = requirements.build(folder, claude, gathered, found, kept, agreed, listed)
+    update(folder, requirements={k: written[k] for k in ("requirements", "dropped", "rules_cited", "rules_total")})
+
+    stage(folder, "page")
+    page(folder)
+
+    c = listed["counts"]
+    update(folder, stage="done", status=Outcome.DONE.value, finished_at=iso(),
            message=f"Round {round_}: {result['decided']} units decided against the source, {result['kept_from_before']} kept from before; "
-                   f"{len(agreed)} rules agreed by both tools. The SME list, requirements and page come in later stories.")
+                   f"{len(agreed)} rules agreed by both tools. SME list: {c['questions']} questions from {listed['originals']} originals "
+                   f"({c.get('answered', 0)} answered, {c.get('settled', 0)} settled by your context), and {c['defects']} possible defects. "
+                   f"{written['requirements']} recommended requirements citing {written['rules_cited']} of {written['rules_total']} recommended rules"
+                   + (f" ({written['dropped']} dropped for citing no rule)." if written["dropped"] else "."))
     folder.event("reconcile_done", round=round_, **result)
     return Outcome.DONE

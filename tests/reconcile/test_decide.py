@@ -12,17 +12,44 @@ from reframe.reconcile import decide, units
 from tests.reconcile.test_units import inputs, pair
 
 
-class FakeClaude:
-    """Answers each step with the next function in `script`, called with the units the step was given."""
+def alone(data):
+    """An SME-list step that merges nothing: each question stands alone."""
+    return {"questions": [{"text": q["text"], "owner": q["owner"], "members": [q["id"]], "settled_by": "", "settled_answer": ""}
+                          for q in data["questions"]]}
 
-    def __init__(self, *script):
+
+def plain_requirements(data):
+    """A requirements step: one capability, one requirement per rule, every open item placed."""
+    return {"capabilities": [{"title": "Do it", "story": "As a user, I want it", "questions": [o["id"] for o in data["open_items"]],
+                              "requirements": [{"kind": "functional", "pattern": "ubiquitous", "text": "The system shall do it", "rules": [r["id"]]}
+                                               for r in data["rules"]]}]}
+
+
+class FakeClaude:
+    """Answers each decision step with the next function in `script`, called with the units the step was given; other
+    steps (the SME list, the requirements) with the function in `others` for their kind, called with the step's input."""
+
+    def __init__(self, *script, **others):
         self.script, self.calls, self.lock = list(script), [], threading.Lock()
+        self.others = {"sme": alone, "req": plain_requirements, **others}
+        self.other_calls = []
 
     def run(self, name, prompt, timeout=0, schema=None):
         import json
         import re
         path = re.search(r"Read (\S+)\. It holds", prompt).group(1)
-        given = json.loads((self.root / path).read_text())["units"]
+        data = json.loads((self.root / path).read_text())
+        if "units" not in data:
+            kind = name.split("-")[0]
+            with self.lock:
+                self.other_calls.append((name, data, prompt))
+            answer = self.others[kind](data)
+            if answer == "limit":
+                return StepResult(name, False, text="You've hit your 5-hour limit", problem="limit")
+            result = StepResult(name, True, seconds=30, cost_usd=0.1)
+            result.answer = answer
+            return result
+        given = data["units"]
         with self.lock:
             self.calls.append((name, [u["key"] for u in given], prompt))
             answer = self.script.pop(0)(given) if self.script else {"decisions": []}

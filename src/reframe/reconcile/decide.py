@@ -143,7 +143,7 @@ class Batch:
     def _prompt(self, path: Path) -> str:
         project = self.folder.state["project"]
         documents = [d["read_as"] for d in self.context.get("documents") or []]
-        answers = self.context.get("answers") or []
+        answers = self.answers()
         context = ""
         if documents or answers:
             context = ("\n\nThe person gave context; use it where it bears on a unit, and say so in \"context\": "
@@ -153,12 +153,19 @@ class Batch:
         return PROMPT.format(input=f"analysis/{project}/{path.relative_to(self.places['analysis']).as_posix()}",
                              legacy=f"legacy/{project}", context=context)
 
+    def answers(self) -> list[dict[str, Any]]:
+        """The answered questions this batch's units were given (units.answers_for), each once."""
+        found: list[dict[str, Any]] = []
+        for u in self.members:
+            found += [a for a in u.get("answers") or [] if a not in found]
+        return found
+
     def run(self, stop_now: threading.Event) -> Any:
         """Decide the batch; returns a StepResult that failed for a reason the whole run must stop for, or None."""
         folder_in = self.places["analysis"] / "reframe" / "reconcile"
         folder_in.mkdir(parents=True, exist_ok=True)
-        if self.context.get("answers"):
-            (folder_in / f"{self.name}-answers.json").write_text(json.dumps(self.context["answers"], indent=1))
+        if self.answers():
+            (folder_in / f"{self.name}-answers.json").write_text(json.dumps(self.answers(), indent=1))
         pending = {u["key"]: u for u in self.members}
         failed: dict[str, list[str]] = {}
         for attempt in (1, 2):

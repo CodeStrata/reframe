@@ -55,7 +55,7 @@ Everything else a run needs is checked, and installed on request, by the guided 
 reframe
 ```
 
-`reframe` on its own shows your runs (status, stage, Claude's status, when each started, and whether its AWS resources are still in place), the suggested next step, and a numbered menu:
+`reframe` on its own shows your runs (status, stage, Claude's status, pipeline 3's status, when each started, and whether its AWS resources are still in place), the suggested next step, and a numbered menu:
 
 ![The reframe home screen: the runs table, the suggested next step and the numbered menu](docs/images/cli-home.svg)
 
@@ -335,7 +335,7 @@ python -m unittest discover -s tests -t .
 
 Pipelines 3 and 4 come next, in [docs/plan.md](docs/plan.md):
 
-- **Pipeline 3** reconciles the two assessments against the source code ([docs/pipeline-3.md](docs/pipeline-3.md)). Built so far: `reframe reconcile` checks the run, gathers both tools' rules and your context folder, agrees what both describe the same way, shows the estimate, and decides every other rule against the source with evidence Reframe checks. The SME list, the recommended requirements and the reconciliation page come next.
+- **Pipeline 3** reconciles the two assessments against the source code ([docs/pipeline-3.md](docs/pipeline-3.md)). `reframe reconcile` checks the run, gathers both tools' rules and your context folder, agrees what both describe the same way, shows the estimate, decides every other rule against the source with evidence Reframe checks, merges both tools' open questions into one SME list (`reconcile/questions.csv`, to answer and give back), writes recommended requirements in AWS Transform's frame, and builds the reconciliation page (`reframe reconcile --open`), which `reframe publish` includes. Running it again with answers or review marks decides again only the rules they bear on. Its live acceptance on CardDemo is the next story.
 - **Pipeline 4** produces the final requirements, business rules and wireframes.
 
 Earlier work stays in the repository's history: the build before this rebuild ends at commit `000b816`, and the first release is tagged `v0.3.0`.

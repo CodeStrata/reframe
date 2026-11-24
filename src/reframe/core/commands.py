@@ -164,11 +164,18 @@ def resume(args) -> int:
 
 
 def reconcile(args) -> int:
-    """Pipeline 3 on a run where both pipelines are done: record the request, then the worker runs stages R0 to R4."""
+    """Pipeline 3 on a run where both pipelines are done: record the request, then the worker runs stages R0 to R7."""
     from reframe.core import ui
     from reframe.reconcile import pipeline as reconcile_pipeline
     try:
         folder = find_run(args.run)
+        if getattr(args, "open", False):
+            from reframe.report.reconciled import PAGE
+            if not folder.exists(PAGE):
+                raise Stop(Outcome.REFUSED, f"run {folder.root.name} has no reconciliation page yet; reframe reconcile makes it")
+            say(f"Reconciliation: {folder.path(PAGE)}\n")
+            subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(folder.path(PAGE))], check=False)
+            return 0
         context = str(Path(args.context).expanduser().resolve()) if args.context else None
         if context and not Path(context).is_dir():
             raise Stop(Outcome.REFUSED, f"the context folder {args.context} does not exist")
@@ -482,8 +489,17 @@ def _reconcile_status(folder: RunFolder, state: dict[str, Any]) -> None:
         ui.state("Progress", f"{rec['progress']['batches_done']} of {rec['progress']['batches']} batches", "")
     if rec.get("decisions"):
         ui.state("Decisions", ", ".join(f"{k} {v}" for k, v in rec["decisions"].items()) + f"; possible defects {rec.get('defects', 0)}", "")
+    if rec.get("questions"):
+        q = rec["questions"]
+        ui.state("SME list", f"{q.get('questions', 0)} questions ({q.get('answered', 0)} answered, {q.get('settled', 0)} settled), {q.get('defects', 0)} possible defects", "")
+    if rec.get("requirements"):
+        r = rec["requirements"]
+        ui.state("Requirements", f"{r['requirements']} recommended, citing {r['rules_cited']} of {r['rules_total']} rules; {r['dropped']} dropped", "")
     if rec.get("message"):
         ui.say(rec["message"])
+    if status == "DONE" and rec.get("page"):
+        ui.state("Next", "reframe reconcile --open shows the reconciliation page; answer the SME list (reconcile/questions.csv) and run "
+                         "reframe reconcile --context <folder> again; reframe publish includes it", "bright_cyan")
     if status not in ("DONE", "RUNNING", "REQUESTED") and not pid:
         ui.state("Next", "fix what the message says, then reframe resume (or reframe reconcile with what it asks for)", "bright_cyan")
 

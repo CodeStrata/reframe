@@ -107,7 +107,13 @@ One headless Claude step per batch, with Reframe's prompt and a JSON schema for 
 
 An answer that fails is asked once more with the reason; if it still fails, the unit becomes `needs_sme`, counted and shown as such.
 
-**Running again.** Each decision is stored with a hash of its inputs: the rules, their marks, and the context and answers it was given. On another `reframe reconcile`, a batch whose items' inputs are unchanged keeps its decisions; only the rest are decided again. The page shows which round decided each rule.
+**Running again.** Each decision is stored with a hash of its inputs: the rules, their marks, and the context and answers it was given. On another `reframe reconcile`, a unit whose inputs are unchanged keeps its decision; only the rest are decided again. The page shows which round decided each rule.
+
+What a unit is given is narrowed so that new context redoes only what it bears on:
+
+- an answered question that names rules (the SME list's `rules` column) is given only to the units holding those rules; one that names no rule Reframe knows is given to every unit;
+- a review mark is given to the unit holding its rule. A mark made on the reconciliation page is on a recommended rule, so it goes to every input rule that rule covers; a *Needs change* or *Question* mark on a rule agreed by both tools sends its group to an agent;
+- documents are given to every unit, so a new or changed document redoes them all.
 
 ### Stage R5: one SME list
 
@@ -120,6 +126,13 @@ The open questions of AWS Transform, the plugin and stage R4 are merged into one
 
 It is written as `reconcile/questions.csv` (for a spreadsheet, with an empty `answer` column) and `questions.json`. Put the answered file in the context folder and run `reframe reconcile` again.
 
+How it is built:
+
+- **What a question holds up:** the plugin's question its rule card; an AWS Transform question the rules behind its capability's requirements; a stage R4 question the rules of its unit.
+- **Merging:** questions are batched by the program of the rules they hold up (up to 40 a batch, four batches at once), so questions about the same code meet. The step reads only the questions, the documents and the answered questions, not the code. Reframe checks that every original is in exactly one merged question and that a settlement names a document or answer the step was given; a failed answer is asked once more, and if it fails again Reframe repairs it (an original in no question stands alone, one in two stays in the first, a settlement citing nothing given is removed). A batch whose questions and context are unchanged keeps its merge.
+- **The columns:** `id` (SME-001, or DEF-001 for a possible defect), `kind`, `question`, `owner`, `status` (open, settled by the context, or answered), `rules` (the rules it holds up), `originals` (the original questions it stands for), `from`, `evidence` (for a defect), `settled_by`, `settled_answer`, `answer`.
+- **Answers back:** an answered row is matched to a merged question by its `originals`, or by its `id` in the previous list. Its `rules` column is what stage R4 uses to give the answer only to the units it bears on (*Running again*).
+
 ### Stage R6: recommended requirements
 
 From the recommended rules, a headless step writes requirements in the same shape as the other two: domain → business function → capability (a user story) → requirements (functional and non-functional, with their EARS pattern) → the rules behind each.
@@ -128,6 +141,8 @@ From the recommended rules, a headless step writes requirements in the same shap
 - Every requirement cites at least one recommended rule; one that cites none is dropped and counted.
 - Rules still `needs_sme` are carried as open questions on their requirement, not left out.
 - Everything is marked **recommended by Reframe from both assessments**.
+
+How it is built: a recommended rule goes to the AWS function of the AWS rules it covers, else of the AWS rules in its unit, else the function whose programs hold its program. One headless step per function (in parts of up to 60 rules) writes capabilities and requirements from that function's rules only, without reading the code. A unit still `needs_sme` is carried as an open question on the capability the step places it on, with its SME list ID; one the step does not place is carried on a capability *Waiting for a subject-matter expert*. A function whose rules and open units are unchanged keeps its requirements. The rules are written to `outputs/reconcile/rules.json` and the requirements to `outputs/reconcile/requirements.json`.
 
 ### Stage R7: reconciliation page
 
@@ -141,13 +156,15 @@ From the recommended rules, a headless step writes requirements in the same shap
 
 The comparison page links to it. `reframe publish` includes it as `reconciled/` in the copy, cleaned the same way, and the copy's index page gets a fourth card.
 
+How it is built: the page uses the same template as the two reviews, so marks, search, the technical tables and the downloads work the same way; its marks are kept apart from theirs. A recommended rule's key is `rec/<unit>/<n>`, which is how a mark made here reaches the next round (*Running again*). Each cited range is shown from the snapshot, up to 40 lines. The SME list is a tab of the technical detail, with a filter by kind and status and a CSV download in the shape of `reconcile/questions.csv`. When the page is built, the AWS Transform review, Claude's review and the comparison are built again so that each links to it. The home screen gets two entries, *Reconcile the two assessments* and *Open the reconciliation*, and a Reconcile column.
+
 ## 5. Run folder
 
 In addition to pipelines 1 and 2:
 
 - `reconcile/inputs/`: the items, open questions and the context as read (stage R1);
-- `reconcile/decisions/`: each batch's answer, with its input hash and round;
-- `reconcile/questions.csv`, `questions.json`;
+- `reconcile/decisions.json`: each unit's decision, with its input hash and round; `reconcile/steps.json`, the decision steps' time and usage; `reconcile/agreed.json`;
+- `reconcile/questions.csv`, `questions.json`, and the merges they came from (`sme-merges.json`, `sme-steps.json`);
 - `outputs/reconcile/`: the recommended rules, the recommended requirements and the page.
 
 ## 6. Code layout

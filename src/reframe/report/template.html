@@ -59,7 +59,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;p
 .datatable{table-layout:fixed;width:100%;min-width:760px}.datatable th{position:sticky;top:0;z-index:1;box-shadow:0 1px 0 var(--line)}
 .datatable td{overflow-wrap:anywhere}.datatable td.id{white-space:nowrap;overflow-wrap:normal}.datatable td.id a{text-decoration:none}
 .datatable tbody tr:hover{background:var(--accent-soft)}.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.tools input,.tools select{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
-.tools input{flex:1;min-width:220px}.tools select{max-width:260px}.tools select:disabled{opacity:.55}.doc h2{font-size:18px}.doc h3,.doc h4{font-size:15px}
+.decision{margin:8px 0 0;padding:8px 10px;border-left:3px solid var(--accent);background:var(--accent-soft)}.decision .tag{margin-right:6px}.sides{display:grid;grid-template-columns:1fr 1fr;gap:12px}.sides h4{margin:8px 0 4px}.orig{font-size:13px;margin-bottom:8px}@media (max-width:720px){.sides{grid-template-columns:1fr}}pre.code{font-size:12px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:0}pre.code .ln{display:inline-block;width:42px;color:var(--muted);user-select:none}.tools input{flex:1;min-width:220px}.tools select{max-width:260px}.tools select:disabled{opacity:.55}.doc h2{font-size:18px}.doc h3,.doc h4{font-size:15px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}.tabs a{padding:6px 12px;border:1px solid var(--line);border-radius:16px;text-decoration:none;color:var(--muted);font-size:14px}.tabs a.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
 dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);max-width:520px;width:92vw;padding:20px}
 dialog::backdrop{background:rgba(0,0,0,.35)}dialog label{display:block;font-size:14px;margin:10px 0 4px}dialog input{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
@@ -170,7 +170,27 @@ function ruleCard(key){
   return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><span class="tag grey">Business rule</span>' + (r.id && TOOL.key !== 'aws' ? '<code>' + esc(r.id) + '</code>' : '') +
     '<span>' + esc(r.program) + '</span>' + extra + '</div>' +
     '<div class="text"><b>' + prose(r.name) + '</b>' + (r.plain ? '<br>' + prose(r.plain) : '') + '<br>' + prose(r.text).replace(/\n/g, '<br>') + '</div>' +
-    (r.defect ? '<p class="small" style="margin:6px 0 0"><span class="tag warn">Suspected defect</span> ' + prose(r.defect) + '</p>' : '') + markControls(key) + '</div>';
+    (r.decision ? decisionBlock(r) : '') +
+    (r.defect ? '<p class="small" style="margin:6px 0 0"><span class="tag warn">' + (r.decision ? 'Possible defect' : 'Suspected defect') + '</span> ' + prose(r.defect) + '</p>' : '') + markControls(key) + '</div>';
+}
+// Pipeline 3: how a recommended rule was decided, the rules it came from and the source lines behind it.
+const DECISION = {agreed: 'Agreed by both tools', merged: 'Merged from both tools', aws: 'AWS Transform was right', claude: "Claude's plugin was right",
+  rewritten: 'Rewritten from the code', kept: 'Kept: the code supports it', rejected: 'Rejected: the code does not support it', needs_sme: 'Waiting for an SME'};
+function excerpt(cite){
+  const e = (D.evidence || {})[cite];
+  if (!e) return '<p><code>' + esc(cite) + '</code></p>';
+  return '<p class="small" style="margin:8px 0 2px"><code>' + esc(cite) + '</code></p><pre class="code">' + e.lines.map((l, i) => '<span class="ln">' + (e.start + i) + '</span>' + esc(l)).join('\n') +
+    (e.cut ? '\n<span class="muted">… ' + (e.end - e.start + 1 - e.lines.length) + ' more lines</span>' : '') + '</pre>';
+}
+function decisionBlock(r){
+  const side = tool => r.originals.filter(o => o.tool === tool).map(o => '<div class="orig"><b>' + (o.link ? '<a href="' + esc(o.link) + '">' + prose(o.name || o.id) + '</a>' : prose(o.name || o.id)) +
+    '</b> <span class="small muted">' + esc(o.program) + '</span><br>' + prose(o.text).replace(/\n/g, '<br>') + '</div>').join('') || '<p class="small muted">None</p>';
+  return '<div class="decision"><span class="tag">' + esc(DECISION[r.decision] || r.decision) + '</span>' + (r.changed && r.decision === 'kept' ? '<span class="tag grey">Corrected</span>' : '') +
+    '<span class="small muted">Round ' + esc(r.round || 0) + '</span><p class="small" style="margin:6px 0 0">' + prose(r.why) + '</p>' +
+    (r.context && r.context.length ? '<p class="small muted" style="margin:4px 0 0">Context used: ' + r.context.map(esc).join('; ') + '</p>' : '') +
+    '<details><summary>' + plural(r.originals.length, 'original rule') + ' and ' + plural(r.evidence.length, 'cited source range') + '</summary>' +
+    '<div class="sides"><div><h4>AWS Transform</h4>' + side('aws') + '</div><div><h4>Claude\'s plugin</h4>' + side('claude') + '</div></div>' +
+    '<h4>Evidence in the source</h4>' + r.evidence.map(excerpt).join('') + '</details></div>';
 }
 function requirementCard(key){
   const r = reqByKey[key];
@@ -183,7 +203,7 @@ function requirementCard(key){
 function questionCard(key){
   const q = qByKey[key];
   return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><code>' + esc(q.code) + '</code>' +
-    (q.unverified ? '<span class="tag warn">Unverified requirement: please confirm</span>' : '<span class="tag">Open question</span>') +
+    (q.unverified ? '<span class="tag warn">Unverified requirement: please confirm</span>' : q.status && q.status !== 'open' ? '<span class="tag grey">' + esc(q.status === 'answered' ? 'Answered' : 'Settled by your context') + '</span>' : '<span class="tag">Open question</span>') +
     (q.owner ? '<span>For: ' + esc(q.owner) + '</span>' : '') + '</div><div class="text">' + prose(q.text) + '</div>' +
     markControls(key, 'Your answer, or what is missing') + '</div>';
 }
@@ -195,11 +215,22 @@ function overview(){
   const all = new Set(); D.domains.forEach(d => domItems(d).forEach(k => all.add(k)));
   let h = '<h2>What ' + esc(TOOL.name) + ' found in ' + esc(D.source.name || D.project || 'the source') + '</h2>' +
     (TOOL.generated ? '<p class="note">' + esc(TOOL.generated_note) + '</p>' : '') +
+    (D.reconcile ? '<p class="lead">AWS Transform and Claude\'s plugin each assessed the same ' + esc(D.source.files || '') + ' source files. Reframe reconciled their business rules ' +
+    'against the source code into one set of recommended rules, each showing how it was decided, the rules it came from and the lines of code behind it, and wrote ' +
+    'recommended requirements from them in AWS Transform\'s domains and business functions. Please check that this matches how the business works.' :
     '<p class="lead">' + esc(TOOL.name) + ' read ' + esc(D.source.files || 'the') + ' source files and describes what the system does as business domains, business functions, ' +
-    'capabilities, requirements and business rules. Please check that this matches how the business works. Start with a domain, go down to its functions and capabilities, ' +
+    'capabilities, requirements and business rules. Please check that this matches how the business works.') + ' Start with a domain, go down to its functions and capabilities, ' +
     'and mark each requirement, rule and question: <b>Agree</b>, <b>Needs change</b> or <b>Question</b>. When you are done, open <b>Your review</b> to download your marks.</p>';
   h += numbers([[biz.length, 'business domains'], [D.functions.length, 'business functions'], [D.capabilities.length, 'capabilities'],
     [D.requirements.length, 'requirements'], [business.length, 'business rules'], [D.questions.length, 'open questions']]);
+  if (D.reconcile) {
+    const R = D.reconcile, u = R.units || {}, n = k => (R.rules[k] || 0);
+    h += '<h3>How the recommended rules were decided</h3>' + numbers([[n('agreed'), 'agreed by both tools'], [n('merged'), 'merged'], [n('aws'), 'AWS Transform right'],
+      [n('claude'), "Claude's plugin right"], [n('rewritten'), 'rewritten from the code'], [n('kept'), 'kept (one tool found it)']]);
+    h += numbers([[u.rejected || 0, 'one-sided rules rejected'], [u.needs_sme || 0, 'waiting for an SME'], [R.defects || 0, 'possible defects'],
+      [(R.sme || {}).questions || 0, 'questions on the SME list'], [R.dropped || 0, 'requirements dropped (no rule)'], [Object.keys(R.rounds || {}).length, 'rounds that decided them']]);
+    if (D.sme) h += '<p><a class="btn" href="#/tech/sme">Open the SME list</a></p>';
+  }
   h += '<div class="panel">' + progress(all) + '</div>';
   h += '<h3>Business domains</h3><div class="grid">' + biz.map(domainCard).join('') + '</div>';
   const other = D.domains.filter(d => d.kind !== 'business');
@@ -282,7 +313,8 @@ function searchPage(q){
 
 // ---- technical detail -------------------------------------------------------------------------------
 const TECH = [['requirements', 'All requirements'], ['rules', 'All rules'], ['questions', 'Open questions'], ['datamodel', 'Data model'], ['assessment', 'Assessment'],
-  ['decisions', "Reframe's answers to " + TOOL.short], ['aws', TOOL.short + "'s own pages"]];
+  ['decisions', "Reframe's answers to " + TOOL.short], ['aws', TOOL.short + "'s own pages"]].filter(([id]) => !(D.sme && ['datamodel', 'decisions', 'aws'].includes(id)));
+if (D.sme) TECH.splice(3, 0, ['sme', 'SME list']);
 function techPage(tab){
   let h = '<h2>Technical detail</h2><div class="tabs">' + TECH.map(([id, label]) => '<a href="#/tech/' + id + '" class="' + (id === tab ? 'on' : '') + '">' + label + '</a>').join('') + '</div>';
   const fname = id => esc((fnById[id] || {}).name || id), cname = id => { const c = capById[id]; return c ? c.number + '. ' + esc(c.title) : ''; };
@@ -305,7 +337,8 @@ function techPage(tab){
       ['program', 'All programs', r => r.program, rows => [...new Set(rows.map(r => r.program).filter(Boolean))].sort().map(p => [p, p])]],
     cols: [['Function and capability', '22%'], ['Program', '100px'], ['Rule', ''], [TOOL.short + ' kept it as', '140px'], ['Backs', '112px']],
     render: r => '<tr><td>' + place(r.function, capOfRule(r.key)) + '</td><td>' + esc(r.program) + '</td><td>' + (r.id && TOOL.key !== 'aws' ? '<code>' + esc(r.id) + '</code> ' : '') + '<b>' + prose(r.name) + '</b><br>' + prose(r.text).replace(/\n/g, '<br>') + '</td><td>' +
-      (r.disposition === 'captured' ? 'Business rule' + (r.priority ? ' · ' + esc(r.priority) : '') + (r.confidence ? '<br><span class="small muted">Confidence ' + esc(r.confidence) + '</span>' : '') : esc(r.disposition.replace(/_/g, ' ')) + (r.reason ? '<br><span class="small muted">' + esc(r.reason) + '</span>' : '')) + '</td><td>' +
+      (r.decision ? esc(DECISION[r.decision] || r.decision) + '<br><span class="small muted">Round ' + esc(r.round || 0) + (r.confidence ? ' · confidence ' + esc(r.confidence) : '') + '</span>' :
+       r.disposition === 'captured' ? 'Business rule' + (r.priority ? ' · ' + esc(r.priority) : '') + (r.confidence ? '<br><span class="small muted">Confidence ' + esc(r.confidence) + '</span>' : '') : esc(r.disposition.replace(/_/g, ' ')) + (r.reason ? '<br><span class="small muted">' + esc(r.reason) + '</span>' : '')) + '</td><td>' +
       r.requirements.map(code => idLink(code, (reqByKey[r.function + '/' + code] || {}).capability, r.function + '/' + code)).join(' ') + '</td></tr>'});
   if (tab === 'questions') h += filtered('questions', D.questions, {
     text: x => x.code + ' ' + x.text + ' ' + x.owner,
@@ -315,6 +348,19 @@ function techPage(tab){
     cols: [['ID', '96px'], ['Function and capability', '22%'], ['Question', ''], ['For', '150px']],
     render: x => '<tr><td class="id">' + idLink(x.code, x.capability, x.key) + '</td><td>' + place(x.function, x.capability) + '</td><td>' +
       (x.unverified ? '<span class="tag warn">Unverified requirement</span> ' : '') + prose(x.text) + '</td><td>' + esc(x.owner) + '</td></tr>'});
+  if (tab === 'sme') h += '<p class="lead">One list of open questions for subject-matter experts: both tools\' and Reframe\'s own, merged where they ask the same thing, ' +
+    'with the possible defects found in the code. Download it, fill in the <b>answer</b> column, put the file in your context folder and run <code>reframe reconcile</code> again.</p>' +
+    '<p><button class="btn" id="smeCsv">Download the SME list (CSV)</button></p>' + filtered('sme', D.sme, {
+    text: x => x.id + ' ' + x.question + ' ' + x.owner + ' ' + (x.from || []).join(' '),
+    selects: [['kind', 'Questions and possible defects', x => x.kind, () => [['question', 'Questions'], ['defect', 'Possible defects']]],
+      ['status', 'Any status', x => x.status, () => [['open', 'Open'], ['settled', 'Settled by your context'], ['answered', 'Answered']]]],
+    cols: [['ID', '90px'], ['Question', ''], ['Holds up', '28%'], ['Status', '150px']],
+    render: x => '<tr><td class="id"><code>' + esc(x.id) + '</code></td><td>' + prose(x.question) + '<br><span class="small muted">From: ' + esc((x.from || []).join('; ')) + ' · For: ' + esc(x.owner) + '</span>' +
+      ((x.evidence || []).length ? '<details><summary class="small">Evidence</summary>' + x.evidence.map(excerpt).join('') + '</details>' : '') + '</td><td class="small">' +
+      x.holds_up.map(o => (o.link ? '<a href="' + esc(o.link) + '">' + prose(o.name) + '</a>' : prose(o.name)) + ' <span class="muted">(' + esc(o.tool === 'aws' ? 'AWS' : 'Claude') + ', ' + esc(o.program) + ')</span>').join('<br>') +
+      (x.rules.length > x.holds_up.length ? '<br><span class="muted">and ' + (x.rules.length - x.holds_up.length) + ' more</span>' : '') + '</td><td>' +
+      esc({open: 'Open', settled: 'Settled', answered: 'Answered'}[x.status] || x.status) + (x.settled_by ? '<br><span class="small muted">By ' + esc(x.settled_by) + ': ' + prose(x.settled_answer) + '</span>' : '') +
+      (x.answer ? '<br><span class="small muted">' + prose(x.answer) + '</span>' : '') + '</td></tr>'});
   if (tab === 'datamodel') h += '<div class="panel doc">' + (D.data_model || '<p class="muted">' + esc(TOOL.name) + ' wrote no data model.</p>') + '</div>';
   if (tab === 'assessment' && D.sections) h += D.sections.map(s => '<details class="panel doc"' + (s.open ? ' open' : '') + '><summary>' + esc(s.title) + '</summary>' + s.html + '</details>').join('');
   else if (tab === 'assessment') {
@@ -417,8 +463,14 @@ $('downloadJson').addEventListener('click', () => {
 });
 $('clearMarks').addEventListener('click', () => { if (confirm('Clear every mark you made on this page? Download them first if you want to keep them.')) { marks = {}; save(); updateCounts(); route(); } });
 
-$('title').textContent = 'Business review' + (D.project ? ': ' + D.project : '');
-$('subtitle').textContent = TOOL.name + ' assessment of ' + (D.source.name || 'the source') + (D.source.commit ? ' @ ' + String(D.source.commit).slice(0, 12) : '');
+$('title').textContent = (D.reconcile ? 'Reconciled review' : 'Business review') + (D.project ? ': ' + D.project : '');
+$('subtitle').textContent = (D.reconcile ? 'AWS Transform and Claude reconciled against the source of ' : TOOL.name + ' assessment of ') + (D.source.name || 'the source') + (D.source.commit ? ' @ ' + String(D.source.commit).slice(0, 12) : '');
+document.addEventListener('click', e => {
+  if (!e.target.closest('#smeCsv')) return;
+  const cols = ['id', 'kind', 'question', 'owner', 'status', 'rules', 'originals', 'from', 'evidence', 'settled_by', 'settled_answer', 'answer'];
+  const cell = v => '"' + String(v == null ? '' : Array.isArray(v) ? v.join(' ') : v).replace(/"/g, '""') + '"';
+  download('sme-list-' + (D.project || 'run') + '.csv', 'text/csv;charset=utf-8', '\ufeff' + [cols.join(',')].concat(D.sme.map(x => cols.map(c => cell(c === 'from' ? (x.from || []).join('; ') : x[c])).join(','))).join('\r\n'));
+});
 $('others').innerHTML = (D.nav || []).map(([label, href]) => '<a href="' + esc(href) + '">' + esc(label) + '</a>').join('');
 route();
 </script>

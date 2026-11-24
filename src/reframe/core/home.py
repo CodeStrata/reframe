@@ -28,6 +28,8 @@ MENU = [  # (title, needs a run, the command line)
     ("Open the business review", True, ["report", "--open"]),
     ("Assess with Claude (pipeline 2)", True, ["claude"]),
     ("Open the comparison", True, ["compare", "--open"]),
+    ("Reconcile the two assessments (pipeline 3)", True, ["reconcile"]),
+    ("Open the reconciliation", True, ["reconcile", "--open"]),
     ("Publish a run's reports to AWS", True, ["publish", "--to", "aws"]),
     ("Published reports", False, ["reports"]),
     ("Event log", True, ["events"]),
@@ -63,7 +65,7 @@ def runs() -> list[Run]:
         except (OSError, ValueError):
             continue
         folder = RunFolder(path.parent)
-        found.append(Run(folder, state, bool(folder.worker_pid("run") or folder.worker_pid("claude"))))
+        found.append(Run(folder, state, bool(folder.worker_pid("run") or folder.worker_pid("claude") or folder.worker_pid("reconcile"))))
     return sorted(found, key=lambda r: str(r.state.get("started_at") or ""), reverse=True)
 
 
@@ -72,9 +74,10 @@ def _when(value: Any) -> str:
     return text[:16].replace("T", " ") + " UTC" if text.endswith("Z") else text
 
 
-def number(command: str) -> int:
-    """The menu number of a command, so the suggested next step stays right when the menu changes."""
-    return next(n for n, (_, _, argv) in enumerate(MENU, 1) if argv[0] == command)
+def number(command: str, *rest: str) -> int:
+    """The menu number of a command (and its options, where two entries share a command), so the suggested next step
+    stays right when the menu changes."""
+    return next(n for n, (_, _, argv) in enumerate(MENU, 1) if argv[:1 + len(rest)] == [command, *rest])
 
 
 def next_step(latest: Run | None) -> str:
@@ -87,8 +90,15 @@ def next_step(latest: Run | None) -> str:
     if latest.state.get("torn_down"):
         return f"choose {number('run')} to start another run"
     claude = latest.state.get("claude") or {}
+    rec = latest.state.get("reconcile") or {}
+    if status == "DONE" and claude.get("status") == "DONE" and rec.get("status") == "DONE":
+        return (f"choose {number('reconcile', '--open')} to open the reconciliation of run {latest.id}; answer its SME list and choose "
+                f"{number('reconcile')} to run it again")
+    if status == "DONE" and claude.get("status") == "DONE" and rec.get("status"):
+        return f"pipeline 3 stopped ({rec.get('status')}): choose {number('status')} for the reason; choose {number('resume')} to resume"
     if status == "DONE" and claude.get("status") == "DONE":
-        return f"choose {number('compare')} to open the comparison of run {latest.id}; choose {number('teardown')} to remove its AWS resources"
+        return (f"choose {number('compare')} to open the comparison of run {latest.id}; choose {number('reconcile')} to reconcile the two "
+                f"assessments; choose {number('teardown')} to remove its AWS resources")
     if status == "DONE" and claude.get("status") in ("RUNNING", "REQUESTED"):
         return f"run {latest.id} is done with AWS Transform; the Claude assessment follows (choose {number('status')} to see where it is)"
     if status == "DONE" and claude.get("status"):
@@ -109,7 +119,8 @@ def dashboard(all_runs: list[Run]) -> None:
                                "source and asks each choice before anything is created.", title="Welcome", border_style="blue"))
     else:
         grid = Table(box=box.SIMPLE, expand=True, show_edge=False)
-        for name, style in (("Run", "bold"), ("Project", None), ("Status", None), ("Stage", None), ("Claude", None), ("Started", "dim"), ("AWS resources", None)):
+        for name, style in (("Run", "bold"), ("Project", None), ("Status", None), ("Stage", None), ("Claude", None), ("Reconcile", None), ("Started", "dim"),
+                            ("AWS resources", None)):
             grid.add_column(name, style=style, overflow="fold")
         for run in all_runs[:SHOWN]:
             status = str(run.state.get("status") or "")
@@ -118,6 +129,7 @@ def dashboard(all_runs: list[Run]) -> None:
                          str(run.state.get("stage") or ""),
                          Text(str((run.state.get("claude") or {}).get("status") or "–").replace("REQUESTED", "after AWS"),
                               style=STATUS_STYLE.get(str((run.state.get("claude") or {}).get("status")), "dim")),
+                         Text(str((run.state.get("reconcile") or {}).get("status") or "–"), style=STATUS_STYLE.get(str((run.state.get("reconcile") or {}).get("status")), "dim")),
                          _when(run.state.get("started_at")),
                          Text(run.resources, style={"in place": "yellow", "removed": "dim"}.get(run.resources, "dim")))
         ui.console.print(grid)

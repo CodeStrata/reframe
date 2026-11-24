@@ -144,5 +144,24 @@ class RetrieveAndReportTest(unittest.TestCase):
         self.assertNotIn("<script>", build.render_markdown("# T\n\n<script>alert(1)</script>"))
 
 
+
+class PageScriptTest(unittest.TestCase):
+    def test_the_pages_scripts_parse(self):
+        import re
+        import shutil
+        import subprocess
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not installed")
+        from reframe.report import compare
+        for name, page in (("template.html", build.TEMPLATE), ("compare.html", compare.TEMPLATE)):
+            for n, script in enumerate(re.findall(r"<script>\n(.*?)</script>", page, re.S)):
+                with tempfile.NamedTemporaryFile("w", suffix=".js") as f:
+                    f.write(script)
+                    f.flush()
+                    checked = subprocess.run([node, "--check", f.name], capture_output=True, text=True)
+                self.assertEqual(checked.returncode, 0, f"{name} script {n}: {checked.stderr[-500:]}")
+
+
 if __name__ == "__main__":
     unittest.main()

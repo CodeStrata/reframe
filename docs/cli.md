@@ -8,7 +8,7 @@ Every command, its options and examples, as `reframe --help` and `reframe <comma
 
 ![The reframe home screen: the runs table, the suggested next step and the numbered menu](images/cli-home.svg)
 
-*The home screen with one example run that has finished both pipelines.*
+*The home screen with one example run that has finished all three pipelines.*
 
 | # | Menu entry | Runs |
 |---|---|---|
@@ -19,12 +19,14 @@ Every command, its options and examples, as `reframe --help` and `reframe <comma
 | 5 | Open the business review | `reframe report --open` |
 | 6 | Assess with Claude (pipeline 2) | `reframe claude` |
 | 7 | Open the comparison | `reframe compare --open` |
-| 8 | Publish a run's reports to AWS | `reframe publish --to aws` |
-| 9 | Published reports | `reframe reports` |
-| 10 | Event log | `reframe events` |
-| 11 | Tear down a run | `reframe teardown` |
-| 12 | Set up prerequisites and sign-in | `reframe setup` |
-| 13 | Help | `reframe --help` |
+| 8 | Reconcile the two assessments (pipeline 3) | `reframe reconcile` |
+| 9 | Open the reconciliation | `reframe reconcile --open` |
+| 10 | Publish a run's reports to AWS | `reframe publish --to aws` |
+| 11 | Published reports | `reframe reports` |
+| 12 | Event log | `reframe events` |
+| 13 | Tear down a run | `reframe teardown` |
+| 14 | Set up prerequisites and sign-in | `reframe setup` |
+| 15 | Help | `reframe --help` |
 | 0 | Exit | |
 
 ## `reframe --help`
@@ -180,7 +182,7 @@ reframe claude --max-agents 650  # a higher agent limit, so a larger estimate do
 
 ### `reframe reconcile`
 
-Pipeline 3: decide every rule the two assessments do not agree on against the source code, with evidence Reframe checks; needs both pipelines done, and no AWS resources.
+Pipeline 3: decide every rule the two assessments do not agree on against the source code, with evidence Reframe checks, then write recommended requirements, one SME list and the reconciliation page; needs both pipelines done, and no AWS resources.
 
 | Option | What it does |
 |---|---|
@@ -189,11 +191,13 @@ Pipeline 3: decide every rule the two assessments do not agree on against the so
 | `--auth subscription\|bedrock` | how Claude signs in (default: as for pipeline 2) |
 | `--max-batches <max_batches>` | the limit for the decisions; Reframe stops and asks above it (default: 120) |
 | `--foreground` | run in this terminal instead of a background worker |
+| `--open` | open the reconciliation page instead of running |
 
 ```bash
 reframe reconcile                               # pipeline 3 on the latest run: Reframe shows the estimate and stops above the batch limit
 reframe reconcile --context ~/carddemo-context  # with documents, review exports and answered questions
 reframe reconcile --max-batches 120             # go ahead with a larger estimate
+reframe reconcile --open                        # open the reconciliation page
 ```
 
 ### `reframe compare`
