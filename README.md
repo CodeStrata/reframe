@@ -368,7 +368,7 @@ Next, in [docs/plan.md](docs/plan.md):
 
 - **Final requirements** (planned as pipeline 4) produces the final requirements, business rules and wireframes from the reconciliation and the reviews.
 
-Earlier work stays in the repository's history: the build before this rebuild ends at commit `000b816`, and the first release is tagged `v0.3.0`.
+Earlier work stays in the repository's history: the build before this rebuild ends at commit `000b816`, and releases are tagged on `main`: `v0.3.0`, the first, and `v0.4.0`, the three pipelines (AWS Transform assessment, Claude assessment and reconciliation).
 
 ## License
 
