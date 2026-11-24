@@ -28,6 +28,8 @@ MENU = [  # (title, needs a run, the command line)
     ("Open the business review", True, ["report", "--open"]),
     ("Assess with Claude (pipeline 2)", True, ["claude"]),
     ("Open the comparison", True, ["compare", "--open"]),
+    ("Publish a run's reports to AWS", True, ["publish", "--to", "aws"]),
+    ("Published reports", False, ["reports"]),
     ("Event log", True, ["events"]),
     ("Tear down a run", True, ["teardown"]),
     ("Set up prerequisites and sign-in", False, ["setup"]),
@@ -70,27 +72,32 @@ def _when(value: Any) -> str:
     return text[:16].replace("T", " ") + " UTC" if text.endswith("Z") else text
 
 
+def number(command: str) -> int:
+    """The menu number of a command, so the suggested next step stays right when the menu changes."""
+    return next(n for n, (_, _, argv) in enumerate(MENU, 1) if argv[0] == command)
+
+
 def next_step(latest: Run | None) -> str:
     from reframe.core.commands import NEXT
     if latest is None:
-        return "choose 1 to start a guided run"
+        return f"choose {number('run')} to start a guided run"
     status = str(latest.state.get("status"))
     if latest.working:
-        return f"run {latest.id} is working; choose 2 to see where it is"
+        return f"run {latest.id} is working; choose {number('status')} to see where it is"
     if latest.state.get("torn_down"):
-        return "choose 1 to start another run"
+        return f"choose {number('run')} to start another run"
     claude = latest.state.get("claude") or {}
     if status == "DONE" and claude.get("status") == "DONE":
-        return f"choose 7 to open the comparison of run {latest.id}; choose 9 to remove its AWS resources"
+        return f"choose {number('compare')} to open the comparison of run {latest.id}; choose {number('teardown')} to remove its AWS resources"
     if status == "DONE" and claude.get("status") in ("RUNNING", "REQUESTED"):
-        return f"run {latest.id} is done with AWS Transform; the Claude assessment follows (choose 2 to see where it is)"
+        return f"run {latest.id} is done with AWS Transform; the Claude assessment follows (choose {number('status')} to see where it is)"
     if status == "DONE" and claude.get("status"):
-        return f"pipeline 2 stopped ({claude.get('status')}): choose 2 for the reason; choose 4 to resume"
+        return f"pipeline 2 stopped ({claude.get('status')}): choose {number('status')} for the reason; choose {number('resume')} to resume"
     if status == "DONE":
-        return (f"choose 5 to open the business review of run {latest.id}; choose 6 to assess the same snapshot with Claude; "
-                "choose 9 to remove its AWS resources")
+        return (f"choose {number('report')} to open the business review of run {latest.id}; choose {number('claude')} to assess the same snapshot "
+                f"with Claude; choose {number('teardown')} to remove its AWS resources")
     hint = NEXT.get(status)
-    return hint.format(profile=latest.state.get("profile")) if hint else "choose 2 to see where the latest run is"
+    return hint.format(profile=latest.state.get("profile")) if hint else f"choose {number('status')} to see where the latest run is"
 
 
 def dashboard(all_runs: list[Run]) -> None:
@@ -125,7 +132,7 @@ def menu() -> None:
     grid = Table.grid(expand=True, padding=(0, 2))
     grid.add_column()
     grid.add_column()
-    entries = [f"{n}  {title}" for n, (title, _, _) in enumerate(MENU, 1)] + ["0  Exit"]
+    entries = [f"{n:>2}  {title}" for n, (title, _, _) in enumerate(MENU, 1)] + [" 0  Exit"]
     half = (len(entries) + 1) // 2
     for left, right in zip(entries[:half], entries[half:] + [""]):
         grid.add_row(Text(left), Text(right))
@@ -135,13 +142,13 @@ def menu() -> None:
 
 def pick(all_runs: list[Run]) -> Run | None:
     if not all_runs:
-        ui.warn("There is no run yet; choose 1 to start one.")
+        ui.warn(f"There is no run yet; choose {number('run')} to start one.")
         return None
     if len(all_runs) == 1:
         return all_runs[0]
     shown = all_runs[:SHOWN]
-    number = ui.choose("Which run?", [(f"{r.id}  {r.state.get('project')}", f"{r.state.get('status')} · {r.state.get('stage')}") for r in shown])
-    return shown[number - 1]
+    chosen = ui.choose("Which run?", [(f"{r.id}  {r.state.get('project')}", f"{r.state.get('status')} · {r.state.get('stage')}") for r in shown])
+    return shown[chosen - 1]
 
 
 def main() -> int:

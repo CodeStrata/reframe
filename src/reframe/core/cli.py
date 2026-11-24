@@ -102,7 +102,8 @@ def parser() -> argparse.ArgumentParser:
     publish.add_argument("--region", help="for --to aws: the AWS region (default: the saved one, then us-east-1)")
 
     reports = command("reports", "The reports published to your AWS account: list them, open one with your AWS sign-in, or remove the bucket")
-    reports.add_argument("action", nargs="?", choices=("list", "open", "teardown"), default="list")
+    reports.add_argument("action", nargs="?", choices=("list", "open", "teardown"), default="list",
+                         help="list (the default): what is published; open: download one and open it; teardown: remove the bucket")
     reports.add_argument("path", nargs="?", help="for open: <project>/<run>, as reframe reports lists it")
     reports.add_argument("--profile", help="the AWS profile (default: the one saved by reframe setup)")
     reports.add_argument("--region", help="the AWS region (default: the saved one, then us-east-1)")

@@ -56,3 +56,5 @@ Reframe creates it the first time a report is uploaded, from a plan checked to o
 | `reframe reports teardown` | Lists the bucket and how many objects it holds from the store's own records, asks for `yes`, and removes the bucket with its contents. |
 
 **Who can open them (S-04).** Only someone whose AWS sign-in may read the bucket: `s3:ListBucket` and `s3:GetObject` on it. That is anyone the account already trusts with S3 reads, and no one else. Readers can also download a report from the S3 console. Nothing is reachable without signing in to the account.
+
+**Tried and dropped.** A link that opens a report in the browser after the AWS sign-in, so a reader needs no Reframe and no download, was built (S-05 to S-08) and dropped by the owner on 23 November 2026. It needed the organization's IAM Identity Center administrator to add an application by hand, and added CloudFront, a Cognito user pool and an edge function to the account. The reports stay in the bucket, opened as above.
