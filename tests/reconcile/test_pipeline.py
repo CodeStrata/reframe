@@ -40,6 +40,25 @@ class PipelineTest(InputsTest):
         self.assertEqual(len(self.folder.load("reconcile/agreed.json")), 1)
         self.assertEqual(pipeline.request(self.folder)["round"], 2)  # a finished round: the next request is a new one
 
+    def test_running_again_with_one_more_answer_decides_only_the_rules_it_names(self):
+        self.data = inputs([pair("a1", "c1", "same"), pair("a2", "c2", "overlapping", "PROG1")], extra=[("a9", "aws", "PROG2")])
+        context = self.folder.root.parent / "context"
+        context.mkdir()
+        pipeline.request(self.folder, context=str(context), max_batches=5)
+        first = self.fake(good, good)
+        pipeline.work(self.folder, claude=first, claude_check=lambda: Report(True))
+        self.assertEqual(sorted(k for call in first.calls for k in call[1]), ["aws:a9", "group:c2"])
+        (context / "questions.csv").write_text("id,question,rules,answer\nSME-001,Is it so?,a9,Yes: always\n")
+        pipeline.request(self.folder)
+        second = self.fake(good)
+        pipeline.work(self.folder, claude=second, claude_check=lambda: Report(True))
+        self.assertEqual([call[1] for call in second.calls], [["aws:a9"]])
+        rec = self.folder.state["reconcile"]
+        self.assertEqual((rec["round"], rec["last"]["decided"], rec["last"]["kept_from_before"]), (2, 1, 1))
+        kept = self.folder.load("reconcile/decisions.json")
+        self.assertEqual((kept["aws:a9"]["round"], kept["group:c2"]["round"]), (2, 1))
+        self.assertIn("SME-001", (self.folder.root / "claude" / "analysis" / "demo" / "reframe" / "reconcile" / "reconcile-r2-b1-answers.json").read_text())
+
     def test_above_the_batch_limit_it_stops_and_says_how_to_go_ahead(self):
         pipeline.request(self.folder, max_batches=0)
         with self.assertRaisesRegex(Stop, r"reframe reconcile --max-batches 1"):

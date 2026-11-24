@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from collections import defaultdict
 from typing import Any
 
@@ -22,6 +23,26 @@ PARALLEL = 4           # batches run at once
 MINUTES_PER_BATCH = (1, 3)
 USD_PER_BATCH = (0.5, 1.15)
 CHANGE_MARKS = ("change", "question")
+RECONCILED = "rec/"   # the keys of recommended rules on the reconciliation page: rec/<unit>/<n>
+
+
+def reconciled_key(unit: str, n: int) -> str:
+    return f"{RECONCILED}{unit}/{n}"
+
+
+def named_rules(answer: dict[str, Any]) -> list[str]:
+    """The rule keys an answered question names in its "rules" column (the SME list writes them), split on spaces,
+    commas or semicolons."""
+    value = answer.get("rules") or ""
+    items = value if isinstance(value, list) else re.split(r"[\s,;]+", str(value))
+    return [str(k).strip() for k in items if str(k).strip()]
+
+
+def answers_for(members: list[str], answers: list[dict[str, Any]], known: set[str]) -> list[dict[str, Any]]:
+    """The answered questions a unit is given: those naming one of its rules, and those naming no rule Reframe knows,
+    which every unit is given (docs/pipeline-3.md, stage R4, Running again)."""
+    mine = set(members)
+    return [a for a in answers if not (set(named_rules(a)) & known) or set(named_rules(a)) & mine]
 
 
 def groups(pairs: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -58,16 +79,19 @@ def _hash(value: Any) -> str:
 
 
 def units(inputs: dict[str, Any]) -> list[dict[str, Any]]:
-    """R3: every group not agreed, and every rule in no pair. Each unit carries a hash of its inputs, so a later run keeps
-    the decisions of units whose inputs did not change."""
+    """R3: every group not agreed, and every rule in no pair. Each unit carries a hash of what it is given: its rules,
+    their marks, the documents and the answered questions that bear on it. A later run keeps the decisions of units
+    whose hash did not change, so one more answer redoes only the units whose rules it names."""
     rules, marks, ctx = inputs["rules"], inputs["context"]["marks"], inputs["context"]
-    background = _hash({"documents": ctx["documents"], "answers": ctx["answers"]})
+    background = _hash({"documents": ctx["documents"]})
+    known = set(rules)
     found = []
 
     def unit(key: str, kind: str, members: list[str], pairs: list[dict[str, Any]]) -> dict[str, Any]:
         content = {"kind": kind, "rules": [rules[k] for k in members],
                    "pairs": [{"aws": p["aws"], "claude": p["claude"], "relation": p["relation"], "reason": p.get("reason", "")} for p in pairs],
-                   "marks": {k: marks[k] for k in members if k in marks}}
+                   "marks": {k: marks[k] for k in members if k in marks},
+                   "answers": answers_for(members, ctx.get("answers") or [], known)}
         program = rules[members[0]]["program"] or next((rules[k]["program"] for k in members if rules[k]["program"]), "")
         return {"key": key, "program": program, **content, "hash": _hash([content, background])}
 

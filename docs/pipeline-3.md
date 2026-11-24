@@ -107,7 +107,13 @@ One headless Claude step per batch, with Reframe's prompt and a JSON schema for 
 
 An answer that fails is asked once more with the reason; if it still fails, the unit becomes `needs_sme`, counted and shown as such.
 
-**Running again.** Each decision is stored with a hash of its inputs: the rules, their marks, and the context and answers it was given. On another `reframe reconcile`, a batch whose items' inputs are unchanged keeps its decisions; only the rest are decided again. The page shows which round decided each rule.
+**Running again.** Each decision is stored with a hash of its inputs: the rules, their marks, and the context and answers it was given. On another `reframe reconcile`, a unit whose inputs are unchanged keeps its decision; only the rest are decided again. The page shows which round decided each rule.
+
+What a unit is given is narrowed so that new context redoes only what it bears on:
+
+- an answered question that names rules (the SME list's `rules` column) is given only to the units holding those rules; one that names no rule Reframe knows is given to every unit;
+- a review mark is given to the unit holding its rule. A mark made on the reconciliation page is on a recommended rule, so it goes to every input rule that rule covers; a *Needs change* or *Question* mark on a rule agreed by both tools sends its group to an agent;
+- documents are given to every unit, so a new or changed document redoes them all.
 
 ### Stage R5: one SME list
 

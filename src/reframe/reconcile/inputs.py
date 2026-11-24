@@ -210,6 +210,30 @@ def context(folder: RunFolder, source: Path | None, target: Path) -> dict[str, A
     return found
 
 
+def recommended_covers(folder: RunFolder) -> dict[str, list[str]]:
+    """Each recommended rule's key on the reconciliation page (rec/<unit>/<n>) -> the input rules it covers, from the
+    last round's decisions and agreed rules."""
+    from reframe.reconcile.units import reconciled_key
+    found = {reconciled_key(r["key"], 1): list(r.get("covers") or []) for r in folder.load("reconcile/agreed.json", []) or []}
+    for unit, d in (folder.load("reconcile/decisions.json", {}) or {}).items():
+        for n, r in enumerate(d.get("rules") or [], 1):
+            found[reconciled_key(unit, n)] = list(r.get("covers") or [])
+    return found
+
+
+def expand_marks(marks: dict[str, Any], covers: dict[str, list[str]]) -> dict[str, Any]:
+    """A mark made on the reconciliation page is on a recommended rule; it goes to every input rule that rule covers, so
+    the next round decides that unit again. A mark made in a tool's own review stays on its rule."""
+    found = {k: v for k, v in marks.items() if k not in covers}
+    for key, mark in marks.items():
+        for rule in covers.get(key, []):
+            if rule in found and found[rule]["status"] != "agree":
+                found[rule] = {**found[rule], "comment": (found[rule].get("comment", "") + "\n" + mark.get("comment", "")).strip()}
+            else:
+                found[rule] = {**mark, "on": key}
+    return found
+
+
 # ---- R1: everything, saved ---------------------------------------------------------------------------------------------
 
 def gather(folder: RunFolder, context_folder: Path | None) -> dict[str, Any]:
@@ -219,6 +243,7 @@ def gather(folder: RunFolder, context_folder: Path | None) -> dict[str, Any]:
     all_rules = rules(folder)
     pairs = [p for p in pairing.get("pairs") or [] if p.get("aws") in all_rules and p.get("claude") in all_rules]
     read = context(folder, context_folder, places["analysis"] / "reframe" / "reconcile" / "context")
+    read["marks"] = expand_marks(read["marks"], recommended_covers(folder))
     gathered = {"at": iso(), "rules": all_rules, "pairs": pairs, "questions": questions(folder), "context": read,
                 "source_sha256": (folder.load("snapshot.json") or {}).get("sha256")}
     gathered["digest"] = hashlib.sha256(json.dumps({k: v for k, v in gathered.items() if k != "at"}, sort_keys=True).encode()).hexdigest()

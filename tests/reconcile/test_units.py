@@ -61,7 +61,31 @@ class UnitsTest(unittest.TestCase):
         self.assertEqual(before["group:c2"], after["group:c2"])
         self.assertNotEqual(before["aws:a9"], after["aws:a9"])
         data["context"]["answers"].append({"id": "Q-1", "answer": "yes"})
-        self.assertNotEqual(after["group:c2"], units.units(data)[0]["hash"])  # context reaches every unit (P3-06 narrows it)
+        self.assertNotEqual(after["group:c2"], units.units(data)[0]["hash"])  # an answer naming no known rule reaches every unit
+
+    def test_an_answer_naming_rules_changes_only_their_units(self):
+        data = inputs([pair("a2", "c2", "overlapping")], extra=[("a9", "aws", "PROG2"), ("c9", "claude", "PROG3")])
+        before = {u["key"]: u["hash"] for u in units.units(data)}
+        data["context"]["answers"].append({"id": "SME-001", "rules": "a9; c9", "answer": "yes"})
+        after = {u["key"]: u for u in units.units(data)}
+        self.assertEqual(before["group:c2"], after["group:c2"]["hash"])
+        self.assertNotEqual(before["aws:a9"], after["aws:a9"]["hash"])
+        self.assertNotEqual(before["claude:c9"], after["claude:c9"]["hash"])
+        self.assertEqual([a["id"] for a in after["aws:a9"]["answers"]], ["SME-001"])
+        self.assertEqual(after["group:c2"]["answers"], [])
+
+    def test_a_mark_on_a_recommended_rule_goes_to_the_rules_it_covers(self):
+        from reframe.reconcile.inputs import expand_marks
+        covers = {"rec/group:c2/1": ["c2", "a2"], "rec/aws:a9/1": ["a9"]}
+        marks = {"rec/group:c2/1": {"status": "change", "comment": "wrong limit"}, "rec/aws:a9/1": {"status": "agree", "comment": ""},
+                 "a2": {"status": "question", "comment": "why?"}}
+        found = expand_marks(marks, covers)
+        self.assertEqual(found["c2"]["status"], "change")
+        self.assertEqual(found["a2"]["comment"], "why?\nwrong limit")  # a mark already on the rule keeps it, with both comments
+        self.assertEqual(found["a9"]["status"], "agree")
+        self.assertNotIn("rec/group:c2/1", found)
+        data = inputs([pair("a2", "c2", "same")], marks=found)
+        self.assertEqual(units.agreed(data), [])  # a Needs change mark on an agreed rule sends its group to an agent
 
 
 class BatchesTest(unittest.TestCase):
