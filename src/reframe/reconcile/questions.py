@@ -62,7 +62,7 @@ def originals(gathered: dict[str, Any], found: list[dict[str, Any]], kept: dict[
     rules = gathered["rules"]
     asked = []
     for q in gathered.get("questions") or []:
-        asked.append({"key": f"{q['tool']}:{q['key']}", "tool": q["tool"], "code": q.get("code") or "", "text": q.get("text", ""),
+        asked.append({"key": f"{q['tool']}:{q['key']}", "key_in_tool": q["key"], "tool": q["tool"], "code": q.get("code") or "", "text": q.get("text", ""),
                       "owner": q.get("owner") or "", "rules": list(q.get("rules") or [])})
     defects = []
     for u in found:
@@ -189,14 +189,23 @@ def merge_batch(folder: RunFolder, claude, places: dict[str, Any], name: str, ba
 
 # ---- the person's answers ---------------------------------------------------------------------------------------------
 
-def answered_by(question: dict[str, Any], answers: list[dict[str, Any]], previous: dict[str, list[str]]) -> dict[str, Any] | None:
+def answered_by(question: dict[str, Any], answers: list[dict[str, Any]], previous: dict[str, list[str]],
+                originals: dict[str, dict[str, Any]] | None = None) -> dict[str, Any] | None:
     """The person's answer to a merged question: an answered row naming one of its originals (the list's originals
-    column), or whose id was a question of the previous list with one of its originals."""
+    column), whose id was a question of the previous list with one of its originals, or whose id is one original's own
+    key, or its code (OQ-008) together with one of the rules it holds up: a tool's codes repeat from one business
+    function to the next, so a code alone does not say which question it is."""
     mine = set(question["originals"])
+    originals = originals or {}
     for a in answers:
         named = set(str(a.get("originals") or "").split()) | set(previous.get(str(a.get("id") or ""), []))
         if named & mine:
             return a
+        given, rules = str(a.get("id") or "").strip(), set(named_rules(a))
+        for key in mine:
+            q = originals.get(key) or {}
+            if given and (given in (key, q.get("key_in_tool")) or (given == q.get("code") and rules & set(q.get("rules") or []))):
+                return a
     return None
 
 
@@ -257,7 +266,7 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
     for q in listed:
         numbers[q["kind"]] += 1
         q["id"] = f"{'SME' if q['kind'] == 'question' else 'DEF'}-{numbers[q['kind']]:03d}"
-        given = answered_by(q, answers, previous)
+        given = answered_by(q, answers, previous, by_key)
         q["answer"] = (given or {}).get("answer", "")
         q["answered_in"] = (given or {}).get("file", "")
         q["status"] = "answered" if given else "settled" if q["settled_by"] else "open"

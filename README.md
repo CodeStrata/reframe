@@ -269,6 +269,35 @@ Both results are model output, and the page says so.
 
 `reframe teardown` also removes pipeline 2's loader function. It waits until AWS has released the function's network interfaces, about 20 minutes, before it deletes the network.
 
+## Pipeline 3: reconciling the two assessments
+
+When both pipelines are done, `reframe reconcile` turns the two assessments into one recommended set, deciding against the source code whatever the two tools do not describe the same way ([docs/pipeline-3.md](docs/pipeline-3.md)). It needs no AWS resources, so it works after `reframe teardown`, and it runs on your Claude sign-in, as pipeline 2 does.
+
+```bash
+reframe reconcile --context ~/carddemo-context   # gathers everything, shows the estimate, and stops above the batch limit
+reframe reconcile --max-batches 113              # go ahead with the estimate it showed
+reframe status                                   # progress, the decisions, the SME list and the requirements
+reframe reconcile --open                         # the reconciliation page
+```
+
+**Your context folder** is optional and holds three kinds of file, read by kind:
+
+- **Documents:** Markdown, text, PDF or Word, for example a glossary or a process description. They are given to every decision.
+- **Review exports:** the JSON files you download from the business reviews (*Your review*, *Download as JSON*). A *Needs change* or *Question* mark sends its rule to an agent with your comment; an export of another snapshot is ignored and reported.
+- **Answered questions:** the SME list with its `answer` column filled in, as CSV or JSON.
+
+**What it does:**
+
+1. Rules both tools describe the same way are agreed without an agent.
+2. Every other rule is decided by a headless Claude step that reads the source code: overlapping and conflicting rules merged into the rules the code supports, rules only one tool found kept or rejected, and what the code cannot settle turned into a question. Reframe checks every answer: each cited line exists in the snapshot, and every input rule is covered. A failed answer is asked once more, then becomes a question.
+3. Both tools' open questions and its own are merged into **one SME list**, `reconcile/questions.csv` in the run folder, with the possible defects found in the code.
+4. **Recommended requirements** are written from the recommended rules, in AWS Transform's domains and business functions.
+5. The **reconciliation page** shows each recommended rule with how it was decided, both tools' originals side by side and the cited source lines; the requirements; and the SME list. The other three pages link to it, and `reframe publish` includes it as `reconciled/`.
+
+**Running it again.** Fill in the SME list's `answer` column, put the file in your context folder, and run `reframe reconcile` again. Only the rules an answer or a review mark bears on are decided again; the rest keep their decisions, and the page shows which round decided each rule.
+
+**On CardDemo** (run fa1f61, 24 November 2026), the estimate was 113 batches, 29 to 87 minutes and $56 to $130 at API prices. The run used about $67 at API prices. It decided 431 units with evidence that all exists in the snapshot and covered all 1,111 input rules. It wrote 1,204 recommended rules, 1,153 requirements and an SME list of 313 questions (from 349) with 187 possible defects. Run again with one more answered question, it decided 5 units again in 2 batches and kept 426. On the Claude subscription a full run can reach the five-hour usage limit; it stops with the reason, and `reframe resume` continues where it stopped.
+
 ## Sharing the reports
 
 ```bash
@@ -322,7 +351,8 @@ reframe reports download carddemo --to ~/reframe-reports/carddemo
 | `src/reframe/infrastructure/` | The Terraform roots and modules, the Neptune cluster checks and the network clean-up |
 | `src/reframe/transform/` | AWS Transform: the MCP client, the workspace and connector, the job driver, answering questions, retrieval |
 | `src/reframe/claude/` | Pipeline 2: the pinned plugin, running Claude Code headless, the workspace, the plugin's steps, retrieval, the generated requirements and the graph load |
-| `src/reframe/report/` | The business review reports and the comparison page |
+| `src/reframe/reconcile/` | Pipeline 3: the inputs and context folder, the agreed rules, units and batches, the decisions against the source, the SME list and the recommended requirements |
+| `src/reframe/report/` | The business review reports, the comparison page, the reconciliation page and `reframe publish` |
 | `tests/` | Offline tests for each folder above; they run on every pull request |
 
 Run the tests from a checkout:
@@ -333,9 +363,8 @@ python -m unittest discover -s tests -t .
 
 ## Next
 
-Pipelines 3 and 4 come next, in [docs/plan.md](docs/plan.md):
+Pipeline 4 comes next, in [docs/plan.md](docs/plan.md):
 
-- **Pipeline 3** reconciles the two assessments against the source code ([docs/pipeline-3.md](docs/pipeline-3.md)). `reframe reconcile` checks the run, gathers both tools' rules and your context folder, agrees what both describe the same way, shows the estimate, decides every other rule against the source with evidence Reframe checks, merges both tools' open questions into one SME list (`reconcile/questions.csv`, to answer and give back), writes recommended requirements in AWS Transform's frame, and builds the reconciliation page (`reframe reconcile --open`), which `reframe publish` includes. Running it again with answers or review marks decides again only the rules they bear on. Its live acceptance on CardDemo is the next story.
 - **Pipeline 4** produces the final requirements, business rules and wireframes.
 
 Earlier work stays in the repository's history: the build before this rebuild ends at commit `000b816`, and the first release is tagged `v0.3.0`.

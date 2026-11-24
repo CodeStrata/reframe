@@ -95,6 +95,14 @@ class QuestionsTest(InputsTest):
         again = next(q for q in listed if q["question"] == "What is the card limit?")
         self.assertEqual((again["status"], again["answer"], again["answered_in"]), ("answered", "The limit on the account record", "questions.csv"))
 
+    def test_an_answer_naming_the_tools_code_and_a_rule_is_matched(self):
+        self.gathered["questions"].append(asked("aws", "g/OQ-001", "Another function's first question", ["a9"]))  # the same code elsewhere
+        self.gathered["context"]["answers"] = [{"id": "OQ-001", "rules": "a1", "answer": "The account's limit", "file": "answers.csv"}]
+        listed = questions.build(self.folder, self.fake(), self.gathered, self.found, self.kept)["questions"]
+        status = {q["question"]: q["status"] for q in listed if q["kind"] == "question"}
+        self.assertEqual(status["What is the card limit?"], "answered")
+        self.assertEqual(status["Another function's first question"], "open")  # the same code, but none of its rules
+
     def test_the_usage_limit_stops_it(self):
         with self.assertRaisesRegex(Stop, "usage limit"):
             questions.build(self.folder, self.fake(sme=lambda data: "limit"), self.gathered, self.found, self.kept)
