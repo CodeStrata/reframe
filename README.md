@@ -10,7 +10,7 @@ The design is in [docs/specification.md](docs/specification.md) (pipeline 1) and
 
 ## How it works
 
-![How a Reframe run works: start and snapshot, the AWS resources, then pipeline 1 (AWS Transform) and pipeline 2 (Claude) side by side on the same snapshot, the reports with the comparison, sharing, and teardown only on request; you sign in, answer questions or set Claude's agent limit, review and compare, and consent to teardown](docs/images/reframe.svg)
+![How a Reframe run works: start and snapshot, the AWS resources, then pipeline 1 (AWS Transform) and pipeline 2 (Claude) side by side on the same snapshot, the reports with the comparison, pipeline 3 reconciling the two against the source code (agree, decide against the code, one SME list, requirements and the page), sharing, and teardown only on request; you sign in, answer questions or set Claude's agent limit, review and compare, give pipeline 3 your context and answers, and consent to teardown](docs/images/reframe.svg)
 
 | Step | What happens |
 |---|---|
@@ -19,10 +19,11 @@ The design is in [docs/specification.md](docs/specification.md) (pipeline 1) and
 | Pipeline 1: AWS Transform | The snapshot is uploaded, and Reframe drives the AWS Transform job to the end, answering its questions in autonomous mode, then downloads the requirements, business rules and assessment. |
 | Pipeline 2: Claude | Alongside AWS Transform, Claude's code-modernization plugin assesses the same snapshot. Reframe puts its results in AWS Transform's shape, with generated requirements, and loads Claude's graph into the same Neptune cluster. Optional, and offered by default. |
 | 3. Reports | AWS Transform's business review, Claude's business review in the same layout, and a page comparing the two. |
-| 4. Share | `reframe publish` makes a copy of the reports, cleaned of your account's identifiers, that anyone can open. |
-| 5. Teardown | Only when you run `reframe teardown`, after you consent to the full list. |
+| 4. Pipeline 3: reconcile | `reframe reconcile` turns the two assessments into one recommended set. Rules both tools describe the same way are agreed; Claude decides every other rule against the source code, with evidence Reframe checks; both tools' open questions become one SME list, with the possible defects found in the code; recommended requirements and the reconciliation page are written from the result. You can give it a context folder (documents, review marks, the answered SME list), and running it again redoes only what your answers bear on. It needs no AWS resources. |
+| 5. Share | `reframe publish` makes a copy of the reports, cleaned of your account's identifiers, that anyone can open; it includes the reconciliation. |
+| 6. Teardown | Only when you run `reframe teardown`, after you consent to the full list. |
 
-Every change and step is written down before it starts and confirmed after, so a run that stops (an expired sign-in, Claude's usage limit) continues with `reframe resume` without repeating anything. Pipeline 1 takes about an hour; pipeline 2 about two, alongside it. The stage-by-stage detail is in [docs/specification.md](docs/specification.md) and [docs/pipeline-2.md](docs/pipeline-2.md).
+Every change and step is written down before it starts and confirmed after, so a run that stops (an expired sign-in, Claude's usage limit) continues with `reframe resume` without repeating anything. Pipeline 1 takes about an hour; pipeline 2 about two, alongside it; pipeline 3 about half an hour to an hour and a half of decisions on CardDemo. The stage-by-stage detail is in [docs/specification.md](docs/specification.md), [docs/pipeline-2.md](docs/pipeline-2.md) and [docs/pipeline-3.md](docs/pipeline-3.md).
 
 ## What you need
 
