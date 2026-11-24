@@ -187,7 +187,8 @@ def reconcile(args) -> int:
         return 0
     settings = reconcile_pipeline.request(folder, context=context, auth=args.auth, max_batches=args.max_batches)
     ui.section(f"Run {folder.root.name} · pipeline 3 · reconcile, round {settings['round']}")
-    ui.hint(f"sign-in: {settings['auth']} · batch limit {settings['max_batches']}" + (f" · context: {context}" if context else " · no context folder"))
+    kept = settings.get("context")  # a context folder given before is kept when this request names none
+    ui.hint(f"sign-in: {settings['auth']} · batch limit {settings['max_batches']}" + (f" · context: {kept}" if kept else " · no context folder"))
     if args.foreground:
         return worker(type("Args", (), {"folder": str(folder.root), "task": "reconcile"})())
     pid = _start_worker(folder, "reconcile")
