@@ -335,7 +335,7 @@ python -m unittest discover -s tests -t .
 
 Pipelines 3 and 4 come next, in [docs/plan.md](docs/plan.md):
 
-- **Pipeline 3** reconciles the two assessments against the source code: specified in [docs/pipeline-3.md](docs/pipeline-3.md), not built yet.
+- **Pipeline 3** reconciles the two assessments against the source code ([docs/pipeline-3.md](docs/pipeline-3.md)). Built so far: `reframe reconcile` checks the run, gathers both tools' rules and your context folder, agrees what both describe the same way, shows the estimate, and decides every other rule against the source with evidence Reframe checks. The SME list, the recommended requirements and the reconciliation page come next.
 - **Pipeline 4** produces the final requirements, business rules and wireframes.
 
 Earlier work stays in the repository's history: the build before this rebuild ends at commit `000b816`, and the first release is tagged `v0.3.0`.

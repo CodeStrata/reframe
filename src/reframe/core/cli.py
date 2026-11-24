@@ -22,6 +22,7 @@ HANDLERS = {
     "report": "reframe.core.commands:report",
     "teardown": "reframe.core.commands:teardown",
     "claude": "reframe.core.commands:claude",
+    "reconcile": "reframe.core.commands:reconcile",
     "compare": "reframe.core.commands:compare",
     "publish": "reframe.core.commands:publish",
     "reports": "reframe.core.commands:reports",
@@ -90,6 +91,15 @@ def parser() -> argparse.ArgumentParser:
                         help="load Claude's graph into the cluster (default: yes on a graph the run created, no on an existing cluster)")
     claude.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
 
+    reconcile = command("reconcile", "Pipeline 3: decide every rule the two assessments do not agree on against the source code, with "
+                        "evidence Reframe checks; needs both pipelines done, and no AWS resources")
+    _run_option(reconcile)
+    reconcile.add_argument("--context", help="a folder of context: documents (Markdown, text, PDF, Word), review exports and answered questions")
+    reconcile.add_argument("--auth", choices=("subscription", "bedrock"), default=None,
+                           help="how Claude signs in (default: as for pipeline 2)")
+    reconcile.add_argument("--max-batches", type=int, default=None, help="the limit for the decisions; Reframe stops and asks above it (default: 120)")
+    reconcile.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
+
     compare = command("compare", "Build the page comparing AWS Transform's and Claude's results again")
     _run_option(compare)
     compare.add_argument("--open", action="store_true", help="open the page in the browser")
@@ -116,7 +126,7 @@ def parser() -> argparse.ArgumentParser:
 
     worker = commands.add_parser("worker")  # internal: the background worker started by run, resume and teardown
     worker.add_argument("folder")
-    worker.add_argument("--task", choices=("run", "teardown", "claude"), default="run")
+    worker.add_argument("--task", choices=("run", "teardown", "claude", "reconcile"), default="run")
     return top
 
 
