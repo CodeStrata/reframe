@@ -147,10 +147,45 @@ def resume(args) -> int:
             new = start_claude_if_ready(folder)
             if new:
                 started.append(f"pipeline 2 (process {new})")
+    reconciling = state.get("reconcile") or {}
+    if reconciling.get("status") not in (None, Outcome.DONE.value):
+        pid = folder.worker_pid("reconcile")
+        if pid:
+            say(f"Run {folder.root.name}: pipeline 3 is already running (process {pid}).\n")
+        elif args.foreground:
+            return worker(type("Args", (), {"folder": str(folder.root), "task": "reconcile"})())
+        else:
+            started.append(f"pipeline 3 (process {_start_worker(folder, 'reconcile')})")
     if started:
         say(f"Run {folder.root.name} resumed in the background: {' and '.join(started)}. Follow it with reframe status.\n")
     elif state.get("status") == Outcome.DONE.value and not _claude_wanted(folder):
         say(f"Run {folder.root.name} is done. {state.get('message', '')}\n")
+    return 0
+
+
+def reconcile(args) -> int:
+    """Pipeline 3 on a run where both pipelines are done: record the request, then the worker runs stages R0 to R4."""
+    from reframe.core import ui
+    from reframe.reconcile import pipeline as reconcile_pipeline
+    try:
+        folder = find_run(args.run)
+        context = str(Path(args.context).expanduser().resolve()) if args.context else None
+        if context and not Path(context).is_dir():
+            raise Stop(Outcome.REFUSED, f"the context folder {args.context} does not exist")
+    except Stop as stop:
+        return _fail(stop)
+    pid = folder.worker_pid("reconcile")
+    if pid:
+        ui.ok(f"Run {folder.root.name}: pipeline 3 is already running (process {pid}).")
+        return 0
+    settings = reconcile_pipeline.request(folder, context=context, auth=args.auth, max_batches=args.max_batches)
+    ui.section(f"Run {folder.root.name} · pipeline 3 · reconcile, round {settings['round']}")
+    ui.hint(f"sign-in: {settings['auth']} · batch limit {settings['max_batches']}" + (f" · context: {context}" if context else " · no context folder"))
+    if args.foreground:
+        return worker(type("Args", (), {"folder": str(folder.root), "task": "reconcile"})())
+    pid = _start_worker(folder, "reconcile")
+    ui.panel(f"Pipeline 3 runs in the background (process {pid}). It needs no AWS resources.\n"
+             "Follow it:  reframe status   ·   reframe events --follow", "Started", "green")
     return 0
 
 
@@ -159,6 +194,8 @@ def worker(args) -> int:
     folder = RunFolder(Path(args.folder))
     ctx = pipeline.Context.load(folder)
     task = getattr(args, "task", "run")
+    if task == "reconcile":  # needs no AWS: the run's profile is not loaded
+        return _reconcile_work(folder)
     lock = "claude" if task == "claude" else "run"
     try:
         folder.lock(lock)
@@ -185,6 +222,30 @@ def worker(args) -> int:
         return _fail(stop)
     finally:
         folder.unlock(lock)
+
+
+def _reconcile_work(folder: RunFolder) -> int:
+    from reframe.reconcile import pipeline as reconcile_pipeline
+    try:
+        folder.lock("reconcile")
+    except Stop as stop:
+        return _fail(stop)
+    try:
+        folder.event("worker_started", pid=os.getpid(), task="reconcile")
+        outcome = reconcile_pipeline.work(folder)
+        say(f"pipeline 3 {outcome.value}: {(folder.state.get('reconcile') or {}).get('message', '')}\n")
+        return 0
+    except Stop as stop:
+        reconcile_pipeline.record_stop(folder, stop)
+        return _fail(stop)
+    except Exception as error:  # noqa: BLE001 - recorded so status can show it; the traceback is in worker.log
+        stop = Stop(Outcome.FAILED, f"{type(error).__name__}: {str(error)[:400]}")
+        reconcile_pipeline.record_stop(folder, stop)
+        import traceback
+        traceback.print_exc()
+        return _fail(stop)
+    finally:
+        folder.unlock("reconcile")
 
 
 def _claude_work(ctx) -> int:
@@ -389,6 +450,7 @@ def status(args) -> int:
         ui.state("Next", "open the report with reframe report --open; assess the same snapshot with Claude: reframe claude; "
                          "remove the AWS resources with reframe teardown", "bright_cyan")
     _claude_status(folder, state)
+    _reconcile_status(folder, state)
     if state.get("torn_down"):
         ui.ok(f"Torn down at {state['torn_down']}.")
     return 0
@@ -399,6 +461,31 @@ CLAUDE_NEXT = {Outcome.WAITING_SIGNIN.value: "sign in (claude auth login, or the
                Outcome.REFUSED.value: "fix what the message says, then reframe claude",
                Outcome.FAILED.value: "read the message and worker.log, then reframe resume",
                Outcome.UNCERTAIN.value: "run reframe resume; it settles the change from AWS's state"}
+
+
+def _reconcile_status(folder: RunFolder, state: dict[str, Any]) -> None:
+    from reframe.core import ui
+    rec = state.get("reconcile") or {}
+    if not rec:
+        return
+    ui.section("Pipeline 3 · reconcile")
+    status = str(rec.get("status"))
+    pid = folder.worker_pid("reconcile")
+    ui.state("Status", f"{status} · stage {rec.get('stage', 'not started')} · round {rec.get('round')}", STATUS_STYLE.get(status, "bold yellow"))
+    ui.hint(f"sign-in {rec.get('auth')} · batch limit {rec.get('max_batches')}" + (f" · context {rec['context']}" if rec.get("context") else "")
+            + (f" · worker running (process {pid})" if pid else ""))
+    if rec.get("estimate"):
+        e = rec["estimate"]
+        ui.state("Estimate", f"{e['batches']} batches for {sum(e['units'].values())} units; about {e['minutes_low']} to {e['minutes_high']} "
+                             f"minutes, ${e['usd_low']} to ${e['usd_high']} at API prices", "")
+    if rec.get("progress") and status == "RUNNING":
+        ui.state("Progress", f"{rec['progress']['batches_done']} of {rec['progress']['batches']} batches", "")
+    if rec.get("decisions"):
+        ui.state("Decisions", ", ".join(f"{k} {v}" for k, v in rec["decisions"].items()) + f"; possible defects {rec.get('defects', 0)}", "")
+    if rec.get("message"):
+        ui.say(rec["message"])
+    if status not in ("DONE", "RUNNING", "REQUESTED") and not pid:
+        ui.state("Next", "fix what the message says, then reframe resume (or reframe reconcile with what it asks for)", "bright_cyan")
 
 
 def _claude_status(folder: RunFolder, state: dict[str, Any]) -> None:

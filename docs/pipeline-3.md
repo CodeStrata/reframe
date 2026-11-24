@@ -37,7 +37,7 @@ Out of scope:
 
 | Command | What it does |
 |---|---|
-| `reframe reconcile [--run <id>] [--context <folder>] [--auth subscription\|bedrock] [--max-batches <n>]` | Runs stages R0 to R7 on a run, in a background worker. `--context` is the folder of human context (stage R1). `--max-batches` is the limit for stage R4 (default 120): Reframe stops and asks if its estimate is higher. |
+| `reframe reconcile [--run <id>] [--context <folder>] [--auth subscription\|bedrock] [--max-batches <n>] [--foreground]` | Runs stages R0 to R7 on a run, in a background worker. `--context` is the folder of human context (stage R1). `--max-batches` is the limit for stage R4 (default 120): Reframe stops and asks if its estimate is higher. |
 | `reframe reconcile --open` | Opens the reconciliation page. |
 
 Run it again, with more context or answered questions, and only the rules whose inputs changed are decided again (stage R4, *Running again*). `reframe status`, `events`, `resume` and `publish` cover pipeline 3; the home screen shows its status per run and gets a menu entry.
@@ -68,7 +68,7 @@ Reframe gathers, into `reconcile/inputs/`:
 
 ### Stage R2: identical pairs
 
-A pair the comparison marked `same` becomes one recommended rule without an agent: AWS Transform's text, citing both rules and both source citations, with the decision **agreed by both tools**. A *Needs change* or *Question* mark on either rule moves the pair to stage R4 instead.
+A group (stage R3) whose pairs the comparison all marked `same` becomes recommended rules without an agent: for each pair, AWS Transform's text, citing both rules and both tools' source citations, with the decision **agreed by both tools**. A *Needs change* or *Question* mark on any of its rules sends the group to stage R4 instead, and so does any pair in it that is not `same`: an identical pair whose Claude rule is also paired with other AWS rules is decided with its group. On fa1f61, 53 groups are agreed this way; the other 34 identical pairs are in groups with overlapping or conflicting pairs.
 
 ### Stage R3: estimate
 
@@ -79,7 +79,7 @@ The items left become **units of decision**:
 
 Units are batched by program, so a batch reads one program's code once: up to 12 input rules a batch, and programs with fewer than six packed together, up to three a batch. Reframe shows the units of each kind and the batches, and goes ahead only within `--max-batches`. Four batches run at once.
 
-On CardDemo: about 90 batches. A batch takes 1 to 3 minutes and about $0.50 to $1.15 at API prices (spike P3-01), so about an hour four at a time, and $50 to $100 at API prices. On the Claude subscription a run can reach the five-hour usage limit; it stops with the reason and `reframe resume` continues.
+On CardDemo (fa1f61): 160 groups and 270 one-sided rules, 1,011 input rules, in 113 batches. A batch takes 1 to 3 minutes and about $0.50 to $1.15 at API prices (spike P3-01), so 30 to 90 minutes four at a time, and $56 to $130 at API prices. On the Claude subscription a run can reach the five-hour usage limit; it stops with the reason and `reframe resume` continues.
 
 ### Stage R4: decisions against the source
 
@@ -160,7 +160,7 @@ Pipeline 3 is done when, from the CLI only, on CardDemo run fa1f61 (already torn
 
 - `reframe reconcile` with a context folder holding one document, one review export and one answered question runs to the end, within its estimate;
 - every recommended rule has a decision; every decision other than `needs_sme` has evidence that exists in the snapshot, and every input rule is covered, rejected or waiting for an SME;
-- the 87 identical pairs are agreed without an agent, and the 6 conflicts are each decided or turned into a question;
+- groups of identical pairs only are agreed without an agent, and the 6 conflicts are each decided or turned into a question;
 - the snapshot's SHA-256 is unchanged at the end;
 - the SME list holds every original open question exactly once, merged or not;
 - running it again with one more answered question decides only the affected rules again;

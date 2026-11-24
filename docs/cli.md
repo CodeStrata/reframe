@@ -178,6 +178,24 @@ reframe claude                   # start pipeline 2 on the latest run, now or as
 reframe claude --max-agents 650  # a higher agent limit, so a larger estimate does not stop to ask
 ```
 
+### `reframe reconcile`
+
+Pipeline 3: decide every rule the two assessments do not agree on against the source code, with evidence Reframe checks; needs both pipelines done, and no AWS resources.
+
+| Option | What it does |
+|---|---|
+| `--run <run>` | the run to act on (default: the latest run) |
+| `--context <context>` | a folder of context: documents (Markdown, text, PDF, Word), review exports and answered questions |
+| `--auth subscription\|bedrock` | how Claude signs in (default: as for pipeline 2) |
+| `--max-batches <max_batches>` | the limit for the decisions; Reframe stops and asks above it (default: 120) |
+| `--foreground` | run in this terminal instead of a background worker |
+
+```bash
+reframe reconcile                               # pipeline 3 on the latest run: Reframe shows the estimate and stops above the batch limit
+reframe reconcile --context ~/carddemo-context  # with documents, review exports and answered questions
+reframe reconcile --max-batches 120             # go ahead with a larger estimate
+```
+
 ### `reframe compare`
 
 Build the page comparing AWS Transform's and Claude's results again.
