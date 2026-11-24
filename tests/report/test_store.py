@@ -5,7 +5,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from reframe.report.store import Store
+from reframe.core.errors import NotSent, Stop
+from reframe.core.runfolder import RunFolder
+from reframe.report.store import TAGS, Store
 
 
 class FakeAws:
@@ -13,6 +15,8 @@ class FakeAws:
 
     def __init__(self):
         self.calls, self.objects = [], {}
+        self.buckets = {}  # name: tags, for finding the bucket from another computer
+        self.indexed = None  # names the tag index lists; None: denied
 
     def write(self, *args, timeout=0):
         self.calls.append(args)
@@ -29,6 +33,18 @@ class FakeAws:
             return [[k, "2026-11-23T00:00:00Z"] for k in self.objects if k.endswith("manifest.json")]
         if args[:2] == ("s3api", "get-object"):
             Path(args[-1]).write_bytes(self.objects[args[args.index("--key") + 1]])
+            return {}
+        if args[:2] == ("resourcegroupstaggingapi", "get-resources"):
+            if self.indexed is None:
+                raise NotSent("aws resourcegroupstaggingapi get-resources failed: AccessDeniedException")
+            return [f"arn:aws:s3:::{n}" for n in self.indexed]
+        if args[:2] == ("s3api", "list-buckets"):
+            return [n for n in self.buckets if n.startswith("reframe-reports-")]
+        if args[:2] == ("s3api", "get-bucket-tagging"):
+            return [{"Key": k, "Value": v} for k, v in self.buckets[args[3]].items()]
+        if args[:2] == ("s3api", "head-bucket"):
+            if args[3] not in self.buckets:
+                raise NotSent("aws s3api head-bucket failed: Not Found")
             return {}
         if args[:2] == ("s3api", "list-object-versions"):
             return len(self.objects)
@@ -116,6 +132,39 @@ class StoreTest(unittest.TestCase):
         self.store.upload(self.copy("def456"), "demo", "def456")
         self.assertEqual(len(FakeTerraform.applied), 2)
         self.assertNotEqual(FakeTerraform.applied[0], FakeTerraform.applied[1])
+
+
+    def reader(self):
+        """A store on another computer: the same account, no records of the bucket."""
+        other = Store(self.aws, folder=RunFolder(Path(self.tmp.name) / "other-computer"), terraform="terraform")
+        other.terraform = lambda: FakeTerraform(other)
+        return other
+
+    def test_another_computer_finds_the_bucket_by_its_tags(self):
+        self.store.upload(self.copy("abc123"), "demo", "abc123")
+        bucket = self.store.bucket
+        self.aws.buckets = {bucket: dict(TAGS), "reframe-reports-zzzzzzzz": {"ManagedBy": "someone-else"}}
+        self.aws.indexed = [bucket, "reframe-reports-deleted0"]  # the index still lists a deleted bucket
+        reader = self.reader()
+        self.assertIsNone(reader.bucket)  # no records on this computer
+        self.assertEqual([r["run"] for r in reader.reports()], ["abc123"])
+        self.assertEqual(reader.download("demo/abc123").read_text(), "<h1>index</h1>")
+        self.assertEqual(reader.inventory(), [])  # nothing to tear down from here: teardown goes by records only
+        self.assertEqual(len(FakeTerraform.applied), 1)
+
+    def test_without_the_tag_index_it_lists_buckets_and_reads_their_tags(self):
+        self.store.upload(self.copy("abc123"), "demo", "abc123")
+        self.aws.buckets = {self.store.bucket: dict(TAGS), "reframe-reports-zzzzzzzz": {"ManagedBy": "someone-else"}}
+        self.assertEqual(self.reader().reading_bucket(), self.store.bucket)
+
+    def test_two_buckets_or_none_are_refused(self):
+        self.aws.indexed = []
+        with self.assertRaisesRegex(Stop, "no Reframe reports bucket"):
+            self.reader().reports()
+        self.aws.buckets = {"reframe-reports-aaaaaaaa": dict(TAGS), "reframe-reports-bbbbbbbb": dict(TAGS)}
+        self.aws.indexed = list(self.aws.buckets)
+        with self.assertRaisesRegex(Stop, "more than one"):
+            self.reader().reports()
 
 
 if __name__ == "__main__":

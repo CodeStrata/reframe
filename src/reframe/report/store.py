@@ -18,11 +18,13 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
-from reframe.core.errors import Outcome, Stop
+from reframe.core.errors import NotSent, Outcome, Stop
 from reframe.core.runfolder import Changes, RunFolder, home, iso
-from reframe.core.shell import Aws
+from reframe.core.shell import Aws, SigninExpired
 
 ROOT = "reports"
+TAGS = {"ManagedBy": "reframe", "ReframeStore": "reports"}  # set on the bucket by the reports root's default tags
+PREFIX = "reframe-reports-"
 
 
 def store_folder() -> RunFolder:
@@ -54,6 +56,65 @@ class Store:
         receipt = self.changes.receipt("terraform-reports-apply")
         return (receipt or {}).get("outputs", {}).get("bucket")
 
+    def reading_bucket(self) -> str:
+        """The bucket to read reports from (S-09): this computer's own, from its records; on any other computer, the one
+        found by its Reframe tags with the reader's own AWS sign-in. Finding by tag is only for reading; teardown goes
+        by the records alone."""
+        if self.bucket:
+            return self.bucket
+        if getattr(self, "_found", None):
+            return self._found
+        found = self.discover()
+        if not found:
+            raise Stop(Outcome.REFUSED, f"there is no Reframe reports bucket in {self.aws.region} that your AWS sign-in can see; publish one "
+                                        "with reframe publish --to aws, or pass the region it is in with --region")
+        if len(found) > 1:
+            raise Stop(Outcome.REFUSED, f"there is more than one Reframe reports bucket in {self.aws.region} ({', '.join(found)}), so Reframe "
+                                        "will not guess which to read")
+        self._found = found[0]
+        return self._found
+
+    def discover(self) -> list[str]:
+        """The Reframe reports buckets in this region: by the tag index, or, without permission for it, by listing the buckets
+        named reframe-reports-… and reading their tags. The tag index can list a bucket for a while after it is deleted, so
+        each one is checked to exist."""
+        tags = [f"Key={k},Values={v}" for k, v in TAGS.items()]
+        try:
+            arns = self.aws.read("resourcegroupstaggingapi", "get-resources", "--resource-type-filters", "s3", "--tag-filters", *tags,
+                                 "--query", "ResourceTagMappingList[].ResourceARN")
+            names = [str(arn).rsplit(":", 1)[-1] for arn in arns or []]
+        except SigninExpired:
+            raise
+        except NotSent:
+            try:
+                listed = self.aws.read("s3api", "list-buckets", "--query", f"Buckets[?starts_with(Name, '{PREFIX}')].Name")
+            except SigninExpired:
+                raise
+            except NotSent:
+                raise Stop(Outcome.REFUSED, "your AWS sign-in can neither search the account's tags (tag:GetResources) nor list its buckets "
+                                            "(s3:ListAllMyBuckets), so Reframe cannot find the reports bucket; ask for one of these, with "
+                                            "s3:ListBucket and s3:GetObject on the bucket") from None
+            names = [n for n in listed or [] if self._tagged(n)]
+        return sorted({n for n in names if n.startswith(PREFIX) and self._exists(n)})
+
+    def _tagged(self, name: str) -> bool:
+        try:
+            tags = self.aws.read("s3api", "get-bucket-tagging", "--bucket", name, "--query", "TagSet")
+        except SigninExpired:
+            raise
+        except NotSent:
+            return False
+        return TAGS.items() <= {t.get("Key"): t.get("Value") for t in tags or []}.items()
+
+    def _exists(self, name: str) -> bool:
+        try:
+            self.aws.read("s3api", "head-bucket", "--bucket", name)
+            return True
+        except SigninExpired:
+            raise
+        except NotSent:
+            return False
+
     def ensure(self) -> str:
         """The bucket, created the first time (a plan checked to only create)."""
         if self.bucket:
@@ -79,9 +140,7 @@ class Store:
         return prefix
 
     def reports(self) -> list[dict[str, Any]]:
-        bucket = self.bucket
-        if not bucket:
-            return []
+        bucket = self.reading_bucket()
         keys = self.aws.read("s3api", "list-objects-v2", "--bucket", bucket, "--query", "Contents[?ends_with(Key, 'manifest.json')].[Key,LastModified]")
         found = []
         for key, modified in keys or []:
@@ -94,9 +153,7 @@ class Store:
         return sorted(found, key=lambda r: str(r["published_at"]), reverse=True)
 
     def download(self, path: str) -> Path:
-        bucket = self.bucket
-        if not bucket:
-            raise Stop(Outcome.REFUSED, "no reports have been published to AWS from this computer yet (reframe publish --to aws)")
+        bucket = self.reading_bucket()
         target = self.folder.path(f"cache/{path.strip('/')}")
         target.mkdir(parents=True, exist_ok=True)
         self.aws.read("s3", "sync", f"s3://{bucket}/{path.strip('/')}/", str(target), "--only-show-errors", timeout=1800)

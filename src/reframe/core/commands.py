@@ -319,7 +319,7 @@ def reports(args) -> int:
     if not found:
         say("No reports are published to AWS yet. Publish one with: reframe publish --run <id> --to aws\n")
         return 0
-    ui.section(f"Reports in {store.bucket}")
+    ui.section(f"Reports in {store.reading_bucket()}")
     ui.table(("Report", "Project", "Commit", "Published"), [(r["path"], str(r["project"]), str(r["commit"] or "")[:12], str(r["published_at"])[:16])
                                                            for r in found], ("bold", None, "dim", "dim"))
     ui.hint("Open one with: reframe reports open <project>/<run>")
