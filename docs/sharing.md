@@ -59,11 +59,11 @@ Reframe creates it the first time a report is uploaded, from a plan checked to o
 
 **Tried and dropped.** A link that opens a report in the browser after the AWS sign-in, so a reader needs no Reframe and no download, was built (S-05 to S-08) and dropped by the owner on 23 November 2026. It needed the organization's IAM Identity Center administrator to add an application by hand, and added CloudFront, a Cognito user pool and an edge function to the account. The reports stay in the bucket, opened as above.
 
-## 6. Opening and downloading by project (S-09 to S-11, planned)
+## 6. Opening and downloading by project (S-09 to S-11)
 
 The owner's direction (24 November 2026): an engineer runs and publishes; an architect or stakeholder gets the project's name and opens or downloads the report with their own AWS sign-in. Nothing is hosted, and nothing is readable without that sign-in.
 
-**Any computer in the account (S-09).** Today the bucket is known only from the store's records on the computer that published. Reframe will find it by its tags (`ManagedBy=reframe`, `ReframeStore=reports`) in the reader's region, using the reader's sign-in; if it finds more than one it lists them and stops. Finding by tag is used only for reading. Removing the bucket still needs the publisher's records (`reframe reports teardown`).
+**Any computer in the account (S-09).** The store's records, and so the bucket's name, are only on the computer that published. On any other computer Reframe finds it by its tags (`ManagedBy=reframe`, `ReframeStore=reports`) in the reader's region, using the reader's sign-in; if it finds more than one it lists them and stops. A reader without permission for the tag index (`tag:GetResources`) is served by listing the account's `reframe-reports-…` buckets (`s3:ListAllMyBuckets`) and reading their tags; each found bucket is checked to exist, since the tag index can list a deleted one for a while. Finding by tag is used only for reading. Removing the bucket still needs the publisher's records (`reframe reports teardown`).
 
 **By project name (S-10).**
 
@@ -73,6 +73,6 @@ The owner's direction (24 November 2026): an engineer runs and publishes; an arc
 | `reframe reports open <project> --run <run>` | The same for an older run (`reframe reports` lists them) |
 | `reframe reports download <project> [--run <run>] --to <folder>` | Saves the copy in a folder, to keep or send on; warns, as `publish` does, about a macOS-protected folder |
 
-**Without Reframe (S-11).** `reframe publish --to aws` also uploads `report.zip`, the same cleaned copy in one file, next to the pages. A reader signs in to the AWS console, opens the bucket in S3, and downloads `<project>/<run>/report.zip`: the console downloads single files, not folders. They unzip it and open `index.html`.
+**Without Reframe (S-11).** `reframe publish --to aws` also uploads `report.zip`, the same cleaned copy in one file, with everything in one folder `<project>-<run>/`, next to the pages. `reframe reports open` and `download` leave it out. A reader signs in to the AWS console, opens the bucket in S3, and downloads `<project>/<run>/report.zip`: the console downloads single files, not folders. They unzip it and open `index.html`.
 
 Pre-signed download links are left out on purpose: they work for anyone who has the link, with no sign-in.

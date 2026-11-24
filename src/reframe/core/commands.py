@@ -272,11 +272,9 @@ def publish(args) -> int:
             target = Path(args.to).expanduser()
             say(f"Published {len(manifest['files'])} pages to {target}; open index.html there.\n")
             from reframe.core import ui
-            from reframe.report.publish import protected_folder
-            if name := protected_folder(target):
-                ui.warn(f"{target} is inside your {name} folder, which macOS keeps private: unless your browser has access to that folder, "
-                        "index.html opens but its links do not. Publish to a folder outside Desktop, Documents and Downloads (for example "
-                        f"~/reframe-reports/{target.name}), or give the browser access in System Settings > Privacy & Security > Files and Folders.")
+            from reframe.report.publish import protected_warning
+            if warning := protected_warning(target):
+                ui.warn(warning)
             return 0
         import tempfile
         from reframe.report.store import Store, signed_in
@@ -290,7 +288,10 @@ def publish(args) -> int:
     except NotSent as error:
         return _fail(Stop(Outcome.WAITING_SIGNIN, f"{error}. Sign in with aws sso login, then run it again"))
     say(f"Published {len(manifest['files'])} pages to the private reports bucket in your AWS account, under {prefix}\n"
-        f"Anyone who can sign in to the account opens it with: reframe reports open {prefix.rstrip('/')}\n")
+        f"Anyone who can sign in to the account and read the bucket can now:\n"
+        f"  open the project's latest report:  reframe reports open {manifest['project']}\n"
+        f"  save this one in a folder:         reframe reports download {prefix.rstrip('/')} --to <folder>\n"
+        f"  without Reframe:                   download {prefix}report.zip from the bucket in the S3 console\n")
     return 0
 
 
@@ -299,12 +300,24 @@ def reports(args) -> int:
     from reframe.report.store import Store, open_in_browser, signed_in
     try:
         store = Store(signed_in(args.profile, args.region))
-        if args.action == "open":
+        if args.action in ("open", "download"):
             if not args.path:
-                raise Stop(Outcome.REFUSED, "name the report to open: reframe reports open <project>/<run>; reframe reports lists them")
-            page = store.download(args.path)
-            say(f"Downloaded with your AWS sign-in to {page.parent}\n")
-            open_in_browser(page)
+                raise Stop(Outcome.REFUSED, f"name the report: reframe reports {args.action} <project>, for its latest run, or "
+                                            "<project>/<run>; reframe reports lists them")
+            if args.action == "download" and not args.to:
+                raise Stop(Outcome.REFUSED, "say where to save it: reframe reports download <project> --to <folder>")
+            path = store.resolve(args.path, args.run)
+            if args.action == "open":
+                page = store.download(path)
+                say(f"Downloaded {path} with your AWS sign-in to {page.parent}\n")
+                open_in_browser(page)
+                return 0
+            from reframe.report.publish import protected_warning
+            target = Path(args.to).expanduser()
+            page = store.download(path, target.resolve())
+            say(f"Downloaded {path} with your AWS sign-in to {target}; open index.html there.\n")
+            if warning := protected_warning(target):
+                ui.warn(warning)
             return 0
         if args.action == "teardown":
             if not sys.stdin.isatty():
@@ -319,10 +332,10 @@ def reports(args) -> int:
     if not found:
         say("No reports are published to AWS yet. Publish one with: reframe publish --run <id> --to aws\n")
         return 0
-    ui.section(f"Reports in {store.bucket}")
+    ui.section(f"Reports in {store.reading_bucket()}")
     ui.table(("Report", "Project", "Commit", "Published"), [(r["path"], str(r["project"]), str(r["commit"] or "")[:12], str(r["published_at"])[:16])
                                                            for r in found], ("bold", None, "dim", "dim"))
-    ui.hint("Open one with: reframe reports open <project>/<run>")
+    ui.hint("Open one with: reframe reports open <project> (its latest run) or <project>/<run>   ·   save one: reframe reports download <project> --to <folder>")
     return 0
 
 

@@ -76,7 +76,7 @@ An action on a run asks which run, with the latest as the default. After each ac
 | `reframe claude` | Pipeline 2: assess the same snapshot with Claude |
 | `reframe compare [--open]` | Build the comparison page again |
 | `reframe publish --to <folder or aws>` | A copy of the reports, cleaned of your account's identifiers |
-| `reframe reports [open <project>/<run> \| teardown]` | The reports published to your AWS account |
+| `reframe reports [open \| download <project> \| teardown]` | The reports published to your AWS account: list, open or save one by project, or remove the bucket |
 | `reframe teardown` | List the run's AWS resources, ask for your consent, then remove them |
 
 Every option and example, with the full `reframe --help` screen, is in [docs/cli.md](docs/cli.md).
@@ -298,10 +298,18 @@ reframe reports
 ```
 
 ```bash
-reframe reports open carddemo-p2/bcc1e3
+reframe reports open carddemo
 ```
 
-`reframe reports` lists what is published. `reframe reports open` downloads one with your AWS sign-in and opens it in your browser. People with access can also download a report from the S3 console. `reframe reports teardown` removes the bucket and everything in it, after you consent to the list.
+```bash
+reframe reports download carddemo --to ~/reframe-reports/carddemo
+```
+
+`reframe reports` lists what is published. `reframe reports open <project>` downloads the project's latest report with your AWS sign-in and opens it in your browser; `--run <run>` picks an older one. `reframe reports download` saves it in a folder instead, to keep or send on. These work on any computer whose AWS sign-in can read the bucket: Reframe finds the bucket by its tags, so the person who published only needs to tell you the project's name.
+
+**Without Reframe:** every published report also has one file, `<project>/<run>/report.zip`. Sign in to the AWS console, open the `reframe-reports-…` bucket in S3, download that file, unzip it and open `index.html`.
+
+`reframe reports teardown` removes the bucket and everything in it, after you consent to the list. Only the computer that published can do this.
 
 **Try it without running anything:** [the CardDemo reports](reports/carddemo/index.html) in this repository are a published copy of a full run of both pipelines on AWS's CardDemo sample. Clone the repository and open `reports/carddemo/index.html` in a browser.
 

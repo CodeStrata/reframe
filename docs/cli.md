@@ -43,7 +43,7 @@ reframe report --open                     # AWS Transform's business review
 reframe claude                            # pipeline 2, if you did not choose it in the guided run
 reframe compare --open                    # AWS Transform and Claude compared
 reframe publish --to aws                  # a cleaned copy in your account's private reports bucket
-reframe reports open <project>/<run>      # open a published copy with your AWS sign-in
+reframe reports open <project>           # open the project's latest published copy with your AWS sign-in
 reframe teardown                          # remove the run's AWS resources, after you type yes
 ```
 
@@ -213,15 +213,19 @@ The reports published to your AWS account: list them, open one with your AWS sig
 
 | Option | What it does |
 |---|---|
-| `<action>` | list (the default): what is published; open: download one and open it; teardown: remove the bucket |
-| `<path>` | for open: <project>/<run>, as reframe reports lists it |
+| `<action>` | list (the default): what is published; open: download one and open it; download: save one in a folder; teardown: remove the bucket |
+| `<path>` | for open and download: a project (its latest run) or <project>/<run>, as reframe reports lists them |
+| `--run <run>` | for open and download: an older run of the project |
+| `--to <to>` | for download: the folder to save the report in |
 | `--profile <profile>` | the AWS profile (default: the one saved by reframe setup) |
 | `--region <region>` | the AWS region (default: the saved one, then us-east-1) |
 
 ```bash
-reframe reports                       # list the published reports
-reframe reports open <project>/<run>  # download one with your AWS sign-in and open it
-reframe reports teardown              # remove the bucket and every report in it, after your consent
+reframe reports                                   # list the published reports
+reframe reports open <project>                    # download the project's latest report with your AWS sign-in and open it
+reframe reports open <project> --run <run>        # an older run of the project
+reframe reports download <project> --to <folder>  # save the latest report in a folder, to keep or send on
+reframe reports teardown                          # remove the bucket and every report in it, after your consent
 ```
 
 ### `reframe teardown`
@@ -245,8 +249,8 @@ reframe teardown  # list the latest run's AWS resources, then remove them after 
 | `…/outputs/report/index.html` | AWS Transform's business review |
 | `…/outputs/claude/report/index.html` | Claude's business review |
 | `…/outputs/comparison/index.html` | The comparison page |
-| `~/.reframe/reports-store/` | The private reports bucket's Terraform state and records, and `cache/` for reports opened with `reframe reports open` |
+| `~/.reframe/reports-store/` | The private reports bucket's Terraform state and records (on the computer that publishes), and `cache/` for reports opened with `reframe reports open` |
 
-`reframe publish` builds one more page, the copy's `index.html`, which links the three reports above with the source, its commit and SHA-256. It exists only in a published copy: open it with `reframe reports open <project>/<run>`, or from the folder you gave to `--to`.
+`reframe publish` builds one more page, the copy's `index.html`, which links the three reports above with the source, its commit and SHA-256. It exists only in a published copy: open it with `reframe reports open <project>`, or from the folder you gave to `--to`.
 
 **On a Mac, publish outside Desktop, Documents and Downloads.** macOS keeps those folders private: a browser that has not been given access to one opens `index.html` but not the pages it links to. Reframe warns when you publish there. Use a folder such as `~/reframe-reports/<project>`, or give the browser access in System Settings > Privacy & Security > Files and Folders.
