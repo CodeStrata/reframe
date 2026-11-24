@@ -1,6 +1,6 @@
 # Reframe specification: pipeline 3, reconciling the two assessments
 
-Status: draft for the owner's agreement. Stories are built from it ([the plan](plan.md), pipeline 3). The owner's decisions of 24 November 2026 are written in: the agent works on everything except identical pairs; the source code decides; rules first, then requirements; three kinds of human context.
+Status: agreed by the owner; stories are built from it ([the plan](plan.md), pipeline 3). The owner's decisions of 24 November 2026 are written in: the agent works on everything except identical pairs; the source code decides; rules first, then requirements; three kinds of human context. The spike P3-01 settled the decision step: what it found is in [spikes/p3-01-reconcile.md](spikes/p3-01-reconcile.md) and is written into stages R3 to R5.
 
 ## 1. Goal
 
@@ -16,7 +16,7 @@ After pipelines 1 and 2 have assessed the same source snapshot, and the comparis
 
 The result is still model output. It is a recommendation for people to review; pipeline 4 makes it final.
 
-What CardDemo gives pipeline 3 (run fa1f61): 87 identical pairs, 541 overlapping pairs, 6 conflicting pairs, about 220 rules only AWS Transform found, about 50 only Claude found, 261 AWS open questions and 85 Claude rules flagged for an SME.
+What CardDemo gives pipeline 3 (run fa1f61): 87 identical pairs; 541 overlapping and 6 conflicting pairs, which link 547 AWS rules to only 160 Claude rules (Claude's are broader); 220 rules only AWS Transform found and 50 only Claude found, across 92 programs; 261 AWS open questions and 85 Claude rules flagged for an SME.
 
 ## 2. Scope
 
@@ -72,23 +72,40 @@ A pair the comparison marked `same` becomes one recommended rule without an agen
 
 ### Stage R3: estimate
 
-The items left are grouped by program, about 12 to a batch, so a batch reads one program's code once. Reframe shows the number of items of each kind and the batches, and goes ahead only within `--max-batches`. On CardDemo that is about 820 items in about 70 batches.
+The items left become **units of decision**:
+
+- a **group**: one Claude rule with every AWS rule the comparison paired with it (overlapping or conflicting). The pairs are many-to-one, so deciding pair by pair would merge the same Claude rule again for every pair (spike finding 2). CardDemo has 160 groups, the largest with 30 AWS rules;
+- a **one-sided rule**: an AWS or Claude rule in no pair.
+
+Units are batched by program, so a batch reads one program's code once: up to 12 input rules a batch, and programs with fewer than six packed together, up to three a batch. Reframe shows the units of each kind and the batches, and goes ahead only within `--max-batches`. Four batches run at once.
+
+On CardDemo: about 90 batches. A batch takes 1 to 3 minutes and about $0.50 to $1.15 at API prices (spike P3-01), so about an hour four at a time, and $50 to $100 at API prices. On the Claude subscription a run can reach the five-hour usage limit; it stops with the reason and `reframe resume` continues.
 
 ### Stage R4: decisions against the source
 
-One headless Claude step per batch, with Reframe's prompt and a JSON schema for the answer. The step can read the snapshot (read-only) and the context, and nothing else. For each item it reads the cited source lines and what is around them, then answers with:
+One headless Claude step per batch, with Reframe's prompt and a JSON schema for the answer. The step can read the snapshot (read-only) and the context, and nothing else. For each unit it reads the cited source lines and what is around them, following a PERFORM, CALL or copybook where the decision depends on it, and answers with:
 
 | Field | What it holds |
 |---|---|
-| `decision` | One of: `merged` (an overlapping pair, made one), `aws` or `claude` (one side is right), `rewritten` (both are partly wrong; the code says otherwise), `kept` (a one-sided rule the code supports), `rejected` (a one-sided rule the code does not support), `needs_sme` (the code cannot settle it) |
-| `rule` | The recommended rule text, in the EARS style AWS Transform uses; empty for `rejected` |
+| `decision` | One of: `merged` (a group, made into the rules the code supports), `aws` or `claude` (one side is right), `rewritten` (both are partly wrong; the code says otherwise), `kept` (a one-sided rule the code supports), `rejected` (a one-sided rule the code does not support), `needs_sme` (the code cannot settle it) |
+| `rules` | The recommended rules, each with the input rules it `covers`; as many as the behaviour needs; empty for `rejected` |
+| `changed` | For `kept`: whether the rule corrects the tool's wording or facts |
 | `evidence` | The `file:line` ranges in the snapshot that support the decision; at least one, except for `needs_sme` |
 | `reason` | One or two sentences naming what in the code decided it |
 | `confidence` | high, medium or low |
 | `question` | For `needs_sme`: the question an SME can answer |
+| `defect` | Code behaviour that looks unintended (a case reported wrongly, a check skipped), if any; it goes to the SME list (stage R5) |
 | `context` | The context items used, if any: a document's name, a review mark, an answered question |
 
-**The evidence check.** Reframe checks every `file:line` exists in the snapshot. A decision whose evidence does not exist is asked once more with the reason; if it still fails it becomes `needs_sme`, counted and shown as such.
+**How rules are written.** For business reviewers who do not read COBOL: plain business language, one sentence each in the form *WHEN <condition>, THE <system part> SHALL <behaviour>*, at most about 50 words. Values, codes and messages are given as the code has them; a field, flag or paragraph is named only in parentheses, and only where a reviewer needs it to check the rule. A behaviour with separate conditions becomes several rules, not one long one. (In the spike, merged rules written without these limits ran to 178 words with 12 code names; with them, 21 to 48 words and none.)
+
+**The checks.** Reframe checks every answer before keeping it:
+
+- **evidence:** every `file:line` exists in the snapshot (in the spike, all 94 citations did);
+- **coverage:** every input rule of a unit is covered by at least one recommended rule, unless the decision is `rejected` or `needs_sme`;
+- **keys:** every unit is answered once, with its own key.
+
+An answer that fails is asked once more with the reason; if it still fails, the unit becomes `needs_sme`, counted and shown as such.
 
 **Running again.** Each decision is stored with a hash of its inputs: the rules, their marks, and the context and answers it was given. On another `reframe reconcile`, a batch whose items' inputs are unchanged keeps its decisions; only the rest are decided again. The page shows which round decided each rule.
 
@@ -98,7 +115,8 @@ The open questions of AWS Transform, the plugin and stage R4 are merged into one
 
 - questions that ask the same thing are made one, keeping where each came from (a headless step, checked so that every original question is in exactly one merged question);
 - a question the context or an answered question already settles is marked answered, citing that source;
-- each question names the rules it holds up.
+- each question names the rules it holds up;
+- the possible defects stage R4 found are listed with them, as their own kind, each with its evidence, for an SME to confirm or dismiss.
 
 It is written as `reconcile/questions.csv` (for a spreadsheet, with an empty `answer` column) and `questions.json`. Put the answered file in the context folder and run `reframe reconcile` again.
 
@@ -115,7 +133,7 @@ From the recommended rules, a headless step writes requirements in the same shap
 
 `outputs/reconcile/index.html`, in the review layout:
 
-- **Overview:** how many rules were agreed, merged, decided for each tool, rewritten, kept, rejected and waiting for an SME, with the rounds that decided them;
+- **Overview:** how many rules were agreed, merged, decided for each tool, rewritten, kept, rejected and waiting for an SME, the possible defects, and the rounds that decided them;
 - **Each rule:** the recommended text; the AWS and Claude originals side by side; the decision, reason, confidence and evidence (the cited lines shown from the snapshot); the context it used;
 - **Requirements**, as in the other reviews;
 - **The SME list**, with what each question holds up;
@@ -141,7 +159,7 @@ In addition to pipelines 1 and 2:
 Pipeline 3 is done when, from the CLI only, on CardDemo run fa1f61 (already torn down):
 
 - `reframe reconcile` with a context folder holding one document, one review export and one answered question runs to the end, within its estimate;
-- every recommended rule has a decision; every decision other than `needs_sme` has evidence that exists in the snapshot;
+- every recommended rule has a decision; every decision other than `needs_sme` has evidence that exists in the snapshot, and every input rule is covered, rejected or waiting for an SME;
 - the 87 identical pairs are agreed without an agent, and the 6 conflicts are each decided or turned into a question;
 - the snapshot's SHA-256 is unchanged at the end;
 - the SME list holds every original open question exactly once, merged or not;
