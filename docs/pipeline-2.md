@@ -1,4 +1,4 @@
-# Reframe specification: pipeline 2, the Claude assessment and the comparison
+# Reframe specification: the Claude assessment and the comparison (pipeline 2)
 
 Status: draft for the owner's agreement. Stories are built from it ([the plan](plan.md), pipeline 2). The spikes P2-01 and P2-02 settled the parts they were asked to settle; what they found is in [spikes/p2-01-plugin.md](spikes/p2-01-plugin.md) and [spikes/p2-02-neptune.md](spikes/p2-02-neptune.md) and is written into the stages below. Amazon Bedrock is built but not yet tried on a live run.
 

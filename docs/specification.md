@@ -1,4 +1,4 @@
-# Reframe specification: pipeline 1, the AWS Transform assessment
+# Reframe specification: the AWS Transform assessment (pipeline 1)
 
 Status: draft for the owner's agreement. Stories are built from it; the owner tests the finished pipeline from the CLI and merges it in one PR.
 

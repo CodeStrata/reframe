@@ -238,7 +238,7 @@ def decide(folder: RunFolder, claude, found: list[dict[str, Any]], context: dict
     with ThreadPoolExecutor(max_workers=unitlib.PARALLEL) as pool:
         list(pool.map(one, batched))
     if stopped:
-        raise stop_for(stopped[0], "pipeline 3's decisions")
+        raise stop_for(stopped[0], "the reconciliation's decisions")
     kept = Decisions(folder).saved
     missing = [u["key"] for u in found if (kept.get(u["key"]) or {}).get("hash") != u["hash"]]
     if missing:

@@ -1,4 +1,6 @@
-# Reframe plan: pipeline 1
+# Reframe plan
+
+The parts of Reframe are named for what they do: the AWS Transform assessment (pipeline 1), the Claude assessment (pipeline 2), the reconciliation (pipeline 3) and the final requirements (pipeline 4, planned). The numbers stay as short labels in the plan and the specifications.
 
 Status: draft for the owner's agreement, with [the specification](specification.md).
 
@@ -50,7 +52,7 @@ These follow the owner's direction; change any of them before the build finishes
 - Teardown: only on `reframe teardown`, after the full list is shown and consent is recorded.
 - Where it runs: locally on the owner's Mac.
 
-## Pipeline 2: the Claude assessment and the comparison
+## The Claude assessment and the comparison (pipeline 2)
 
 Specification: [pipeline-2.md](pipeline-2.md). One epic for pipeline 2, with the stories below. The two spikes come first and may change the stories after them; any change goes back into the specification before it is built. One PR for pipeline 2, with a commit per story; the owner tests from the CLI and merges.
 
@@ -104,7 +106,7 @@ In their place (owner's decision, 24 November 2026), the reports stay in the pri
 | S-10 | Open or download a report by project | §6 | `reframe reports open <project>` opens the project's latest published run and `--run <run>` an older one; `reframe reports download <project> --to <folder>` saves a copy to keep or send, with a warning for a macOS-protected folder |
 | S-11 | One file to download from the S3 console | §6 | `reframe publish --to aws` also uploads `<project>/<run>/report.zip`, the same cleaned copy, so a reader without Reframe signs in to the AWS console and downloads one file. Republishing replaces it |
 
-## Pipeline 3: reconcile
+## The reconciliation (pipeline 3)
 
 Specification: [pipeline-3.md](pipeline-3.md). It starts from the comparison of AWS Transform's and Claude's assessments, works on every rule except those both tools describe the same way, and decides each against the source code. It writes the recommended business rules, then the recommended requirements, and one SME question list. The person adds context: documents, review marks and answered questions (owner's decisions, 24 November 2026).
 
@@ -121,8 +123,8 @@ Specification: [pipeline-3.md](pipeline-3.md). It starts from the comparison of 
 | P3-09 | The reconciliation page and publish | §4 R7 | The page as specified, linked from the comparison, with marks and downloads; `reframe publish` includes it as `reconciled/` with a fourth card |
 | P3-10 | Live acceptance and README | §7 | Every point of section 7 passes from the CLI; the README and `docs/cli.md` describe pipeline 3 from the tested commands |
 
-## Later pipelines
+## Later work
 
 Specified after pipelines 1 and 2 have been tested, first each on its own and then together.
 
-- **Pipeline 4: final requirements, business rules and wireframes.** It produces them, takes more human context (text, Markdown, documents, PDFs and similar), and gives the updated version of each. This is where Reframe ends.
+- **Final requirements (pipeline 4): requirements, business rules and wireframes.** It produces them, takes more human context (text, Markdown, documents, PDFs and similar), and gives the updated version of each. This is where Reframe ends.

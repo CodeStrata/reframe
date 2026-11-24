@@ -8,7 +8,7 @@ Every command, its options and examples, as `reframe --help` and `reframe <comma
 
 ![The reframe home screen: the runs table, the suggested next step and the numbered menu](images/cli-home.svg)
 
-*The home screen with one example run that has finished all three pipelines.*
+*The home screen with one example run that has finished both assessments and the reconciliation.*
 
 | # | Menu entry | Runs |
 |---|---|---|
@@ -17,9 +17,9 @@ Every command, its options and examples, as `reframe --help` and `reframe <comma
 | 3 | Answer a waiting question | `reframe answer` |
 | 4 | Resume a run | `reframe resume` |
 | 5 | Open the business review | `reframe report --open` |
-| 6 | Assess with Claude (pipeline 2) | `reframe claude` |
+| 6 | Assess with Claude | `reframe claude` |
 | 7 | Open the comparison | `reframe compare --open` |
-| 8 | Reconcile the two assessments (pipeline 3) | `reframe reconcile` |
+| 8 | Reconcile the two assessments | `reframe reconcile` |
 | 9 | Open the reconciliation | `reframe reconcile --open` |
 | 10 | Publish a run's reports to AWS | `reframe publish --to aws` |
 | 11 | Published reports | `reframe reports` |
@@ -42,9 +42,9 @@ reframe status                            # where the run is and what to do next
 reframe events --follow                   # every step as it happens, until Ctrl+C
 reframe answer                            # only if a question waits for you (interactive mode)
 reframe report --open                     # AWS Transform's business review
-reframe claude                            # pipeline 2, if you did not choose it in the guided run
+reframe claude                            # the Claude assessment, if you did not choose it in the guided run
 reframe compare --open                    # AWS Transform and Claude compared
-reframe reconcile --context <folder>      # pipeline 3: shows the estimate, and stops above the batch limit
+reframe reconcile --context <folder>      # the reconciliation: shows the estimate, and stops above the batch limit
 reframe reconcile --max-batches <n>       # go ahead with the estimate it showed
 reframe reconcile --open                  # the reconciliation page
 reframe publish --to aws                  # a cleaned copy in your account's private reports bucket
@@ -61,14 +61,14 @@ Every command acts on your latest run; add `--run <run id>` for another one. The
 3. How AWS Transform's questions are answered: autonomous or interactive.
 4. The project name, used in the run's folder and AWS resource names.
 5. A new Neptune graph, or an existing cluster.
-6. Whether to assess the same snapshot with Claude as well (pipeline 2), how Claude signs in (your Claude subscription or Amazon Bedrock), and the agent limit for rule extraction.
+6. Whether to assess the same snapshot with Claude as well (the Claude assessment), how Claude signs in (your Claude subscription or Amazon Bedrock), and the agent limit for rule extraction.
 7. A summary of what will be created, and one yes to start.
 
 **The agent limit** is a ceiling, not a target: before rule extraction Reframe compares the plugin's upper estimate with it, and stops to ask if the estimate is higher. On CardDemo the estimate is 38 to 41 shards, up to about 615 agents, and a run uses about 430 to 480; a limit of 650 to 900 lets it go ahead without asking.
 
-**Pipeline 3** needs both pipelines done and no AWS resources, so it can run after `reframe teardown`. The context folder holds documents (Markdown, text, PDF, Word), review exports downloaded from the business reviews, and the SME list (`reconcile/questions.csv` in the run folder) with its `answer` column filled in. Run `reframe reconcile` again with more answers or marks and only the rules they bear on are decided again. If Claude's usage limit stops it, `reframe resume` continues. On CardDemo the estimate is 113 batches, 29 to 87 minutes, $56 to $130 at API prices; the acceptance run used about $67.
+**The reconciliation** needs both assessments done and no AWS resources, so it can run after `reframe teardown`. The context folder holds documents (Markdown, text, PDF, Word), review exports downloaded from the business reviews, and the SME list (`reconcile/questions.csv` in the run folder) with its `answer` column filled in. Run `reframe reconcile` again with more answers or marks and only the rules they bear on are decided again. If Claude's usage limit stops it, `reframe resume` continues. On CardDemo the estimate is 113 batches, 29 to 87 minutes, $56 to $130 at API prices; the acceptance run used about $67.
 
-**Starting pipeline 2 later.** If your Claude usage limit is close, answer no to Claude in the guided run and run `reframe claude` once the limit resets. On a run whose AWS resources are still being created, it is recorded and starts as soon as they exist; on a run that is further along, it starts at once, alongside AWS Transform.
+**Starting the Claude assessment later.** If your Claude usage limit is close, answer no to Claude in the guided run and run `reframe claude` once the limit resets. On a run whose AWS resources are still being created, it is recorded and starts as soon as they exist; on a run that is further along, it starts at once, alongside AWS Transform.
 
 ## Commands
 
@@ -151,7 +151,7 @@ Continue a run that stopped; nothing with a receipt is repeated.
 | `--foreground` | run in this terminal instead of a background worker |
 
 ```bash
-reframe resume  # continue the latest run, and pipeline 2 if it stopped too
+reframe resume  # continue the latest run, and its Claude assessment or reconciliation if they stopped too
 ```
 
 ### `reframe report`
@@ -169,7 +169,7 @@ reframe report --open  # build the report again and open it
 
 ### `reframe claude`
 
-Pipeline 2: assess the same snapshot with Claude's code-modernization plugin, show it in the same business review, load its graph into the run's Neptune cluster, and compare it with AWS Transform's results.
+The Claude assessment: assess the same snapshot with Claude's code-modernization plugin, show it in the same business review, load its graph into the run's Neptune cluster, and compare it with AWS Transform's results.
 
 | Option | What it does |
 |---|---|
@@ -181,25 +181,25 @@ Pipeline 2: assess the same snapshot with Claude's code-modernization plugin, sh
 | `--foreground` | run in this terminal instead of a background worker |
 
 ```bash
-reframe claude                   # start pipeline 2 on the latest run, now or as soon as its AWS resources exist
+reframe claude                   # start the Claude assessment on the latest run, now or as soon as its AWS resources exist
 reframe claude --max-agents 650  # a higher agent limit, so a larger estimate does not stop to ask
 ```
 
 ### `reframe reconcile`
 
-Pipeline 3: decide every rule the two assessments do not agree on against the source code, with evidence Reframe checks, then write recommended requirements, one SME list and the reconciliation page; needs both pipelines done, and no AWS resources.
+The reconciliation: decide every rule the two assessments do not agree on against the source code, with evidence Reframe checks, then write recommended requirements, one SME list and the reconciliation page; needs both assessments done, and no AWS resources.
 
 | Option | What it does |
 |---|---|
 | `--run <run>` | the run to act on (default: the latest run) |
 | `--context <context>` | a folder of context: documents (Markdown, text, PDF, Word), review exports and answered questions |
-| `--auth subscription\|bedrock` | how Claude signs in (default: as for pipeline 2) |
+| `--auth subscription\|bedrock` | how Claude signs in (default: as for the Claude assessment) |
 | `--max-batches <max_batches>` | the limit for the decisions; Reframe stops and asks above it (default: 120) |
 | `--foreground` | run in this terminal instead of a background worker |
 | `--open` | open the reconciliation page instead of running |
 
 ```bash
-reframe reconcile                               # pipeline 3 on the latest run: Reframe shows the estimate and stops above the batch limit
+reframe reconcile                               # reconcile the latest run: Reframe shows the estimate and stops above the batch limit
 reframe reconcile --context ~/carddemo-context  # with documents, review exports and answered questions
 reframe reconcile --max-batches 120             # go ahead with a larger estimate
 reframe reconcile --open                        # open the reconciliation page

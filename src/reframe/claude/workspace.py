@@ -74,13 +74,13 @@ def create(folder: RunFolder) -> dict[str, Any]:
     state = folder.state
     record = folder.load("snapshot.json")
     if not record:
-        raise Stop(Outcome.REFUSED, "pipeline 1 left no snapshot record in this run; pipeline 2 needs the snapshot it assessed")
+        raise Stop(Outcome.REFUSED, "the AWS Transform assessment left no snapshot record in this run; the Claude assessment needs the snapshot it assessed")
     places = paths(folder)
     archive = folder.path(record["archive"])
     actual = _sha(archive)
     if actual != record["sha256"]:
-        raise Stop(Outcome.REFUSED, f"the snapshot archive's SHA-256 ({actual[:16]}…) is not the one pipeline 1 assessed "
-                                    f"({record['sha256'][:16]}…); pipeline 2 will not assess different source")
+        raise Stop(Outcome.REFUSED, f"the snapshot archive's SHA-256 ({actual[:16]}…) is not the one AWS Transform assessed "
+                                    f"({record['sha256'][:16]}…); the Claude assessment will not assess different source")
     if not places["hashes"].exists():
         check_archive(archive)
         legacy = places["legacy"]

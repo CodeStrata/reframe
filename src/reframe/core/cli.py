@@ -80,7 +80,7 @@ def parser() -> argparse.ArgumentParser:
     _run_option(report)
     report.add_argument("--open", action="store_true", help="open the report in the browser")
 
-    claude = command("claude", "Pipeline 2: assess the same snapshot with Claude's code-modernization plugin, show it in the same "
+    claude = command("claude", "The Claude assessment: assess the same snapshot with Claude's code-modernization plugin, show it in the same "
                      "business review, load its graph into the run's Neptune cluster, and compare it with AWS Transform's results")
     _run_option(claude)
     claude.add_argument("--auth", choices=("subscription", "bedrock"), default=None,
@@ -91,13 +91,13 @@ def parser() -> argparse.ArgumentParser:
                         help="load Claude's graph into the cluster (default: yes on a graph the run created, no on an existing cluster)")
     claude.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
 
-    reconcile = command("reconcile", "Pipeline 3: decide every rule the two assessments do not agree on against the source code, with "
+    reconcile = command("reconcile", "The reconciliation: decide every rule the two assessments do not agree on against the source code, with "
                         "evidence Reframe checks, then write recommended requirements, one SME list and the reconciliation page; needs both "
-                        "pipelines done, and no AWS resources")
+                        "assessments done, and no AWS resources")
     _run_option(reconcile)
     reconcile.add_argument("--context", help="a folder of context: documents (Markdown, text, PDF, Word), review exports and answered questions")
     reconcile.add_argument("--auth", choices=("subscription", "bedrock"), default=None,
-                           help="how Claude signs in (default: as for pipeline 2)")
+                           help="how Claude signs in (default: as for the Claude assessment)")
     reconcile.add_argument("--max-batches", type=int, default=None, help="the limit for the decisions; Reframe stops and asks above it (default: 120)")
     reconcile.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
     reconcile.add_argument("--open", action="store_true", help="open the reconciliation page instead of running")

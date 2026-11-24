@@ -19,10 +19,10 @@ from rich.text import Text
 
 console = Console(highlight=False)
 errors = Console(highlight=False, stderr=True)
-STEPS = "Prerequisites  →  Sign in  →  Source  →  Assess with AWS Transform  →  Business review"
+STEPS = "Prerequisites  →  Sign in  →  Source  →  AWS Transform and Claude  →  Reconcile  →  Review"
 
 
-def header(subtitle: str = "PIPELINE 1 · AWS Transform assessment") -> None:
+def header(subtitle: str = "AWS Transform · Claude · Reconciliation") -> None:
     content = Text("REFRAME\n", style="bold bright_cyan")
     content.append("From mainframe source to requirements and business rules your business can review\n", style="bold white")
     content.append(STEPS, style="dim")

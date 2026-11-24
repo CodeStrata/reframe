@@ -35,19 +35,19 @@ def preflight(folder: RunFolder, context: Path | None, auth: str = "subscription
     state = folder.state
     claude = state.get("claude") or {}
     if state.get("status") != Outcome.DONE.value or not state.get("retrieved_at"):
-        raise Stop(Outcome.REFUSED, "pipeline 1 is not done on this run; pipeline 3 reconciles both pipelines' results")
+        raise Stop(Outcome.REFUSED, "the AWS Transform assessment is not done on this run; the reconciliation reconciles both assessments")
     if claude.get("status") != Outcome.DONE.value:
-        raise Stop(Outcome.REFUSED, "pipeline 2 is not done on this run; run reframe claude (or reframe resume) first")
+        raise Stop(Outcome.REFUSED, "the Claude assessment is not done on this run; run reframe claude (or reframe resume) first")
     pairing = folder.load("outputs/comparison/ai-pairs.json") or {}
     if not pairing.get("complete"):
         raise Stop(Outcome.REFUSED, "the comparison's AI pairing of rules is not complete; reframe resume finishes it")
     places = workspace.paths(folder)
     if not places["hashes"].exists() or not places["legacy"].is_dir():
-        raise Stop(Outcome.REFUSED, "the run has no Claude workspace with the snapshot; pipeline 3 reads the source from it")
+        raise Stop(Outcome.REFUSED, "the run has no Claude workspace with the snapshot; the reconciliation reads the source from it")
     changed = workspace.changed(folder)
     if changed:
-        raise Stop(Outcome.FAILED, f"{len(changed)} file(s) in the snapshot differ from what both pipelines assessed (for example "
-                                   f"{changed[0]}); pipeline 3 will not decide against a different source")
+        raise Stop(Outcome.FAILED, f"{len(changed)} file(s) in the snapshot differ from the source both assessments read (for example "
+                                   f"{changed[0]}); the reconciliation will not decide against a different source")
     if context is not None and not context.is_dir():
         raise Stop(Outcome.REFUSED, f"the context folder {context} does not exist")
     if claude_check is None:

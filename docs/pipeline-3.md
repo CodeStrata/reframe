@@ -1,4 +1,4 @@
-# Reframe specification: pipeline 3, reconciling the two assessments
+# Reframe specification: the reconciliation of the two assessments (pipeline 3)
 
 Status: agreed by the owner; stories are built from it ([the plan](plan.md), pipeline 3). The owner's decisions of 24 November 2026 are written in: the agent works on everything except identical pairs; the source code decides; rules first, then requirements; three kinds of human context. The spike P3-01 settled the decision step: what it found is in [spikes/p3-01-reconcile.md](spikes/p3-01-reconcile.md) and is written into stages R3 to R5.
 

@@ -221,7 +221,7 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
     with ThreadPoolExecutor(max_workers=PARALLEL) as pool:
         list(pool.map(one, todo))
     if stopped:
-        raise stop_for(stopped[0], "pipeline 3's recommended requirements")
+        raise stop_for(stopped[0], "the reconciliation's recommended requirements")
 
     sme_of = {k: q for q in sme.get("questions") or [] for k in q["originals"]}
     open_of = {w["unit"]: w for w in waiting}

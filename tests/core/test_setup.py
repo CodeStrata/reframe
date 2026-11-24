@@ -80,7 +80,7 @@ class PrerequisitesTest(unittest.TestCase):
     def tools(self, uv_ready):
         return [setup.Tool("git", "Git", "any", "2.4", True), setup.Tool("uv", "uv (uvx)", "any", "0.1" if uv_ready else None, uv_ready, install="brew install uv"),
                 setup.Tool("mcp", "AWS Transform MCP server", "0.2.4", None, False, install="uvx --from x python -c pass"),
-                setup.Tool("claude", "Claude Code", "any", None, False, optional=True, install="brew install --cask claude-code", note="for pipeline 2")]
+                setup.Tool("claude", "Claude Code", "any", None, False, optional=True, install="brew install --cask claude-code", note="for the Claude assessment")]
 
     def test_declining_everything_ends_and_names_what_is_missing(self):
         with mock.patch.object(setup, "check", return_value=self.tools(uv_ready=False)), \

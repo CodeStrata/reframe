@@ -41,11 +41,11 @@ class InputsTest(unittest.TestCase):
         self.env.stop()
         self.tmp.cleanup()
 
-    def test_preflight_needs_both_pipelines_the_pairing_and_the_same_source(self):
+    def test_preflight_needs_both_assessments_the_pairing_and_the_same_source(self):
         ok = lambda: Report(True)  # noqa: E731
         inputs.preflight(self.folder, None, claude_check=ok)  # no AWS needed
         self.folder.merge("claude", status="RUNNING")
-        with self.assertRaisesRegex(Stop, "pipeline 2 is not done"):
+        with self.assertRaisesRegex(Stop, "the Claude assessment is not done"):
             inputs.preflight(self.folder, None, claude_check=ok)
         self.folder.merge("claude", status="DONE")
         self.folder.save("outputs/comparison/ai-pairs.json", {"complete": False, "pairs": []})
@@ -53,7 +53,7 @@ class InputsTest(unittest.TestCase):
             inputs.preflight(self.folder, None, claude_check=ok)
         self.folder.save("outputs/comparison/ai-pairs.json", {"complete": True, "pairs": []})
         (self.legacy / "app" / "cbl" / "PROG1.cbl").write_text("changed")
-        with self.assertRaisesRegex(Stop, "differ from what both pipelines assessed"):
+        with self.assertRaisesRegex(Stop, "differ from the source both assessments read"):
             inputs.preflight(self.folder, None, claude_check=ok)
 
     def test_preflight_names_a_missing_context_folder_and_a_claude_sign_in(self):

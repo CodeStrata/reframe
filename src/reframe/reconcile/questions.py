@@ -244,7 +244,7 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
     with ThreadPoolExecutor(max_workers=PARALLEL) as pool:
         list(pool.map(one, planned))
     if stopped:
-        raise stop_for(stopped[0], "pipeline 3's SME list")
+        raise stop_for(stopped[0], "the reconciliation's SME list")
     folder.save("reconcile/sme-merges.json", {d: cache[d] for _, _, _, d in planned})  # forget merges of batches that no longer exist
 
     by_key = {q["key"]: q for q in asked}
