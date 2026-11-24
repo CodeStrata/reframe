@@ -2,7 +2,7 @@
 other two pipelines', and every stage can be run again: what is done is kept.
 
 R0 preflight · R1 inputs · R2 identical pairs agreed · R3 estimate (behind the batch limit) · R4 decisions against the source ·
-R5 the SME list
+R5 the SME list · R6 the recommended requirements
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ def claude_code(folder: RunFolder, auth: str):
 
 
 def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
-    from reframe.reconcile import decide, inputs, questions, units
+    from reframe.reconcile import decide, inputs, questions, requirements, units
     settings = state(folder)
     auth = settings.get("auth") or "subscription"
     context = Path(settings["context"]).expanduser() if settings.get("context") else None
@@ -118,10 +118,16 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
     listed = questions.build(folder, claude, gathered, found, kept)
     update(folder, questions=listed["counts"], originals=listed["originals"])
 
+    stage(folder, "requirements")
+    written = requirements.build(folder, claude, gathered, found, kept, agreed, listed)
+    update(folder, requirements={k: written[k] for k in ("requirements", "dropped", "rules_cited", "rules_total")})
+
     c = listed["counts"]
     update(folder, stage="done", status=Outcome.DONE.value, finished_at=iso(),
            message=f"Round {round_}: {result['decided']} units decided against the source, {result['kept_from_before']} kept from before; "
                    f"{len(agreed)} rules agreed by both tools. SME list: {c['questions']} questions from {listed['originals']} originals "
-                   f"({c.get('answered', 0)} answered, {c.get('settled', 0)} settled by your context), and {c['defects']} possible defects.")
+                   f"({c.get('answered', 0)} answered, {c.get('settled', 0)} settled by your context), and {c['defects']} possible defects. "
+                   f"{written['requirements']} recommended requirements citing {written['rules_cited']} of {written['rules_total']} recommended rules"
+                   + (f" ({written['dropped']} dropped for citing no rule)." if written["dropped"] else "."))
     folder.event("reconcile_done", round=round_, **result)
     return Outcome.DONE

@@ -18,13 +18,20 @@ def alone(data):
                           for q in data["questions"]]}
 
 
+def plain_requirements(data):
+    """A requirements step: one capability, one requirement per rule, every open item placed."""
+    return {"capabilities": [{"title": "Do it", "story": "As a user, I want it", "questions": [o["id"] for o in data["open_items"]],
+                              "requirements": [{"kind": "functional", "pattern": "ubiquitous", "text": "The system shall do it", "rules": [r["id"]]}
+                                               for r in data["rules"]]}]}
+
+
 class FakeClaude:
     """Answers each decision step with the next function in `script`, called with the units the step was given; other
     steps (the SME list, the requirements) with the function in `others` for their kind, called with the step's input."""
 
     def __init__(self, *script, **others):
         self.script, self.calls, self.lock = list(script), [], threading.Lock()
-        self.others = {"sme": alone, **others}
+        self.others = {"sme": alone, "req": plain_requirements, **others}
         self.other_calls = []
 
     def run(self, name, prompt, timeout=0, schema=None):

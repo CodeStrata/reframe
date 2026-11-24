@@ -142,6 +142,8 @@ From the recommended rules, a headless step writes requirements in the same shap
 - Rules still `needs_sme` are carried as open questions on their requirement, not left out.
 - Everything is marked **recommended by Reframe from both assessments**.
 
+How it is built: a recommended rule goes to the AWS function of the AWS rules it covers, else of the AWS rules in its unit, else the function whose programs hold its program. One headless step per function (in parts of up to 60 rules) writes capabilities and requirements from that function's rules only, without reading the code. A unit still `needs_sme` is carried as an open question on the capability the step places it on, with its SME list ID; one the step does not place is carried on a capability *Waiting for a subject-matter expert*. A function whose rules and open units are unchanged keeps its requirements. The rules are written to `outputs/reconcile/rules.json` and the requirements to `outputs/reconcile/requirements.json`.
+
 ### Stage R7: reconciliation page
 
 `outputs/reconcile/index.html`, in the review layout:

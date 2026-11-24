@@ -6,6 +6,7 @@ from reframe.reconcile import inputs as inputlib
 from reframe.reconcile import pipeline
 from tests.reconcile.test_decide import FakeClaude, good
 from tests.reconcile.test_inputs import InputsTest, Report
+from tests.reconcile.test_requirements import FRAME
 from tests.reconcile.test_units import inputs, pair
 
 
@@ -16,6 +17,7 @@ class PipelineTest(InputsTest):
         self.folder.save("outputs/comparison/ai-pairs.json", {"complete": True, "pairs": self.data["pairs"]})
         self.patches = [mock.patch.object(inputlib, "rules", lambda folder: self.data["rules"]),
                         mock.patch.object(inputlib, "questions", lambda folder: [{"tool": "aws", "key": "f/OQ-001", "code": "OQ-001", "text": "q", "owner": "BA", "rules": ["a2"]}])]
+        self.patches.append(mock.patch("reframe.reconcile.requirements.frame", lambda folder: FRAME))
         for p in self.patches:
             p.start()
 
@@ -37,6 +39,9 @@ class PipelineTest(InputsTest):
         self.assertEqual((rec["status"], rec["stage"]), ("DONE", "done"))
         self.assertEqual(rec["decisions"], {"agreed": 1, "merged": 1, "kept": 1})
         self.assertEqual(rec["inputs"]["questions"], 1)
+        self.assertEqual(rec["questions"], {"questions": 1, "defects": 0, "open": 1})
+        self.assertEqual(rec["requirements"], {"requirements": 3, "dropped": 0, "rules_cited": 3, "rules_total": 3})
+        self.assertTrue(self.folder.exists("reconcile/questions.csv"))
         self.assertEqual(len(self.folder.load("reconcile/agreed.json")), 1)
         self.assertEqual(pipeline.request(self.folder)["round"], 2)  # a finished round: the next request is a new one
 
