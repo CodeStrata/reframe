@@ -33,7 +33,7 @@ Every change and step is written down before it starts and confirmed after, so a
 
 ## Install
 
-You need macOS or Linux (on Windows, use WSL2), Python 3.10 or later, and [uv](https://docs.astral.sh/uv/). Install Reframe from a clone of this repository on the `v2` branch:
+You need macOS or Linux (on Windows, use WSL2), Python 3.10 or later, and [uv](https://docs.astral.sh/uv/). Install Reframe from a clone of this repository on the `develop` branch:
 
 ```bash
 uv tool install --reinstall --editable ~/path/to/reframe
@@ -42,7 +42,7 @@ uv tool install --reinstall --editable ~/path/to/reframe
 Or, without a clone, straight from GitHub:
 
 ```bash
-uv tool install --reinstall "git+https://github.com/sknampally/reframe@v2"
+uv tool install --reinstall "git+https://github.com/sknampally/reframe@develop"
 ```
 
 Check it with `reframe --version`. With the editable install, `git pull` in the clone updates Reframe; reinstall only when `pyproject.toml` changes.
@@ -55,7 +55,31 @@ Everything else a run needs is checked, and installed on request, by the guided 
 reframe
 ```
 
-`reframe` on its own shows your runs (status, stage, when each started, and whether its AWS resources are still in place), the suggested next step, and a numbered menu: start a guided run, run status, answer a waiting question, resume, open the business review, event log, tear down, setup and help. An action on a run asks which run, with the latest as the default. After each action the home screen comes back; 0 or Ctrl+D leaves it, and Ctrl+C cancels an action. `reframe --help`, and `--help` after any command, shows the commands or options as a table with examples.
+`reframe` on its own shows your runs (status, stage, Claude's status, when each started, and whether its AWS resources are still in place), the suggested next step, and a numbered menu:
+
+![The reframe home screen: the runs table, the suggested next step and the numbered menu](docs/images/cli-home.svg)
+
+An action on a run asks which run, with the latest as the default. After each action the home screen comes back; 0 or Ctrl+D leaves it, and Ctrl+C cancels an action. `reframe --help`, and `--help` after any command, shows the commands or options as a table with examples.
+
+### All the commands
+
+| Command | What it does |
+|---|---|
+| `reframe` | The home screen above |
+| `reframe run` | Start an assessment: guided with no options, or straight away with `--source` |
+| `reframe setup` | Check and set up the prerequisites and the AWS sign-in, without starting a run |
+| `reframe status` | The run's stage, the job's plan steps, any waiting question and the next step |
+| `reframe events [--follow]` | The run's event log |
+| `reframe answer` | Show AWS's waiting question, or answer it |
+| `reframe resume` | Continue a run that stopped (both pipelines); nothing with a receipt is repeated |
+| `reframe report [--open]` | Build AWS Transform's business review again |
+| `reframe claude` | Pipeline 2: assess the same snapshot with Claude |
+| `reframe compare [--open]` | Build the comparison page again |
+| `reframe publish --to <folder or aws>` | A copy of the reports, cleaned of your account's identifiers |
+| `reframe reports [open <project>/<run> \| teardown]` | The reports published to your AWS account |
+| `reframe teardown` | List the run's AWS resources, ask for your consent, then remove them |
+
+Every option and example, with the full `reframe --help` screen, is in [docs/cli.md](docs/cli.md).
 
 ## Run an assessment: the guided way
 
@@ -68,7 +92,7 @@ Reframe guides you through five steps and checks each answer before going on:
 1. **Prerequisites.** A table of what a run needs and what this computer has: Git, the AWS CLI v2, uv, Terraform 1.10 or later and the AWS Transform MCP server (Claude Code is listed as optional, for pipeline 2). For anything missing it shows the install command for your operating system and offers to run it; nothing is installed without your yes. Reframe installs Terraform itself: the pinned HashiCorp release, checked against HashiCorp's SHA-256 sums, kept in `~/.reframe/tools` and used from there, so your PATH, your shell files and any older Terraform stay as they are.
 2. **AWS sign-in.** Choose one of your AWS CLI profiles and the region. If the profile is not signed in, Reframe offers to run `aws sso login` for you; you sign in in your browser, and Reframe never sees your credentials. With no profiles, it offers `aws configure sso`.
 3. **Source.** A GitHub or Git URL (checked with Git, and optionally a branch, tag or commit), a local folder, or a local ZIP file.
-4. **Choices.** Autonomous or interactive (see below), the project name (a short label such as `carddemo`: it names the run's folder, `~/.reframe/projects/<project>/runs/<run>/`, and starts the name of every AWS resource the run creates, `reframe-<project>-<run>`), and a new Neptune graph or an existing cluster.
+4. **Choices.** Autonomous or interactive (see below), the project name (a short label such as `carddemo`: it names the run's folder, `~/.reframe/projects/<project>/runs/<run>/`, and starts the name of every AWS resource the run creates, `reframe-<project>-<run>`), a new Neptune graph or an existing cluster, and whether to assess the same snapshot with Claude as well (pipeline 2; see below), with how Claude signs in and the agent limit for rule extraction.
 5. **Summary.** What will be created, then one yes to start. The run continues in the background.
 
 Your profile, region and tool paths are saved in `~/.reframe/config.json` as the next run's defaults. To check the prerequisites and sign in without starting a run:
@@ -206,7 +230,7 @@ If the list changes between your `yes` and the deletion, Reframe stops and asks 
 
 ## Pipeline 2: the Claude assessment and the comparison
 
-Pipeline 2 runs on a pipeline 1 run that is done and not torn down. The guided `reframe run` offers it, with yes as the default: after AWS Transform finishes, the same worker carries on with Claude. On a run you already have:
+The guided `reframe run` offers pipeline 2, with yes as the default. It runs alongside pipeline 1 in a worker of its own: it starts as soon as the run's AWS resources exist (about ten minutes in), while AWS Transform is still working, and its comparison waits for AWS Transform's results. To add it to a run you already have, or to start it later (for example once your Claude usage limit resets):
 
 ```bash
 reframe claude
@@ -216,7 +240,7 @@ reframe claude
 |---|---|
 | C0. Preflight | Checks Claude Code and its sign-in, Python 3, and the code-modernization plugin. Reframe fetches the plugin itself, at one pinned commit of Anthropic's plugin repository, and loads it only for its own runs. Nothing is installed into your Claude Code settings. |
 | C1. Workspace | The run's snapshot is unpacked read-only in the run folder, after its SHA-256 is checked against the one pipeline 1 assessed. Nothing of AWS Transform's results is in it. |
-| C2-C4. The plugin's steps | `preflight`, `assess`, `map` and `extract-rules`, each run headless with `claude -p`. Before rule extraction Reframe shows the plugin's estimate (on CardDemo, 37 shards: about 370 to 555 agents, up to about 9 million tokens and an hour) and goes ahead only within your agent limit. |
+| C2-C4. The plugin's steps | `preflight`, `assess`, `map` and `extract-rules`, each run headless with `claude -p`. Before rule extraction Reframe shows the plugin's estimate (on CardDemo, 38 to 41 shards: up to about 615 agents and 9 million tokens, about an hour; a run uses about 430 to 480 agents) and goes ahead only within your agent limit. |
 | C5. Retrieval | The plugin's files are kept as written and read into the report: the assessment, the map, the rule cards and the open questions. The snapshot is checked again, to prove nothing changed. |
 | C6. Requirements | Claude's plugin writes rule cards, not requirements. Reframe asks Claude, one domain at a time, to write requirements in AWS Transform's shape from those rule cards. Each one must cite a rule card or a source line that exists, and each is labelled **generated by Reframe from Claude's results**. |
 | C7. Graph | Claude's map and rules go into the run's Neptune cluster as their own named graph, beside AWS Transform's, through a small loader function in the run's private network. |
@@ -225,9 +249,9 @@ reframe claude
 Options:
 
 - `--auth subscription` (the default) signs Claude in with your Claude subscription. `--auth bedrock` uses Amazon Bedrock with the run's AWS profile, or a Bedrock API key in `AWS_BEARER_TOKEN_BEDROCK`.
-- `--max-agents` sets the agent limit for rule extraction (default 600).
+- `--max-agents` sets the agent limit for rule extraction (default 600). It is a ceiling, not a target: Reframe stops and asks only if the estimate is higher. For CardDemo use 650 or more, so the run does not stop to ask.
 - `--graph-load yes` loads Claude's graph into an existing Neptune cluster. A graph the run created is loaded by default.
-- If Claude's usage limit is reached, the run stops and says so. When the limit resets, `reframe resume` continues where it stopped.
+- If Claude's usage limit is reached, the run stops and says so. When the limit resets, `reframe resume` continues where it stopped, and runs extraction again for any modules the plugin did not finish.
 
 ```bash
 reframe compare --open
@@ -258,6 +282,8 @@ This copies a run's reports into a folder that anyone can open in a browser, wit
 - an index page naming the source, its commit and SHA-256, and when each assessment ran.
 
 Before anything is written, Reframe removes the AWS account ID, ARNs, S3 locations, the run's resource names, AWS IDs, your profile name, e-mail addresses and local paths. It then checks the whole copy and refuses to write if any are left.
+
+**On a Mac, publish outside Desktop, Documents and Downloads.** macOS keeps those folders private: a browser that has not been given access to one opens `index.html` but not the pages it links to. Reframe warns when you publish there. Use a folder such as `~/reframe-reports/<project>`, or give the browser access in System Settings > Privacy & Security > Files and Folders.
 
 **In your AWS account, for people who can sign in to it:**
 

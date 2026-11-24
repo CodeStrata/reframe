@@ -37,8 +37,17 @@ class HomeTest(unittest.TestCase):
         done = self.make("alpha", "2026-11-01T10:00:00Z", status="DONE", stage="report")
         self.assertIn("choose 5", home.next_step(home.runs()[0]))
         self.assertIn("choose 6", home.next_step(home.runs()[0]))
+        self.assertIn("choose 11 to remove", home.next_step(home.runs()[0]))
+        done.update(claude={"status": "DONE"})
+        self.assertIn("choose 7 to open the comparison", home.next_step(home.runs()[0]))
         done.update(torn_down="2026-11-01T12:00:00Z")
         self.assertIn("another run", home.next_step(home.runs()[0]))
+
+    def test_menu_numbers_match_the_commands(self):
+        titles = {argv[0]: (n, title) for n, (title, _, argv) in enumerate(home.MENU, 1)}
+        self.assertEqual(titles["teardown"], (11, "Tear down a run"))
+        self.assertEqual(titles["publish"][1], "Publish a run's reports to AWS")
+        self.assertEqual(home.number("reports"), titles["reports"][0])
 
     def test_menu_runs_a_command_on_the_chosen_run_then_returns(self):
         first = self.make("alpha", "2026-11-01T10:00:00Z", status="DONE", stage="report")
