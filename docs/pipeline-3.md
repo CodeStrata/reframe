@@ -182,3 +182,20 @@ Pipeline 3 is done when, from the CLI only, on CardDemo run fa1f61 (already torn
 - the SME list holds every original open question exactly once, merged or not;
 - running it again with one more answered question decides only the affected rules again;
 - the reconciliation page opens, links to both reviews, and is in a `reframe publish` copy.
+
+### Results (P3-10, 24 November 2026)
+
+Every point passed on fa1f61, from the CLI, on the Claude subscription. The context folder held a glossary, a review export with one *Question* mark on a Claude rule whose group the two tools describe the same way, and an answered AWS Transform question (OQ-008).
+
+| Point | Result |
+|---|---|
+| Runs to the end within its estimate | Round 1: estimate 113 batches, 29 to 87 minutes, $56 to $130 at API prices; it stopped once at the usage limit during the requirements and `reframe resume` finished it. About $52 for the decisions (120 steps with retries) and $15 for the SME list and requirements, about $67 in all |
+| Decisions, evidence and coverage | 431 units decided: 158 merged, 266 kept, 3 rejected, 2 rewritten, 1 for Claude's plugin, 1 waiting for an SME. 26 needed a second ask and 1 fell back to an SME question. Every cited range exists in the snapshot; all 1,111 input rules are covered, rejected or waiting for an SME |
+| Identical pairs; the conflicts | 51 rules in 46 groups agreed without an agent; the marked group was sent to an agent instead. The 6 conflicts: 5 merged, 1 rewritten from the code |
+| The snapshot | Its SHA-256 unchanged |
+| The SME list | 349 original questions, each exactly once, in 313 questions, with 187 possible defects; the glossary settled one |
+| Running again | With one more answered question (OQ-005), round 2 decided again only the 5 units holding the rules the answer names, in 2 batches (about $1), and kept 426; both answers are marked answered on the SME list and cited in the decisions |
+| The page | 1,204 recommended rules and 1,153 requirements (none dropped); it opens with `reframe reconcile --open`, links to both reviews and the comparison, and is `reconciled/` in a `reframe publish` copy with a fourth card |
+
+Found and fixed in the run: an answer giving the tool's question code (OQ-008) was not matched to its question, since codes repeat from one function to the next (it now matches by code and one of the question's rules); a resumed round replaced its estimate with what was left of it (a round now keeps its first estimate); and the header said "no context folder" when a request kept the one given before.
+
