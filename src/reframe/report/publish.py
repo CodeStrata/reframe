@@ -127,6 +127,16 @@ def protected_folder(target: Path, platform: str = sys.platform, home: Path | No
     return None
 
 
+def protected_warning(target: Path) -> str | None:
+    """What to tell someone who writes a report into a macOS-protected folder, if they did."""
+    name = protected_folder(target)
+    if not name:
+        return None
+    return (f"{target} is inside your {name} folder, which macOS keeps private: unless your browser has access to that folder, index.html "
+            "opens but its links do not. Use a folder outside Desktop, Documents and Downloads (for example "
+            f"~/reframe-reports/{target.name}), or give the browser access in System Settings > Privacy & Security > Files and Folders.")
+
+
 def publish(folder: RunFolder, target: Path) -> dict[str, Any]:
     from reframe.claude.workspace import paths
     from reframe.report import build, compare

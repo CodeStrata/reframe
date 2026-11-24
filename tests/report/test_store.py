@@ -97,12 +97,12 @@ class StoreTest(unittest.TestCase):
         self.env.stop()
         self.tmp.cleanup()
 
-    def copy(self, run):
-        folder = Path(self.tmp.name) / f"copy-{run}"
+    def copy(self, run, project="demo", published="2026-11-23"):
+        folder = Path(self.tmp.name) / f"copy-{project}-{run}"
         (folder / "aws").mkdir(parents=True)
-        (folder / "index.html").write_text("<h1>index</h1>")
+        (folder / "index.html").write_text(f"<h1>{project} {run}</h1>")
         (folder / "aws" / "index.html").write_text("aws")
-        (folder / "manifest.json").write_text(json.dumps({"project": "demo", "run": run, "commit": "c" * 40, "published_at": "2026-11-23"}))
+        (folder / "manifest.json").write_text(json.dumps({"project": project, "run": run, "commit": "c" * 40, "published_at": published}))
         return folder
 
     def test_publish_list_open(self):
@@ -115,7 +115,7 @@ class StoreTest(unittest.TestCase):
         self.assertIn("--sse", cp)
         self.assertEqual(sorted(r["run"] for r in self.store.reports()), ["abc123", "def456"])
         page = self.store.download("demo/abc123")
-        self.assertEqual(page.read_text(), "<h1>index</h1>")
+        self.assertEqual(page.read_text(), "<h1>demo abc123</h1>")
 
     def test_teardown_needs_yes_and_a_new_publish_makes_a_new_bucket(self):
         self.store.upload(self.copy("abc123"), "demo", "abc123")
@@ -148,7 +148,7 @@ class StoreTest(unittest.TestCase):
         reader = self.reader()
         self.assertIsNone(reader.bucket)  # no records on this computer
         self.assertEqual([r["run"] for r in reader.reports()], ["abc123"])
-        self.assertEqual(reader.download("demo/abc123").read_text(), "<h1>index</h1>")
+        self.assertEqual(reader.download("demo/abc123").read_text(), "<h1>demo abc123</h1>")
         self.assertEqual(reader.inventory(), [])  # nothing to tear down from here: teardown goes by records only
         self.assertEqual(len(FakeTerraform.applied), 1)
 
@@ -165,6 +165,25 @@ class StoreTest(unittest.TestCase):
         self.aws.indexed = list(self.aws.buckets)
         with self.assertRaisesRegex(Stop, "more than one"):
             self.reader().reports()
+
+
+    def test_open_or_download_by_project(self):
+        self.store.upload(self.copy("old111", published="2026-11-20T10:00:00Z"), "demo", "old111")
+        self.store.upload(self.copy("new222", published="2026-11-23T10:00:00Z"), "demo", "new222")
+        self.store.upload(self.copy("other3", "else", "2026-11-24T10:00:00Z"), "else", "other3")
+        self.assertEqual(self.store.resolve("demo"), "demo/new222")  # the latest of that project
+        self.assertEqual(self.store.resolve("demo", "old111"), "demo/old111")
+        self.assertEqual(self.store.resolve("demo/old111/"), "demo/old111")
+        with self.assertRaisesRegex(Stop, "nothing is published for project nope; published projects: demo, else"):
+            self.store.resolve("nope")
+        with self.assertRaisesRegex(Stop, "name the run once"):
+            self.store.resolve("demo/old111", "new222")
+        target = Path(self.tmp.name) / "for-the-architect"
+        page = self.store.download(self.store.resolve("demo"), target)
+        self.assertEqual(page, target / "index.html")
+        self.assertEqual(page.read_text(), "<h1>demo new222</h1>")
+        sync = [c for c in self.aws.calls if c[:2] == ("s3", "sync")][-1]
+        self.assertIn("report.zip", sync[sync.index("--exclude") + 1])  # the zip is for the console, not for opening
 
 
 if __name__ == "__main__":

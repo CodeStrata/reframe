@@ -152,11 +152,29 @@ class Store:
                           "commit": manifest.get("commit"), "published_at": manifest.get("published_at") or modified})
         return sorted(found, key=lambda r: str(r["published_at"]), reverse=True)
 
-    def download(self, path: str) -> Path:
+    def resolve(self, name: str, run: str | None = None) -> str:
+        """The published report a reader names (S-10): <project>/<run>, or a project with --run, or a project alone for its
+        latest published run."""
+        name = name.strip("/")
+        if "/" in name:
+            if run:
+                raise Stop(Outcome.REFUSED, f"name the run once: {name}, or {name.split('/')[0]} --run {run}")
+            return name
+        if run:
+            return f"{name}/{run}"
+        found = self.reports()
+        mine = [r for r in found if r["path"].split("/")[0] == name]
+        if not mine:
+            projects = sorted({r["path"].split("/")[0] for r in found})
+            raise Stop(Outcome.REFUSED, f"nothing is published for project {name}" + (f"; published projects: {', '.join(projects)}" if projects else ""))
+        return mine[0]["path"]  # reports() is newest first
+
+    def download(self, path: str, target: Path | None = None) -> Path:
+        """Download a published report, into the cache or a folder the reader chose, and return its index page."""
         bucket = self.reading_bucket()
-        target = self.folder.path(f"cache/{path.strip('/')}")
+        target = target or self.folder.path(f"cache/{path.strip('/')}")
         target.mkdir(parents=True, exist_ok=True)
-        self.aws.read("s3", "sync", f"s3://{bucket}/{path.strip('/')}/", str(target), "--only-show-errors", timeout=1800)
+        self.aws.read("s3", "sync", f"s3://{bucket}/{path.strip('/')}/", str(target), "--exclude", "report.zip", "--only-show-errors", timeout=1800)
         if not (target / "index.html").exists():
             raise Stop(Outcome.REFUSED, f"{path} is not a published report in the bucket; reframe reports lists them")
         return target / "index.html"
