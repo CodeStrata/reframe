@@ -26,9 +26,9 @@ MENU = [  # (title, needs a run, the command line)
     ("Answer a waiting question", True, ["answer"]),
     ("Resume a run", True, ["resume"]),
     ("Open the business review", True, ["report", "--open"]),
-    ("Assess with Claude (pipeline 2)", True, ["claude"]),
+    ("Assess with Claude", True, ["claude"]),
     ("Open the comparison", True, ["compare", "--open"]),
-    ("Reconcile the two assessments (pipeline 3)", True, ["reconcile"]),
+    ("Reconcile the two assessments", True, ["reconcile"]),
     ("Open the reconciliation", True, ["reconcile", "--open"]),
     ("Publish a run's reports to AWS", True, ["publish", "--to", "aws"]),
     ("Published reports", False, ["reports"]),
@@ -95,14 +95,14 @@ def next_step(latest: Run | None) -> str:
         return (f"choose {number('reconcile', '--open')} to open the reconciliation of run {latest.id}; answer its SME list and choose "
                 f"{number('reconcile')} to run it again")
     if status == "DONE" and claude.get("status") == "DONE" and rec.get("status"):
-        return f"pipeline 3 stopped ({rec.get('status')}): choose {number('status')} for the reason; choose {number('resume')} to resume"
+        return f"the reconciliation stopped ({rec.get('status')}): choose {number('status')} for the reason; choose {number('resume')} to resume"
     if status == "DONE" and claude.get("status") == "DONE":
         return (f"choose {number('compare')} to open the comparison of run {latest.id}; choose {number('reconcile')} to reconcile the two "
                 f"assessments; choose {number('teardown')} to remove its AWS resources")
     if status == "DONE" and claude.get("status") in ("RUNNING", "REQUESTED"):
         return f"run {latest.id} is done with AWS Transform; the Claude assessment follows (choose {number('status')} to see where it is)"
     if status == "DONE" and claude.get("status"):
-        return f"pipeline 2 stopped ({claude.get('status')}): choose {number('status')} for the reason; choose {number('resume')} to resume"
+        return f"the Claude assessment stopped ({claude.get('status')}): choose {number('status')} for the reason; choose {number('resume')} to resume"
     if status == "DONE":
         return (f"choose {number('report')} to open the business review of run {latest.id}; choose {number('claude')} to assess the same snapshot "
                 f"with Claude; choose {number('teardown')} to remove its AWS resources")

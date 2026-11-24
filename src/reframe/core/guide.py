@@ -238,7 +238,7 @@ def claude_choice() -> dict[str, Any] | None:
     from reframe.claude import plugin, preflight
     from reframe.claude.pipeline import DEFAULT_MAX_AGENTS
     from reframe.claude.runner import environment
-    ui.section("Pipeline 2")
+    ui.section("Claude assessment")
     ui.say("Reframe can also assess the same snapshot with Claude's code-modernization plugin, alongside AWS Transform: it starts as "
            "soon as the run's Neptune graph exists, shows its results in the same business review, and builds a page comparing the two.")
     if not ui.yes("Assess the same snapshot with Claude as well?", default=True):

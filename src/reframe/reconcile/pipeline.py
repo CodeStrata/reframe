@@ -113,7 +113,7 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
         raise Stop(Outcome.WAITING_HUMAN, f"stage R4 needs {size['batches']} batches, above the limit of {limit}: about {size['minutes_low']} to "
                                           f"{size['minutes_high']} minutes four at a time, and ${size['usd_low']} to ${size['usd_high']} at API "
                                           f"prices on your Claude account. To go ahead: reframe reconcile --max-batches {size['batches']}")
-    folder.decide("reconcile-estimate", f"run {size['batches']} batches", f"within the batch limit ({limit})", step="pipeline 3 decisions")
+    folder.decide("reconcile-estimate", f"run {size['batches']} batches", f"within the batch limit ({limit})", step="reconciliation decisions")
 
     stage(folder, "decide")
     claude = claude or claude_code(folder, auth)

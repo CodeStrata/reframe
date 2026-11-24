@@ -124,7 +124,7 @@ def resume(args) -> int:
     if state.get("status") != Outcome.DONE.value:
         pid = folder.worker_pid("run")
         if pid:
-            say(f"Run {folder.root.name}: pipeline 1 is already running (process {pid}).\n")
+            say(f"Run {folder.root.name}: the AWS Transform assessment is already running (process {pid}).\n")
         else:
             if state.get("graph") is None:
                 from reframe.core import pipeline
@@ -136,26 +136,26 @@ def resume(args) -> int:
                     return _fail(stop)
             if args.foreground:
                 return worker(type("Args", (), {"folder": str(folder.root), "task": "run"})())
-            started.append(f"pipeline 1 (process {_start_worker(folder)})")
+            started.append(f"the AWS Transform assessment (process {_start_worker(folder)})")
     if _claude_wanted(folder):
         pid = folder.worker_pid("claude")
         if pid:
-            say(f"Run {folder.root.name}: pipeline 2 is already running (process {pid}).\n")
+            say(f"Run {folder.root.name}: the Claude assessment is already running (process {pid}).\n")
         elif args.foreground and state.get("status") == Outcome.DONE.value:
             return worker(type("Args", (), {"folder": str(folder.root), "task": "claude"})())
         else:
             new = start_claude_if_ready(folder)
             if new:
-                started.append(f"pipeline 2 (process {new})")
+                started.append(f"the Claude assessment (process {new})")
     reconciling = state.get("reconcile") or {}
     if reconciling.get("status") not in (None, Outcome.DONE.value):
         pid = folder.worker_pid("reconcile")
         if pid:
-            say(f"Run {folder.root.name}: pipeline 3 is already running (process {pid}).\n")
+            say(f"Run {folder.root.name}: the reconciliation is already running (process {pid}).\n")
         elif args.foreground:
             return worker(type("Args", (), {"folder": str(folder.root), "task": "reconcile"})())
         else:
-            started.append(f"pipeline 3 (process {_start_worker(folder, 'reconcile')})")
+            started.append(f"the reconciliation (process {_start_worker(folder, 'reconcile')})")
     if started:
         say(f"Run {folder.root.name} resumed in the background: {' and '.join(started)}. Follow it with reframe status.\n")
     elif state.get("status") == Outcome.DONE.value and not _claude_wanted(folder):
@@ -183,16 +183,16 @@ def reconcile(args) -> int:
         return _fail(stop)
     pid = folder.worker_pid("reconcile")
     if pid:
-        ui.ok(f"Run {folder.root.name}: pipeline 3 is already running (process {pid}).")
+        ui.ok(f"Run {folder.root.name}: the reconciliation is already running (process {pid}).")
         return 0
     settings = reconcile_pipeline.request(folder, context=context, auth=args.auth, max_batches=args.max_batches)
-    ui.section(f"Run {folder.root.name} · pipeline 3 · reconcile, round {settings['round']}")
+    ui.section(f"Run {folder.root.name} · reconciliation, round {settings['round']}")
     kept = settings.get("context")  # a context folder given before is kept when this request names none
     ui.hint(f"sign-in: {settings['auth']} · batch limit {settings['max_batches']}" + (f" · context: {kept}" if kept else " · no context folder"))
     if args.foreground:
         return worker(type("Args", (), {"folder": str(folder.root), "task": "reconcile"})())
     pid = _start_worker(folder, "reconcile")
-    ui.panel(f"Pipeline 3 runs in the background (process {pid}). It needs no AWS resources.\n"
+    ui.panel(f"The reconciliation runs in the background (process {pid}). It needs no AWS resources.\n"
              "Follow it:  reframe status   ·   reframe events --follow", "Started", "green")
     return 0
 
@@ -241,7 +241,7 @@ def _reconcile_work(folder: RunFolder) -> int:
     try:
         folder.event("worker_started", pid=os.getpid(), task="reconcile")
         outcome = reconcile_pipeline.work(folder)
-        say(f"pipeline 3 {outcome.value}: {(folder.state.get('reconcile') or {}).get('message', '')}\n")
+        say(f"reconciliation {outcome.value}: {(folder.state.get('reconcile') or {}).get('message', '')}\n")
         return 0
     except Stop as stop:
         reconcile_pipeline.record_stop(folder, stop)
@@ -260,7 +260,7 @@ def _claude_work(ctx) -> int:
     from reframe.claude import pipeline as claude_pipeline
     try:
         outcome = claude_pipeline.work(ctx)
-        say(f"pipeline 2 {outcome.value}: {(ctx.state.get('claude') or {}).get('message', '')}\n")
+        say(f"Claude assessment {outcome.value}: {(ctx.state.get('claude') or {}).get('message', '')}\n")
         return 0
     except Stop as stop:
         claude_pipeline.record_stop(ctx, stop)
@@ -287,28 +287,28 @@ def claude(args) -> int:
         return _fail(stop)
     state = folder.state
     if state.get("torn_down"):
-        return _fail(Stop(Outcome.REFUSED, f"run {folder.root.name} is torn down; pipeline 2 needs a run whose resources are still there"))
+        return _fail(Stop(Outcome.REFUSED, f"run {folder.root.name} is torn down; the Claude assessment needs a run whose resources are still there"))
     ctx = pipeline.Context.load(folder)
     settings = claude_pipeline.request(ctx, auth=args.auth, max_agents=args.max_agents, mode=args.mode, graph_load=args.graph_load)
     if (folder.state.get("claude") or {}).get("status") == Outcome.DONE.value:
-        ui.ok(f"Pipeline 2 is already done for run {folder.root.name}. reframe compare --open shows the comparison.")
+        ui.ok(f"The Claude assessment is already done for run {folder.root.name}. reframe compare --open shows the comparison.")
         return 0
     pid = folder.worker_pid("claude")
     if pid:
-        ui.ok(f"Run {folder.root.name}: pipeline 2 is already running (process {pid}).")
+        ui.ok(f"Run {folder.root.name}: the Claude assessment is already running (process {pid}).")
         return 0
     if not claude_pipeline.ready(ctx):
         if folder.worker_pid("run"):
-            ui.ok(f"Recorded. Run {folder.root.name}'s pipeline 1 starts pipeline 2 as soon as its AWS resources exist.")
+            ui.ok(f"Recorded. Run {folder.root.name}'s AWS Transform assessment starts the Claude assessment as soon as its AWS resources exist.")
             return 0
-        return _fail(Stop(Outcome.REFUSED, f"run {folder.root.name} has no AWS resources yet and pipeline 1 is not running; pipeline 2 is "
+        return _fail(Stop(Outcome.REFUSED, f"run {folder.root.name} has no AWS resources yet and the AWS Transform assessment is not running; the Claude assessment is "
                                            "recorded and starts when reframe resume has made them"))
-    ui.section(f"Run {folder.root.name} · pipeline 2 · Claude assessment")
+    ui.section(f"Run {folder.root.name} · Claude assessment")
     ui.hint(f"{settings['mode']} mode · sign-in: {settings['auth']} · agent limit {settings['max_agents']}")
     if args.foreground:
         return worker(type("Args", (), {"folder": str(folder.root), "task": "claude"})())
     pid = _start_worker(folder, "claude")
-    ui.panel(f"Pipeline 2 runs in the background (process {pid}), alongside pipeline 1 if it is still running; on CardDemo it "
+    ui.panel(f"The Claude assessment runs in the background (process {pid}), alongside the AWS Transform assessment if it is still running; on CardDemo it "
              "takes about two hours.\n"
              "Follow it:        reframe status   ·   reframe events --follow\n"
              "When it is done:  reframe compare --open   ·   reframe teardown", "Started", "green")
@@ -476,7 +476,7 @@ def _reconcile_status(folder: RunFolder, state: dict[str, Any]) -> None:
     rec = state.get("reconcile") or {}
     if not rec:
         return
-    ui.section("Pipeline 3 · reconcile")
+    ui.section("Reconciliation")
     status = str(rec.get("status"))
     pid = folder.worker_pid("reconcile")
     ui.state("Status", f"{status} · stage {rec.get('stage', 'not started')} · round {rec.get('round')}", STATUS_STYLE.get(status, "bold yellow"))
@@ -510,14 +510,14 @@ def _claude_status(folder: RunFolder, state: dict[str, Any]) -> None:
     claude_state = state.get("claude") or {}
     if not claude_state:
         return
-    ui.section("Pipeline 2 · Claude assessment")
+    ui.section("Claude assessment")
     status = str(claude_state.get("status"))
     ui.state("Status", f"{status} · stage {claude_state.get('stage', 'not started')}", STATUS_STYLE.get(status, "bold yellow"))
     claude_pid = folder.worker_pid("claude")
     ui.hint(f"sign-in {claude_state.get('auth')} · agent limit {claude_state.get('max_agents')} · {claude_state.get('mode')} mode"
             + (f" · worker running (process {claude_pid})" if claude_pid else ""))
     if folder.load("claude-question.json"):
-        ui.warn("Pipeline 2 is waiting for an answer. See it with: reframe answer")
+        ui.warn("The Claude assessment is waiting for an answer. See it with: reframe answer")
     from reframe.claude.steps import receipts
     rows = []
     order = {"preflight": 0, "assess": 1, "map": 2, "extract-rules": 3}
@@ -603,7 +603,7 @@ def _answer_claude(folder: RunFolder, pending: dict[str, Any], args) -> int:
     """A pipeline 2 question (the plugin's preflight answers, the rule-extraction estimate, loading an existing cluster)."""
     options = pending.get("options") or []
     if not args.choices and not args.text:
-        say(f"Pipeline 2 asks (since {pending.get('asked_at')}):\n\n{pending['text'].strip()}\n\n")
+        say(f"The Claude assessment asks (since {pending.get('asked_at')}):\n\n{pending['text'].strip()}\n\n")
         for number, label in enumerate(options, 1):
             say(f"  {number}. {label}\n")
         say("\nAnswer with reframe answer <number>" + (", or reframe answer --text \"...\"" if pending["id"].startswith("claude-preflight") else "") + "\n")

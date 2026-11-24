@@ -156,8 +156,8 @@ def check(m: Machine, which: Callable[[str], str | None] = shutil.which) -> list
     tools = [Tool("git", "Git", "any"), Tool("aws", "AWS CLI", "version 2"), Tool("uv", "uv (uvx)", "any"),
              Tool("terraform", "Terraform", ".".join(map(str, MINIMUM_TERRAFORM)) + " or later"),
              Tool("mcp", "AWS Transform MCP server", MCP_SERVER.split("==")[1]),
-             Tool("claude", "Claude Code", "any", optional=True, note="for pipeline 2"),
-             Tool("plugin", "code-modernization plugin", "1.1.0, pinned", optional=True, note="for pipeline 2")]
+             Tool("claude", "Claude Code", "any", optional=True, note="for the Claude assessment"),
+             Tool("plugin", "code-modernization plugin", "1.1.0, pinned", optional=True, note="for the Claude assessment")]
     for tool in tools:
         tool.install = install_command(tool.key, m)
     git, aws, uvx, claude = which("git"), which("aws"), which("uvx"), which("claude")
