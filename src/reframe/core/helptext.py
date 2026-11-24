@@ -18,6 +18,10 @@ EXAMPLES = {
         ("reframe status", "where the latest run is, and what to do next"),
         ("reframe answer", "AWS's waiting question, in interactive mode"),
         ("reframe report --open", "open the business review in the browser"),
+        ("reframe claude", "pipeline 2: assess the same snapshot with Claude as well"),
+        ("reframe compare --open", "open the page comparing AWS Transform and Claude"),
+        ("reframe publish --to aws", "upload a cleaned copy of the reports to your account's private bucket"),
+        ("reframe reports", "list the published reports; reframe reports open <project> opens the latest"),
         ("reframe teardown", "remove the AWS resources the run created"),
     ],
     "run": [
@@ -34,6 +38,18 @@ EXAMPLES = {
     "status": [("reframe status", "the latest run"), ("reframe status --run <id>", "another run, by the ID the home screen shows")],
     "events": [("reframe events --follow", "keep printing new events until Ctrl+C")],
     "report": [("reframe report --open", "build the report again and open it")],
+    "claude": [("reframe claude", "start pipeline 2 on the latest run, now or as soon as its AWS resources exist"),
+               ("reframe claude --max-agents 650", "a higher agent limit, so a larger estimate does not stop to ask")],
+    "compare": [("reframe compare --open", "build the comparison page again and open it")],
+    "publish": [("reframe publish --to aws", "upload to the private reports bucket in your AWS account"),
+                ("reframe publish --to reports/my-system", "write the copy into a folder")],
+    "reports": [("reframe reports", "list the published reports"),
+                ("reframe reports open <project>", "download the project's latest report with your AWS sign-in and open it"),
+                ("reframe reports open <project> --run <run>", "an older run of the project"),
+                ("reframe reports download <project> --to <folder>", "save the latest report in a folder, to keep or send on"),
+                ("reframe reports teardown", "remove the bucket and every report in it, after your consent")],
+    "resume": [("reframe resume", "continue the latest run, and pipeline 2 if it stopped too")],
+    "teardown": [("reframe teardown", "list the latest run's AWS resources, then remove them after you type yes")],
 }
 
 

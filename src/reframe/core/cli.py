@@ -24,6 +24,7 @@ HANDLERS = {
     "claude": "reframe.core.commands:claude",
     "compare": "reframe.core.commands:compare",
     "publish": "reframe.core.commands:publish",
+    "reports": "reframe.core.commands:reports",
     "worker": "reframe.core.commands:worker",
 }
 
@@ -95,7 +96,20 @@ def parser() -> argparse.ArgumentParser:
 
     publish = command("publish", "Copy a run's reports, cleaned of the AWS account's identifiers, into a folder others can open")
     _run_option(publish)
-    publish.add_argument("--to", required=True, help="the folder to write the copy into, for example reports/carddemo")
+    publish.add_argument("--to", required=True, help="a folder to write the copy into (for example reports/carddemo), or aws to upload it to "
+                         "the private reports bucket in your AWS account")
+    publish.add_argument("--profile", help="for --to aws: the AWS profile (default: the one saved by reframe setup)")
+    publish.add_argument("--region", help="for --to aws: the AWS region (default: the saved one, then us-east-1)")
+
+    reports = command("reports", "The reports published to your AWS account: list them, open one with your AWS sign-in, or remove the bucket")
+    reports.add_argument("action", nargs="?", choices=("list", "open", "download", "teardown"), default="list",
+                         help="list (the default): what is published; open: download one and open it; download: save one in a folder; "
+                              "teardown: remove the bucket")
+    reports.add_argument("path", nargs="?", help="for open and download: a project (its latest run) or <project>/<run>, as reframe reports lists them")
+    reports.add_argument("--run", metavar="RUN", help="for open and download: an older run of the project")
+    reports.add_argument("--to", help="for download: the folder to save the report in")
+    reports.add_argument("--profile", help="the AWS profile (default: the one saved by reframe setup)")
+    reports.add_argument("--region", help="the AWS region (default: the saved one, then us-east-1)")
 
     teardown = command("teardown", "List every AWS resource the run created, ask for consent, record it, then remove them")
     _run_option(teardown)

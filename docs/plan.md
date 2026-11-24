@@ -90,12 +90,39 @@ Specification: [sharing.md](sharing.md). An epic of its own, outside pipelines 1
 |---|---|---|---|
 | S-01 | `reframe publish`: a cleaned copy of a run's reports | §2 | AWS Transform's review, Claude's review, the comparison and the plugin's own pages are copied with an index page. Account IDs, ARNs, bucket names, S3 locations, job, workspace and connector IDs, profile names, e-mail addresses and local paths are removed. A check of the copy finds none left, or nothing is written |
 | S-02 | The CardDemo reports in the repository | §3 | The reports of a full CardDemo run are in `reports/carddemo/`, linked from the README, and open in a browser from a clone with no Reframe run |
-| S-03 | A static site on AWS for the reports | §4 | One Terraform root creates a private, encrypted S3 bucket and a CloudFront distribution that reads it through origin access control. `reframe publish --to aws` uploads a published copy and prints the address. The site outlives runs and is removed only by its own teardown, by its own records |
-| S-04 | Who can open the site | §4 | The owner's choice of access is built and documented, for example open to anyone with the link, limited to an IP range, or behind a sign-in |
+| S-03 | The reports in a private S3 bucket | §4 | One Terraform root creates a private, encrypted, versioned S3 bucket that refuses requests not over TLS. `reframe publish --to aws` uploads a cleaned copy under `<project>/<run>/`. The bucket outlives runs and is removed only by `reframe reports teardown`, by its own records |
+| S-04 | Opening the reports with an AWS sign-in | §4 | `reframe reports` lists what is published and `reframe reports open` downloads a report with the reader's own AWS sign-in and opens it. Nothing can be read without access to the account (owner's decision, 23 November 2026). The CardDemo reports are uploaded and opened this way |
+| S-05 | Spike: the AWS sign-in for a link | – | Done. IAM Identity Center belongs to the organization's management account, so a sign-in link needs its administrator to add a SAML application by hand |
+
+S-06 to S-08, a link that opens a report in the browser after the AWS sign-in (CloudFront, Cognito federated with IAM Identity Center, and a sign-in check at the edge), were built and then dropped by the owner on 23 November 2026, before they were merged. Published reports stay in the private bucket and are opened or downloaded with each reader's own AWS sign-in. The AWS resources the link had created were removed by Reframe's records, and the three stories are closed as not planned.
+
+In their place (owner's decision, 24 November 2026), the reports stay in the private bucket and anyone who can sign in to the account opens or downloads them by project name:
+
+| Story | Title | Specification | Done when |
+|---|---|---|---|
+| S-09 | Find the reports bucket from any computer | §6 | `reframe reports` and `reframe reports open` work on a computer that did not publish: the bucket is found by its tags `ManagedBy=reframe` and `ReframeStore=reports` with the reader's own AWS sign-in. More than one such bucket is refused with the list. Teardown still goes only by the publisher's own records |
+| S-10 | Open or download a report by project | §6 | `reframe reports open <project>` opens the project's latest published run and `--run <run>` an older one; `reframe reports download <project> --to <folder>` saves a copy to keep or send, with a warning for a macOS-protected folder |
+| S-11 | One file to download from the S3 console | §6 | `reframe publish --to aws` also uploads `<project>/<run>/report.zip`, the same cleaned copy, so a reader without Reframe signs in to the AWS console and downloads one file. Republishing replaces it |
+
+## Pipeline 3: reconcile
+
+Specification: [pipeline-3.md](pipeline-3.md). It starts from the comparison of AWS Transform's and Claude's assessments, works on every rule except those both tools describe the same way, and decides each against the source code. It writes the recommended business rules, then the recommended requirements, and one SME question list. The person adds context: documents, review marks and answered questions (owner's decisions, 24 November 2026).
+
+| Story | Title | Specification | Done when |
+|---|---|---|---|
+| P3-01 | Spike: one batch decided against the source | §4 R4 | On CardDemo, the decision prompt and schema run on three batches (a conflict, overlapping pairs, one-sided rules). The evidence check passes or catches each answer, and the time and usage per batch are measured and written into the specification |
+| P3-02 | Preflight and inputs | §4 R0, R1 | `reframe reconcile` checks both pipelines, the complete pairing, the snapshot's SHA-256 and the sign-in, and runs on a torn-down run. The items, open questions and context are gathered: Markdown, text, PDF and Word documents; review exports, ignoring another snapshot's; answered questions |
+| P3-03 | Identical pairs agreed | §4 R2 | `same` pairs become recommended rules without an agent, citing both tools; a *Needs change* or *Question* mark sends a pair to R4 |
+| P3-04 | The estimate and limit | §3, §4 R3 | Items are batched by program; the estimate is shown, and Reframe stops and asks above `--max-batches` |
+| P3-05 | Decisions with evidence | §4 R4 | Every batch's answer has a decision per item; evidence is checked to exist, asked once more, then becomes `needs_sme`; decisions are stored with their input hash and round |
+| P3-06 | Running again with more context | §4 R4 *Running again* | A second run with one more answered question decides only the affected rules again and keeps the rest |
+| P3-07 | One SME list | §4 R5 | Both tools' open questions and R4's are merged, each original kept exactly once; answered ones are marked with their source; CSV and JSON out, answered files back in |
+| P3-08 | Recommended requirements | §4 R6 | Requirements in AWS Transform's frame, each citing a recommended rule; uncited ones dropped and counted; open questions carried; marked as recommended by Reframe |
+| P3-09 | The reconciliation page and publish | §4 R7 | The page as specified, linked from the comparison, with marks and downloads; `reframe publish` includes it as `reconciled/` with a fourth card |
+| P3-10 | Live acceptance and README | §7 | Every point of section 7 passes from the CLI; the README and `docs/cli.md` describe pipeline 3 from the tested commands |
 
 ## Later pipelines
 
 Specified after pipelines 1 and 2 have been tested, first each on its own and then together.
 
-- **Pipeline 3: reconcile.** It starts from the comparison of AWS Transform's and Claude's assessments. An agent looks only where the two do not match or disagree, and writes the final recommended business rules and requirements. The person can add context as Markdown, documents, PDFs and similar files.
 - **Pipeline 4: final requirements, business rules and wireframes.** It produces them, takes more human context (text, Markdown, documents, PDFs and similar), and gives the updated version of each. This is where Reframe ends.
