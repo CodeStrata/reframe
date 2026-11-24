@@ -105,7 +105,10 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
     batched = units.batches(pending)
     size = units.estimate(pending, batched, agreed)
     limit = _limit(state(folder).get("max_batches"))
-    update(folder, estimate=size)
+    if (state(folder).get("estimate") or {}).get("round") == round_:
+        update(folder, remaining=size)  # resumed: the round keeps its first estimate, and this is what is left of it
+    else:
+        update(folder, estimate={**size, "round": round_}, remaining=None)
     if size["batches"] > limit:
         raise Stop(Outcome.WAITING_HUMAN, f"stage R4 needs {size['batches']} batches, above the limit of {limit}: about {size['minutes_low']} to "
                                           f"{size['minutes_high']} minutes four at a time, and ${size['usd_low']} to ${size['usd_high']} at API "

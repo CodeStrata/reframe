@@ -44,6 +44,11 @@ class PipelineTest(InputsTest):
         self.assertTrue(self.folder.exists("reconcile/questions.csv"))
         self.assertEqual(len(self.folder.load("reconcile/agreed.json")), 1)
         self.assertEqual(pipeline.request(self.folder)["round"], 2)  # a finished round: the next request is a new one
+        self.assertEqual((rec["estimate"]["batches"], rec["estimate"]["round"]), (1, 1))
+        pipeline.update(self.folder, round=1, status="RUNNING")  # resumed in the same round, with nothing left to decide
+        pipeline.work(self.folder, claude=self.fake(), claude_check=lambda: Report(True))
+        rec = self.folder.state["reconcile"]
+        self.assertEqual((rec["estimate"]["batches"], rec["remaining"]["batches"]), (1, 0))  # the round keeps its estimate
 
     def test_running_again_with_one_more_answer_decides_only_the_rules_it_names(self):
         self.data = inputs([pair("a1", "c1", "same"), pair("a2", "c2", "overlapping", "PROG1")], extra=[("a9", "aws", "PROG2")])
