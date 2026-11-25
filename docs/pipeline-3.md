@@ -403,3 +403,47 @@ Part 2 is done when, from the CLI only, on CardDemo run fa1f61:
 - **Possible defects**: each is shown once on the page, and the SME list's defect entries match the units' notes one to one.
 - **Two reviewers' files**, one JSON and one CSV, carry marks, sign-offs, a *Needs change* on a requirement, a disagreement and an *Agree* on a whole unit. `reframe review` shows their coverage and the disagreement. **Round 4** decides again only the marked units, writes again only the marked function's requirements, keeps the agreed unit, and shows the sign-offs in `reframe status` and on the page.
 - The README and `docs/cli.md` describe part 2 from the tested commands.
+
+### Results (P3-20, 25 November 2026)
+
+On CardDemo run fa1f61, from the CLI, on the Claude subscription, with no AWS resources.
+
+**Round 3**, the first after part 2, decided all 431 units again. The estimate was 113 batches, 29 to 87 minutes and $56 to $130 at API prices. The round stopped once at Claude's usage limit and `reframe resume` finished it: about 52 minutes of work, and about $32 at API prices by the step logs.
+
+| | Round 3 |
+|---|---|
+| Recommended rules | 1,185 from 1,014 input rules (P3-10: 1,204 from 1,111) |
+| Confidence set by Reframe | 718 high, 463 medium, 4 low (P3-10: 1,182 high). The model's own rating is kept beside it: 1,140 high, 45 medium |
+| Kinds | validation 268, business 267, technical 256, error handling 169, display 167, compliance 30, leftover 16, side effect 12 |
+| Code runs | 1,166 rules reached from lines that exist, 4 never run, 15 not shown by the source |
+| Worked examples | 1,273 kept, 330 removed by the check |
+| Possible defects | 182 unit notes (P3-10: 187), each shown once, matching the SME list's 182 defect entries one to one |
+| Requirements | 1,131 in 153 capabilities, 114 decision tables; 10 functions high risk, 1 medium |
+
+A unit's count of removed examples is kept on its first rule only. So in 115 units, a later rule whose examples were all removed shows neither examples nor a count; in 5 more, the step gave a rule no example.
+
+**The five P3-11 errors** are all lower now: A02 (agreed, wrong detail) medium; A03 (a menu branch no entry reaches) low, with the code found never to run; A31 and A41 (kept from one tool, wrong detail) medium; A32 (a job under `TYPRUN=SCAN`) rejected.
+
+**The audit** on a new sample (`--seed 2`, the P3-11 audit kept as `reconcile/audit-p3-11/`) judged 76 items: 65 recommended rules and 11 rejected input rules. Opus 5.5 and Sonnet 5.5 took about 10 minutes and $10 at API prices.
+
+| Kind | Items | Both judges: correct | Minor | Disputed |
+|---|---|---|---|---|
+| Agreed without an agent | 8 | 6 | 1 | 1 |
+| Merged | 20 | 19 | 0 | 1 |
+| Kept, found only by AWS Transform | 12 | 8 | 2 | 2 |
+| Kept, found only by Claude | 8 | 7 | 0 | 1 |
+| Rewritten from the code | 6 | 6 | 0 | 0 |
+| Claude's rule chosen | 11 | 10 | 0 | 1 |
+| **Recommended rules** | **65** | **56 (86%)** | **3** | **6** |
+| Rejected input rules | 11 | 10 upheld | | 1 |
+
+- No rule was judged wrong by both judges. Between 56 and 62 of the 65 are correct (86% to 95%), and 59 to 65 correct or minor; the target of 91% needs 4 of the 6 disputed rules settled correct.
+- Every rule with a minor error is rated medium. Of the 6 disputed, 2 are rated high and 4 medium; P3-11 had every sampled rule rated high.
+- The judges agreed on 20 of 21 defect calls (22 notes real, 2 not a defect, 3 disputed).
+- Nine items wait for the owner in `reconcile/audit/settle.csv`; running the audit again then gives the final figures at no cost.
+
+**Two reviewers.** Pat's JSON download agrees with every rule of one merged unit (4 rules) and with one kept rule, marks a requirement *Needs change* and signs off a function. Sam's CSV download asks a *Question* on the same kept rule and on a capability, and signs off another function. All the marks are in one function, Account Statement Generation and Delivery. `reframe review` showed both reviewers, their sign-offs and the one disagreement, combined as a *Question*.
+
+**Round 4** estimated 1 batch for 1 unit and decided only the disputed unit again, keeping 430. The unit agreed in full kept its round 3 decision word for word. Only the marked function's requirements were written again: its 7 capabilities became 8 (the one asked about was split in two), 36 requirements became 41, and the requirement marked *Needs change* kept its text, since its rules (a sort step with no screen) do not support the comment. The other 34 were reworded although nobody marked them. Both sign-offs show in `reframe status` and on the page.
+
+**Open after P3-20.** The owner settles the nine audit items. Two changes follow from the figures: keep the unmarked requirements of a function that is written again word for word while their rules are unchanged, so reviewers' earlier marks still apply; and keep the count of removed examples on each rule.

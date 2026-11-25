@@ -220,7 +220,7 @@ Read the review downloads in a folder and show each reviewer's coverage, sign-of
 reframe review --context ~/carddemo-context  # each reviewer's coverage, sign-offs and disagreements in the folder's review downloads
 ```
 
-It writes `reconcile/reviews.json` in the run folder. A download of another snapshot, or a CSV downloaded before part 2 (without a `key` column), is listed as ignored with the reason.
+On CardDemo (25 November 2026) it read a JSON and a CSV download, showed each reviewer's sign-off and the one item they marked differently; the next round decided only that item's unit again. It writes `reconcile/reviews.json` in the run folder. A download of another snapshot, or a CSV downloaded before part 2 (without a `key` column), is listed as ignored with the reason.
 
 ### `reframe export`
 
