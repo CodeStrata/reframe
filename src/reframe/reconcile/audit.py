@@ -50,11 +50,11 @@ SCHEMA = {"type": "object", "required": ["judgments"], "properties": {"judgments
 
 PROMPT = """Read {input}. It holds business rules written about a legacy system whose source is read-only under {legacy}/. Check each item against the source code as an independent reviewer: you did not write these rules, and you are not told how they were made.
 
-For each item, "rule" is the rule to check and "cites" the source lines given for it. "stands_for" lists the rules it was made from, written by two other tools, for reference. Read the cited lines and what is around them, and follow a PERFORM, CALL or copybook where the rule depends on it. Do not assume the cited lines are the right ones: search the source when they do not show what the rule says.
+For each item, "rule" is the rule to check and "cites" the source lines given for it. "stands_for" lists the rules it was made from, written by two other tools, for reference; "siblings", where present, are the other rules made from the same input rules. Read the cited lines and what is around them, and follow a PERFORM, CALL or copybook where the rule depends on it. Do not assume the cited lines are the right ones: search the source when they do not show what the rule says.
 
-- "verdict": "correct" if every statement in the rule is true of the code; "minor" if it is true in substance but a detail is wrong or missing (a value, a condition, a message); "wrong" if the code does not do this, or a condition or behaviour is materially different; "unsure" only if the source cannot settle it (it depends on data, configuration or a program that is not in the source).
+- "verdict": whether the system behaves as the rule says when it runs. "correct" if every statement in the rule is true of what the code does; "minor" if it is true in substance but a detail is wrong or missing (a value, a condition, a message); "wrong" if the code does not do this, if a condition or behaviour is materially different, or if the code the rule describes can never run (it is unreachable, or outside any job step); "unsure" only if the source cannot settle it (it depends on data, configuration or a program that is not in the source).
 - "evidence": whether the cited lines support the rule: "supports", "partly" or "no".
-- "lost": a true detail, stated in "stands_for" and confirmed by the code, that the rule leaves out; empty if none.
+- "lost": a true detail, stated in "stands_for" and confirmed by the code, that neither the rule nor its siblings states; empty if none.
 - "defect": only for an item with a "defect_note". "real" if the code does what the note says and it looks unintended; "not_a_defect" if the code does not do it, or it is plainly intended; "unsure" otherwise. Empty for an item with no note.
 - "reason": one or two sentences naming what in the code decided it.
 - "read": the lines you relied on, each as "<path>:<start>-<end>" or "<path>:<line>" (one range each), with paths relative to {legacy}/ exactly as the files are named.
@@ -89,7 +89,8 @@ def candidates(folder: RunFolder) -> dict[str, list[dict[str, Any]]]:
                                 "cites": r["evidence"], "confidence": r.get("confidence", ""), "decision": r["decision"],
                                 "stands_for": [{"tool": inputs[k]["tool"], "text": inputs[k].get("text", ""), "cites": inputs[k].get("cites") or []}
                                                for k in r["covers"] if k in inputs],
-                                "defect_note": r.get("defect") or ""})
+                                "defect_note": r.get("defect") or "",
+                                "siblings": [x["text"] for x in made if x["unit"] == r["unit"] and x["key"] != r["key"]]})
     for unit, d in sorted(decisions.items()):
         if d.get("decision") != "rejected":
             continue
@@ -125,22 +126,34 @@ def sample(folder: RunFolder, size: int = 60, seed: int = 1) -> list[dict[str, A
 
 # ---- the judges --------------------------------------------------------------------------------------------------
 
-def shown(item: dict[str, Any]) -> dict[str, Any]:
+def noted(items: list[dict[str, Any]]) -> set[str]:
+    """The items whose defect note is judged: a note belongs to a unit, so only the first sampled item of each unit carries it."""
+    seen, out = set(), set()
+    for item in items:
+        if item["defect_note"] and item["unit"] not in seen:
+            seen.add(item["unit"])
+            out.add(item["id"])
+    return out
+
+
+def shown(item: dict[str, Any], with_note: bool) -> dict[str, Any]:
     """What a judge sees: not the decision, reason, confidence or the other judge's answer."""
     out = {k: item[k] for k in ("id", "program", "rule", "cites", "stands_for")}
-    if item["defect_note"]:
+    if item.get("siblings"):
+        out["siblings"] = item["siblings"]
+    if with_note:
         out["defect_note"] = item["defect_note"]
     return out
 
 
-def problems(item: dict[str, Any], answer: dict[str, Any] | None, legacy: Path) -> list[str]:
+def problems(item: dict[str, Any], answer: dict[str, Any] | None, legacy: Path, with_note: bool = False) -> list[str]:
     from reframe.reconcile.decide import missing_evidence
     if not answer:
         return ["no answer for this item"]
     wrong = []
     if answer.get("verdict") not in VERDICTS:
         wrong.append("verdict is not one of " + ", ".join(VERDICTS))
-    if item["defect_note"] and answer.get("defect") not in DEFECTS:
+    if with_note and answer.get("defect") not in DEFECTS:
         wrong.append("the item has a defect note: defect must be one of " + ", ".join(DEFECTS))
     if not answer.get("read"):
         wrong.append("read is empty: give the lines you relied on")
@@ -178,6 +191,7 @@ def judge(folder: RunFolder, label: str, claude, items: list[dict[str, Any]]) ->
     lock = threading.Lock()
     stop_now, stopped = threading.Event(), []
     todo = [i for i in items if i["id"] not in saved["answers"]]
+    with_note = noted(items)
     work = places["analysis"] / "reframe" / "audit"
     work.mkdir(parents=True, exist_ok=True)
 
@@ -189,7 +203,7 @@ def judge(folder: RunFolder, label: str, claude, items: list[dict[str, Any]]) ->
                 return
             step_name = f"audit-{label}-b{number}{'-retry' if attempt == 2 else ''}"
             path = work / f"{step_name}.json"
-            path.write_text(json.dumps({"items": [shown(i) for i in pending.values()]}, indent=1))
+            path.write_text(json.dumps({"items": [shown(i, i["id"] in with_note) for i in pending.values()]}, indent=1))
             prompt = PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", legacy=f"legacy/{project}")
             if attempt == 2:
                 prompt += "\n\n" + RETRY.format(problems="\n".join(f"- {k}: {'; '.join(v)}" for k, v in failed.items()))
@@ -207,7 +221,7 @@ def judge(folder: RunFolder, label: str, claude, items: list[dict[str, Any]]) ->
             answers = {a["item"]: a for a in (claude.structured(step) or {}).get("judgments") or [] if isinstance(a, dict) and a.get("item") in pending}
             failed = {}
             for key, item in list(pending.items()):
-                wrong = problems(item, answers.get(key), places["legacy"])
+                wrong = problems(item, answers.get(key), places["legacy"], key in with_note)
                 if wrong:
                     failed[key] = wrong
                     continue
@@ -218,7 +232,7 @@ def judge(folder: RunFolder, label: str, claude, items: list[dict[str, Any]]) ->
                 del pending[key]
         with lock:  # failed twice: recorded as unsure
             for key, item in pending.items():
-                saved["answers"][key] = {"verdict": "unsure", "evidence": "no", "lost": "", "defect": "unsure" if item["defect_note"] else "",
+                saved["answers"][key] = {"verdict": "unsure", "evidence": "no", "lost": "", "defect": "unsure" if key in with_note else "",
                                          "reason": "The judge's answer failed Reframe's checks twice: " + "; ".join(failed.get(key, ["no answer"])),
                                          "read": [], "attempt": 2, "check_failed": True}
             folder.save(name, saved)
@@ -238,11 +252,12 @@ SETTLE_COLUMNS = ["id", "kind", "program", "rule", "cites", "defect_note", "ques
 
 def disagreements(items: list[dict[str, Any]], judged: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     labels = sorted(judged)
+    with_note = noted(items)
     out = []
     for item in items:
         answers = {lab: judged[lab]["answers"].get(item["id"]) or {} for lab in labels}
         verdicts = {a.get("verdict") for a in answers.values()}
-        defects = {a.get("defect") or "" for a in answers.values()} if item["defect_note"] else {""}
+        defects = {a.get("defect") or "" for a in answers.values()} if item["id"] in with_note else {""}
         if len(verdicts) > 1 or len(defects) > 1:
             out.append({"item": item, "answers": answers, "verdict_differs": len(verdicts) > 1, "defect_differs": len(defects) > 1})
     return out
@@ -261,7 +276,7 @@ def write_settle(folder: RunFolder, items: list[dict[str, Any]], judged: dict[st
     for d in found:
         item = d["item"]
         row = {"id": item["id"], "kind": KINDS[item["kind"]], "program": item["program"], "rule": item["rule"], "cites": "; ".join(item["cites"]),
-               "defect_note": item["defect_note"],
+               "defect_note": item["defect_note"] if item["id"] in noted(items) else "",
                "question": " and ".join(x for x, on in (("verdict", d["verdict_differs"]), ("defect", d["defect_differs"])) if on)}
         for lab in labels:
             a = d["answers"][lab]
@@ -280,21 +295,22 @@ def read_settled(folder: RunFolder) -> dict[str, dict[str, str]]:
     return {row["id"]: row for row in csv.DictReader(io.StringIO(path.read_text()))}
 
 
-def final(item: dict[str, Any], judged: dict[str, dict[str, Any]], settled: dict[str, dict[str, str]]) -> dict[str, str]:
+def final(item: dict[str, Any], judged: dict[str, dict[str, Any]], settled: dict[str, dict[str, str]], with_note: bool = False) -> dict[str, str]:
     """The item's verdict and defect answer: the judges' shared answer, else the owner's, else "unsettled"."""
     answers = [judged[lab]["answers"].get(item["id"]) or {} for lab in sorted(judged)]
     owner = settled.get(item["id"]) or {}
     verdicts = {a.get("verdict") for a in answers}
     verdict = verdicts.pop() if len(verdicts) == 1 else (owner.get("owner_verdict") or "").strip() or "unsettled"
     defect = ""
-    if item["defect_note"]:
+    if with_note:
         defects = {a.get("defect") for a in answers}
         defect = defects.pop() if len(defects) == 1 else (owner.get("owner_defect") or "").strip() or "unsettled"
     return {"verdict": verdict, "defect": defect}
 
 
 def figures(items: list[dict[str, Any]], judged: dict[str, dict[str, Any]], settled: dict[str, dict[str, str]]) -> dict[str, Any]:
-    finals = {i["id"]: final(i, judged, settled) for i in items}
+    with_note = noted(items)
+    finals = {i["id"]: final(i, judged, settled, i["id"] in with_note) for i in items}
     labels = sorted(judged)
 
     def tally(group: list[dict[str, Any]]) -> dict[str, Any]:
@@ -311,8 +327,8 @@ def figures(items: list[dict[str, Any]], judged: dict[str, dict[str, Any]], sett
     by_kind = {KINDS[k]: tally([i for i in items if i["kind"] == k]) for k in QUOTA if any(i["kind"] == k for i in items)}
     rejected = [i for i in items if i["kind"] == "rejected"]
     recommended = [i for i in items if i["kind"] != "rejected"]
-    noted = [i for i in items if i["defect_note"]]
-    defect_counts = Counter(finals[i["id"]]["defect"] for i in noted)
+    notes = [i for i in items if i["id"] in with_note]
+    defect_counts = Counter(finals[i["id"]]["defect"] for i in notes)
     confidence = defaultdict(Counter)
     for i in recommended:
         confidence[i["confidence"] or "none"][finals[i["id"]]["verdict"]] += 1
@@ -325,7 +341,7 @@ def figures(items: list[dict[str, Any]], judged: dict[str, dict[str, Any]], sett
         "recommended": tally(recommended), "by_kind": by_kind,
         "rejections_upheld": sum(finals[i["id"]]["verdict"] in ("wrong", "unsure") for i in rejected), "rejections": len(rejected),
         "confidence": {k: dict(v) for k, v in sorted(confidence.items())},
-        "defects": {"notes": len(noted), **{d: defect_counts.get(d, 0) for d in (*DEFECTS, "unsettled")}},
+        "defects": {"notes": len(notes), **{d: defect_counts.get(d, 0) for d in (*DEFECTS, "unsettled")}},
         "evidence": evidence, "cost": cost,
         "unsettled": sorted(k for k, v in finals.items() if "unsettled" in (v["verdict"], v["defect"])),
         "final": finals,

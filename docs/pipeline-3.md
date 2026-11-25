@@ -222,13 +222,13 @@ The evidence check of R4 proves that the cited lines exist, not that they suppor
 | Claude's rule chosen | all (2 on CardDemo) |
 | Rejected (the input rule that was rejected) | all (3 on CardDemo) |
 
-A kind with fewer rules than its share gives all it has. The `needs_sme` units are left to the SME. Each unit in the sample with a possible-defect note also has that note judged.
+A kind with fewer rules than its share gives all it has. The `needs_sme` units are left to the SME. A possible-defect note belongs to a unit, not a rule, so it is judged once, with the first sampled rule of its unit.
 
-**The judges.** Two headless Claude Code steps judge every item on their own, each with read-only access to the snapshot: the model that decided the rules (Opus 5.5 on CardDemo) in a fresh session, and a different model (Sonnet 5.5). Each judge is given an item's rule, the source lines it cites and the input rules it stands for. It is not given the decision, reason, confidence or the other judge's answer. Items are judged in batches of up to 6, a program's items together and small programs packed, at most 4 batches at a time. The judge answers:
+**The judges.** Two headless Claude Code steps judge every item on their own, each with read-only access to the snapshot: the model that decided the rules (Opus 5.5 on CardDemo) in a fresh session, and a different model (Sonnet 5.5). Each judge is given an item's rule, the source lines it cites, the input rules it stands for and the other rules made from them (its siblings). It is not given the decision, reason, confidence or the other judge's answer. Items are judged in batches of up to 6, a program's items together and small programs packed, at most 4 batches at a time. The judge answers:
 
-- `verdict`: `correct` (every statement is true of the code), `minor` (true in substance, with a wrong or missing detail: a value, a condition, a message), `wrong` (the code does not do this, or a condition or behaviour is materially different) or `unsure` (the source cannot settle it);
+- `verdict`, on how the system behaves when it runs: `correct` (every statement is true of what the code does), `minor` (true in substance, with a wrong or missing detail: a value, a condition, a message), `wrong` (the code does not do this, a condition or behaviour is materially different, or the code the rule describes can never run) or `unsure` (the source cannot settle it);
 - `evidence`: `supports`, `partly` or `no`, for the rule's cited lines;
-- `lost`: a true detail of the input rules the recommended rule leaves out, or empty;
+- `lost`: a true detail of the input rules that neither the rule nor its siblings states, or empty;
 - `defect` (where the item has a note): `real`, `not_a_defect` or `unsure`;
 - a reason and the lines it read, which Reframe checks exist in the snapshot. An answer that fails the check is asked for once more, then recorded as `unsure`.
 

@@ -92,6 +92,18 @@ class AuditTest(unittest.TestCase):
         self.assertEqual(len(noted), 1)
         self.assertTrue(all(len(b) <= audit.BATCH for b in audit.batches(audit.sample(self.folder))))
 
+    def test_a_unit_note_is_judged_once_and_siblings_are_shown(self):
+        rules = self.folder.load("outputs/reconcile/rules.json")["rules"]
+        for r in rules[:2]:
+            r.update(unit="u:shared", defect="Shared note")
+        self.folder.save("outputs/reconcile/rules.json", {"rules": rules})
+        items = audit.draw(audit.candidates(self.folder), 60, 1)
+        shared = [i for i in items if i["unit"] == "u:shared"]
+        self.assertTrue(all(i["siblings"] == [r["text"] for r in rules[:2] if r["key"] != i["key"]] for i in shared))
+        with_note = audit.noted(items)
+        self.assertLessEqual(len(with_note & {i["id"] for i in shared}), 1)
+        self.assertEqual(sum("defect_note" in audit.shown(i, i["id"] in with_note) for i in shared), min(1, len(shared)))
+
     def test_an_answer_failing_the_checks_is_asked_again_then_unsure_and_answers_are_kept(self):
         items = audit.sample(self.folder)
         bad = Judge(self.root, read=["app/cbl/PROG1.cbl:50-60"])
