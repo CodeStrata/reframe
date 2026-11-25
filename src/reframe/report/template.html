@@ -371,7 +371,11 @@ function capabilityPage(c, focus){
 
 // ---- review first (docs/pipeline-3.md, section 8.10): what an SME should check before the rest ---------------------
 const RISK_RANK = {high: 0, medium: 1, low: 2};
-function fnRisk(fid){ const f = fnById[fid]; return f && f.risk ? RISK_RANK[f.risk] : 3; }
+// An item's risk is its capability's: a rule's is that of the first capability whose requirements cite it, else its
+// function's. Functions take their riskiest capability, so on a card system nearly all are high; capabilities tell apart.
+function itemCap(x){ return capById[x.capability || capOfRule(x.key)] || null; }
+function itemRisk(x){ const c = itemCap(x); return (c && c.risk) || (fnById[x.function] || {}).risk || ''; }
+function riskRank(x){ const r = itemRisk(x); return r in RISK_RANK ? RISK_RANK[r] : 3; }
 const FIRST = [
   ['never', 'The code never runs', 'Rules both tools describe the same way, about code that no menu, transaction or job step reaches. They are probably not rules of the system.', r => r.confidence === 'low'],
   ['conflict', 'Conflicts', 'The two tools said different things; an agent decided against the code.', r => r.conflict],
@@ -384,12 +388,12 @@ let firstFilter = {decision: '', kind: '', confidence: '', risk: ''};
 function firstGroups(){
   const seen = new Set(), out = [];
   const keep = r => (!firstFilter.decision || r.decision === firstFilter.decision) && (!firstFilter.kind || r.kind === firstFilter.kind) &&
-    (!firstFilter.confidence || r.confidence === firstFilter.confidence) && (!firstFilter.risk || (fnById[r.function] || {}).risk === firstFilter.risk);
-  const order = (a, b) => fnRisk(a.function) - fnRisk(b.function) || kindRank(a.key) - kindRank(b.key) || (a.function > b.function ? 1 : -1);
+    (!firstFilter.confidence || r.confidence === firstFilter.confidence) && (!firstFilter.risk || itemRisk(r) === firstFilter.risk);
+  const order = (a, b) => riskRank(a) - riskRank(b) || kindRank(a.key) - kindRank(b.key) || (a.function > b.function ? 1 : -1);
   for (const [id, title, note, test] of FIRST) {
     let keys;
-    if (!test) keys = (firstFilter.decision || firstFilter.kind || firstFilter.confidence) ? [] : D.questions.filter(q => !firstFilter.risk || (fnById[q.function] || {}).risk === firstFilter.risk)
-      .sort((a, b) => fnRisk(a.function) - fnRisk(b.function)).map(q => q.key);
+    if (!test) keys = (firstFilter.decision || firstFilter.kind || firstFilter.confidence) ? [] : D.questions.filter(q => !firstFilter.risk || itemRisk(q) === firstFilter.risk)
+      .sort((a, b) => riskRank(a) - riskRank(b)).map(q => q.key);
     else keys = D.rules.filter(r => r.decision && !seen.has(r.key) && test(r) && keep(r)).sort(order).map(r => r.key);
     keys.forEach(k => seen.add(k));
     out.push({id, title, note, keys});
@@ -404,23 +408,37 @@ function firstPage(){
   const groups = firstGroups(), all = new Set(groups.flatMap(g => g.keys));
   let h = crumbs([['Overview', '#/'], ['Review first']]) + '<h2>Review first</h2><p class="lead">The items to check before the rest, in order: code that never runs, conflicts, ' +
     'rules rewritten from the code, what waits for a subject-matter expert, possible defects, rules only one tool found, and the other medium-confidence rules. ' +
-    'High-risk functions and business rules come first. The other ' + Math.max(0, business.length - groups.reduce((n, g) => n + (g.id === 'sme' ? 0 : g.keys.length), 0)) +
+    'High-risk capabilities and business rules come first. The other ' + Math.max(0, business.length - groups.reduce((n, g) => n + (g.id === 'sme' ? 0 : g.keys.length), 0)) +
     ' rules were decided against the code with both tools\' rules and the code shown to run.</p>';
   h += '<div class="panel">' + progress(all) + '<div class="tools" style="margin:10px 0 0">' +
     firstSelect('decision', 'Every decision', Object.entries(DECISION).filter(([k]) => k !== 'needs_sme')) +
     firstSelect('kind', 'Every kind of rule', KIND_ORDER.map(k => [k, KIND[k]])) +
     firstSelect('confidence', 'Every confidence', [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]) +
-    firstSelect('risk', 'Every risk', [['high', 'High-risk functions'], ['medium', 'Medium-risk functions'], ['low', 'Low-risk functions']]) + '</div></div>';
+    firstSelect('risk', 'Every risk', [['high', 'High-risk capabilities'], ['medium', 'Medium-risk capabilities'], ['low', 'Low-risk capabilities']]) + '</div></div>';
+  firstShown = {};
   for (const g of groups) {
-    const done = reviewed(new Set(g.keys));
-    h += '<details class="panel"' + (g.keys.length && g.keys.length <= 30 ? ' open' : '') + '><summary><b>' + esc(g.title) + '</b> <span class="muted small">' + g.keys.length + ' · ' + done + ' marked</span></summary>' +
-      '<p class="small muted">' + esc(g.note) + '</p>' + (g.keys.length ? g.keys.slice(0, 200).map(k => {
-        const r = ruleByKey[k] || qByKey[k], f = fnById[r.function] || {};
-        return '<p class="small muted" style="margin:12px 0 2px">' + esc(f.name || '') + ' ' + riskTag(f) + '</p>' + (ruleByKey[k] ? ruleCard(k) : questionCard(k));
-      }).join('') + (g.keys.length > 200 ? '<p class="muted">Showing the first 200. Narrow it with the filters above.</p>' : '') : '<p class="muted">None.</p>') + '</details>';
+    const done = reviewed(new Set(g.keys)), open = g.keys.length && g.keys.length <= 30;
+    firstShown[g.id] = g.keys;
+    h += '<details class="panel" data-first-group="' + g.id + '"' + (open ? ' open' : '') + '><summary><b>' + esc(g.title) + '</b> <span class="muted small">' + g.keys.length + ' · ' + done + ' marked</span></summary>' +
+      '<p class="small muted">' + esc(g.note) + '</p><div class="first-items">' + (open ? firstItems(g.keys) : g.keys.length ? '' : '<p class="muted">None.</p>') + '</div></details>';
   }
   return h;
 }
+// A group's cards are drawn when it is opened: the whole list of a large run is several megabytes of HTML.
+let firstShown = {};
+function firstItems(keys){
+  return keys.slice(0, 200).map(k => {
+    const r = ruleByKey[k] || qByKey[k], f = fnById[r.function] || {}, c = itemCap(r);
+    return '<p class="small muted" style="margin:12px 0 2px">' + esc(f.name || '') + (c ? ' › ' + c.number + '. ' + esc(c.title) : '') + ' ' + riskTag(c || f) + '</p>' +
+      (ruleByKey[k] ? ruleCard(k) : questionCard(k));
+  }).join('') + (keys.length > 200 ? '<p class="muted">Showing the first 200. Narrow it with the filters above.</p>' : '');
+}
+document.addEventListener('toggle', e => {
+  const box = e.target, id = box.dataset && box.dataset.firstGroup;
+  if (!id || !box.open) return;
+  const items = box.querySelector('.first-items');
+  if (items && !items.innerHTML) items.innerHTML = firstItems(firstShown[id] || []);
+}, true);
 document.addEventListener('change', e => { const id = e.target.dataset && e.target.dataset.first; if (id) { firstFilter[id] = e.target.value; route(); } });
 
 // ---- search -----------------------------------------------------------------------------------------

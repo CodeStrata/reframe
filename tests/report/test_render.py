@@ -63,6 +63,8 @@ class RenderTest(PipelineTest):
         self.assertIn("Review first", views[""]["text"])          # the reconciled review opens with Review first
         self.assertIn("Possible defects that look unintended", views["#/first"]["text"])
         self.assertIn("Kept from one tool", views["#/first"]["text"])
+        self.assertIn("High-risk capabilities", views["#/first"]["text"])
+        self.assertIn(" › 1. Do it", views["#/first"]["text"])  # each item names its capability, with that capability's risk
         self.assertIn("Sign off this function", views["#/f/0"]["text"])
         self.assertIn("Decision tables", views["#/c/0"]["text"])
         self.assertIn("High risk", views["#/c/0"]["text"])

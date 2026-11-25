@@ -360,7 +360,7 @@ The reconciled review opens with a *Review first* view. It lists the items an SM
 6. rules kept from one tool;
 7. the other medium-confidence rules.
 
-Within each group, high-risk functions come first, and `business`, `validation` and `compliance` rules before the other kinds. Each group shows its count and how many are marked. Filters choose decision kind, rule kind, confidence and risk. On CardDemo the view lists the medium and low rules and the open items: a reviewer can finish it without opening the other 1,000 or so rules.
+Within each group, items from high-risk capabilities come first (a rule takes the risk of the first capability whose requirements cite it), and `business`, `validation` and `compliance` rules before the other kinds. Capability risk is used rather than function risk because a function takes its riskiest capability's: on CardDemo 10 of 11 functions are high, against 74 of 153 capabilities. Each group shows its count and how many are marked. Filters choose decision kind, rule kind, confidence and capability risk. On CardDemo, after the recalibration, the view lists the 467 medium and low rules and the open items. The 718 high-confidence rules need not be opened to finish it.
 
 ### 8.11 The review loop (P3-15 to P3-19)
 
