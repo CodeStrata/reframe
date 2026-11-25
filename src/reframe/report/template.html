@@ -166,7 +166,7 @@ function countLine(c, extra){ return '<div class="counts">' + (extra || '') + '<
 function ruleCard(key){
   const r = ruleByKey[key]; if (!r) return '';
   const extra = (r.priority ? '<span class="tag' + (r.priority === 'P0' ? ' warn' : '') + '">' + esc(r.priority) + '</span>' : '') + (r.category ? '<span class="tag grey">' + esc(r.category) + '</span>' : '') +
-    (r.confidence ? '<span class="tag grey">Confidence: ' + esc(r.confidence) + '</span>' : '') + (r.source ? '<code>' + esc(r.source) + '</code>' : '');
+    (r.confidence ? '<span class="tag ' + (r.decision && r.confidence !== 'high' ? 'warn' : 'grey') + '"' + (r.confidence_why ? ' title="' + esc(r.confidence_why) + '"' : '') + '>Confidence: ' + esc(r.confidence) + '</span>' : '') + (r.source ? '<code>' + esc(r.source) + '</code>' : '');
   return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><span class="tag grey">Business rule</span>' + (r.id && TOOL.key !== 'aws' ? '<code>' + esc(r.id) + '</code>' : '') +
     '<span>' + esc(r.program) + '</span>' + extra + '</div>' +
     '<div class="text"><b>' + prose(r.name) + '</b>' + (r.plain ? '<br>' + prose(r.plain) : '') + '<br>' + prose(r.text).replace(/\n/g, '<br>') + '</div>' +
@@ -187,10 +187,14 @@ function decisionBlock(r){
     '</b> <span class="small muted">' + esc(o.program) + '</span><br>' + prose(o.text).replace(/\n/g, '<br>') + '</div>').join('') || '<p class="small muted">None</p>';
   return '<div class="decision"><span class="tag">' + esc(DECISION[r.decision] || r.decision) + '</span>' + (r.changed && r.decision === 'kept' ? '<span class="tag grey">Corrected</span>' : '') +
     '<span class="small muted">Round ' + esc(r.round || 0) + '</span><p class="small" style="margin:6px 0 0">' + prose(r.why) + '</p>' +
+    (r.confidence_why ? '<p class="small muted" style="margin:4px 0 0">Confidence ' + esc(r.confidence) + ': ' + esc(r.confidence_why) + '</p>' : '') +
+    (r.depends ? '<p class="small muted" style="margin:4px 0 0">Depends on: ' + prose(r.depends) + '</p>' : '') +
     (r.context && r.context.length ? '<p class="small muted" style="margin:4px 0 0">Context used: ' + r.context.map(esc).join('; ') + '</p>' : '') +
     '<details><summary>' + plural(r.originals.length, 'original rule') + ' and ' + plural(r.evidence.length, 'cited source range') + '</summary>' +
     '<div class="sides"><div><h4>AWS Transform</h4>' + side('aws') + '</div><div><h4>Claude\'s plugin</h4>' + side('claude') + '</div></div>' +
-    '<h4>Evidence in the source</h4>' + r.evidence.map(excerpt).join('') + '</details></div>';
+    '<h4>Evidence in the source</h4>' + r.evidence.map(excerpt).join('') +
+    (r.reachable ? '<h4>' + esc({yes: 'How the code is reached', no: 'The code never runs', unknown: 'Whether the code runs is not shown'}[r.reachable] || '') + '</h4>' +
+      (r.entry || []).map(excerpt).join('') : '') + '</details></div>';
 }
 function requirementCard(key){
   const r = reqByKey[key];
@@ -229,6 +233,10 @@ function overview(){
       [n('claude'), "Claude's plugin right"], [n('rewritten'), 'rewritten from the code'], [n('kept'), 'kept (one tool found it)']]);
     h += numbers([[u.rejected || 0, 'one-sided rules rejected'], [u.needs_sme || 0, 'waiting for an SME'], [R.defects || 0, 'possible defects'],
       [(R.sme || {}).questions || 0, 'questions on the SME list'], [R.dropped || 0, 'requirements dropped (no rule)'], [Object.keys(R.rounds || {}).length, 'rounds that decided them']]);
+    const conf = R.confidence || {};
+    h += numbers([[conf.high || 0, 'high confidence'], [conf.medium || 0, 'medium: check these'], [conf.low || 0, 'low: check these first']]) +
+      '<p class="small muted">Reframe sets confidence from what it checked: high when an agent decided the rule against the code with both tools\' rules and the code is shown to run; ' +
+      'medium when one tool found it, no agent decided it, or the source does not show that the code runs; low when the code never runs.</p>';
     if (D.sme) h += '<p><a class="btn" href="#/tech/sme">Open the SME list</a></p>';
   }
   h += '<div class="panel">' + progress(all) + '</div>';

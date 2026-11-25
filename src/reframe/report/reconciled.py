@@ -60,7 +60,7 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
     rules = []
     evidence: dict[str, Any] = {}
     for r in made.get("rules") or []:
-        for cite in r["evidence"]:
+        for cite in list(r["evidence"]) + list(r.get("entry") or []):
             if cite not in evidence:
                 evidence[cite] = _excerpt(legacy, cite)
         originals = [{"tool": inputs[k]["tool"], "key": k, "id": inputs[k].get("id"), "name": inputs[k].get("name", ""), "text": inputs[k].get("text", ""),
@@ -70,7 +70,9 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
                       "program": r["program"], "disposition": "captured", "reason": "", "requirements": [],
                       "confidence": r.get("confidence", ""), "decision": r["decision"], "why": r.get("reason", ""), "evidence": r["evidence"],
                       "originals": originals, "round": r.get("round"), "context": r.get("context") or [], "defect": r.get("defect") or "",
-                      "changed": r.get("changed", False)})
+                      "changed": r.get("changed", False), "confidence_why": r.get("confidence_why", ""), "model_confidence": r.get("model_confidence", ""),
+                      "reachable": r.get("reachable", ""), "entry": r.get("entry") or [], "depends": r.get("depends", ""), "unit": r["unit"], "n": r.get("n", 1),
+                      "unit_rules": r.get("unit_rules", 1), "conflict": r.get("conflict", False)})
     rule_by_key = {r["key"]: r for r in rules}
 
     names = written.get("names") or {}
@@ -128,7 +130,7 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
         "domains": domains, "functions": functions, "capabilities": capabilities, "requirements": requirements, "rules": rules, "questions": questions,
         "data_model": "", "sections": [{"title": "How this was reconciled", "open": True, "html": _how(rec, written, sme)}],
         "classification": [], "unclassified": [], "issues": [], "decisions": [], "links": {"pages": []},
-        "reconcile": {"rules": dict(decided), "units": dict(units), "defects": rec.get("defects", 0), "round": rec.get("round"),
+        "reconcile": {"rules": dict(decided), "units": dict(units), "confidence": dict(Counter(r["confidence"] for r in rules)), "defects": rec.get("defects", 0), "round": rec.get("round"),
                       "rounds": dict(Counter(str(r["round"]) for r in rules)), "sme": sme.get("counts") or {}, "originals": sme.get("originals", 0),
                       "dropped": written.get("dropped", 0)},
         "evidence": {k: v for k, v in evidence.items() if v}, "sme": sme_list,

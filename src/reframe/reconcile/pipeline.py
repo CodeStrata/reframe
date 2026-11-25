@@ -1,7 +1,8 @@
 """Pipeline 3, stage by stage (docs/pipeline-3.md, section 4). Its status lives under "reconcile" in run.json, beside the
 other two pipelines', and every stage can be run again: what is done is kept.
 
-R0 preflight · R1 inputs · R2 identical pairs agreed · R3 estimate (behind the batch limit) · R4 decisions against the source ·
+R0 preflight · R1 inputs · R2 identical pairs agreed · R3 estimate (behind the batch limit) · R2b the agreed rules described ·
+R4 decisions against the source ·
 R5 the SME list · R6 the recommended requirements · R7 the reconciliation page
 """
 
@@ -79,7 +80,7 @@ def page(folder: RunFolder) -> None:
 
 
 def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
-    from reframe.reconcile import decide, inputs, questions, requirements, units
+    from reframe.reconcile import decide, describe, inputs, questions, requirements, units
     settings = state(folder)
     auth = settings.get("auth") or "subscription"
     context = Path(settings["context"]).expanduser() if settings.get("context") else None
@@ -104,6 +105,8 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
     pending = [u for u in found if not decide.Decisions(folder).current(u)]
     batched = units.batches(pending)
     size = units.estimate(pending, batched, agreed)
+    to_describe = [i for i in describe.items(agreed) if ((folder.load(describe.FILE, {}) or {}).get(i["key"]) or {}).get("hash") != i["hash"]]
+    size["describe_batches"] = len(units.batches(to_describe))
     limit = _limit(state(folder).get("max_batches"))
     if (state(folder).get("estimate") or {}).get("round") == round_:
         update(folder, remaining=size)  # resumed: the round keeps its first estimate, and this is what is left of it
@@ -115,8 +118,12 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
                                           f"prices on your Claude account. To go ahead: reframe reconcile --max-batches {size['batches']}")
     folder.decide("reconcile-estimate", f"run {size['batches']} batches", f"within the batch limit ({limit})", step="reconciliation decisions")
 
-    stage(folder, "decide")
     claude = claude or claude_code(folder, auth)
+    stage(folder, "describe")
+    described = describe.describe(folder, claude, agreed)
+    update(folder, described=described)
+
+    stage(folder, "decide")
     result = decide.decide(folder, claude, found, gathered["context"], round_,
                            progress=lambda done, total: update(folder, progress={"batches_done": done, "batches": total}))
     kept = decide.Decisions(folder).saved

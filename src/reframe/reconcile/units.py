@@ -24,6 +24,9 @@ MINUTES_PER_BATCH = (1, 3)
 USD_PER_BATCH = (0.5, 1.15)
 CHANGE_MARKS = ("change", "question")
 RECONCILED = "rec/"   # the keys of recommended rules on the reconciliation page: rec/<unit>/<n>
+# The decision step's method: part of every unit's hash, so a change to its prompt or schema decides every unit again
+# (docs/pipeline-3.md, section 8.2).
+METHOD = "part-2"
 
 
 def reconciled_key(unit: str, n: int) -> str:
@@ -83,7 +86,7 @@ def units(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     their marks, the documents and the answered questions that bear on it. A later run keeps the decisions of units
     whose hash did not change, so one more answer redoes only the units whose rules it names."""
     rules, marks, ctx = inputs["rules"], inputs["context"]["marks"], inputs["context"]
-    background = _hash({"documents": ctx["documents"]})
+    background = _hash({"documents": ctx["documents"], "method": METHOD})
     known = set(rules)
     found = []
 

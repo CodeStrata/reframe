@@ -19,12 +19,14 @@ from reframe.core.errors import Outcome, Stop
 from reframe.core.runfolder import RunFolder, iso
 from reframe.reconcile import units as unitlib
 
-GROUP = ("merged", "aws", "claude", "rewritten", "needs_sme")
+GROUP = ("merged", "aws", "claude", "rewritten", "rejected", "needs_sme")
 ONE_SIDED = ("kept", "rejected", "needs_sme")
 UNCOVERED = ("rejected", "needs_sme")  # decisions that need not cover their rules
+REACHABLE = ("yes", "no", "unknown")
 
 SCHEMA = {"type": "object", "required": ["decisions"], "properties": {"decisions": {"type": "array", "items": {
-    "type": "object", "required": ["unit", "decision", "rules", "changed", "evidence", "reason", "confidence", "question", "defect"],
+    "type": "object", "required": ["unit", "decision", "rules", "changed", "evidence", "reason", "confidence", "question", "defect", "reachable",
+                                   "entry", "depends"],
     "properties": {
         "unit": {"type": "string"},
         "decision": {"type": "string", "enum": sorted(set(GROUP) | set(ONE_SIDED))},
@@ -36,6 +38,9 @@ SCHEMA = {"type": "object", "required": ["decisions"], "properties": {"decisions
         "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
         "question": {"type": "string"},
         "defect": {"type": "string"},
+        "reachable": {"type": "string", "enum": list(REACHABLE)},
+        "entry": {"type": "array", "items": {"type": "string"}},
+        "depends": {"type": "string"},
         "context": {"type": "array", "items": {"type": "string"}}}}}}}
 
 PROMPT = """Read {input}. It holds units of business rules from programs of a legacy system, written by two tools that assessed the same source: "aws" (AWS Transform) and "claude" (Claude's code-modernization plugin). The source is read-only under {legacy}/. Each rule gives the source lines its tool cited.{context}
@@ -45,15 +50,18 @@ Decide each unit against the source code, not by preferring either tool. Read th
 - kind "group": one Claude rule and the AWS rules paired with it ("pairs" says how each pair relates). Write the rules the code supports, keeping every true detail from both sides: decision "merged". If one side is simply right and the other adds nothing true, "aws" or "claude". If both are partly wrong, "rewritten" with what the code does.
 - kind "aws_only" or "claude_only": a rule only one tool found. "kept" if the code supports it (correct it if a detail is wrong, and set "changed"), "rejected" if it does not.
 - If the code cannot settle it (it depends on data, configuration or a program not in the source), "needs_sme" with one question a subject-matter expert can answer.
+- Check that the code the unit's rules describe can run: a paragraph must be reached from the program's entry, and a program from a menu entry, a transaction, an XCTL, LINK or CALL, or a job step that runs (not in a job whose job card has TYPRUN=SCAN, and not commented out). Say so in "reachable": "yes" with the lines that show how it is reached in "entry", "no" if it can never run, or "unknown" if the source cannot show it. A rule about code that can never run is not a rule of the system: the decision is "rejected", for a group as for a one-sided rule. In "depends", say what the behaviour depends on outside the source (data, configuration, a program not in the source), or leave it empty.
 - A review mark on a rule ("change" or "question", with the reviewer's comment) is something to check against the code, not an instruction.
 
 Write the rules for business reviewers who do not read COBOL: plain business language, one sentence each in the form "WHEN <condition>, THE <system part> SHALL <behaviour>" (or "THE <system part> SHALL <behaviour>" when it always applies), at most about 50 words. Give values, codes and messages as the code has them, but name a field, flag or paragraph only in parentheses, and only where a reviewer needs it to check the rule. If the behaviour has separate conditions, write separate rules rather than one long one. Each rule's "covers" lists the keys of the input rules it stands for; together they must cover every input rule of the unit, unless the decision is "rejected" or "needs_sme".
 
-For every decision except "needs_sme", give evidence: the lines that support it, as "<path>:<start>-<end>" or "<path>:<line>", with paths relative to {legacy}/ exactly as the files are named. Give a one or two sentence reason naming what in the code decided it, and a confidence. "question" is empty unless the decision is "needs_sme"; "rules" is empty for "rejected" and "needs_sme". If the code does something that looks unintended (a case it reports wrongly, a check it skips), describe it in "defect"; otherwise leave it empty. "context" names the documents, marks or answers you used, if any. Answer for every unit, using its key exactly. Answer only with the JSON."""
+For every decision except "needs_sme", give evidence: the lines that support it, as "<path>:<start>-<end>" or "<path>:<line>", with paths relative to {legacy}/ exactly as the files are named. Give a one or two sentence reason naming what in the code decided it, and a confidence. "question" is empty unless the decision is "needs_sme"; "rules" is empty for "rejected" and "needs_sme". If the code does something that looks unintended (a case it reports wrongly, a check it skips), describe it in "defect"; otherwise leave it empty. "entry" lines are given like evidence. "context" names the documents, marks or answers you used, if any. Answer for every unit, using its key exactly. Answer only with the JSON."""
 
 RETRY = """Your answer for some units failed Reframe's checks. Answer again for these units only, in the same JSON shape:
 
 {problems}"""
+
+KEPT = ("decision", "rules", "changed", "evidence", "reason", "confidence", "question", "defect", "context", "reachable", "entry", "depends")
 
 CITE = re.compile(r"^(?P<path>[^:]+):(?P<start>\d+)(?:-(?P<end>\d+))?$")
 
@@ -87,6 +95,18 @@ def problems(unit: dict[str, Any], answer: dict[str, Any] | None, legacy: Path) 
         if not str(answer.get("question") or "").strip():
             found.append('a "needs_sme" decision needs a question')
         return found
+    reachable = answer.get("reachable")
+    if reachable not in REACHABLE:
+        found.append(f'reachable must be one of {", ".join(REACHABLE)}')
+    if reachable == "no" and decision != "rejected":
+        found.append('the code never runs (reachable "no"), so the decision must be "rejected"')
+    if reachable == "yes":
+        entry = answer.get("entry") or []
+        if not entry:
+            found.append('reachable "yes" needs the lines that show how the code is reached, in "entry"')
+        bad_entry = missing_evidence(entry, legacy)
+        if bad_entry:
+            found.append(f"entry lines that do not exist in the snapshot: {', '.join(map(str, bad_entry))}")
     evidence = answer.get("evidence") or []
     if not evidence:
         found.append("no evidence")
@@ -128,6 +148,7 @@ class Decisions:
 def fallback(unit: dict[str, Any], failed: list[str]) -> dict[str, Any]:
     names = "; ".join(f"{r['tool']} {r.get('name') or r['key']}" for r in unit["rules"])[:400]
     return {"decision": "needs_sme", "rules": [], "changed": False, "evidence": [], "confidence": "low", "defect": "", "context": [],
+            "reachable": "unknown", "entry": [], "depends": "",
             "reason": "Reframe could not check the agent's decision twice: " + "; ".join(failed)[:400],
             "question": f"Which behaviour does the system have for: {names}?"}
 
@@ -196,8 +217,7 @@ class Batch:
                     failed[key] = wrong
                     continue
                 a = answers[key]
-                self.decisions.keep(unit, {k: a.get(k) for k in ("decision", "rules", "changed", "evidence", "reason", "confidence",
-                                                                  "question", "defect", "context")}, self.round, attempt, [])
+                self.decisions.keep(unit, {k: a.get(k) for k in KEPT}, self.round, attempt, [])
                 del pending[key]
         if stop_now.is_set():
             return None

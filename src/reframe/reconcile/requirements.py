@@ -54,9 +54,13 @@ def _hash(value: Any) -> str:
 
 # ---- the recommended rules --------------------------------------------------------------------------------------------
 
-def recommended_rules(gathered: dict[str, Any], found: list[dict[str, Any]], kept: dict[str, Any], agreed: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Every recommended rule, with its decision and where it came from: rec/<unit>/<n>."""
+def recommended_rules(gathered: dict[str, Any], found: list[dict[str, Any]], kept: dict[str, Any], agreed: list[dict[str, Any]],
+                      described: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Every recommended rule, with its decision, where it came from (rec/<unit>/<n>) and the confidence Reframe sets
+    (section 8.5): from its unit's decision, or for a rule both tools agree on, from its description (stage R2b)."""
+    from reframe.reconcile.confidence import facts
     rules = gathered["rules"]
+    described = described or {}
 
     def name(covers: list[str]) -> str:
         named = [rules[k] for k in covers if k in rules]
@@ -65,16 +69,19 @@ def recommended_rules(gathered: dict[str, Any], found: list[dict[str, Any]], kep
 
     made = []
     for r in agreed:
-        made.append({"key": reconciled_key(r["key"], 1), "unit": r["key"], "n": 1, "text": r["text"], "name": r.get("name") or name(r["covers"]),
-                     "covers": r["covers"], "program": r["program"], "decision": "agreed", "reason": r["reason"], "confidence": r.get("confidence", "high"),
-                     "evidence": r["evidence"], "context": [], "round": 0, "changed": False, "defect": ""})
+        rule = {"key": reconciled_key(r["key"], 1), "unit": r["key"], "n": 1, "text": r["text"], "name": r.get("name") or name(r["covers"]),
+                "covers": r["covers"], "program": r["program"], "decision": "agreed", "reason": r["reason"], "model_confidence": r.get("confidence", ""),
+                "evidence": r["evidence"], "context": [], "round": 0, "changed": False, "defect": "", "unit_rules": 1}
+        made.append({**rule, **facts(rule, described.get(r["key"]) or {})})
     for u in found:
         d = kept.get(u["key"]) or {}
         for n, rule in enumerate(d.get("rules") or [], 1):
-            made.append({"key": reconciled_key(u["key"], n), "unit": u["key"], "n": n, "text": rule.get("text", ""), "name": name(rule.get("covers") or []),
+            made_rule = {"key": reconciled_key(u["key"], n), "unit": u["key"], "n": n, "text": rule.get("text", ""), "name": name(rule.get("covers") or []),
                          "covers": list(rule.get("covers") or []), "program": u["program"], "decision": d.get("decision"), "reason": d.get("reason", ""),
-                         "confidence": d.get("confidence", ""), "evidence": d.get("evidence") or [], "context": d.get("context") or [],
-                         "round": d.get("round"), "changed": bool(d.get("changed")), "defect": d.get("defect", "")})
+                         "evidence": d.get("evidence") or [], "context": d.get("context") or [],
+                         "round": d.get("round"), "changed": bool(d.get("changed")), "defect": d.get("defect", ""), "unit_rules": len(d.get("rules") or []),
+                         "conflict": any(p.get("relation") == "conflicting" for p in u.get("pairs") or [])}
+            made.append({**made_rule, **facts(made_rule, d)})
     return made
 
 
@@ -166,13 +173,13 @@ def write_function(folder: RunFolder, claude, places: dict[str, Any], fid: str, 
 # ---- R6 ----------------------------------------------------------------------------------------------------------------
 
 def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[str, Any]], kept: dict[str, Any], agreed: list[dict[str, Any]],
-          sme: dict[str, Any]) -> dict[str, Any]:
+          sme: dict[str, Any], described: dict[str, Any] | None = None) -> dict[str, Any]:
     """The recommended requirements. A function whose rules and open units are unchanged keeps what it had."""
     from reframe.claude.steps import stop_for
     from reframe.claude.workspace import paths
     places = paths(folder)
     rules = gathered["rules"]
-    made = recommended_rules(gathered, found, kept, agreed)
+    made = recommended_rules(gathered, found, kept, agreed, described if described is not None else folder.load("reconcile/described.json", {}) or {})
     waiting = open_units(found, kept)
     framed = frame(folder)
     by_function: dict[str, list[dict[str, Any]]] = defaultdict(list)
