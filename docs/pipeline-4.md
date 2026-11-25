@@ -77,6 +77,19 @@ Where a target is held in a variable that the source sets in more than one place
 
 **Checked:** every cited line exists; every screen is reached from a transaction or a menu, or is listed as *not reached*, with what was looked for.
 
+**Command:** `python -m reframe.design.flow [--run <run>]` writes `design/flow.json` and `outputs/design/flow.html`, the map and each screen's links.
+
+**How targets are read.** A transfer's target is resolved from a literal, a `VALUE` constant, the `MOVE`s into its variable, or a table filled by `VALUE` clauses and redefined with `OCCURS`, such as a menu's options; in that case every program in the table is a target, with its option. A variable the program only ever sets to its own name before transferring stands for the screen the user came from, which the source records at run time; it is shown as such. A key leads to what its branch moves into a transfer's variable, or transfers to by a name the program never changes, reading nested `IF`s and `EVALUATE`s and `WHEN`s stacked on one another, and one paragraph down.
+
+**On CardDemo** (25 November 2026), in about one second:
+- 25 transactions, 65 transfers, 1 call and 36 key links, every cited line checked;
+- nothing left open, so no model step ran;
+- all 21 screens are reached by navigation;
+- F3 leads somewhere on 20 screens (the menu, or the screen the user came from). On Login it ends the session.
+- **The map** is drawn from the most-entered screen, the sign-on, which every program transfers to when it starts without a session. It shows Login, then the two menus, then the 15 function screens, then View Authorization Details. Transfers back to the sign-on, F3, F12 and returns to the caller are listed under each screen, not drawn.
+
+The model step for targets the source leaves open is built when a codebase needs it.
+
 ### D3 Journeys (P4-04)
 
 One model step per domain groups the screens into journeys: the tasks people do (for example *Sign in*, *Find and view an account*, *Update a card*). Each journey has a name, the role who does it (from `personas.md` if given, otherwise from the requirements' user stories), its steps in order (screen and action), and the capabilities and requirements it serves, by key.
