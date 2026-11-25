@@ -99,11 +99,103 @@ class InputsTest(unittest.TestCase):
         self.assertEqual((target / "notes.txt").read_text(), "Credit limit & cash\nSecond")
         self.assertTrue((target / "policies" / "limits.pdf").exists())
         self.assertEqual(next(d for d in found["documents"] if d["file"] == "notes.docx")["read_as"], "reframe/reconcile/context/notes.txt")
-        self.assertEqual(found["marks"], {"aws/r1": {"status": "change", "comment": "the limit is 10,000", "reviewer": "Pat", "file": "review-mine.json"}})
+        mark = found["marks"]["aws/r1"]
+        self.assertEqual({k: mark[k] for k in ("status", "comment", "reviewer", "file")},
+                         {"status": "change", "comment": "Pat: the limit is 10,000", "reviewer": "Pat", "file": "review-mine.json"})
+        self.assertEqual(list(found["marks"]), ["aws/r1"])
         self.assertEqual([a["id"] for a in found["answers"]], ["Q-1"])
         self.assertEqual({i["file"]: i["why"] for i in found["ignored"]},
                          {"review-other.json": "a review of another snapshot",
                           "picture.png": "not a document, review export or answered questions file Reframe reads"})
+
+    def review_csv(self, path, rows, key=True):
+        cols = (["key"] if key else []) + ["tool", "type", "id", "text", "status", "comment", "reviewer", "marked_at", "project", "run", "source_sha256"]
+        with path.open("w", newline="", encoding="utf-8") as f:
+            f.write("\ufeff")
+            w = csv.writer(f)
+            w.writerow(cols)
+            for r in rows:
+                w.writerow([r.get(c, "") for c in cols])
+
+    def test_the_csv_download_is_read_like_the_json(self):
+        ctx = Path(self.tmp.name) / "context"
+        ctx.mkdir()
+        self.review_csv(ctx / "review-sam.csv", [{"key": "rec/u/1", "status": "Question", "comment": "why 3?", "reviewer": "Sam", "source_sha256": "a" * 64},
+                                                 {"key": "rec/u/2", "status": "Agree", "reviewer": "Sam", "source_sha256": "a" * 64}])
+        self.review_csv(ctx / "review-old.csv", [{"status": "Agree", "reviewer": "Lee", "source_sha256": "a" * 64}], key=False)
+        self.review_csv(ctx / "review-elsewhere.csv", [{"key": "k", "status": "Agree", "source_sha256": "b" * 64}])
+        found = inputs.context(self.folder, ctx, self.folder.root / "ctx-copy")
+        self.assertEqual({k: (m["status"], m["comment"], m["reviewer"], m["file"]) for k, m in found["marks"].items()},
+                         {"rec/u/1": ("question", "Sam: why 3?", "Sam", "review-sam.csv"), "rec/u/2": ("agree", "", "Sam", "review-sam.csv")})
+        self.assertEqual({i["file"]: i["why"] for i in found["ignored"]},
+                         {"review-old.csv": inputs.NO_KEY, "review-elsewhere.csv": "a review of another snapshot"})
+        self.assertEqual([r["format"] for r in found["reviews"]], ["csv"])
+        self.assertEqual(found["answers"], [])  # a review CSV is not an answered SME list
+
+    def test_sign_offs_are_read_from_both_downloads(self):
+        ctx = Path(self.tmp.name) / "context"
+        ctx.mkdir()
+        (ctx / "review-pat.json").write_text(json.dumps({"source": {"sha256": "a" * 64}, "reviewer": "Pat", "tool": "Reframe's reconciliation", "marks": [],
+                                                          "signoffs": [{"function": "rec/f", "name": "Pay bills", "comment": "fine", "at": "2026-11-25T10:00:00Z"}]}))
+        self.review_csv(ctx / "review-sam.csv", [{"key": "signoff:f", "type": "sign-off", "text": "Pay bills", "status": "Signed off", "reviewer": "Sam",
+                                                  "tool": "AWS Transform", "marked_at": "2026-11-25T11:00:00Z", "source_sha256": "a" * 64}])
+        found = inputs.context(self.folder, ctx, self.folder.root / "ctx-copy")
+        self.assertEqual(found["marks"], {})  # a sign-off is not a mark on an item
+        self.assertEqual([(x["page"], x["function"], x["reviewer"], x["at"][:10]) for x in found["signoffs"]],
+                         [("Reframe's reconciliation", "rec/f", "Pat", "2026-11-25"), ("AWS Transform", "f", "Sam", "2026-11-25")])
+
+    def test_several_reviewers_combine_with_change_and_question_over_agree(self):
+        reviews = [{"file": "a.json", "reviewer": "Pat", "marks": [{"key": "k1", "status": "agree", "comment": "", "at": ""},
+                                                                   {"key": "k2", "status": "question", "comment": "which date?", "at": ""}]},
+                   {"file": "b.csv", "reviewer": "Sam", "marks": [{"key": "k1", "status": "change", "comment": "limit is 500", "at": ""},
+                                                                  {"key": "k2", "status": "agree", "comment": "fine", "at": ""}]}]
+        marks = inputs.combine(reviews)
+        self.assertEqual((marks["k1"]["status"], marks["k1"]["comment"], marks["k1"]["reviewer"]), ("change", "Sam: limit is 500", "Pat, Sam"))
+        self.assertEqual((marks["k2"]["status"], marks["k2"]["comment"]), ("question", "Pat: which date?\nSam: fine"))
+        self.assertEqual([b["reviewer"] for b in marks["k1"]["by"]], ["Pat", "Sam"])
+
+    def test_reframe_review_shows_coverage_and_disagreements(self):
+        import io
+        from contextlib import redirect_stdout
+        from reframe.core import commands
+        from reframe.reconcile import reviews
+        ctx = Path(self.tmp.name) / "reviews"
+        ctx.mkdir()
+        self.folder.save("outputs/reconcile/rules.json", {"rules": [{"key": "rec/u/1"}, {"key": "rec/u/2"}]})
+        self.folder.save("outputs/reconcile/requirements.json", {"functions": {"f": {"capabilities": [{"number": 1, "requirements": [{"code": "REQ-F-001"}], "questions": []}]}}})
+        (ctx / "pat.json").write_text(json.dumps({"source": {"sha256": "a" * 64}, "reviewer": "Pat", "tool": "Reframe's reconciliation",
+                                                   "marks": [{"key": "rec/u/1", "status": "Agree"}, {"key": "rec/f/REQ-F-001", "status": "Needs change", "comment": "x"}],
+                                                   "signoffs": [{"function": "rec/f", "name": "Pay bills", "at": "2026-11-25"}]}))
+        self.review_csv(ctx / "sam.csv", [{"key": "rec/u/1", "status": "Question", "comment": "why?", "reviewer": "Sam", "tool": "Reframe's reconciliation",
+                                           "source_sha256": "a" * 64}])
+        (ctx / "notes.md").write_text("not a review")
+        with mock.patch.object(reviews, "page_items", lambda folder: {"aws": set(), "claude": set(),
+                                                                       "reconciled": {"rec/u/1", "rec/u/2", "rec/f/REQ-F-001", "rec/f#1"}}):
+            out = io.StringIO()
+            with redirect_stdout(out):
+                self.assertEqual(commands.review(type("Args", (), {"run": self.folder.root.name, "context": str(ctx)})()), 0)
+        value = self.folder.load("reconcile/reviews.json")
+        self.assertEqual([(r["reviewer"], r["page"], r["marked"], r["items"]) for r in value["reviewers"]], [("Pat", "reconciled", 2, 4), ("Sam", "reconciled", 1, 4)])
+        self.assertEqual([(d["key"], d["combined"]) for d in value["disagreements"]], [("rec/u/1", "question")])
+        said = " ".join(out.getvalue().split())
+        self.assertIn("Pay bills", said)
+        self.assertIn("Pat: Agree; Sam: Question (why?)", said)
+        self.assertFalse((self.folder.root / "claude" / "analysis").exists())  # it copies nothing into the Claude workspace
+
+    def test_reconciled_page_items_include_capabilities(self):
+        from reframe.reconcile import reviews
+        self.folder.save("outputs/reconcile/rules.json", {"rules": [{"key": "rec/u/1"}]})
+        self.folder.save("outputs/reconcile/requirements.json", {"functions": {"": {"capabilities": [{"number": 2, "requirements": [{"code": "REQ-N-001"}],
+                                                                                                         "questions": [{"code": "SME-001"}]}]}}})
+        with mock.patch("reframe.report.build.collect", lambda folder: {}), mock.patch("reframe.report.build.collect_claude", lambda folder: {}):
+            items = reviews.page_items(self.folder)
+        self.assertEqual(items["reconciled"], {"rec/u/1", "rec/unassigned/REQ-N-001", "rec/unassigned/SME-001", "rec/unassigned#2"})
+
+    def test_the_page_downloads_a_key_column(self):
+        from reframe.report.build import TEMPLATE
+        self.assertIn("const cols = ['key', 'tool',", TEMPLATE)
+        self.assertIn("signoffs: signoffRows()", TEMPLATE)
+        self.assertIn("Sign off this function", TEMPLATE)
 
 
 if __name__ == "__main__":

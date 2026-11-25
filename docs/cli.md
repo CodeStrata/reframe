@@ -46,7 +46,8 @@ reframe claude                            # the Claude assessment, if you did no
 reframe compare --open                    # AWS Transform and Claude compared
 reframe reconcile --context <folder>      # the reconciliation: shows the estimate, and stops above the batch limit
 reframe reconcile --max-batches <n>       # go ahead with the estimate it showed
-reframe reconcile --open                  # the reconciliation page
+reframe reconcile --open                  # the reconciliation page, opening with Review first
+reframe review --context <folder>         # several reviewers' downloads: coverage, sign-offs, disagreements
 reframe publish --to aws                  # a cleaned copy in your account's private reports bucket
 reframe reports open <project>           # open the project's latest published copy with your AWS sign-in
 reframe teardown                          # remove the run's AWS resources, after you type yes
@@ -66,7 +67,7 @@ Every command acts on your latest run; add `--run <run id>` for another one. The
 
 **The agent limit** is a ceiling, not a target: before rule extraction Reframe compares the plugin's upper estimate with it, and stops to ask if the estimate is higher. On CardDemo the estimate is 38 to 41 shards, up to about 615 agents, and a run uses about 430 to 480; a limit of 650 to 900 lets it go ahead without asking.
 
-**The reconciliation** needs both assessments done and no AWS resources, so it can run after `reframe teardown`. The context folder holds documents (Markdown, text, PDF, Word), review exports downloaded from the business reviews, and the SME list (`reconcile/questions.csv` in the run folder) with its `answer` column filled in. Run `reframe reconcile` again with more answers or marks and only the rules they bear on are decided again. If Claude's usage limit stops it, `reframe resume` continues. On CardDemo the estimate is 113 batches, 29 to 87 minutes, $56 to $130 at API prices; the acceptance run used about $67.
+**The reconciliation** needs both assessments done and no AWS resources, so it can run after `reframe teardown`. The context folder holds documents (Markdown, text, PDF, Word), review downloads (JSON or CSV) from any number of reviewers, with their sign-offs, and the SME list (`reconcile/questions.csv` in the run folder) with its `answer` column filled in. Run `reframe reconcile` again with more answers or marks and only the rules and functions they bear on are done again; a rule marked *Agree* is kept. If Claude's usage limit stops it, `reframe resume` continues. On CardDemo the estimate is 113 batches, 29 to 87 minutes, $56 to $130 at API prices; the acceptance run used about $67.
 
 **Starting the Claude assessment later.** If your Claude usage limit is close, answer no to Claude in the guided run and run `reframe claude` once the limit resets. On a run whose AWS resources are still being created, it is recorded and starts as soon as they exist; on a run that is further along, it starts at once, alongside AWS Transform.
 
@@ -192,7 +193,7 @@ The reconciliation: decide every rule the two assessments do not agree on agains
 | Option | What it does |
 |---|---|
 | `--run <run>` | the run to act on (default: the latest run) |
-| `--context <context>` | a folder of context: documents (Markdown, text, PDF, Word), review exports and answered questions |
+| `--context <context>` | a folder of context: documents (Markdown, text, PDF, Word), review downloads (JSON or CSV, with sign-offs) and answered questions |
 | `--auth subscription\|bedrock` | how Claude signs in (default: as for the Claude assessment) |
 | `--max-batches <max_batches>` | the limit for the decisions; Reframe stops and asks above it (default: 120) |
 | `--foreground` | run in this terminal instead of a background worker |
@@ -204,6 +205,21 @@ reframe reconcile --context ~/carddemo-context  # with documents, review exports
 reframe reconcile --max-batches 120             # go ahead with a larger estimate
 reframe reconcile --open                        # open the reconciliation page
 ```
+
+### `reframe review`
+
+Read the review downloads in a folder and show each reviewer's coverage, sign-offs and where reviewers disagree; runs nothing, and the next reframe reconcile --context with the same folder combines them.
+
+| Option | What it does |
+|---|---|
+| `--run <run>` | the run to act on (default: the latest run) |
+| `--context <context>` | the folder holding the review downloads (JSON or CSV) |
+
+```bash
+reframe review --context ~/carddemo-context  # each reviewer's coverage, sign-offs and disagreements in the folder's review downloads
+```
+
+It writes `reconcile/reviews.json` in the run folder. A download of another snapshot, or a CSV downloaded before part 2 (without a `key` column), is listed as ignored with the reason.
 
 ### `reframe compare`
 

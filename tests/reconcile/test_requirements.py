@@ -77,6 +77,82 @@ class RequirementsTest(InputsTest):
         self.assertEqual(caps[-1]["title"], "Waiting for a subject-matter expert")
         self.assertEqual([q["unit"] for q in caps[-1]["questions"]], ["aws:a9"])
 
+    def test_decision_tables_keep_rows_that_cite_a_rule_and_risk_is_set_by_reframe(self):
+        def with_table(data):
+            answer = one_capability(data)
+            cap = answer["capabilities"][0]
+            first = data["rules"][0]["id"]
+            cap["touches"] = ["updates_records", "made_up"]
+            cap["tables"] = [{"title": "Payment outcome", "conditions": ["Account status", "Amount"], "outcome": "Result",
+                              "rows": [{"values": ["'Y'", "> 0"], "outcome": "accepted", "rule": first},
+                                       {"values": ["'N'", "> 0"], "outcome": "refused", "rule": "R99"},      # no such rule: dropped
+                                       {"values": ["'N'"], "outcome": "refused", "rule": first}],            # a value missing: dropped
+                              "gaps": [{"values": ["'Y'", "0"], "note": "A zero payment is not handled"}]},
+                             {"title": "Empty", "conditions": ["x"], "outcome": "y", "rows": [{"values": ["1"], "outcome": "z", "rule": "R98"}], "gaps": []}]
+            return answer
+        fake = FakeClaude(req=with_table)
+        fake.root = self.folder.root / "claude"
+        value = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        cap = value["functions"]["f"]["capabilities"][0]
+        self.assertEqual(len(cap["tables"]), 1)  # the table left with no rows is dropped
+        table = cap["tables"][0]
+        self.assertEqual([r["outcome"] for r in table["rows"]], ["accepted"])
+        self.assertTrue(table["rows"][0]["rule"].startswith("rec/"))
+        self.assertEqual(table["gaps"], [{"values": ["'Y'", "0"], "note": "A zero payment is not handled"}])
+        self.assertEqual((cap["touches"], cap["risk"], value["functions"]["f"]["risk"]), (["updates_records"], "medium", "medium"))
+        self.assertEqual((value["tables"], value["risk"]), (1, {"medium": 1}))
+        self.assertIn("decision table", fake.other_calls[0][2])
+
+    def test_marks_on_requirements_and_capabilities_rewrite_only_that_function(self):
+        fake = self.fake()
+        first = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        was = first["functions"]["f"]["capabilities"][0]["requirements"][0]["text"]
+        before = {u["key"]: u["hash"] for u in units.units(self.gathered)}
+        self.gathered["context"]["marks"] = {"rec/f/REQ-F-001": {"status": "change", "comment": "Pat: the limit is 500"},
+                                             "rec/f#1": {"status": "question", "comment": "Sam: is this one capability?"},
+                                             "rec/f/REQ-F-002": {"status": "agree", "comment": ""}}
+        self.assertEqual({u["key"]: u["hash"] for u in units.units(self.gathered)}, before)  # no unit is decided again
+        requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        self.assertEqual(len(fake.other_calls), 2)
+        given = fake.other_calls[1][1]["reviewed"]
+        self.assertEqual([(g["type"], g["mark"], g["comment"]) for g in given],
+                         [("capability", "question", "Sam: is this one capability?"), ("requirement", "change", "Pat: the limit is 500")])
+        self.assertEqual(given[1]["was"], was)
+        self.assertIn("Address each comment where the rules support it", fake.other_calls[1][2])
+        requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        self.assertEqual(len(fake.other_calls), 2)  # the same marks again: already addressed, kept
+
+    def test_an_agreed_requirement_is_kept_word_for_word_while_its_rules_are_unchanged(self):
+        fake = self.fake()
+        first = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        agreed_req = first["functions"]["f"]["capabilities"][0]["requirements"][1]
+        self.gathered["context"]["agreed"] = {f"rec/f/{agreed_req['code']}": [{"reviewer": "Pat", "at": "2026-11-25"}]}
+        self.gathered["context"]["marks"] = {"rec/f/REQ-F-001": {"status": "change", "comment": "Pat: reword"}}  # the function is written again
+        second = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        given = fake.other_calls[-1][1]
+        cited = {r["id"]: r for r in given["rules"]}
+        self.assertEqual([cited[i]["text"] for i in given["covered"]], ["WHEN x, THE system SHALL y"])
+        reqs = second["functions"]["f"]["capabilities"][0]["requirements"]
+        kept = [r for r in reqs if r.get("agreed")]
+        self.assertEqual([(r["code"], r["text"], r["rules"]) for r in kept], [(agreed_req["code"], agreed_req["text"], agreed_req["rules"])])
+        codes = [r["code"] for r in reqs]
+        self.assertEqual(len(codes), len(set(codes)))  # the kept code is not given to another requirement
+
+        # a change to a rule it cites ends the keeping
+        unit, n = agreed_req["rules"][0][len("rec/"):].rsplit("/", 1)
+        self.kept[unit]["rules"][int(n) - 1]["text"] = "WHEN z, THE system SHALL w"
+        self.gathered["context"]["marks"] = {}
+        third = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        self.assertFalse(any(r.get("agreed") for c in third["functions"]["f"]["capabilities"] for r in c["requirements"]))
+
+    def test_risk(self):
+        self.assertEqual(requirements.risk(["reporting_only"], ["business"]), "low")
+        self.assertEqual(requirements.risk(["updates_records"], []), "medium")
+        self.assertEqual(requirements.risk(["money"], []), "high")
+        self.assertEqual(requirements.risk(["card_data", "personal_data"], []), "medium")  # nearly everything in a card system holds card data
+        self.assertEqual(requirements.risk(["card_data", "security"], []), "high")
+        self.assertEqual(requirements.risk([], ["display", "compliance"]), "high")  # a compliance rule makes it high
+
 
 if __name__ == "__main__":
     unittest.main()

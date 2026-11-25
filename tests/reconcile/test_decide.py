@@ -18,6 +18,12 @@ def alone(data):
                           for q in data["questions"]]}
 
 
+def described(data):
+    """An R2b step: every agreed rule's code runs, reached from line 1."""
+    return {"rules": [{"rule": r["key"], "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:1"], "depends": "", "kind": "validation",
+                       "examples": [{"given": [], "then": "it shows 'line 1'"}]} for r in data["rules"]]}
+
+
 def plain_requirements(data):
     """A requirements step: one capability, one requirement per rule, every open item placed."""
     return {"capabilities": [{"title": "Do it", "story": "As a user, I want it", "questions": [o["id"] for o in data["open_items"]],
@@ -31,7 +37,7 @@ class FakeClaude:
 
     def __init__(self, *script, **others):
         self.script, self.calls, self.lock = list(script), [], threading.Lock()
-        self.others = {"sme": alone, "req": plain_requirements, **others}
+        self.others = {"sme": alone, "req": plain_requirements, "describe": described, **others}
         self.other_calls = []
 
     def run(self, name, prompt, timeout=0, schema=None):
@@ -65,9 +71,11 @@ class FakeClaude:
 
 def good(given):
     return {"decisions": [{"unit": u["key"], "decision": "merged" if u["kind"] == "group" else "kept",
-                           "rules": [{"text": "WHEN x, THE system SHALL y", "covers": [r["key"] for r in u["rules"]]}],
+                           "rules": [{"text": "WHEN x, THE system SHALL y", "covers": [r["key"] for r in u["rules"]], "kind": "business",
+                                     "examples": [{"given": [{"field": "status", "value": "'line 2'"}], "then": "it shows 'line 3'"},
+                                                  {"given": [], "then": "it shows 'line 99'"}]}],
                            "changed": False, "evidence": ["app/cbl/PROG1.cbl:1-3"], "reason": "lines 1-3", "confidence": "high",
-                           "question": "", "defect": ""} for u in given]}
+                           "question": "", "defect": "", "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:1"], "depends": ""} for u in given]}
 
 
 class DecideTest(unittest.TestCase):
@@ -159,6 +167,66 @@ class DecideTest(unittest.TestCase):
         self.assertTrue(decide.problems(unit, outside, self.legacy)[0].startswith("evidence that does not exist"))
         rejected = {**ok, "decision": "rejected", "rules": []}
         self.assertEqual(decide.problems(unit, rejected, self.legacy), [])
+
+    def test_the_code_must_be_shown_to_run_or_the_rule_is_rejected(self):
+        unit = next(u for u in self.found if u["kind"] == "aws_only")
+        group = next(u for u in self.found if u["kind"] == "group")
+        ok = good([unit])["decisions"][0]
+        self.assertEqual(decide.problems(unit, {**ok, "entry": []}, self.legacy),
+                         ['reachable "yes" needs the lines that show how the code is reached, in "entry"'])
+        self.assertEqual(decide.problems(unit, {**ok, "entry": ["app/cbl/PROG1.cbl:40"]}, self.legacy),
+                         ["entry lines that do not exist in the snapshot: app/cbl/PROG1.cbl:40"])
+        self.assertEqual(decide.problems(unit, {**ok, "reachable": "no"}, self.legacy),
+                         ['the code never runs (reachable "no"), so the decision must be "rejected"'])
+        self.assertEqual(decide.problems(unit, {**ok, "reachable": "maybe"}, self.legacy), ["reachable must be one of yes, no, unknown"])
+        self.assertEqual(decide.problems(unit, {**ok, "reachable": "unknown", "entry": []}, self.legacy), [])
+        dead_group = {**good([group])["decisions"][0], "decision": "rejected", "rules": [], "reachable": "no", "entry": []}
+        self.assertEqual(decide.problems(group, dead_group, self.legacy), [])  # a group about code that never runs may be rejected
+        self.assertIn("can never run", decide.PROMPT)
+        self.assertIn("TYPRUN=SCAN", decide.PROMPT)
+
+    def test_each_rule_has_one_of_the_kinds(self):
+        unit = next(u for u in self.found if u["kind"] == "aws_only")
+        ok = good([unit])["decisions"][0]
+        odd = {**ok, "rules": [{**ok["rules"][0], "kind": "policy"}]}
+        self.assertEqual(decide.problems(unit, odd, self.legacy), [f"a rule's kind must be one of {', '.join(decide.KINDS)}, not policy"])
+        fake = self.claude(good)
+        decide.decide(self.folder, fake, self.found, self.data["context"], 1)
+        self.assertIn('"compliance" (security and access control', fake.calls[0][2])
+        self.assertEqual(self.folder.load("reconcile/decisions.json")["aws:a9"]["rules"][0]["kind"], "business")
+
+    def test_a_possible_defect_is_called_and_shown_by_its_lines_once_per_unit(self):
+        unit = next(u for u in self.found if u["kind"] == "aws_only")
+        ok = good([unit])["decisions"][0]
+        uncalled = {**ok, "defect": {"text": "A total is never reset", "call": "", "evidence": []}}
+        self.assertEqual(decide.problems(unit, uncalled, self.legacy),
+                         ["a possible defect needs its call: unintended or deliberate", "a possible defect needs the lines that show it, in its evidence"])
+        called = {**ok, "defect": {"text": "A total is never reset", "call": "deliberate", "evidence": ["app/cbl/PROG1.cbl:4-5"]}}
+        self.assertEqual(decide.problems(unit, called, self.legacy), [])
+        self.assertEqual(decide.split_defect(called["defect"]),
+                         {"defect": "A total is never reset", "defect_call": "deliberate", "defect_evidence": ["app/cbl/PROG1.cbl:4-5"]})
+        self.assertEqual(decide.split_defect({"text": "", "call": "deliberate", "evidence": ["x"]}), {"defect": "", "defect_call": "", "defect_evidence": []})
+
+        def with_defect(given):
+            answer = good(given)
+            for d in answer["decisions"]:
+                d["defect"] = {"text": "A total is never reset", "call": "unintended", "evidence": ["app/cbl/PROG1.cbl:4"]}
+            return answer
+        decide.decide(self.folder, self.claude(with_defect), self.found, self.data["context"], 1)
+        kept = self.folder.load("reconcile/decisions.json")["aws:a9"]
+        self.assertEqual((kept["defect"], kept["defect_call"], kept["defect_evidence"]), ("A total is never reset", "unintended", ["app/cbl/PROG1.cbl:4"]))
+
+    def test_examples_are_checked_and_the_ones_not_in_the_code_removed(self):
+        decide.decide(self.folder, self.claude(good), self.found, self.data["context"], 1)
+        kept = self.folder.load("reconcile/decisions.json")["aws:a9"]
+        self.assertEqual([x["then"] for x in kept["rules"][0]["examples"]], ["it shows 'line 3'"])  # 'line 99' is not in PROG1
+        self.assertEqual(kept["examples_removed"], 1)
+
+    def test_the_method_is_part_of_each_units_hash(self):
+        before = {u["key"]: u["hash"] for u in self.found}
+        with mock.patch.object(units, "METHOD", "another"):
+            after = {u["key"]: u["hash"] for u in units.units(self.data)}
+        self.assertTrue(all(before[k] != after[k] for k in before))
 
 
 if __name__ == "__main__":

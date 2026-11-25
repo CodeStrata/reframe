@@ -14,9 +14,10 @@ from reframe.core.runfolder import new_run
 from reframe.reconcile import audit
 
 
-def rule(key, decision, covers, program="PROG1", defect="", confidence="high"):
+def rule(key, decision, covers, program="PROG1", defect="", confidence="high", call=""):
     return {"key": key, "unit": "u:" + key, "decision": decision, "covers": covers, "program": program, "text": f"WHEN x, THE system SHALL {key}",
-            "evidence": ["app/cbl/PROG1.cbl:1-2"], "confidence": confidence, "reason": "secret reason", "defect": defect}
+            "evidence": ["app/cbl/PROG1.cbl:1-2"], "confidence": confidence, "reason": "secret reason", "defect": defect,
+            "defect_call": call or ("unintended" if defect else "")}
 
 
 class Judge:
@@ -148,6 +149,7 @@ class AuditTest(unittest.TestCase):
         self.assertEqual(result["unsettled"], [])
         self.assertEqual(result["rejections"], 1)
         self.assertEqual(result["defects"]["real"], 1)
+        self.assertEqual((result["defects"]["called"], result["defects"]["calls_agreed"]), (1, 1))  # called unintended, judged real
         self.assertEqual(result["confidence"]["high"]["wrong"], 1)
         kept = list(csv.DictReader(io.StringIO(self.folder.path("reconcile/audit/settle.csv").read_text())))
         self.assertEqual([r["owner_verdict"] for r in kept], ["minor", "wrong"], "the owner's answers survive a second run")

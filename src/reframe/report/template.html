@@ -75,7 +75,7 @@ dialog::backdrop{background:rgba(0,0,0,.35)}dialog label{display:block;font-size
     <input type="search" id="search" placeholder="Search requirements, rules, questions" aria-label="Search">
     <button class="btn primary" id="reviewButton">Your review</button>
   </div>
-  <nav class="views"><a href="#/" id="vReview">Business review</a><a href="#/tech/requirements" id="vTech">Technical detail</a><span style="flex:1"></span><span id="others"></span></nav>
+  <nav class="views"><a href="#/first" id="vFirst" hidden>Review first</a><a href="#/" id="vReview">Business review</a><a href="#/tech/requirements" id="vTech">Technical detail</a><span style="flex:1"></span><span id="others"></span></nav>
 </header>
 <main id="main"></main>
 
@@ -163,15 +163,34 @@ const PATTERN = {'Ubiquitous': 'Always', 'Event-driven': 'When something happens
 function crumbs(parts){ return '<div class="crumbs">' + parts.map(([label, href]) => href ? '<a href="' + href + '">' + esc(label) + '</a>' : '<b>' + esc(label) + '</b>').join('<span>›</span>') + '</div>'; }
 function numbers(list){ return '<div class="numbers">' + list.map(([n, l]) => '<div><b>' + n + '</b><span>' + esc(l) + '</span></div>').join('') + '</div>'; }
 function countLine(c, extra){ return '<div class="counts">' + (extra || '') + '<span><b>' + c.req + '</b> requirements</span><span><b>' + c.rule + '</b> business rules</span><span><b>' + c.q + '</b> open questions</span></div>'; }
+// Pipeline 3: what kind of rule (docs/pipeline-3.md, section 8.6); business, validation and compliance rules come first.
+const KIND = {business: 'Business rule', validation: 'Validation', compliance: 'Compliance', error_handling: 'Error handling', display: 'Display',
+  technical: 'Technical step', side_effect: 'Side effect', leftover: 'Leftover'};
+const KIND_ORDER = Object.keys(KIND);
+const kindRank = key => { const r = ruleByKey[key]; const i = r && r.kind ? KIND_ORDER.indexOf(r.kind) : -1; return i < 0 ? KIND_ORDER.length : i; };
+const byKind = keys => keys.slice().sort((a, b) => kindRank(a) - kindRank(b));
+// Agree keeps a rule (section 8.11): who agreed, from the review downloads the last round read.
+function agreedTag(x){ return x && x.agreed_by && x.agreed_by.length ? '<span class="tag" title="Kept as agreed in later rounds">✓ Agreed by ' +
+  esc(x.agreed_by.map(a => (a.reviewer || 'a reviewer') + (a.at ? ', ' + String(a.at).slice(0, 10) : '')).join('; ')) + '</span>' : ''; }
 function ruleCard(key){
   const r = ruleByKey[key]; if (!r) return '';
   const extra = (r.priority ? '<span class="tag' + (r.priority === 'P0' ? ' warn' : '') + '">' + esc(r.priority) + '</span>' : '') + (r.category ? '<span class="tag grey">' + esc(r.category) + '</span>' : '') +
-    (r.confidence ? '<span class="tag grey">Confidence: ' + esc(r.confidence) + '</span>' : '') + (r.source ? '<code>' + esc(r.source) + '</code>' : '');
-  return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><span class="tag grey">Business rule</span>' + (r.id && TOOL.key !== 'aws' ? '<code>' + esc(r.id) + '</code>' : '') +
-    '<span>' + esc(r.program) + '</span>' + extra + '</div>' +
+    (r.confidence ? '<span class="tag ' + (r.decision && r.confidence !== 'high' ? 'warn' : 'grey') + '"' + (r.confidence_why ? ' title="' + esc(r.confidence_why) + '"' : '') + '>Confidence: ' + esc(r.confidence) + '</span>' : '') + (r.source ? '<code>' + esc(r.source) + '</code>' : '');
+  return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><span class="tag grey">' + esc(r.kind ? KIND[r.kind] || r.kind : 'Business rule') + '</span>' + (r.id && TOOL.key !== 'aws' ? '<code>' + esc(r.id) + '</code>' : '') +
+    '<span>' + esc(r.program) + '</span>' + extra + agreedTag(r) + '</div>' +
     '<div class="text"><b>' + prose(r.name) + '</b>' + (r.plain ? '<br>' + prose(r.plain) : '') + '<br>' + prose(r.text).replace(/\n/g, '<br>') + '</div>' +
+    (r.examples && r.examples.length ? '<div class="small" style="margin:6px 0 0"><b>For example</b><ul style="margin:2px 0 0 18px;padding:0">' + r.examples.map(x =>
+      '<li>' + (x.given.length ? x.given.map(g => esc(g.field) + ' ' + prose(g.value)).join(', ') + ' → ' : '') + prose(x.then) + '</li>').join('') + '</ul></div>' : '') +
     (r.decision ? decisionBlock(r) : '') +
-    (r.defect ? '<p class="small" style="margin:6px 0 0"><span class="tag warn">' + (r.decision ? 'Possible defect' : 'Suspected defect') + '</span> ' + prose(r.defect) + '</p>' : '') + markControls(key) + '</div>';
+    (r.defect && !(r.decision && r.n > 1) ? defectBlock(r) : '') + markControls(key) + '</div>';
+}
+// A possible defect belongs to the decision that found it: shown once, on its first rule (docs/pipeline-3.md, section 8.8).
+function defectBlock(r){
+  if (!r.decision) return '<p class="small" style="margin:6px 0 0"><span class="tag warn">Suspected defect</span> ' + prose(r.defect) + '</p>';
+  return '<div class="small" style="margin:6px 0 0"><span class="tag warn">Possible defect</span>' +
+    (r.defect_call ? '<span class="tag grey">' + (r.defect_call === 'deliberate' ? 'Looks deliberate' : 'Looks unintended') + '</span>' : '') +
+    (r.unit_rules > 1 ? '<span class="muted">applies to the ' + r.unit_rules + ' rules of this decision</span>' : '') + '<br>' + prose(r.defect) +
+    ((r.defect_evidence || []).length ? '<details><summary>The lines that show it</summary>' + r.defect_evidence.map(excerpt).join('') + '</details>' : '') + '</div>';
 }
 // Pipeline 3: how a recommended rule was decided, the rules it came from and the source lines behind it.
 const DECISION = {agreed: 'Agreed by both tools', merged: 'Merged from both tools', aws: 'AWS Transform was right', claude: "Claude's plugin was right",
@@ -187,18 +206,22 @@ function decisionBlock(r){
     '</b> <span class="small muted">' + esc(o.program) + '</span><br>' + prose(o.text).replace(/\n/g, '<br>') + '</div>').join('') || '<p class="small muted">None</p>';
   return '<div class="decision"><span class="tag">' + esc(DECISION[r.decision] || r.decision) + '</span>' + (r.changed && r.decision === 'kept' ? '<span class="tag grey">Corrected</span>' : '') +
     '<span class="small muted">Round ' + esc(r.round || 0) + '</span><p class="small" style="margin:6px 0 0">' + prose(r.why) + '</p>' +
+    (r.confidence_why ? '<p class="small muted" style="margin:4px 0 0">Confidence ' + esc(r.confidence) + ': ' + esc(r.confidence_why) + '</p>' : '') +
+    (r.depends ? '<p class="small muted" style="margin:4px 0 0">Depends on: ' + prose(r.depends) + '</p>' : '') +
     (r.context && r.context.length ? '<p class="small muted" style="margin:4px 0 0">Context used: ' + r.context.map(esc).join('; ') + '</p>' : '') +
     '<details><summary>' + plural(r.originals.length, 'original rule') + ' and ' + plural(r.evidence.length, 'cited source range') + '</summary>' +
     '<div class="sides"><div><h4>AWS Transform</h4>' + side('aws') + '</div><div><h4>Claude\'s plugin</h4>' + side('claude') + '</div></div>' +
-    '<h4>Evidence in the source</h4>' + r.evidence.map(excerpt).join('') + '</details></div>';
+    '<h4>Evidence in the source</h4>' + r.evidence.map(excerpt).join('') +
+    (r.reachable ? '<h4>' + esc({yes: 'How the code is reached', no: 'The code never runs', unknown: 'Whether the code runs is not shown'}[r.reachable] || '') + '</h4>' +
+      (r.entry || []).map(excerpt).join('') : '') + '</details></div>';
 }
 function requirementCard(key){
   const r = reqByKey[key];
   const rules = (r.rules || []).filter(k => ruleByKey[k] && ruleByKey[k].disposition === 'captured');
   const kind = r.kind === 'N' ? 'Non-functional' : 'Functional';
   return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><code>' + esc(r.code) + '</code>' + GEN + '<span class="tag">' + esc(PATTERN[r.pattern] || r.pattern || kind) + '</span>' +
-    (r.kind === 'N' ? '<span class="tag grey">Non-functional</span>' : '') + '</div><div class="text">' + prose(r.text) + '</div>' + markControls(key) +
-    (rules.length ? '<details><summary>' + plural(rules.length, 'business rule') + ' behind it</summary><div class="rules">' + rules.map(ruleCard).join('') + '</div></details>' : '') + '</div>';
+    (r.kind === 'N' ? '<span class="tag grey">Non-functional</span>' : '') + agreedTag(r) + '</div><div class="text">' + prose(r.text) + '</div>' + markControls(key) +
+    (rules.length ? '<details><summary>' + plural(rules.length, 'business rule') + ' behind it</summary><div class="rules">' + byKind(rules).map(ruleCard).join('') + '</div></details>' : '') + '</div>';
 }
 function questionCard(key){
   const q = qByKey[key];
@@ -229,7 +252,13 @@ function overview(){
       [n('claude'), "Claude's plugin right"], [n('rewritten'), 'rewritten from the code'], [n('kept'), 'kept (one tool found it)']]);
     h += numbers([[u.rejected || 0, 'one-sided rules rejected'], [u.needs_sme || 0, 'waiting for an SME'], [R.defects || 0, 'possible defects'],
       [(R.sme || {}).questions || 0, 'questions on the SME list'], [R.dropped || 0, 'requirements dropped (no rule)'], [Object.keys(R.rounds || {}).length, 'rounds that decided them']]);
-    if (D.sme) h += '<p><a class="btn" href="#/tech/sme">Open the SME list</a></p>';
+    const risk = R.risk || {};
+    if (Object.keys(risk).length) h += numbers([[risk.high || 0, 'high-risk functions'], [risk.medium || 0, 'medium-risk functions'], [risk.low || 0, 'low-risk functions'], [R.tables || 0, 'decision tables']]);
+    const conf = R.confidence || {};
+    h += numbers([[conf.high || 0, 'high confidence'], [conf.medium || 0, 'medium: check these'], [conf.low || 0, 'low: check these first']]) +
+      '<p class="small muted">Reframe sets confidence from what it checked: high when an agent decided the rule against the code with both tools\' rules and the code is shown to run; ' +
+      'medium when one tool found it, no agent decided it, or the source does not show that the code runs; low when the code never runs.</p>';
+    h += '<p><a class="btn primary" href="#/first">Review first: what to check before the rest</a> ' + (D.sme ? '<a class="btn" href="#/tech/sme">Open the SME list</a>' : '') + '</p>';
   }
   h += '<div class="panel">' + progress(all) + '</div>';
   h += '<h3>Business domains</h3><div class="grid">' + biz.map(domainCard).join('') + '</div>';
@@ -238,6 +267,16 @@ function overview(){
   h += '<p class="small muted" style="margin-top:22px">Source: ' + esc(D.source.name) + (D.source.commit ? ', commit ' + esc(String(D.source.commit).slice(0, 12)) : '') +
     ', SHA-256 ' + esc(String(D.source.sha256 || '').slice(0, 16)) + '… · results retrieved ' + esc(D.retrieved_at || '') + ' · page built ' + esc(D.generated_at) + '</p>';
   return h;
+}
+// Pipeline 3: risk per capability and function, and decision tables (docs/pipeline-3.md, section 8.9).
+const RISK = {high: 'High risk', medium: 'Medium risk', low: 'Low risk'};
+const TOUCH = {money: 'money', card_data: 'card data', personal_data: 'personal data', security: 'security', audit: 'audit', updates_records: 'record updates', reporting_only: 'reporting only'};
+function riskTag(x){ return x && x.risk ? '<span class="tag ' + (x.risk === 'high' ? 'warn' : 'grey') + '"' + (x.touches && x.touches.length ? ' title="Touches ' + esc(x.touches.map(t => TOUCH[t] || t).join(', ')) + '"' : '') + '>' + RISK[x.risk] + '</span>' : ''; }
+function tableBlock(t){
+  return '<div class="panel"><h4 style="margin-top:0">' + esc(t.title || 'Decision table') + '</h4><div class="scroll"><table><thead><tr>' + t.conditions.map(c => '<th>' + esc(c) + '</th>').join('') +
+    '<th>' + esc(t.outcome || 'Outcome') + '</th><th>Rule</th></tr></thead><tbody>' + t.rows.map(r => '<tr>' + r.values.map(v => '<td>' + prose(v) + '</td>').join('') + '<td>' + prose(r.outcome) + '</td><td>' +
+    (ruleByKey[r.rule] ? '<a href="#/c/' + (capById[capOfRule(r.rule)] || {index: ''}).index + '/' + encodeURIComponent(r.rule) + '"><code>' + esc(r.rule_id || r.rule) + '</code></a>' : '') + '</td></tr>').join('') +
+    t.gaps.map(g => '<tr class="muted">' + g.values.map(v => '<td>' + prose(v) + '</td>').join('') + '<td colspan="2"><span class="tag warn">Gap</span> ' + prose(g.note) + '</td></tr>').join('') + '</tbody></table></div></div>';
 }
 function domainCard(d){
   const keys = domItems(d);
@@ -248,24 +287,58 @@ function domainPage(d){
   let h = crumbs([['Overview', '#/'], [d.name]]) + '<h2>' + esc(d.name) + '</h2><p class="lead">' + esc(d.description || '') + '</p>';
   h += '<h3>' + plural(d.functions.length, 'business function') + '</h3><div class="grid">' + d.functions.map(id => {
     const f = fnById[id], keys = fnItems(f);
-    return '<a class="card" href="#/f/' + f.index + '"><h4>' + esc(f.name) + '</h4><p>' + esc(f.description || '') + '</p>' +
+    return '<a class="card" href="#/f/' + f.index + '"><h4>' + esc(f.name) + ' ' + riskTag(f) + signedTag(f) + '</h4><p>' + esc(f.description || '') + '</p>' +
       countLine(countsOf(keys), '<span><b>' + f.capabilities.length + '</b> capabilities</span>') + progress(keys) + '</a>';
   }).join('') + '</div>';
   return h;
 }
+// ---- sign-off by function (docs/pipeline-3.md, section 8.11): kept with the marks, under signoff:<function id> -----------
+const SIGNED = D.signoffs || {};  // sign-offs read from the context folder by the reconciliation (reconciled review only)
+function signoffKey(f){ return 'signoff:' + f.id; }
+function signedTag(f){
+  const mine = marks[signoffKey(f)], read = SIGNED[f.id] || [];
+  const who = (mine ? [(reviewer || 'you') + ' (this browser)'] : []).concat(read.map(x => x.reviewer + (x.at ? ', ' + String(x.at).slice(0, 10) : '')));
+  return who.length ? '<span class="tag" title="Signed off by ' + esc(who.join('; ')) + '">✓ Signed off</span>' : '';
+}
+function signoffPanel(f){
+  const m = marks[signoffKey(f)], read = SIGNED[f.id] || [];
+  return '<div class="panel signoff" data-fn="' + esc(f.id) + '"><b>Sign-off</b> ' +
+    (read.length ? '<span class="small muted">Signed off by ' + read.map(x => esc(x.reviewer) + (x.at ? ' on ' + esc(String(x.at).slice(0, 10)) : '') + (x.page ? ' (' + esc(x.page) + ')' : '')).join('; ') + '</span> ' : '') +
+    (m ? '<p class="small" style="margin:6px 0">You signed off this function' + (m.at ? ' on ' + esc(m.at.slice(0, 10)) : '') + '. It goes into your download.</p>' +
+      '<textarea data-signoff="' + esc(f.id) + '" placeholder="Comment (optional)">' + esc(m.comment || '') + '</textarea><button class="btn" data-unsign="' + esc(f.id) + '">Withdraw my sign-off</button>' :
+      '<p class="small muted" style="margin:6px 0">When you have reviewed this function and agree with it as a whole, sign it off. Pipeline 4 takes signed-off functions as final.</p>' +
+      '<button class="btn primary" data-sign="' + esc(f.id) + '">Sign off this function</button>') + '</div>';
+}
+document.addEventListener('click', e => {
+  const sign = e.target.closest('[data-sign]'), unsign = e.target.closest('[data-unsign]');
+  if (!sign && !unsign) return;
+  if (sign) {
+    if (!reviewer) { const name = (prompt('Your name, for the sign-off') || '').trim(); if (!name) return; reviewer = name; try { localStorage.setItem('reframe-reviewer', reviewer); } catch (err) {} }
+    marks['signoff:' + sign.dataset.sign] = {status: 'signoff', comment: '', at: new Date().toISOString()};
+  } else delete marks['signoff:' + unsign.dataset.unsign];
+  save(); route();
+});
+document.addEventListener('input', e => {
+  const id = e.target.dataset && e.target.dataset.signoff; if (!id) return;
+  const m = marks['signoff:' + id]; if (m) { m.comment = e.target.value; save(); }
+});
+function signoffRows(){ return D.functions.filter(f => marks[signoffKey(f)]).map(f => {
+  const m = marks[signoffKey(f)], d = domByKey[f.domain] || {};
+  return {key: signoffKey(f), function: f.id, domain: d.name || '', business_function: f.name, type: 'sign-off', id: '', text: f.name, status: 'Signed off', comment: m.comment || '', marked_at: m.at || ''};
+}); }
 function functionPage(f){
   const d = domByKey[f.domain];
-  let h = crumbs([['Overview', '#/'], [d.name, '#/d/' + d.index], [f.name]]) + '<h2>' + esc(f.name) + '</h2><p class="lead">' + esc(f.description || '') + '</p>';
-  h += '<div class="panel">' + countLine(countsOf(fnItems(f))) + progress(fnItems(f)) + '</div>';
+  let h = crumbs([['Overview', '#/'], [d.name, '#/d/' + d.index], [f.name]]) + '<h2>' + esc(f.name) + ' ' + riskTag(f) + '</h2><p class="lead">' + esc(f.description || '') + '</p>';
+  h += '<div class="panel">' + countLine(countsOf(fnItems(f))) + progress(fnItems(f)) + '</div>' + signoffPanel(f);
   h += '<h3>' + plural(f.capabilities.length, 'capability', 'capabilities') + '</h3>';
   h += f.capabilities.map(id => {
     const c = capById[id], keys = capItems(c);
-    return '<a class="card" style="margin-bottom:10px" href="#/c/' + c.index + '"><div class="caprow"><span class="num">' + c.number + '</span><div style="flex:1"><h4>' + esc(c.title) + '</h4>' +
+    return '<a class="card" style="margin-bottom:10px" href="#/c/' + c.index + '"><div class="caprow"><span class="num">' + c.number + '</span><div style="flex:1"><h4>' + esc(c.title) + ' ' + riskTag(c) + '</h4>' +
       '<p>' + esc(c.story.length > 260 ? c.story.slice(0, 257) + '…' : c.story) + '</p>' + countLine(countsOf(keys)) + progress(keys) + '</div></div></a>';
   }).join('');
   const notes = f.notes.filter(n => !n.technical);
   if (notes.length) h += '<h3>Notes for the whole function</h3>' + notes.map(n => '<details class="panel doc"><summary>' + esc(n.heading) + '</summary>' + n.html + '</details>').join('');
-  if (f.other_rules.length) h += '<h3>Other business rules</h3><p class="small muted">Rules ' + esc(TOOL.name) + ' kept for this function that no requirement cites.</p>' + f.other_rules.map(ruleCard).join('');
+  if (f.other_rules.length) h += '<h3>Other business rules</h3><p class="small muted">Rules ' + esc(TOOL.name) + ' kept for this function that no requirement cites.</p>' + byKind(f.other_rules).map(ruleCard).join('');
   if (f.set_aside.length) h += '<details class="panel"><summary>' + plural(f.set_aside.length, 'technical step') + ' AWS set aside</summary><p class="small muted">AWS judged these not to be business rules (for example opening a file). They are not part of the review.</p>' +
     f.set_aside.map(k => { const r = ruleByKey[k]; return '<p><b>' + prose(r.name) + '</b> <span class="muted small">' + esc(r.program) + ' · ' + esc(r.reason) + '</span><br>' + prose(r.text) + '</p>'; }).join('') + '</details>';
   const t = f.technical, chips = (label, xs) => xs.length ? '<p><b>' + label + ':</b> ' + xs.map(x => '<span class="tag grey">' + esc(x) + '</span> ').join('') + '</p>' : '';
@@ -276,14 +349,18 @@ function functionPage(f){
 function capabilityPage(c, focus){
   const f = fnById[c.function], d = domByKey[f.domain];
   let h = crumbs([['Overview', '#/'], [d.name, '#/d/' + d.index], [f.name, '#/f/' + f.index], [c.number + '. ' + c.title]]);
-  h += '<h2>' + c.number + '. ' + esc(c.title) + '</h2>';
+  h += '<h2>' + c.number + '. ' + esc(c.title) + ' ' + riskTag(c) + '</h2>';
+  if (c.touches && c.touches.length) h += '<p class="small muted">Touches ' + esc(c.touches.map(t => TOUCH[t] || t).join(', ')) + '</p>';
   if (c.story) h += '<div class="story">' + prose(c.story) + '</div>';
+  if (D.reconcile) h += '<div class="item ' + ((marks[c.id] || {}).status || '') + '" id="' + anchor(c.id) + '"><div class="small muted">Mark the capability as a whole: its title and story, and whether its requirements cover it.</div>' +
+    markControls(c.id, 'What should change in this capability, or what you want to ask') + '</div>';
   const fields = Object.entries(c.fields || {});
   if (fields.length) h += '<dl class="fields">' + fields.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + prose(v) + '</dd>').join('') + '</dl>';
   h += '<div class="panel">' + countLine(countsOf(capItems(c))) + progress(capItems(c)) + '</div>';
   const fr = c.requirements.filter(k => reqByKey[k].kind !== 'N'), nf = c.requirements.filter(k => reqByKey[k].kind === 'N');
   if (fr.length) h += '<h3>Requirements</h3>' + fr.map(requirementCard).join('');
   if (nf.length) h += '<h3>Non-functional requirements</h3>' + nf.map(requirementCard).join('');
+  if (c.tables && c.tables.length) h += '<h3>Decision tables</h3><p class="small muted">Rules that share their conditions, one row each. A gap is a combination no rule covers: a question for the business.</p>' + c.tables.map(tableBlock).join('');
   if (c.questions.length) h += '<h3>Open questions for the business</h3>' + c.questions.map(questionCard).join('');
   if (c.other) h += '<details class="panel doc"><summary>More from ' + esc(TOOL.name) + '</summary>' + c.other + '</details>';
   const siblings = f.capabilities, at = siblings.indexOf(c.id), prev = capById[siblings[at - 1]], next = capById[siblings[at + 1]];
@@ -291,6 +368,78 @@ function capabilityPage(c, focus){
     '<span>' + (next ? '<a class="btn" href="#/c/' + next.index + '">' + next.number + '. ' + esc(next.title) + ' →</a>' : '<a class="btn" href="#/f/' + f.index + '">Back to ' + esc(f.name) + '</a>') + '</span></div>';
   return h;
 }
+
+// ---- review first (docs/pipeline-3.md, section 8.10): what an SME should check before the rest ---------------------
+const RISK_RANK = {high: 0, medium: 1, low: 2};
+// An item's risk is its capability's: a rule's is that of the first capability whose requirements cite it, else its
+// function's. Functions take their riskiest capability, so on a card system nearly all are high; capabilities tell apart.
+function itemCap(x){ return capById[x.capability || capOfRule(x.key)] || null; }
+function itemRisk(x){ const c = itemCap(x); return (c && c.risk) || (fnById[x.function] || {}).risk || ''; }
+function riskRank(x){ const r = itemRisk(x); return r in RISK_RANK ? RISK_RANK[r] : 3; }
+const FIRST = [
+  ['never', 'The code never runs', 'Rules both tools describe the same way, about code that no menu, transaction or job step reaches. They are probably not rules of the system.', r => r.confidence === 'low'],
+  ['conflict', 'Conflicts', 'The two tools said different things; an agent decided against the code.', r => r.conflict],
+  ['rewritten', 'Rewritten from the code', 'Both tools were partly wrong; the agent wrote what the code does.', r => r.decision === 'rewritten'],
+  ['sme', 'Waiting for a subject-matter expert', 'The code could not settle these.', null],
+  ['defect', 'Possible defects that look unintended', 'Behaviour in the code that may be a mistake. Confirm or dismiss each one.', r => r.defect && r.defect_call !== 'deliberate' && !(r.n > 1)],
+  ['kept', 'Kept from one tool', 'Only one tool found these; the agent checked them against the code.', r => r.decision === 'kept'],
+  ['medium', 'Other medium confidence', 'Not shown to run, depending on something outside the source, or not decided by an agent.', r => r.confidence === 'medium']];
+let firstFilter = {decision: '', kind: '', confidence: '', risk: ''};
+function firstGroups(){
+  const seen = new Set(), out = [];
+  const keep = r => (!firstFilter.decision || r.decision === firstFilter.decision) && (!firstFilter.kind || r.kind === firstFilter.kind) &&
+    (!firstFilter.confidence || r.confidence === firstFilter.confidence) && (!firstFilter.risk || itemRisk(r) === firstFilter.risk);
+  const order = (a, b) => riskRank(a) - riskRank(b) || kindRank(a.key) - kindRank(b.key) || (a.function > b.function ? 1 : -1);
+  for (const [id, title, note, test] of FIRST) {
+    let keys;
+    if (!test) keys = (firstFilter.decision || firstFilter.kind || firstFilter.confidence) ? [] : D.questions.filter(q => !firstFilter.risk || itemRisk(q) === firstFilter.risk)
+      .sort((a, b) => riskRank(a) - riskRank(b)).map(q => q.key);
+    else keys = D.rules.filter(r => r.decision && !seen.has(r.key) && test(r) && keep(r)).sort(order).map(r => r.key);
+    keys.forEach(k => seen.add(k));
+    out.push({id, title, note, keys});
+  }
+  return out;
+}
+function firstSelect(id, label, options){
+  return '<select data-first="' + id + '" aria-label="' + esc(label) + '"><option value="">' + esc(label) + '</option>' +
+    options.map(([v, l]) => '<option value="' + esc(v) + '"' + (firstFilter[id] === v ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '</select>';
+}
+function firstPage(){
+  const groups = firstGroups(), all = new Set(groups.flatMap(g => g.keys));
+  let h = crumbs([['Overview', '#/'], ['Review first']]) + '<h2>Review first</h2><p class="lead">The items to check before the rest, in order: code that never runs, conflicts, ' +
+    'rules rewritten from the code, what waits for a subject-matter expert, possible defects, rules only one tool found, and the other medium-confidence rules. ' +
+    'High-risk capabilities and business rules come first. The other ' + Math.max(0, business.length - groups.reduce((n, g) => n + (g.id === 'sme' ? 0 : g.keys.length), 0)) +
+    ' rules were decided against the code with both tools\' rules and the code shown to run.</p>';
+  h += '<div class="panel">' + progress(all) + '<div class="tools" style="margin:10px 0 0">' +
+    firstSelect('decision', 'Every decision', Object.entries(DECISION).filter(([k]) => k !== 'needs_sme')) +
+    firstSelect('kind', 'Every kind of rule', KIND_ORDER.map(k => [k, KIND[k]])) +
+    firstSelect('confidence', 'Every confidence', [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]) +
+    firstSelect('risk', 'Every risk', [['high', 'High-risk capabilities'], ['medium', 'Medium-risk capabilities'], ['low', 'Low-risk capabilities']]) + '</div></div>';
+  firstShown = {};
+  for (const g of groups) {
+    const done = reviewed(new Set(g.keys)), open = g.keys.length && g.keys.length <= 30;
+    firstShown[g.id] = g.keys;
+    h += '<details class="panel" data-first-group="' + g.id + '"' + (open ? ' open' : '') + '><summary><b>' + esc(g.title) + '</b> <span class="muted small">' + g.keys.length + ' · ' + done + ' marked</span></summary>' +
+      '<p class="small muted">' + esc(g.note) + '</p><div class="first-items">' + (open ? firstItems(g.keys) : g.keys.length ? '' : '<p class="muted">None.</p>') + '</div></details>';
+  }
+  return h;
+}
+// A group's cards are drawn when it is opened: the whole list of a large run is several megabytes of HTML.
+let firstShown = {};
+function firstItems(keys){
+  return keys.slice(0, 200).map(k => {
+    const r = ruleByKey[k] || qByKey[k], f = fnById[r.function] || {}, c = itemCap(r);
+    return '<p class="small muted" style="margin:12px 0 2px">' + esc(f.name || '') + (c ? ' › ' + c.number + '. ' + esc(c.title) : '') + ' ' + riskTag(c || f) + '</p>' +
+      (ruleByKey[k] ? ruleCard(k) : questionCard(k));
+  }).join('') + (keys.length > 200 ? '<p class="muted">Showing the first 200. Narrow it with the filters above.</p>' : '');
+}
+document.addEventListener('toggle', e => {
+  const box = e.target, id = box.dataset && box.dataset.firstGroup;
+  if (!id || !box.open) return;
+  const items = box.querySelector('.first-items');
+  if (items && !items.innerHTML) items.innerHTML = firstItems(firstShown[id] || []);
+}, true);
+document.addEventListener('change', e => { const id = e.target.dataset && e.target.dataset.first; if (id) { firstFilter[id] = e.target.value; route(); } });
 
 // ---- search -----------------------------------------------------------------------------------------
 function where(fid, cid){ const f = fnById[fid], c = capById[cid]; return esc(f ? f.name : '') + (c ? ' › ' + c.number + '. ' + esc(c.title) : ''); }
@@ -334,10 +483,11 @@ function techPage(tab){
     text: r => r.name + ' ' + r.text + ' ' + r.program + ' ' + r.requirements.join(' '),
     selects: [byFunction, byCapability(r => capOfRule(r.key)),
       ['disp', 'Business rules and technical steps', r => r.disposition, rows => [...new Set(rows.map(r => r.disposition))].sort().map(d => [d, d === 'captured' ? 'Business rules' : 'Set aside: ' + d.replace(/_/g, ' ')])],
-      ['program', 'All programs', r => r.program, rows => [...new Set(rows.map(r => r.program).filter(Boolean))].sort().map(p => [p, p])]],
+      ['program', 'All programs', r => r.program, rows => [...new Set(rows.map(r => r.program).filter(Boolean))].sort().map(p => [p, p])]]
+      .concat(D.rules.some(r => r.kind) ? [['rkind', 'Every kind of rule', r => r.kind || '', () => KIND_ORDER.map(k => [k, KIND[k]])]] : []),
     cols: [['Function and capability', '22%'], ['Program', '100px'], ['Rule', ''], [TOOL.short + ' kept it as', '140px'], ['Backs', '112px']],
     render: r => '<tr><td>' + place(r.function, capOfRule(r.key)) + '</td><td>' + esc(r.program) + '</td><td>' + (r.id && TOOL.key !== 'aws' ? '<code>' + esc(r.id) + '</code> ' : '') + '<b>' + prose(r.name) + '</b><br>' + prose(r.text).replace(/\n/g, '<br>') + '</td><td>' +
-      (r.decision ? esc(DECISION[r.decision] || r.decision) + '<br><span class="small muted">Round ' + esc(r.round || 0) + (r.confidence ? ' · confidence ' + esc(r.confidence) : '') + '</span>' :
+      (r.decision ? esc(DECISION[r.decision] || r.decision) + '<br><span class="small muted">' + (r.kind ? esc(KIND[r.kind] || r.kind) + ' · ' : '') + 'Round ' + esc(r.round || 0) + (r.confidence ? ' · confidence ' + esc(r.confidence) : '') + '</span>' :
        r.disposition === 'captured' ? 'Business rule' + (r.priority ? ' · ' + esc(r.priority) : '') + (r.confidence ? '<br><span class="small muted">Confidence ' + esc(r.confidence) + '</span>' : '') : esc(r.disposition.replace(/_/g, ' ')) + (r.reason ? '<br><span class="small muted">' + esc(r.reason) + '</span>' : '')) + '</td><td>' +
       r.requirements.map(code => idLink(code, (reqByKey[r.function + '/' + code] || {}).capability, r.function + '/' + code)).join(' ') + '</td></tr>'});
   if (tab === 'questions') h += filtered('questions', D.questions, {
@@ -348,11 +498,11 @@ function techPage(tab){
     cols: [['ID', '96px'], ['Function and capability', '22%'], ['Question', ''], ['For', '150px']],
     render: x => '<tr><td class="id">' + idLink(x.code, x.capability, x.key) + '</td><td>' + place(x.function, x.capability) + '</td><td>' +
       (x.unverified ? '<span class="tag warn">Unverified requirement</span> ' : '') + prose(x.text) + '</td><td>' + esc(x.owner) + '</td></tr>'});
-  if (tab === 'sme') h += '<p class="lead">One list of open questions for subject-matter experts: both tools\' and Reframe\'s own, merged where they ask the same thing, ' +
+  if (tab === 'sme' && D.sme) h += '<p class="lead">One list of open questions for subject-matter experts: both tools\' and Reframe\'s own, merged where they ask the same thing, ' +
     'with the possible defects found in the code. Download it, fill in the <b>answer</b> column, put the file in your context folder and run <code>reframe reconcile</code> again.</p>' +
     '<p><button class="btn" id="smeCsv">Download the SME list (CSV)</button></p>' + filtered('sme', D.sme, {
     text: x => x.id + ' ' + x.question + ' ' + x.owner + ' ' + (x.from || []).join(' '),
-    selects: [['kind', 'Questions and possible defects', x => x.kind, () => [['question', 'Questions'], ['defect', 'Possible defects']]],
+    selects: [['kind', 'Questions and possible defects', x => x.kind + (x.call ? ':' + x.call : ''), () => [['question', 'Questions'], ['defect:unintended', 'Possible defects that look unintended'], ['defect:deliberate', 'Possible defects that look deliberate']]],
       ['status', 'Any status', x => x.status, () => [['open', 'Open'], ['settled', 'Settled by your context'], ['answered', 'Answered']]]],
     cols: [['ID', '90px'], ['Question', ''], ['Holds up', '28%'], ['Status', '150px']],
     render: x => '<tr><td class="id"><code>' + esc(x.id) + '</code></td><td>' + prose(x.question) + '<br><span class="small muted">From: ' + esc((x.from || []).join('; ')) + ' · For: ' + esc(x.owner) + '</span>' +
@@ -414,14 +564,17 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-clea
 function route(){
   const parts = (location.hash || '#/').slice(2).split('/'), [kind, a] = parts;
   let h, tech = kind === 'tech', focus = null;
-  if (kind === 'd' && D.domains[+a]) h = domainPage(D.domains[+a]);
+  if (D.reconcile && (kind === 'first' || !location.hash)) h = firstPage();
+  else if (kind === 'd' && D.domains[+a]) h = domainPage(D.domains[+a]);
   else if (kind === 'f' && D.functions[+a]) h = functionPage(D.functions[+a]);
   else if (kind === 'c' && D.capabilities[+a]) { focus = parts[2] ? decodeURIComponent(parts.slice(2).join('/')) : null; h = capabilityPage(D.capabilities[+a], focus); }
   else if (kind === 'search' && a) { const q = decodeURIComponent(parts.slice(1).join('/')); if (document.activeElement !== $('search')) $('search').value = q; h = searchPage(q); }
   else if (tech) h = techPage(a || 'requirements');
   else h = overview();
   $('main').innerHTML = h;
-  $('vReview').classList.toggle('on', !tech); $('vTech').classList.toggle('on', tech);
+  const first = D.reconcile && (kind === 'first' || !location.hash);
+  $('vFirst').hidden = !D.reconcile; $('vFirst').classList.toggle('on', first);
+  $('vReview').classList.toggle('on', !tech && !first); $('vTech').classList.toggle('on', tech);
   if (focus) { const el = document.getElementById(anchor(focus)); if (el) { const det = el.closest('details'); if (det) det.open = true; el.scrollIntoView({block: 'center'}); el.style.outline = '2px solid var(--accent)'; } }
   else if (!(document.activeElement && document.activeElement.dataset && document.activeElement.dataset.table)) window.scrollTo(0, 0);
 }
@@ -432,13 +585,15 @@ $('search').addEventListener('input', e => { clearTimeout(searchTimer); const v 
 // ---- the review dialog and downloads ---------------------------------------------------------------
 function allKeys(){ const keys = new Set(); D.domains.forEach(d => domItems(d).forEach(k => keys.add(k))); return keys; }
 function describe(key){
-  const r = reqByKey[key], b = ruleByKey[key], q = qByKey[key];
+  const r = reqByKey[key], b = ruleByKey[key], q = qByKey[key], cap = !r && !b && !q ? capById[key] : null;
+  if (cap) { const f = fnById[cap.function] || {}, d = domByKey[f.domain] || {};
+    return {key, type: 'capability', domain: d.name || '', business_function: f.name || '', capability: cap.number + '. ' + cap.title, id: String(cap.number), text: cap.title + ': ' + cap.story}; }
   const fid = (r || b || q).function, f = fnById[fid] || {}, d = domByKey[f.domain] || {};
   const cid = r ? r.capability : q ? q.capability : capOfRule(key), c = capById[cid] || {};
   return {key, type: r ? 'requirement' : b ? 'business rule' : 'open question', domain: d.name || '', business_function: f.name || '',
     capability: c.title ? c.number + '. ' + c.title : '', id: r ? r.code : q ? q.code : b.program + ' ' + b.id, text: r ? r.text : q ? q.text : b.name + ': ' + b.text};
 }
-function rows(){ return Object.entries(marks).filter(([k, m]) => m && m.status && (reqByKey[k] || ruleByKey[k] || qByKey[k]))
+function rows(){ return Object.entries(marks).filter(([k, m]) => m && m.status && (reqByKey[k] || ruleByKey[k] || qByKey[k] || (D.reconcile && capById[k])))
   .map(([k, m]) => ({...describe(k), status: {agree: 'Agree', change: 'Needs change', question: 'Question'}[m.status], comment: m.comment || '', marked_at: m.at || ''})); }
 function download(name, type, body){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([body], {type})); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
 function fileName(ext){ return 'review-' + (D.project || 'run') + (TOOL.key === 'aws' ? '' : '-' + TOOL.key) + '-' + (reviewer || 'reviewer').replace(/[^A-Za-z0-9_-]+/g, '-') + '-' + new Date().toISOString().slice(0, 10) + '.' + ext; }
@@ -446,20 +601,21 @@ function updateCounts(){
   const keys = allKeys(), c = countsOf(keys), done = reviewed(keys), by = {agree: 0, change: 0, question: 0};
   Object.values(marks).forEach(m => { if (m && by[m.status] != null) by[m.status]++; });
   $('reviewCounts').innerHTML = '<b>' + done + ' of ' + keys.size + '</b> items marked (' + c.req + ' requirements, ' + c.rule + ' business rules, ' + c.q + ' open questions in all).<br>' +
-    'Agree ' + by.agree + ' · Needs change ' + by.change + ' · Question ' + by.question;
+    'Agree ' + by.agree + ' · Needs change ' + by.change + ' · Question ' + by.question + ' · Functions signed off ' + signoffRows().length;
 }
 $('reviewButton').addEventListener('click', () => { $('reviewer').value = reviewer; updateCounts(); if (!stored) $('storageNote').className = 'note'; $('reviewDialog').showModal(); });
 $('closeDialog').addEventListener('click', () => $('reviewDialog').close());
 $('reviewer').addEventListener('input', e => { reviewer = e.target.value.trim(); try { localStorage.setItem('reframe-reviewer', reviewer); } catch (err) {} });
 $('downloadCsv').addEventListener('click', () => {
-  const cols = ['tool', 'domain', 'business_function', 'capability', 'type', 'id', 'text', 'status', 'comment', 'reviewer', 'marked_at', 'project', 'run', 'source_sha256'];
+  const cols = ['key', 'tool', 'domain', 'business_function', 'capability', 'type', 'id', 'text', 'status', 'comment', 'reviewer', 'marked_at', 'project', 'run', 'source_sha256'];
   const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-  const body = [cols.join(',')].concat(rows().map(r => cols.map(c => cell(c === 'tool' ? TOOL.name : c === 'reviewer' ? reviewer : c === 'project' ? D.project : c === 'run' ? D.run : c === 'source_sha256' ? D.source.sha256 : r[c])).join(','))).join('\r\n');
+  const body = [cols.join(',')].concat(rows().concat(signoffRows()).map(r => cols.map(c => cell(c === 'tool' ? TOOL.name : c === 'reviewer' ? reviewer : c === 'project' ? D.project : c === 'run' ? D.run : c === 'source_sha256' ? D.source.sha256 : r[c])).join(','))).join('\r\n');
   download(fileName('csv'), 'text/csv;charset=utf-8', '﻿' + body);
 });
 $('downloadJson').addEventListener('click', () => {
   download(fileName('json'), 'application/json', JSON.stringify({format: 'reframe-review/1', tool: TOOL.name, project: D.project, run: D.run,
-    source: {name: D.source.name, commit: D.source.commit, sha256: D.source.sha256}, reviewer, exported_at: new Date().toISOString(), marks: rows()}, null, 2));
+    source: {name: D.source.name, commit: D.source.commit, sha256: D.source.sha256}, reviewer, exported_at: new Date().toISOString(), marks: rows(),
+    signoffs: signoffRows().map(r => ({function: r.function, name: r.business_function, domain: r.domain, comment: r.comment, at: r.marked_at}))}, null, 2));
 });
 $('clearMarks').addEventListener('click', () => { if (confirm('Clear every mark you made on this page? Download them first if you want to keep them.')) { marks = {}; save(); updateCounts(); route(); } });
 
@@ -467,7 +623,7 @@ $('title').textContent = (D.reconcile ? 'Reconciled review' : 'Business review')
 $('subtitle').textContent = (D.reconcile ? 'AWS Transform and Claude reconciled against the source of ' : TOOL.name + ' assessment of ') + (D.source.name || 'the source') + (D.source.commit ? ' @ ' + String(D.source.commit).slice(0, 12) : '');
 document.addEventListener('click', e => {
   if (!e.target.closest('#smeCsv')) return;
-  const cols = ['id', 'kind', 'question', 'owner', 'status', 'rules', 'originals', 'from', 'evidence', 'settled_by', 'settled_answer', 'answer'];
+  const cols = ['id', 'kind', 'call', 'question', 'owner', 'status', 'rules', 'originals', 'from', 'evidence', 'settled_by', 'settled_answer', 'answer'];
   const cell = v => '"' + String(v == null ? '' : Array.isArray(v) ? v.join(' ') : v).replace(/"/g, '""') + '"';
   download('sme-list-' + (D.project || 'run') + '.csv', 'text/csv;charset=utf-8', '\ufeff' + [cols.join(',')].concat(D.sme.map(x => cols.map(c => cell(c === 'from' ? (x.from || []).join('; ') : x[c])).join(','))).join('\r\n'));
 });

@@ -89,7 +89,7 @@ def candidates(folder: RunFolder) -> dict[str, list[dict[str, Any]]]:
                                 "cites": r["evidence"], "confidence": r.get("confidence", ""), "decision": r["decision"],
                                 "stands_for": [{"tool": inputs[k]["tool"], "text": inputs[k].get("text", ""), "cites": inputs[k].get("cites") or []}
                                                for k in r["covers"] if k in inputs],
-                                "defect_note": r.get("defect") or "",
+                                "defect_note": r.get("defect") or "", "defect_call": r.get("defect_call") or "",
                                 "siblings": [x["text"] for x in made if x["unit"] == r["unit"] and x["key"] != r["key"]]})
     for unit, d in sorted(decisions.items()):
         if d.get("decision") != "rejected":
@@ -329,6 +329,9 @@ def figures(items: list[dict[str, Any]], judged: dict[str, dict[str, Any]], sett
     recommended = [i for i in items if i["kind"] != "rejected"]
     notes = [i for i in items if i["id"] in with_note]
     defect_counts = Counter(finals[i["id"]]["defect"] for i in notes)
+    # A note's call (P3-13): "unintended" should be judged real, "deliberate" not a defect.
+    called = [i for i in notes if i.get("defect_call") and finals[i["id"]]["defect"] in ("real", "not_a_defect")]
+    calls_agreed = sum((i["defect_call"] == "unintended") == (finals[i["id"]]["defect"] == "real") for i in called)
     confidence = defaultdict(Counter)
     for i in recommended:
         confidence[i["confidence"] or "none"][finals[i["id"]]["verdict"]] += 1
@@ -341,7 +344,7 @@ def figures(items: list[dict[str, Any]], judged: dict[str, dict[str, Any]], sett
         "recommended": tally(recommended), "by_kind": by_kind,
         "rejections_upheld": sum(finals[i["id"]]["verdict"] in ("wrong", "unsure") for i in rejected), "rejections": len(rejected),
         "confidence": {k: dict(v) for k, v in sorted(confidence.items())},
-        "defects": {"notes": len(notes), **{d: defect_counts.get(d, 0) for d in (*DEFECTS, "unsettled")}},
+        "defects": {"notes": len(notes), **{d: defect_counts.get(d, 0) for d in (*DEFECTS, "unsettled")}, "called": len(called), "calls_agreed": calls_agreed},
         "evidence": evidence, "cost": cost,
         "unsettled": sorted(k for k, v in finals.items() if "unsettled" in (v["verdict"], v["defect"])),
         "final": finals,
@@ -373,7 +376,8 @@ def run(folder: RunFolder, size: int = 60, seed: int = 1, judges: dict[str, str]
     result = report(folder, items, judged)
     r = result["recommended"]
     say(f"Recommended rules: {r['correct']} correct, {r['minor']} minor, {r['wrong']} wrong, {r['unsure']} unsure, {r['unsettled']} unsettled "
-        f"of {r['items']}; the judges agreed on {r['judges_agreed']}. Rejections upheld: {result['rejections_upheld']} of {result['rejections']}.")
+        f"of {r['items']}; the judges agreed on {r['judges_agreed']}. Rejections upheld: {result['rejections_upheld']} of {result['rejections']}."
+        + (f" Defect calls agreed: {result['defects']['calls_agreed']} of {result['defects']['called']}." if result["defects"]["called"] else ""))
     if result["unsettled"]:
         say(f"{len(result['unsettled'])} item(s) to settle in {folder.path(FOLDER + '/settle.csv')}, then run this again.")
     return result

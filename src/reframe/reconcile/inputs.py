@@ -151,6 +151,67 @@ def _review_export(data: Any) -> bool:
     return isinstance(data, dict) and isinstance(data.get("marks"), list) and isinstance(data.get("source"), dict)
 
 
+NO_KEY = "a review download without a key column (made before part 2): download it again from the page"
+
+
+def review_file(path: Path, name: str) -> dict[str, Any] | None:
+    """A review download (the JSON, or the CSV with its key, status and source_sha256 columns) as one reviewer's marks;
+    None if the file is not one. A CSV without the key column comes back with "unusable" set to the reason."""
+    if path.suffix.lower() == ".json":
+        data = json.loads(path.read_text())
+        if not _review_export(data):
+            return None
+        marks = [{"key": str(m.get("key") or ""), "status": MARKS.get(str(m.get("status"))), "comment": str(m.get("comment") or ""),
+                  "at": str(m.get("marked_at") or "")} for m in data["marks"] if isinstance(m, dict)]
+        signoffs = [{"function": str(x.get("function") or ""), "name": str(x.get("name") or ""), "comment": str(x.get("comment") or ""),
+                     "at": str(x.get("at") or "")} for x in data.get("signoffs") or [] if isinstance(x, dict) and x.get("function")]
+        return {"file": name, "format": "json", "reviewer": str(data.get("reviewer") or ""), "tool": str(data.get("tool") or ""),
+                "sha256": data["source"].get("sha256"), "marks": [m for m in marks if m["key"] and m["status"]], "signoffs": signoffs}
+    if path.suffix.lower() != ".csv":
+        return None
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        columns = [(c or "").strip().lower() for c in reader.fieldnames or []]
+        if not {"status", "source_sha256"} <= set(columns) or "answer" in columns:
+            return None
+        rows = [{(k or "").strip().lower(): (v or "").strip() for k, v in row.items()} for row in reader]
+    first = lambda column: next((r[column] for r in rows if r.get(column)), "")  # noqa: E731
+    found = {"file": name, "format": "csv", "reviewer": first("reviewer"), "tool": first("tool"), "sha256": first("source_sha256"), "marks": [], "signoffs": []}
+    if "key" not in columns:
+        return {**found, "unusable": NO_KEY}
+    found["marks"] = [{"key": r["key"], "status": MARKS.get(r.get("status", "")), "comment": r.get("comment", ""), "at": r.get("marked_at", "")}
+                      for r in rows if r.get("key") and MARKS.get(r.get("status", ""))]
+    found["signoffs"] = [{"function": r["key"].split(":", 1)[1], "name": r.get("text", ""), "comment": r.get("comment", ""), "at": r.get("marked_at", "")}
+                         for r in rows if r.get("type") == "sign-off" and r.get("key", "").startswith("signoff:")]
+    return found
+
+
+def signoffs(reviews: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every sign-off in the review downloads read: which page, which function, who and when (section 8.11)."""
+    return [{"page": r["tool"], "function": x["function"], "name": x["name"], "reviewer": r["reviewer"], "at": x["at"], "comment": x["comment"],
+             "file": r["file"]} for r in reviews for x in r.get("signoffs") or []]
+
+
+PRECEDENCE = {"agree": 0, "question": 1, "change": 2}  # Needs change and Question take precedence over Agree (section 8.11)
+
+
+def combine(reviews: list[dict[str, Any]]) -> dict[str, Any]:
+    """Every reviewer's marks as one mark per key: the status that takes precedence (Needs change, then Question, then
+    Agree), every reviewer's comment kept with their name, and each reviewer's own mark under "by"."""
+    by_key: dict[str, list[dict[str, Any]]] = {}
+    for review in reviews:
+        for m in review["marks"]:
+            by_key.setdefault(m["key"], []).append({"reviewer": review["reviewer"], "status": m["status"], "comment": m["comment"], "at": m.get("at", ""),
+                                                    "file": review["file"]})
+    marks: dict[str, Any] = {}
+    for key, given in by_key.items():
+        status = max((g["status"] for g in given), key=lambda st: PRECEDENCE.get(st, 0))
+        comments = [f"{g['reviewer'] or 'A reviewer'}: {g['comment']}" for g in given if g["comment"].strip()]
+        marks[key] = {"status": status, "comment": "\n".join(comments), "reviewer": ", ".join(dict.fromkeys(g["reviewer"] for g in given if g["reviewer"])),
+                      "file": ", ".join(dict.fromkeys(g["file"] for g in given)), "by": given}
+    return marks
+
+
 def _answer_rows(path: Path) -> list[dict[str, str]] | None:
     """Answered SME questions: a CSV with an answer column, or JSON with a questions list. None if the file is not one."""
     if path.suffix.lower() == ".csv":
@@ -169,7 +230,8 @@ def _answer_rows(path: Path) -> list[dict[str, str]] | None:
 
 def context(folder: RunFolder, source: Path | None, target: Path) -> dict[str, Any]:
     """Read the context folder by kind. Documents are copied (Word as text) to `target`, inside the Claude workspace."""
-    found: dict[str, Any] = {"folder": str(source) if source else None, "documents": [], "marks": {}, "answers": [], "ignored": []}
+    found: dict[str, Any] = {"folder": str(source) if source else None, "documents": [], "marks": {}, "answers": [], "ignored": [], "reviews": [],
+                             "signoffs": []}
     if source is None:
         return found
     sha = (folder.load("snapshot.json") or {}).get("sha256")
@@ -179,18 +241,15 @@ def context(folder: RunFolder, source: Path | None, target: Path) -> dict[str, A
     for path in sorted(p for p in source.rglob("*") if p.is_file() and not p.name.startswith(".")):
         name, suffix = path.relative_to(source).as_posix(), path.suffix.lower()
         try:
-            if suffix == ".json":
-                data = json.loads(path.read_text())
-                if _review_export(data):
-                    if data["source"].get("sha256") != sha:
-                        found["ignored"].append({"file": name, "why": "a review of another snapshot"})
-                        continue
-                    for row in data["marks"]:
-                        status = MARKS.get(str(row.get("status")))
-                        if row.get("key") and status:
-                            found["marks"][row["key"]] = {"status": status, "comment": row.get("comment", ""), "reviewer": data.get("reviewer", ""),
-                                                          "file": name}
-                    continue
+            review = review_file(path, name) if suffix in (".json", ".csv") else None
+            if review is not None:
+                if review.get("unusable"):
+                    found["ignored"].append({"file": name, "why": review["unusable"]})
+                elif review["sha256"] != sha:
+                    found["ignored"].append({"file": name, "why": "a review of another snapshot"})
+                else:
+                    found["reviews"].append(review)
+                continue
             if suffix in (".csv", ".json"):
                 rows = _answer_rows(path)
                 if rows is not None:
@@ -210,8 +269,10 @@ def context(folder: RunFolder, source: Path | None, target: Path) -> dict[str, A
                 shutil.copyfile(path, copy)
             found["documents"].append({"file": name, "kind": suffix.lstrip("."), "bytes": path.stat().st_size,
                                        "read_as": copy.relative_to(target.parent.parent.parent).as_posix()})
-        except (OSError, ValueError, KeyError, zipfile.BadZipFile, UnicodeDecodeError) as error:
+        except (OSError, ValueError, KeyError, zipfile.BadZipFile, UnicodeDecodeError, csv.Error) as error:
             found["ignored"].append({"file": name, "why": f"could not be read ({type(error).__name__})"})
+    found["marks"] = combine(found["reviews"])
+    found["signoffs"] = signoffs(found["reviews"])
     return found
 
 
@@ -226,9 +287,17 @@ def recommended_covers(folder: RunFolder) -> dict[str, list[str]]:
     return found
 
 
+def agreed_marks(marks: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Items marked Agree on the reconciled review (rules and requirements), with who agreed and when (section 8.11)."""
+    return {k: [{"reviewer": b["reviewer"], "at": b.get("at", "")} for b in m.get("by") or [m] if b.get("status", m["status"]) == "agree"]
+            for k, m in marks.items() if m["status"] == "agree" and k.startswith("rec/")}
+
+
 def expand_marks(marks: dict[str, Any], covers: dict[str, list[str]]) -> dict[str, Any]:
-    """A mark made on the reconciliation page is on a recommended rule; it goes to every input rule that rule covers, so
-    the next round decides that unit again. A mark made in a tool's own review stays on its rule."""
+    """A Needs change or Question mark made on the reconciliation page is on a recommended rule; it goes to every input
+    rule that rule covers, so the next round decides that unit again. An Agree there keeps the unit (section 8.11), so it
+    is not passed on. A mark made in a tool's own review stays on its rule."""
+    marks = {k: v for k, v in marks.items() if not (k in covers and v["status"] == "agree")}
     found = {k: v for k, v in marks.items() if k not in covers}
     for key, mark in marks.items():
         for rule in covers.get(key, []):
@@ -248,6 +317,7 @@ def gather(folder: RunFolder, context_folder: Path | None) -> dict[str, Any]:
     all_rules = rules(folder)
     pairs = [p for p in pairing.get("pairs") or [] if p.get("aws") in all_rules and p.get("claude") in all_rules]
     read = context(folder, context_folder, places["analysis"] / "reframe" / "reconcile" / "context")
+    read["agreed"] = agreed_marks(read["marks"])
     read["marks"] = expand_marks(read["marks"], recommended_covers(folder))
     asked = [{**q, "rules": [k for k in q.get("rules") or [] if k in all_rules]} for q in questions(folder)]
     gathered = {"at": iso(), "rules": all_rules, "pairs": pairs, "questions": asked, "context": read,

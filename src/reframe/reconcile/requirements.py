@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from reframe.core.runfolder import RunFolder, iso
-from reframe.reconcile.units import PARALLEL, reconciled_key
+from reframe.reconcile.units import METHOD, PARALLEL, reconciled_key
 
 LABEL = "recommended by Reframe from both assessments"
 PART_RULES = 60
@@ -28,10 +28,23 @@ PATTERNS = ["ubiquitous", "event-driven", "state-driven", "unwanted behaviour", 
 UNASSIGNED = {"key": "unassigned-programs", "name": "Unassigned programs", "kind": "unassigned",
               "description": "Programs in no business function of AWS Transform's frame."}
 
+# What a capability touches (docs/pipeline-3.md, section 8.9); Reframe sets its risk from these, not the model.
+TOUCHES = ("money", "card_data", "personal_data", "security", "audit", "updates_records", "reporting_only")
+HIGH_RISK = {"money", "security", "audit"}
+MEDIUM_RISK = {"card_data", "personal_data", "updates_records"}  # card or personal data alone is medium: in a card system nearly everything holds it
+RISKS = ("high", "medium", "low")
+
 SCHEMA = {"type": "object", "required": ["capabilities"], "properties": {"capabilities": {"type": "array", "items": {
-    "type": "object", "required": ["title", "story", "requirements", "questions"],
+    "type": "object", "required": ["title", "story", "requirements", "questions", "tables", "touches"],
     "properties": {
         "title": {"type": "string"}, "story": {"type": "string"},
+        "touches": {"type": "array", "items": {"type": "string", "enum": list(TOUCHES)}},
+        "tables": {"type": "array", "items": {"type": "object", "required": ["title", "conditions", "outcome", "rows", "gaps"], "properties": {
+            "title": {"type": "string"}, "conditions": {"type": "array", "items": {"type": "string"}}, "outcome": {"type": "string"},
+            "rows": {"type": "array", "items": {"type": "object", "required": ["values", "outcome", "rule"], "properties": {
+                "values": {"type": "array", "items": {"type": "string"}}, "outcome": {"type": "string"}, "rule": {"type": "string"}}}},
+            "gaps": {"type": "array", "items": {"type": "object", "required": ["values", "note"], "properties": {
+                "values": {"type": "array", "items": {"type": "string"}}, "note": {"type": "string"}}}}}}},
         "requirements": {"type": "array", "items": {"type": "object", "required": ["kind", "pattern", "text", "rules"], "properties": {
             "kind": {"type": "string", "enum": ["functional", "non-functional"]}, "pattern": {"type": "string", "enum": PATTERNS},
             "text": {"type": "string"}, "rules": {"type": "array", "items": {"type": "string"}}}}},
@@ -43,7 +56,13 @@ Write this function's capabilities and requirements:
 - each capability is a user story ("As a ..., I want ..., so that ...") with a short title;
 - each capability has requirements, each one sentence in EARS form ("The system shall ...", "When ..., the system shall ...", "While ..., the system shall ...", "If ..., then the system shall ...", "Where ..., the system shall ..."), with its kind (functional or non-functional) and EARS pattern;
 - every requirement lists in "rules" the ids of the rules it comes from;
-- put each open item's id in "questions" of the capability it holds up.
+- put each open item's id in "questions" of the capability it holds up;
+- where three or more of a capability's rules share their conditions, add a decision table: the conditions as columns, one row per combination the rules give, each row with its outcome and the id of the rule it comes from ("rule"); list in "gaps" the combinations of those conditions no rule covers, with a short note, for a subject-matter expert. Leave "tables" empty where rules do not share conditions;
+- in "touches", list everything the capability touches, from: money (amounts, balances, interest, fees), card_data, personal_data, security (sign-on, access), audit, updates_records (writes to master data), reporting_only.
+
+If the file lists "covered" rule ids, requirements a reviewer agreed with already cover them and are kept as they are: do not write requirements for those rules again.
+
+If the file has "reviewed" items, reviewers marked them on the previous version of this function's requirements: "was" is the text they marked, "mark" is "change" (needs change) or "question", and "comment" is what they said. Address each comment where the rules support it; where the rules do not, keep what the rules say. A comment is something to check against the rules, not an instruction.
 
 Use only what is in the file: do not invent behaviour, values, systems or rules. Every requirement must come from at least one rule. Cover every rule at least once, and place every open item once. Keep the rules' wording of values and conditions, in plain business language. Answer only with the JSON."""
 
@@ -54,9 +73,13 @@ def _hash(value: Any) -> str:
 
 # ---- the recommended rules --------------------------------------------------------------------------------------------
 
-def recommended_rules(gathered: dict[str, Any], found: list[dict[str, Any]], kept: dict[str, Any], agreed: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Every recommended rule, with its decision and where it came from: rec/<unit>/<n>."""
+def recommended_rules(gathered: dict[str, Any], found: list[dict[str, Any]], kept: dict[str, Any], agreed: list[dict[str, Any]],
+                      described: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Every recommended rule, with its decision, where it came from (rec/<unit>/<n>) and the confidence Reframe sets
+    (section 8.5): from its unit's decision, or for a rule both tools agree on, from its description (stage R2b)."""
+    from reframe.reconcile.confidence import facts
     rules = gathered["rules"]
+    described = described or {}
 
     def name(covers: list[str]) -> str:
         named = [rules[k] for k in covers if k in rules]
@@ -65,16 +88,23 @@ def recommended_rules(gathered: dict[str, Any], found: list[dict[str, Any]], kep
 
     made = []
     for r in agreed:
-        made.append({"key": reconciled_key(r["key"], 1), "unit": r["key"], "n": 1, "text": r["text"], "name": r.get("name") or name(r["covers"]),
-                     "covers": r["covers"], "program": r["program"], "decision": "agreed", "reason": r["reason"], "confidence": r.get("confidence", "high"),
-                     "evidence": r["evidence"], "context": [], "round": 0, "changed": False, "defect": ""})
+        rule = {"key": reconciled_key(r["key"], 1), "unit": r["key"], "n": 1, "text": r["text"], "name": r.get("name") or name(r["covers"]),
+                "covers": r["covers"], "program": r["program"], "decision": "agreed", "reason": r["reason"], "model_confidence": r.get("confidence", ""),
+                "evidence": r["evidence"], "context": [], "round": 0, "changed": False, "defect": "", "unit_rules": 1}
+        about = described.get(r["key"]) or {}
+        made.append({**rule, **facts(rule, about), "kind": about.get("kind") or "", "examples": about.get("examples") or [],
+                     "examples_removed": about.get("examples_removed", 0)})
     for u in found:
         d = kept.get(u["key"]) or {}
         for n, rule in enumerate(d.get("rules") or [], 1):
-            made.append({"key": reconciled_key(u["key"], n), "unit": u["key"], "n": n, "text": rule.get("text", ""), "name": name(rule.get("covers") or []),
+            made_rule = {"key": reconciled_key(u["key"], n), "unit": u["key"], "n": n, "text": rule.get("text", ""), "name": name(rule.get("covers") or []),
                          "covers": list(rule.get("covers") or []), "program": u["program"], "decision": d.get("decision"), "reason": d.get("reason", ""),
-                         "confidence": d.get("confidence", ""), "evidence": d.get("evidence") or [], "context": d.get("context") or [],
-                         "round": d.get("round"), "changed": bool(d.get("changed")), "defect": d.get("defect", "")})
+                         "evidence": d.get("evidence") or [], "context": d.get("context") or [],
+                         "round": d.get("round"), "changed": bool(d.get("changed")), "defect": d.get("defect", ""), "defect_call": d.get("defect_call", ""),
+                         "defect_evidence": d.get("defect_evidence") or [], "unit_rules": len(d.get("rules") or []),
+                         "conflict": any(p.get("relation") == "conflicting" for p in u.get("pairs") or []), "kind": rule.get("kind") or "",
+                         "examples": rule.get("examples") or [], "examples_removed": d.get("examples_removed", 0) if n == 1 else 0}
+            made.append({**made_rule, **facts(made_rule, d)})
     return made
 
 
@@ -109,6 +139,28 @@ def place(covers: list[str], unit_rules: list[str], program: str, rules: dict[st
 
 # ---- one function -----------------------------------------------------------------------------------------------------
 
+def tables(raw: list[dict[str, Any]], ids: dict[str, str]) -> list[dict[str, Any]]:
+    """Decision tables kept with the rule key each row cites; a row citing no given rule, or with a value for each
+    condition missing, is dropped, and a table left with no rows is dropped."""
+    kept = []
+    for t in raw or []:
+        conditions = [str(c) for c in t.get("conditions") or []]
+        rows = [{"values": [str(v) for v in r.get("values") or []], "outcome": str(r.get("outcome", "")), "rule": ids[r["rule"]]}
+                for r in t.get("rows") or [] if isinstance(r, dict) and r.get("rule") in ids and len(r.get("values") or []) == len(conditions)]
+        if conditions and rows:
+            gaps = [{"values": [str(v) for v in g.get("values") or []], "note": str(g.get("note", ""))} for g in t.get("gaps") or []
+                    if isinstance(g, dict) and len(g.get("values") or []) == len(conditions)]
+            kept.append({"title": str(t.get("title", "")), "conditions": conditions, "outcome": str(t.get("outcome", "")), "rows": rows, "gaps": gaps})
+    return kept
+
+
+def risk(touches: list[str], kinds: list[str]) -> str:
+    """A capability's risk, set by Reframe from what it touches and the kinds of its rules."""
+    if HIGH_RISK & set(touches) or "compliance" in kinds:
+        return "high"
+    return "medium" if MEDIUM_RISK & set(touches) else "low"
+
+
 def check(raw: dict[str, Any], ids: dict[str, str], open_ids: dict[str, str]) -> tuple[list[dict[str, Any]], int, set[str]]:
     """Requirements kept with the rule keys they cite; one citing no given rule dropped and counted. Returns the
     capabilities, the number dropped and the open units placed."""
@@ -124,12 +176,50 @@ def check(raw: dict[str, Any], ids: dict[str, str], open_ids: dict[str, str]) ->
         questions = [open_ids[q] for q in cap.get("questions") or [] if q in open_ids and open_ids[q] not in placed]
         placed.update(questions)
         if requirements or questions:
-            caps.append({"title": cap.get("title", ""), "story": cap.get("story", ""), "requirements": requirements, "questions": questions})
+            caps.append({"title": cap.get("title", ""), "story": cap.get("story", ""), "requirements": requirements, "questions": questions,
+                         "tables": tables(cap.get("tables"), ids), "touches": sorted({t for t in cap.get("touches") or [] if t in TOUCHES})})
     return caps, dropped, placed
 
 
+def page_key(fid: str) -> str:
+    """A function's id on the reconciled review: requirement keys are <page key>/<code>, capability keys <page key>#<n>."""
+    return "rec/" + (fid or "unassigned")
+
+
+def reviewed(fid: str, marks: dict[str, Any], previous: dict[str, Any]) -> list[dict[str, Any]]:
+    """The Needs change and Question marks on this function's requirements and capabilities in the last page, with the
+    text they were made on (section 8.11): they make the requirements step write the function again."""
+    key = page_key(fid)
+    found = []
+    for cap in previous.get("capabilities") or []:
+        cid = f"{key}#{cap.get('number')}"
+        if (marks.get(cid) or {}).get("status") in ("change", "question"):
+            found.append({"type": "capability", "key": cid, "was": f"{cap.get('title', '')}: {cap.get('story', '')}", "mark": marks[cid]["status"],
+                          "comment": marks[cid].get("comment", "")})
+        for req in cap.get("requirements") or []:
+            rid = f"{key}/{req.get('code')}"
+            if (marks.get(rid) or {}).get("status") in ("change", "question"):
+                found.append({"type": "requirement", "key": rid, "was": req.get("text", ""), "mark": marks[rid]["status"], "comment": marks[rid].get("comment", "")})
+    return found
+
+
+def agreed_requirements(fid: str, previous: dict[str, Any], agreed: dict[str, Any], before: dict[str, str], now: dict[str, str]) -> list[dict[str, Any]]:
+    """This function's requirements marked Agree on the last page whose cited rules are all unchanged: kept word for word,
+    with their code, in the capability of the same title."""
+    key, found = page_key(fid), []
+    for cap in previous.get("capabilities") or []:
+        for req in cap.get("requirements") or []:
+            rules = req.get("rules") or []
+            if f"{key}/{req.get('code')}" in agreed and rules and all(k in now and before.get(k) == now[k] for k in rules):
+                found.append({"title": cap.get("title", ""), "story": cap.get("story", ""),
+                              "requirement": {"kind": req["kind"], "pattern": req.get("pattern", ""), "text": req["text"], "rules": rules,
+                                              "code": req["code"], "agreed": True}})
+    return found
+
+
 def write_function(folder: RunFolder, claude, places: dict[str, Any], fid: str, function: dict[str, Any], members: list[dict[str, Any]],
-                   waiting: list[dict[str, Any]], log: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, Any]:
+                   waiting: list[dict[str, Any]], log: list[dict[str, Any]], marked: list[dict[str, Any]] | None = None,
+                   kept_reqs: list[dict[str, Any]] | None = None) -> tuple[dict[str, Any] | None, Any]:
     project = folder.state["project"]
     folder_in = places["analysis"] / "reframe" / "reconcile"
     folder_in.mkdir(parents=True, exist_ok=True)
@@ -144,8 +234,13 @@ def write_function(folder: RunFolder, claude, places: dict[str, Any], fid: str, 
         here = waiting if n == len(parts) else []
         open_ids = {f"U{i}": w["unit"] for i, w in enumerate(here, 1)}
         data = {"function": {"name": function["name"], "description": function.get("description", "")},
-                "rules": [{"id": i, "program": r["program"], "name": r["name"], "text": r["text"]} for i, r in zip(ids, part)],
+                "rules": [{"id": i, "program": r["program"], "name": r["name"], "kind": r.get("kind", ""), "text": r["text"]} for i, r in zip(ids, part)],
                 "open_items": [{"id": i, "program": w["program"], "question": w["question"]} for i, w in zip(open_ids, here)]}
+        if marked:
+            data["reviewed"] = [{k: m[k] for k in ("type", "was", "mark", "comment")} for m in marked]
+        if kept_reqs:
+            covered = {k for x in kept_reqs for k in x["requirement"]["rules"]}
+            data["covered"] = [i for i, key in ids.items() if key in covered]
         path = folder_in / f"req-{safe}-{n}.json"
         path.write_text(json.dumps(data, indent=1))
         name = f"req-{safe}-{n}"
@@ -157,6 +252,12 @@ def write_function(folder: RunFolder, claude, places: dict[str, Any], fid: str, 
         caps += got
         dropped += lost
         placed |= put
+    for x in kept_reqs or []:  # requirements a reviewer agreed with, kept word for word with their code (section 8.11)
+        home = next((c for c in caps if c["title"] == x["title"]), None)
+        if home is None:
+            home = {"title": x["title"], "story": x["story"], "requirements": [], "questions": [], "tables": [], "touches": []}
+            caps.append(home)
+        home["requirements"].insert(0, x["requirement"])
     missing = [w["unit"] for w in waiting if w["unit"] not in placed]
     if missing:  # an open unit the step did not place is still carried, on a capability of its own
         caps.append({"title": "Waiting for a subject-matter expert", "story": "", "requirements": [], "questions": missing})
@@ -166,13 +267,13 @@ def write_function(folder: RunFolder, claude, places: dict[str, Any], fid: str, 
 # ---- R6 ----------------------------------------------------------------------------------------------------------------
 
 def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[str, Any]], kept: dict[str, Any], agreed: list[dict[str, Any]],
-          sme: dict[str, Any]) -> dict[str, Any]:
+          sme: dict[str, Any], described: dict[str, Any] | None = None) -> dict[str, Any]:
     """The recommended requirements. A function whose rules and open units are unchanged keeps what it had."""
     from reframe.claude.steps import stop_for
     from reframe.claude.workspace import paths
     places = paths(folder)
     rules = gathered["rules"]
-    made = recommended_rules(gathered, found, kept, agreed)
+    made = recommended_rules(gathered, found, kept, agreed, described if described is not None else folder.load("reconcile/described.json", {}) or {})
     waiting = open_units(found, kept)
     framed = frame(folder)
     by_function: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -184,9 +285,14 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
     for w in waiting:
         w["function"] = place(w["rules"], [], w["program"], rules, framed)
         open_by_function[w["function"]].append(w)
-    folder.save("outputs/reconcile/rules.json", {"label": LABEL, "generated_at": iso(), "rules": made, "open": waiting})
 
-    saved = (folder.load("outputs/reconcile/requirements.json") or {}).get("functions") or {}
+    before = {r["key"]: r["text"] for r in (folder.load("outputs/reconcile/rules.json") or {}).get("rules") or []}
+    now = {r["key"]: r["text"] for r in made}
+    folder.save("outputs/reconcile/rules.json", {"label": LABEL, "generated_at": iso(), "rules": made, "open": waiting})
+    agreed_marks = (gathered.get("context") or {}).get("agreed") or {}
+    previous_doc = folder.load("outputs/reconcile/requirements.json") or {}
+    saved = previous_doc.get("functions") or {}
+    marks = (gathered.get("context") or {}).get("marks") or {}
     log = folder.load("reconcile/requirements-steps.json", []) or []
     lock, stopped, written = threading.Lock(), [], {}
     todo = []
@@ -194,14 +300,17 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
         members = sorted(by_function.get(fid, []), key=lambda r: (r["program"], r["key"]))
         here = sorted(open_by_function.get(fid, []), key=lambda w: w["unit"])
         function = framed["functions"].get(fid) or {"name": UNASSIGNED["name"], "description": UNASSIGNED["description"]}
-        digest = _hash([function["name"], [{k: r[k] for k in ("key", "text", "program")} for r in members], [{k: w[k] for k in ("unit", "question")} for w in here]])
+        marked = reviewed(fid, marks, saved.get(fid) or {}) if previous_doc.get("complete") else []
+        kept_reqs = agreed_requirements(fid, saved.get(fid) or {}, agreed_marks, before, now) if previous_doc.get("complete") else []
+        digest = _hash([function["name"], [{k: r.get(k) for k in ("key", "text", "program", "kind")} for r in members],
+                        [{k: w[k] for k in ("unit", "question")} for w in here], METHOD, [{k: m[k] for k in ("key", "mark", "comment")} for m in marked]])
         if (saved.get(fid) or {}).get("hash") == digest and "raw" in saved[fid]:
-            written[fid] = {k: saved[fid][k] for k in ("hash", "dropped", "raw")}
+            written[fid] = {k: saved[fid][k] for k in ("hash", "dropped", "raw") if k in saved[fid]} | {"reviewed": saved[fid].get("reviewed", [])}
         else:
-            todo.append((fid, function, members, here, digest))
+            todo.append((fid, function, members, here, digest, marked, kept_reqs))
 
     def one(item) -> None:
-        fid, function, members, here, digest = item
+        fid, function, members, here, digest, marked, kept_reqs = item
         if stopped:
             return
         if not members:  # only open units: no step, a capability that carries them
@@ -209,13 +318,14 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
                                                               "questions": [w["unit"] for w in here]}], "dropped": 0}
             stop = None
         else:
-            value, stop = write_function(folder, claude, places, fid, function, members, here, log)
+            value, stop = write_function(folder, claude, places, fid, function, members, here, log, marked, kept_reqs)
         with lock:
             folder.save("reconcile/requirements-steps.json", log)
             if stop is not None:
                 stopped.append(stop)
                 return
-            written[fid] = {"hash": digest, "dropped": value["dropped"], "raw": value["capabilities"]}
+            written[fid] = {"hash": digest, "dropped": value["dropped"], "raw": value["capabilities"],
+                            "reviewed": [{k: m[k] for k in ("key", "mark", "comment")} for m in marked]}
             folder.save("outputs/reconcile/requirements.json", {"label": LABEL, "complete": False, "functions": {**saved, **written}})
 
     with ThreadPoolExecutor(max_workers=PARALLEL) as pool:
@@ -224,24 +334,37 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
         raise stop_for(stopped[0], "the reconciliation's recommended requirements")
 
     sme_of = {k: q for q in sme.get("questions") or [] for k in q["originals"]}
+    kind_of = {r["key"]: r.get("kind", "") for r in made}
     open_of = {w["unit"]: w for w in waiting}
     functions = {}
     for fid in sorted(written, key=lambda f: (f == "", f)):
         counters = Counter()
+        kept_codes = {r["code"] for c in written[fid]["raw"] for r in c["requirements"] if r.get("code")}
         caps = []
         for c_index, cap in enumerate(written[fid]["raw"], 1):
             reqs = []
             for req in cap["requirements"]:
-                counters[req["kind"]] += 1
-                reqs.append({**req, "code": f"REQ-{'F' if req['kind'] == 'functional' else 'N'}-{counters[req['kind']]:03d}"})
+                if req.get("code"):
+                    reqs.append(req)  # an agreed requirement keeps its code
+                    continue
+                prefix = "REQ-F" if req["kind"] == "functional" else "REQ-N"
+                while True:
+                    counters[req["kind"]] += 1
+                    code = f"{prefix}-{counters[req['kind']]:03d}"
+                    if code not in kept_codes:
+                        break
+                reqs.append({**req, "code": code})
             qs = []
             for unit in cap["questions"]:
                 listed = sme_of.get(f"r4:{unit}") or {}
                 counters["question"] += 1
                 qs.append({"code": listed.get("id") or f"OQ-{counters['question']:03d}", "unit": unit, "rules": open_of.get(unit, {}).get("rules", []),
                            "text": listed.get("question") or open_of.get(unit, {}).get("question", ""), "status": listed.get("status", "open")})
-            caps.append({"number": c_index, "title": cap["title"], "story": cap["story"], "requirements": reqs, "questions": qs})
-        functions[fid] = {**written[fid], "capabilities": caps}
+            cited_kinds = [kind_of.get(k, "") for r in cap["requirements"] for k in r["rules"]] + [kind_of.get(row["rule"], "") for t in cap.get("tables") or [] for row in t["rows"]]
+            caps.append({"number": c_index, "title": cap["title"], "story": cap["story"], "requirements": reqs, "questions": qs,
+                         "tables": cap.get("tables") or [], "touches": cap.get("touches") or [], "risk": risk(cap.get("touches") or [], cited_kinds)})
+        top = min((RISKS.index(c["risk"]) for c in caps), default=RISKS.index("low"))
+        functions[fid] = {**written[fid], "capabilities": caps, "risk": RISKS[top]}
     cited = {k for f in functions.values() for c in f["capabilities"] for q in c["requirements"] for k in q["rules"]}
     value = {"label": LABEL, "complete": True, "generated_at": iso(), "functions": functions,
              "domains": [{"key": d["key"], "name": d["name"], "description": d.get("description", ""), "kind": d["kind"],
@@ -250,7 +373,9 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
              "names": {fid: {"name": (framed["functions"].get(fid) or UNASSIGNED)["name"], "description": (framed["functions"].get(fid) or UNASSIGNED).get("description", "")}
                        for fid in functions},
              "dropped": sum(f["dropped"] for f in functions.values()), "rules_cited": len(cited), "rules_total": len(made),
-             "requirements": sum(len(c["requirements"]) for f in functions.values() for c in f["capabilities"])}
+             "requirements": sum(len(c["requirements"]) for f in functions.values() for c in f["capabilities"]),
+             "tables": sum(len(c["tables"]) for f in functions.values() for c in f["capabilities"]),
+             "risk": dict(Counter(f["risk"] for f in functions.values()))}
     value["domains"] = [d for d in value["domains"] if d["functions"]]
     folder.save("outputs/reconcile/requirements.json", value)
     return value
