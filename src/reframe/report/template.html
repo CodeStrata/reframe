@@ -349,6 +349,8 @@ function capabilityPage(c, focus){
   h += '<h2>' + c.number + '. ' + esc(c.title) + ' ' + riskTag(c) + '</h2>';
   if (c.touches && c.touches.length) h += '<p class="small muted">Touches ' + esc(c.touches.map(t => TOUCH[t] || t).join(', ')) + '</p>';
   if (c.story) h += '<div class="story">' + prose(c.story) + '</div>';
+  if (D.reconcile) h += '<div class="item ' + ((marks[c.id] || {}).status || '') + '" id="' + anchor(c.id) + '"><div class="small muted">Mark the capability as a whole: its title and story, and whether its requirements cover it.</div>' +
+    markControls(c.id, 'What should change in this capability, or what you want to ask') + '</div>';
   const fields = Object.entries(c.fields || {});
   if (fields.length) h += '<dl class="fields">' + fields.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + prose(v) + '</dd>').join('') + '</dl>';
   h += '<div class="panel">' + countLine(countsOf(capItems(c))) + progress(capItems(c)) + '</div>';
@@ -505,13 +507,15 @@ $('search').addEventListener('input', e => { clearTimeout(searchTimer); const v 
 // ---- the review dialog and downloads ---------------------------------------------------------------
 function allKeys(){ const keys = new Set(); D.domains.forEach(d => domItems(d).forEach(k => keys.add(k))); return keys; }
 function describe(key){
-  const r = reqByKey[key], b = ruleByKey[key], q = qByKey[key];
+  const r = reqByKey[key], b = ruleByKey[key], q = qByKey[key], cap = !r && !b && !q ? capById[key] : null;
+  if (cap) { const f = fnById[cap.function] || {}, d = domByKey[f.domain] || {};
+    return {key, type: 'capability', domain: d.name || '', business_function: f.name || '', capability: cap.number + '. ' + cap.title, id: String(cap.number), text: cap.title + ': ' + cap.story}; }
   const fid = (r || b || q).function, f = fnById[fid] || {}, d = domByKey[f.domain] || {};
   const cid = r ? r.capability : q ? q.capability : capOfRule(key), c = capById[cid] || {};
   return {key, type: r ? 'requirement' : b ? 'business rule' : 'open question', domain: d.name || '', business_function: f.name || '',
     capability: c.title ? c.number + '. ' + c.title : '', id: r ? r.code : q ? q.code : b.program + ' ' + b.id, text: r ? r.text : q ? q.text : b.name + ': ' + b.text};
 }
-function rows(){ return Object.entries(marks).filter(([k, m]) => m && m.status && (reqByKey[k] || ruleByKey[k] || qByKey[k]))
+function rows(){ return Object.entries(marks).filter(([k, m]) => m && m.status && (reqByKey[k] || ruleByKey[k] || qByKey[k] || (D.reconcile && capById[k])))
   .map(([k, m]) => ({...describe(k), status: {agree: 'Agree', change: 'Needs change', question: 'Question'}[m.status], comment: m.comment || '', marked_at: m.at || ''})); }
 function download(name, type, body){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([body], {type})); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
 function fileName(ext){ return 'review-' + (D.project || 'run') + (TOOL.key === 'aws' ? '' : '-' + TOOL.key) + '-' + (reviewer || 'reviewer').replace(/[^A-Za-z0-9_-]+/g, '-') + '-' + new Date().toISOString().slice(0, 10) + '.' + ext; }

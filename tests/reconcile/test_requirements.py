@@ -103,6 +103,25 @@ class RequirementsTest(InputsTest):
         self.assertEqual((value["tables"], value["risk"]), (1, {"medium": 1}))
         self.assertIn("decision table", fake.other_calls[0][2])
 
+    def test_marks_on_requirements_and_capabilities_rewrite_only_that_function(self):
+        fake = self.fake()
+        first = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        was = first["functions"]["f"]["capabilities"][0]["requirements"][0]["text"]
+        before = {u["key"]: u["hash"] for u in units.units(self.gathered)}
+        self.gathered["context"]["marks"] = {"rec/f/REQ-F-001": {"status": "change", "comment": "Pat: the limit is 500"},
+                                             "rec/f#1": {"status": "question", "comment": "Sam: is this one capability?"},
+                                             "rec/f/REQ-F-002": {"status": "agree", "comment": ""}}
+        self.assertEqual({u["key"]: u["hash"] for u in units.units(self.gathered)}, before)  # no unit is decided again
+        requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        self.assertEqual(len(fake.other_calls), 2)
+        given = fake.other_calls[1][1]["reviewed"]
+        self.assertEqual([(g["type"], g["mark"], g["comment"]) for g in given],
+                         [("capability", "question", "Sam: is this one capability?"), ("requirement", "change", "Pat: the limit is 500")])
+        self.assertEqual(given[1]["was"], was)
+        self.assertIn("Address each comment where the rules support it", fake.other_calls[1][2])
+        requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        self.assertEqual(len(fake.other_calls), 2)  # the same marks again: already addressed, kept
+
     def test_risk(self):
         self.assertEqual(requirements.risk(["reporting_only"], ["business"]), "low")
         self.assertEqual(requirements.risk(["updates_records"], []), "medium")
