@@ -311,6 +311,8 @@ reframe reconcile --context ~/carddemo-context   # the next round combines them:
 
 **On CardDemo** (run fa1f61, 24 November 2026), the estimate was 113 batches, 29 to 87 minutes and $56 to $130 at API prices. The run used about $67 at API prices. It decided 431 units with evidence that all exists in the snapshot and covered all 1,111 input rules. It wrote 1,204 recommended rules, 1,153 requirements and an SME list of 313 questions (from 349) with 187 possible defects. Run again with one more answered question, it decided 5 units again in 2 batches and kept 426. On the Claude subscription a full run can reach the five-hour usage limit; it stops with the reason, and `reframe resume` continues where it stopped.
 
+**Part 2 on CardDemo** (25 November 2026). Round 3 decided all 431 units again in about 52 minutes and $32 at API prices: 1,185 recommended rules with Reframe's confidence (718 high, 463 medium, 4 low), a kind and worked examples, 1,131 requirements with 114 decision tables, and 182 possible defects shown once each. An audit of a new sample found no rule wrong by both judges and 56 of 65 correct, with 6 for the owner to settle, and every rule with an error rated medium. Two reviewers' files, one JSON and one CSV with a disagreement and two sign-offs, went through `reframe review`, and round 4 decided 1 unit again and wrote one function's requirements again. The figures are in [docs/pipeline-3.md](docs/pipeline-3.md), section 8.12.
+
 ## Sharing the reports
 
 ```bash
