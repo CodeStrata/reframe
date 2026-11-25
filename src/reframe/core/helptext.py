@@ -45,6 +45,7 @@ EXAMPLES = {
                   ("reframe reconcile --context ~/carddemo-context", "with documents, review exports and answered questions"),
                   ("reframe reconcile --max-batches 120", "go ahead with a larger estimate"),
                   ("reframe reconcile --open", "open the reconciliation page")],
+    "review": [("reframe review --context ~/carddemo-context", "each reviewer's coverage, sign-offs and disagreements in the folder's review downloads")],
     "publish": [("reframe publish --to aws", "upload to the private reports bucket in your AWS account"),
                 ("reframe publish --to reports/my-system", "write the copy into a folder")],
     "reports": [("reframe reports", "list the published reports"),

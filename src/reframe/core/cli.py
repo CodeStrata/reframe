@@ -23,6 +23,7 @@ HANDLERS = {
     "teardown": "reframe.core.commands:teardown",
     "claude": "reframe.core.commands:claude",
     "reconcile": "reframe.core.commands:reconcile",
+    "review": "reframe.core.commands:review",
     "compare": "reframe.core.commands:compare",
     "publish": "reframe.core.commands:publish",
     "reports": "reframe.core.commands:reports",
@@ -101,6 +102,11 @@ def parser() -> argparse.ArgumentParser:
     reconcile.add_argument("--max-batches", type=int, default=None, help="the limit for the decisions; Reframe stops and asks above it (default: 120)")
     reconcile.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
     reconcile.add_argument("--open", action="store_true", help="open the reconciliation page instead of running")
+
+    review = command("review", "Read the review downloads in a folder and show each reviewer's coverage, sign-offs and where reviewers disagree; "
+                     "runs nothing, and the next reframe reconcile --context with the same folder combines them")
+    _run_option(review)
+    review.add_argument("--context", required=True, help="the folder holding the review downloads (JSON or CSV)")
 
     compare = command("compare", "Build the page comparing AWS Transform's and Claude's results again")
     _run_option(compare)

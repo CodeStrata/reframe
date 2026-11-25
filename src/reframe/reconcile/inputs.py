@@ -192,12 +192,23 @@ def signoffs(reviews: list[dict[str, Any]]) -> list[dict[str, Any]]:
              "file": r["file"]} for r in reviews for x in r.get("signoffs") or []]
 
 
+PRECEDENCE = {"agree": 0, "question": 1, "change": 2}  # Needs change and Question take precedence over Agree (section 8.11)
+
+
 def combine(reviews: list[dict[str, Any]]) -> dict[str, Any]:
-    """Every reviewer's marks as one mark per key: a later file's mark replaces an earlier one."""
-    marks: dict[str, Any] = {}
+    """Every reviewer's marks as one mark per key: the status that takes precedence (Needs change, then Question, then
+    Agree), every reviewer's comment kept with their name, and each reviewer's own mark under "by"."""
+    by_key: dict[str, list[dict[str, Any]]] = {}
     for review in reviews:
         for m in review["marks"]:
-            marks[m["key"]] = {"status": m["status"], "comment": m["comment"], "reviewer": review["reviewer"], "file": review["file"]}
+            by_key.setdefault(m["key"], []).append({"reviewer": review["reviewer"], "status": m["status"], "comment": m["comment"], "at": m.get("at", ""),
+                                                    "file": review["file"]})
+    marks: dict[str, Any] = {}
+    for key, given in by_key.items():
+        status = max((g["status"] for g in given), key=lambda st: PRECEDENCE.get(st, 0))
+        comments = [f"{g['reviewer'] or 'A reviewer'}: {g['comment']}" for g in given if g["comment"].strip()]
+        marks[key] = {"status": status, "comment": "\n".join(comments), "reviewer": ", ".join(dict.fromkeys(g["reviewer"] for g in given if g["reviewer"])),
+                      "file": ", ".join(dict.fromkeys(g["file"] for g in given)), "by": given}
     return marks
 
 

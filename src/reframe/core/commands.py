@@ -197,6 +197,42 @@ def reconcile(args) -> int:
     return 0
 
 
+def review(args) -> int:
+    """Several reviewers' files (docs/pipeline-3.md, section 8.11): coverage, sign-offs and disagreements; runs nothing."""
+    from reframe.core import ui
+    from reframe.reconcile import reviews
+    try:
+        folder = find_run(args.run)
+        context = Path(args.context).expanduser().resolve()
+        if not context.is_dir():
+            raise Stop(Outcome.REFUSED, f"the context folder {args.context} does not exist")
+    except Stop as stop:
+        return _fail(stop)
+    value = reviews.summary(folder, context)
+    ui.section(f"Run {folder.root.name} · reviews in {context}")
+    if not value["reviewers"]:
+        ui.warn("No review download of this run's snapshot in the folder. Download your marks from a review page (Your review) into it.")
+    else:
+        short = {"aws": "AWS Transform", "claude": "Claude", "reconciled": "Reconciled"}
+        ui.table(["Reviewer", "Page and file", "Agree / change / question", "Coverage", "Signed off"],
+                 [[r["reviewer"] or "(no name)", f"{short[r['page']]}: {r['file']}",
+                   f"{r['marks'].get('agree', 0)} / {r['marks'].get('change', 0)} / {r['marks'].get('question', 0)}",
+                   f"{r['marked']} of {r['items']} ({round(100 * r['coverage'])}%)", ", ".join(x["name"] or x["function"] for x in r["signoffs"]) or "–"]
+                  for r in value["reviewers"]])
+    if value["disagreements"]:
+        ui.state("Disagreements", f"{len(value['disagreements'])} item(s) marked differently; the next round takes Needs change or Question over Agree", "bold yellow")
+        names = {"agree": "Agree", "change": "Needs change", "question": "Question"}
+        ui.table(["Item", "Marks", "Next round"],
+                 [[d["key"], "; ".join(f"{m['reviewer'] or 'a reviewer'}: {names.get(m['status'], m['status'])}" + (f" ({m['comment']})" if m["comment"] else "")
+                                      for m in d["marks"]), names.get(d["combined"], d["combined"])] for d in value["disagreements"]])
+    elif value["reviewers"]:
+        ui.ok("No two reviewers marked an item differently.")
+    for i in value["ignored"]:
+        ui.hint(f"ignored {i['file']}: {i['why']}")
+    ui.state("Next", f"reframe reconcile --context {context} combines these marks in the next round", "bright_cyan")
+    return 0
+
+
 def worker(args) -> int:
     from reframe.core import pipeline
     folder = RunFolder(Path(args.folder))
