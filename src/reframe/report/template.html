@@ -75,7 +75,7 @@ dialog::backdrop{background:rgba(0,0,0,.35)}dialog label{display:block;font-size
     <input type="search" id="search" placeholder="Search requirements, rules, questions" aria-label="Search">
     <button class="btn primary" id="reviewButton">Your review</button>
   </div>
-  <nav class="views"><a href="#/" id="vReview">Business review</a><a href="#/tech/requirements" id="vTech">Technical detail</a><span style="flex:1"></span><span id="others"></span></nav>
+  <nav class="views"><a href="#/first" id="vFirst" hidden>Review first</a><a href="#/" id="vReview">Business review</a><a href="#/tech/requirements" id="vTech">Technical detail</a><span style="flex:1"></span><span id="others"></span></nav>
 </header>
 <main id="main"></main>
 
@@ -258,7 +258,7 @@ function overview(){
     h += numbers([[conf.high || 0, 'high confidence'], [conf.medium || 0, 'medium: check these'], [conf.low || 0, 'low: check these first']]) +
       '<p class="small muted">Reframe sets confidence from what it checked: high when an agent decided the rule against the code with both tools\' rules and the code is shown to run; ' +
       'medium when one tool found it, no agent decided it, or the source does not show that the code runs; low when the code never runs.</p>';
-    if (D.sme) h += '<p><a class="btn" href="#/tech/sme">Open the SME list</a></p>';
+    h += '<p><a class="btn primary" href="#/first">Review first: what to check before the rest</a> ' + (D.sme ? '<a class="btn" href="#/tech/sme">Open the SME list</a>' : '') + '</p>';
   }
   h += '<div class="panel">' + progress(all) + '</div>';
   h += '<h3>Business domains</h3><div class="grid">' + biz.map(domainCard).join('') + '</div>';
@@ -369,6 +369,60 @@ function capabilityPage(c, focus){
   return h;
 }
 
+// ---- review first (docs/pipeline-3.md, section 8.10): what an SME should check before the rest ---------------------
+const RISK_RANK = {high: 0, medium: 1, low: 2};
+function fnRisk(fid){ const f = fnById[fid]; return f && f.risk ? RISK_RANK[f.risk] : 3; }
+const FIRST = [
+  ['never', 'The code never runs', 'Rules both tools describe the same way, about code that no menu, transaction or job step reaches. They are probably not rules of the system.', r => r.confidence === 'low'],
+  ['conflict', 'Conflicts', 'The two tools said different things; an agent decided against the code.', r => r.conflict],
+  ['rewritten', 'Rewritten from the code', 'Both tools were partly wrong; the agent wrote what the code does.', r => r.decision === 'rewritten'],
+  ['sme', 'Waiting for a subject-matter expert', 'The code could not settle these.', null],
+  ['defect', 'Possible defects that look unintended', 'Behaviour in the code that may be a mistake. Confirm or dismiss each one.', r => r.defect && r.defect_call !== 'deliberate' && !(r.n > 1)],
+  ['kept', 'Kept from one tool', 'Only one tool found these; the agent checked them against the code.', r => r.decision === 'kept'],
+  ['medium', 'Other medium confidence', 'Not shown to run, depending on something outside the source, or not decided by an agent.', r => r.confidence === 'medium']];
+let firstFilter = {decision: '', kind: '', confidence: '', risk: ''};
+function firstGroups(){
+  const seen = new Set(), out = [];
+  const keep = r => (!firstFilter.decision || r.decision === firstFilter.decision) && (!firstFilter.kind || r.kind === firstFilter.kind) &&
+    (!firstFilter.confidence || r.confidence === firstFilter.confidence) && (!firstFilter.risk || (fnById[r.function] || {}).risk === firstFilter.risk);
+  const order = (a, b) => fnRisk(a.function) - fnRisk(b.function) || kindRank(a.key) - kindRank(b.key) || (a.function > b.function ? 1 : -1);
+  for (const [id, title, note, test] of FIRST) {
+    let keys;
+    if (!test) keys = (firstFilter.decision || firstFilter.kind || firstFilter.confidence) ? [] : D.questions.filter(q => !firstFilter.risk || (fnById[q.function] || {}).risk === firstFilter.risk)
+      .sort((a, b) => fnRisk(a.function) - fnRisk(b.function)).map(q => q.key);
+    else keys = D.rules.filter(r => r.decision && !seen.has(r.key) && test(r) && keep(r)).sort(order).map(r => r.key);
+    keys.forEach(k => seen.add(k));
+    out.push({id, title, note, keys});
+  }
+  return out;
+}
+function firstSelect(id, label, options){
+  return '<select data-first="' + id + '" aria-label="' + esc(label) + '"><option value="">' + esc(label) + '</option>' +
+    options.map(([v, l]) => '<option value="' + esc(v) + '"' + (firstFilter[id] === v ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '</select>';
+}
+function firstPage(){
+  const groups = firstGroups(), all = new Set(groups.flatMap(g => g.keys));
+  let h = crumbs([['Overview', '#/'], ['Review first']]) + '<h2>Review first</h2><p class="lead">The items to check before the rest, in order: code that never runs, conflicts, ' +
+    'rules rewritten from the code, what waits for a subject-matter expert, possible defects, rules only one tool found, and the other medium-confidence rules. ' +
+    'High-risk functions and business rules come first. The other ' + Math.max(0, business.length - groups.reduce((n, g) => n + (g.id === 'sme' ? 0 : g.keys.length), 0)) +
+    ' rules were decided against the code with both tools\' rules and the code shown to run.</p>';
+  h += '<div class="panel">' + progress(all) + '<div class="tools" style="margin:10px 0 0">' +
+    firstSelect('decision', 'Every decision', Object.entries(DECISION).filter(([k]) => k !== 'needs_sme')) +
+    firstSelect('kind', 'Every kind of rule', KIND_ORDER.map(k => [k, KIND[k]])) +
+    firstSelect('confidence', 'Every confidence', [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]) +
+    firstSelect('risk', 'Every risk', [['high', 'High-risk functions'], ['medium', 'Medium-risk functions'], ['low', 'Low-risk functions']]) + '</div></div>';
+  for (const g of groups) {
+    const done = reviewed(new Set(g.keys));
+    h += '<details class="panel"' + (g.keys.length && g.keys.length <= 30 ? ' open' : '') + '><summary><b>' + esc(g.title) + '</b> <span class="muted small">' + g.keys.length + ' · ' + done + ' marked</span></summary>' +
+      '<p class="small muted">' + esc(g.note) + '</p>' + (g.keys.length ? g.keys.slice(0, 200).map(k => {
+        const r = ruleByKey[k] || qByKey[k], f = fnById[r.function] || {};
+        return '<p class="small muted" style="margin:12px 0 2px">' + esc(f.name || '') + ' ' + riskTag(f) + '</p>' + (ruleByKey[k] ? ruleCard(k) : questionCard(k));
+      }).join('') + (g.keys.length > 200 ? '<p class="muted">Showing the first 200. Narrow it with the filters above.</p>' : '') : '<p class="muted">None.</p>') + '</details>';
+  }
+  return h;
+}
+document.addEventListener('change', e => { const id = e.target.dataset && e.target.dataset.first; if (id) { firstFilter[id] = e.target.value; route(); } });
+
 // ---- search -----------------------------------------------------------------------------------------
 function where(fid, cid){ const f = fnById[fid], c = capById[cid]; return esc(f ? f.name : '') + (c ? ' › ' + c.number + '. ' + esc(c.title) : ''); }
 function capOfRule(key){ return ruleCap[key] || null; }
@@ -426,7 +480,7 @@ function techPage(tab){
     cols: [['ID', '96px'], ['Function and capability', '22%'], ['Question', ''], ['For', '150px']],
     render: x => '<tr><td class="id">' + idLink(x.code, x.capability, x.key) + '</td><td>' + place(x.function, x.capability) + '</td><td>' +
       (x.unverified ? '<span class="tag warn">Unverified requirement</span> ' : '') + prose(x.text) + '</td><td>' + esc(x.owner) + '</td></tr>'});
-  if (tab === 'sme') h += '<p class="lead">One list of open questions for subject-matter experts: both tools\' and Reframe\'s own, merged where they ask the same thing, ' +
+  if (tab === 'sme' && D.sme) h += '<p class="lead">One list of open questions for subject-matter experts: both tools\' and Reframe\'s own, merged where they ask the same thing, ' +
     'with the possible defects found in the code. Download it, fill in the <b>answer</b> column, put the file in your context folder and run <code>reframe reconcile</code> again.</p>' +
     '<p><button class="btn" id="smeCsv">Download the SME list (CSV)</button></p>' + filtered('sme', D.sme, {
     text: x => x.id + ' ' + x.question + ' ' + x.owner + ' ' + (x.from || []).join(' '),
@@ -492,14 +546,17 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-clea
 function route(){
   const parts = (location.hash || '#/').slice(2).split('/'), [kind, a] = parts;
   let h, tech = kind === 'tech', focus = null;
-  if (kind === 'd' && D.domains[+a]) h = domainPage(D.domains[+a]);
+  if (D.reconcile && (kind === 'first' || !location.hash)) h = firstPage();
+  else if (kind === 'd' && D.domains[+a]) h = domainPage(D.domains[+a]);
   else if (kind === 'f' && D.functions[+a]) h = functionPage(D.functions[+a]);
   else if (kind === 'c' && D.capabilities[+a]) { focus = parts[2] ? decodeURIComponent(parts.slice(2).join('/')) : null; h = capabilityPage(D.capabilities[+a], focus); }
   else if (kind === 'search' && a) { const q = decodeURIComponent(parts.slice(1).join('/')); if (document.activeElement !== $('search')) $('search').value = q; h = searchPage(q); }
   else if (tech) h = techPage(a || 'requirements');
   else h = overview();
   $('main').innerHTML = h;
-  $('vReview').classList.toggle('on', !tech); $('vTech').classList.toggle('on', tech);
+  const first = D.reconcile && (kind === 'first' || !location.hash);
+  $('vFirst').hidden = !D.reconcile; $('vFirst').classList.toggle('on', first);
+  $('vReview').classList.toggle('on', !tech && !first); $('vTech').classList.toggle('on', tech);
   if (focus) { const el = document.getElementById(anchor(focus)); if (el) { const det = el.closest('details'); if (det) det.open = true; el.scrollIntoView({block: 'center'}); el.style.outline = '2px solid var(--accent)'; } }
   else if (!(document.activeElement && document.activeElement.dataset && document.activeElement.dataset.table)) window.scrollTo(0, 0);
 }
