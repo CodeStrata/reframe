@@ -77,3 +77,16 @@ class CliTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ClaudeNextTest(unittest.TestCase):
+    def test_reconcile_suggested_once_both_assessments_are_done(self):
+        from reframe.core.commands import claude_next
+        first = claude_next({"claude": {"status": "DONE"}})
+        self.assertTrue(first.startswith("reframe teardown removes the AWS resources, which the reconciliation does not need; then reframe reconcile"))
+        torn = claude_next({"claude": {"status": "DONE"}, "torn_down": "2026-11-25T20:30:00Z"})
+        self.assertTrue(torn.startswith("reframe reconcile reconciles the two assessments"))
+        self.assertNotIn("teardown", torn)
+        done = claude_next({"claude": {"status": "DONE"}, "reconcile": {"status": "DONE"}})
+        self.assertNotIn("reframe reconcile", done)  # the reconciliation's own section says what comes next
+        self.assertTrue(done.endswith("reframe teardown removes the AWS resources"))
