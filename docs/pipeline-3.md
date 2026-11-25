@@ -39,6 +39,7 @@ Out of scope:
 |---|---|
 | `reframe reconcile [--run <id>] [--context <folder>] [--auth subscription\|bedrock] [--max-batches <n>] [--foreground]` | Runs stages R0 to R7 on a run, in a background worker. `--context` is the folder of human context (stage R1). `--max-batches` is the limit for stage R4 (default 120): Reframe stops and asks if its estimate is higher. |
 | `reframe reconcile --open` | Opens the reconciliation page. |
+| `reframe review [--run <id>] --context <folder>` | Reads the review downloads in a folder and shows each reviewer's coverage, sign-offs and where reviewers disagree (section 8.11); runs nothing. |
 
 Run it again, with more context or answered questions, and only the rules whose inputs changed are decided again (stage R4, *Running again*). `reframe status`, `events`, `resume` and `publish` cover pipeline 3; the home screen shows its status per run and gets a menu entry.
 
@@ -163,7 +164,8 @@ How it is built: the page uses the same template as the two reviews, so marks, s
 In addition to pipelines 1 and 2:
 
 - `reconcile/inputs/`: the items, open questions and the context as read (stage R1);
-- `reconcile/decisions.json`: each unit's decision, with its input hash and round; `reconcile/steps.json`, the decision steps' time and usage; `reconcile/agreed.json`;
+- `reconcile/decisions.json`: each unit's decision, with its input hash and round; `reconcile/steps.json`, the decision steps' time and usage; `reconcile/agreed.json`, and `reconcile/described.json`, the agreed rules' description (section 8.4);
+- `reconcile/reviews.json`: the review downloads `reframe review` read (section 8.11);
 - `reconcile/questions.csv`, `questions.json`, and the merges they came from (`sme-merges.json`, `sme-steps.json`);
 - `outputs/reconcile/`: the recommended rules, the recommended requirements and the page.
 
@@ -202,7 +204,7 @@ Found and fixed in the run: an answer giving the tool's question code (OQ-008) w
 
 ## 8. Part 2: accuracy and the review loop
 
-Part 2 (P3-11 to P3-20 in the plan) starts by measuring how accurate the recommended rules are. Its other stories are specified here as each starts, from what the audit finds.
+Part 2 (P3-11 to P3-24 in the plan) starts by measuring how accurate the recommended rules are (section 8.1). The other stories, specified from what the audit found, are in sections 8.2 to 8.12.
 
 ### 8.1 The accuracy audit (P3-11)
 
@@ -260,3 +262,140 @@ On CardDemo run fa1f61: 59 items (56 recommended rules and the 3 rejected input 
 - **Possible defects.** Of the 27 unit notes judged, both judges found 24 real, 1 not a defect, and 2 are disputed. The notes are mostly right. The earlier count of 636 rules with a note came from each unit's note being repeated on every rule of the unit; 187 of the 431 units have one. P3-13 therefore becomes showing each note once, on its unit, and telling real defects from deliberate behaviour, rather than cutting their number.
 - **The judges.** They agreed on 54 of the 59 verdicts and on 25 of the 27 defect answers. Both are Claude models, so they are independent of the decisions but not of each other's training; a judge from another model family would be a stronger check.
 - **The audit's own questions.** A first pass, kept as `reconcile/audit-v1/`, showed three ways the questions misled the judges: a rule describing code that can never run was judged `correct`, which made right rejections look wrong; one rule of a unit split in two was said to lose the other half; and a unit's defect note was judged on every sampled rule of the unit. The method above fixes all three.
+
+**Settled (25 November 2026).** The owner settled the 7 disputed items in `settle.csv`. Of the 56 recommended rules, 51 are correct (91%), 3 have a wrong or missing detail and 2 are wrong; 54 of 56 (96%) are correct in substance. The 3 with a wrong detail are one rule agreed without an agent and two kept from one tool. The 2 wrong rules both describe code that never runs: a rule agreed without an agent about a menu branch no menu entry reaches, and a kept AWS Transform rule about a load job whose job card carries `TYPRUN=SCAN`. Of the 27 defect notes, 25 are real, 1 is not a defect and 1 is unsure. Every sampled rule was rated high. Sections 8.2 to 8.11 follow from these figures.
+
+### 8.2 What part 2 changes, and where the ideas came from
+
+The audit shows three things the review needs: which rules to check first (confidence says nothing today), whether the code a rule describes ever runs, and fewer, clearer items for an SME (1,204 rules and 2,358 items to mark). Part 2 adds, to every recommended rule, what a reviewer needs to judge it quickly: how far to trust it, what kind of rule it is, and worked examples. It adds decision tables and a risk level to each capability, a *Review first* view, sign-off by function, and a review loop that reads marks on every item, from any number of reviewers, in either download.
+
+The rule kinds, worked examples, decision tables and risk levels come from public demonstrations of spec-driven mainframe modernization, whose business-rule, test and UI role files ask for each rule's kind, examples and decision table, and rank capabilities by risk. Reframe keeps what those demonstrations lack: every statement is checked against the source.
+
+Every rule is decided again in the first round after part 2: the decision step's prompt and schema change, so Reframe adds a method version to each unit's input hash (stage R4, *Running again*) and to each function's (stage R6). On CardDemo that is one full round (stage R3's estimate: about 113 batches).
+
+### 8.3 The decision step's answer (P3-12, P3-13, P3-21, P3-22)
+
+Stage R4's answer for each unit gains these fields; the checks in stage R4 apply to them, and an answer that fails is asked once more as before.
+
+| Field | What it holds | Checked |
+|---|---|---|
+| `reachable` | Whether the code the unit's rules describe runs: `yes`, `no` or `unknown` | `yes` needs `entry` |
+| `entry` | The lines that show how the code is reached: the menu entry, transaction, `XCTL`/`LINK`/`CALL`, or the job step (not `TYPRUN=SCAN`, not commented out) that runs it | Every range exists in the snapshot |
+| `depends` | What the behaviour depends on outside the source (data, configuration, a program not in the source), or empty | – |
+| `defect` | `{text, call, evidence}`: the possible defect, whether it looks `unintended` or `deliberate`, and the lines that show which | A `text` needs a `call` and evidence that exists |
+| `rules[].kind` | Each recommended rule's kind (section 8.6) | One of the kinds |
+| `rules[].examples` | One to three worked examples per rule (section 8.7) | Section 8.7 |
+
+The prompt says: check that the code can run. A paragraph is reached from the program's entry, a program from a menu entry, transaction or a job step that runs. A rule describing code that can never run is `rejected`. A group may now be `rejected` when the code both tools describe never runs. A unit whose answer says `reachable: no` with any other decision fails the check.
+
+### 8.4 Rules both tools describe the same way
+
+The owner's decision stands: identical pairs are agreed without an agent deciding them (stage R2). They still need the description every other rule has, and the audit found one of them wrong. So one more step, **R2b**, describes them without deciding them. Agreed rules are batched by program, up to 12 a batch and four batches at once, and a headless step reads each rule's cited lines and answers `reachable`, `entry`, `depends`, `kind` and `examples`. It answers no `decision` and does not change the wording. The checks of section 8.3 apply. A rule the step finds `reachable: no` stays agreed, is rated low (section 8.5), and is listed first in *Review first*. On CardDemo: 51 rules, about 5 batches, about $5 at API prices.
+
+### 8.5 Confidence that means something (P3-12)
+
+Reframe sets each recommended rule's confidence from facts it can check, not from the model's word. The model's own rating is kept as `model_confidence`.
+
+| Confidence | When |
+|---|---|
+| **high** | An agent decided it against the code with both tools' rules in front of it (`merged`, `aws`, `claude`, `rewritten`), the code is `reachable: yes` with an `entry` that exists, and nothing outside the source decides it (`depends` empty) |
+| **medium** | It was kept from one tool (`kept`), or agreed without an agent (section 8.4), or `reachable` is `unknown`, or `depends` is not empty |
+| **low** | An agreed rule whose code never runs (section 8.4), or a unit that fell back to an SME question |
+
+Why these lines: in the audit every rule an agent decided with both tools' rules was correct (26 of 26), and every error was a rule agreed without an agent or kept from one tool. The two wrong rules described code that never runs.
+
+**Done when** the units of the five audit items that were not correct (A02, A03, A31, A32, A41) are rated medium or low, or are rejected, in the first round after part 2. The audit's figures by confidence (section 8.12) show the errors in the lower levels.
+
+### 8.6 What kind of rule (P3-21)
+
+Each recommended rule has one kind, so a business reader can start with business rules and leave formatting and technical steps to developers.
+
+| Kind | What it is |
+|---|---|
+| `business` | A business decision, policy or calculation: who may do what, how an amount is worked out |
+| `validation` | A check on input data, with the message given when it fails |
+| `error_handling` | What happens when something fails: a file status, an abend, a rollback |
+| `display` | What a screen or report shows and how: layout, formatting, messages that are not validation |
+| `technical` | A technical step: opening a file, moving data between records, sorting, restart and checkpoint |
+| `side_effect` | A record of what happened: an audit or log record, a counter, a file written for another system |
+| `compliance` | Security and access control, the handling of card or personal data, a regulatory record |
+| `leftover` | Behaviour that runs but serves no purpose today: a field never read, an option that leads nowhere |
+
+The page shows the kind on each rule and can filter by it. *Review first* and the business pages list `business`, `validation` and `compliance` rules first.
+
+### 8.7 Worked examples (P3-22)
+
+Each recommended rule has one to three worked examples, each a `given` (the inputs, as field and value) and a `then` (the outcome). They use the values, codes and messages the code has, so a reviewer can check a rule against a case they know. The same examples become acceptance criteria in the exports (S-13) and test data in pipeline 4.
+
+**The check.** Every quoted value in an example (a message, a code in quotes) must appear in a file the decision cites. Numbers are not checked: an example may use any amount. An example that fails is removed and counted. A rule whose examples all fail keeps its decision, with no examples, so a bad example never sends a unit to an SME.
+
+The page shows the examples under each rule as *For example*: given → then.
+
+### 8.8 Possible defects once, real or deliberate (P3-13)
+
+A possible defect belongs to the unit that found it, not to each of its rules. The page shows each note once, on the unit's first rule, with *applies to the N rules of this decision*. It shows the call, *looks unintended* or *looks deliberate*, and the lines that show it.
+
+On the SME list a defect becomes one entry of kind `defect`, with its call. An unintended one asks "Is this intended?". A deliberate one asks "Confirm this is deliberate". The entry cites the defect's evidence. The audit judges the call: `real` means unintended, `not_a_defect` means deliberate or not happening.
+
+### 8.9 Decision tables and risk, per capability (P3-23, P3-24)
+
+Stage R6's step writes two more things for each capability, from the rules it was given:
+
+- **Decision tables (P3-23).** Where three or more of a capability's rules share their conditions, a table with the conditions as columns and one row per combination, each row giving its outcome and the rule it comes from. A combination no rule covers is listed under the table as a gap, for an SME. Reframe checks that every row cites a rule the step was given; a row that cites none is dropped, and a table left with no rows is dropped.
+- **Risk (P3-24).** What the capability touches, from a fixed list: `money` (amounts, balances, interest, fees), `card_data`, `personal_data`, `security` (sign-on, access), `audit`, `updates_records` (writes to master data), `reporting_only`. Reframe sets the risk from these, not the model: **high** if it touches money, card or personal data, security or audit, or holds a `compliance` rule; **medium** if it updates records; **low** otherwise. A function's risk is its highest capability's.
+
+The capability page shows its tables, gaps and risk. The function and domain cards show the risk, and the overview counts functions by risk. *Review first* and sign-off take high-risk functions first. Pipeline 4 uses the order to propose what to modernize first.
+
+### 8.10 Review first (P3-14)
+
+The reconciled review opens with a *Review first* view. It lists the items an SME should check before the rest, in this order:
+
+1. rules whose code never runs (low);
+2. conflicts: rules from a unit with a conflicting pair;
+3. rules rewritten from the code;
+4. units waiting for an SME;
+5. possible defects that look unintended;
+6. rules kept from one tool;
+7. the other medium-confidence rules.
+
+Within each group, high-risk functions come first, and `business`, `validation` and `compliance` rules before the other kinds. Each group shows its count and how many are marked. Filters choose decision kind, rule kind, confidence and risk. On CardDemo the view lists the medium and low rules and the open items: a reviewer can finish it without opening the other 1,000 or so rules.
+
+### 8.11 The review loop (P3-15 to P3-19)
+
+**Sign-off by function (P3-15).** Every review page (AWS Transform's, Claude's and the reconciled review) has a *Sign off this function* button on each function, with an optional comment. A sign-off records the reviewer's name and the time. The downloads carry the sign-offs: the JSON has a `signoffs` list, and the CSV has one row of type `sign-off` per function. The reconciliation reads them from the context folder. `reframe status` lists the signed-off functions, by page, with who signed and when. The reconciled review shows a *Signed off by* tag on the function and its card. A sign-off on another snapshot's review is ignored, like its marks. Pipeline 4 takes signed-off functions as final.
+
+**Marks on requirements and capabilities (P3-16).** The reconciled review's capabilities can be marked too. A *Needs change* or *Question* mark on a requirement or a capability, with its comment, goes to the requirements step of its function in the next round. The step is given the marked item's previous text and the comment, and told to address it where the rules support it. That function's requirements are written again; no unit is decided again for such a mark, and no other function changes.
+
+**The CSV download read (P3-17).** The CSV download gains a `key` column. A CSV with the review columns (`key`, `status`, `source_sha256`) in the context folder is read like the JSON download. One whose `source_sha256` is another snapshot's is ignored with that reason. One without a `key` column (downloaded before part 2) is ignored, with the reason "download it again from the page".
+
+**Agree keeps a rule (P3-18).** A recommended rule marked *Agree* on the reconciled review is kept as agreed:
+
+- A unit whose recommended rules were all marked *Agree* keeps its decision in later rounds, even when a document changes. Only a later *Needs change* or *Question* mark on one of its rules, or a change to its input rules or to an answer that names them, reopens it.
+- A unit decided again with some rules agreed gives those rules to the step as *agreed by a reviewer: keep this wording unless the code contradicts it*.
+- A requirement marked *Agree* is kept word for word by Reframe while the rules it cites are unchanged. The step is told those rules are already covered.
+
+The page shows *Agreed by <name>, <date>* on each agreed item.
+
+**Several reviewers (P3-19).** `reframe review [--run <id>] --context <folder>` reads every review download in the folder, without running anything, and shows:
+
+- each reviewer's file, page and snapshot;
+- their marks by status;
+- their coverage of that page's items;
+- their sign-offs;
+- the items two reviewers marked differently, with each mark and comment.
+
+It writes `reconcile/reviews.json`. The next round combines every reviewer's marks. *Needs change* and *Question* take precedence over *Agree*. Comments from every reviewer are kept, each prefixed with the reviewer's name.
+
+### 8.12 Acceptance of part 2 (P3-20)
+
+Part 2 is done when, from the CLI only, on CardDemo run fa1f61:
+
+- **Round 3** (the first after part 2) decides every unit again within its estimate. Every recommended rule has a kind, a confidence set by Reframe, and examples that passed their check or a count of those removed. Every unit has `reachable` with an `entry` that exists, or a reason.
+- **The audit**, re-run on a new sample (`--seed 2`), with the P3-11 audit kept as `reconcile/audit-p3-11/`, shows:
+  - no fewer correct rules than P3-11's 91%;
+  - no wrong rule rated high;
+  - the five P3-11 items that were not correct (section 8.5) now medium, low or rejected;
+  - the judges agreeing with the defect calls.
+- **Possible defects**: each is shown once on the page, and the SME list's defect entries match the units' notes one to one.
+- **Two reviewers' files**, one JSON and one CSV, carry marks, sign-offs, a *Needs change* on a requirement, a disagreement and an *Agree* on a whole unit. `reframe review` shows their coverage and the disagreement. **Round 4** decides again only the marked units, writes again only the marked function's requirements, keeps the agreed unit, and shows the sign-offs in `reframe status` and on the page.
+- The README and `docs/cli.md` describe part 2 from the tested commands.
