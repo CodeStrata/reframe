@@ -32,7 +32,7 @@ LABELS = {"aws_s3_bucket": "S3 bucket", "aws_iam_role": "IAM role", "aws_iam_rol
           "aws_s3_bucket_ownership_controls": "S3 bucket ownership setting",
           "aws_s3_bucket_public_access_block": "S3 bucket public access block",
           "aws_s3_bucket_server_side_encryption_configuration": "S3 bucket encryption setting",
-          "aws_lambda_function": "Lambda function (pipeline 2 graph loader)", "aws_cloudwatch_log_group": "Log group (graph loader)"}
+          "aws_lambda_function": "Lambda function (Claude's graph loader)", "aws_cloudwatch_log_group": "Log group (graph loader)"}
 
 
 def _name(resource: dict[str, Any]) -> str:
@@ -93,7 +93,7 @@ def describe(items: list[dict[str, Any]], graph: dict[str, Any] | None, claude_g
         lines += ["", "AWS Transform can leave a network interface in this run's VPC while the job is deleted. Reframe also deletes",
                   "any such interface it finds in that VPC (described as managed by AWS Transform), so the VPC can be deleted."]
     if any(i["kind"].startswith("Lambda function") for i in items):
-        lines += ["", "Pipeline 2's graph loader is deleted first. AWS takes a while to release its network interfaces, and",
+        lines += ["", "Claude's graph loader is deleted first. AWS takes a while to release its network interfaces, and",
                   "Reframe waits for that before it deletes the network."]
     if graph and graph.get("kind") == "existing":
         lines += ["", f"The existing Neptune cluster {graph['name']} is not in the list: Reframe never changes or deletes it."]
@@ -155,7 +155,7 @@ def delete(ctx: Context, consented: list[dict[str, Any]], say: Callable[[str], N
         project_items = tf.inventory("project", ctx.backend())
         function = next((i["name"] for i in project_items if i["type"] == "aws_lambda_function"), None)
         deleted = tf.destroy("project", ctx.changes, ctx.backend(), targets=["module.graph_loader"], step="terraform-project-destroy-graph-loader")["deleted"]
-        step("pipeline 2 graph loader (Terraform)", f"destroyed {len(deleted)}")
+        step("Claude's graph loader (Terraform)", f"destroyed {len(deleted)}")
         vpc = tf.vpc_id(project_items)
         if vpc and function:
             waited = network.wait_for_lambda_interfaces(ctx.aws, vpc, function)

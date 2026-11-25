@@ -63,8 +63,8 @@ def wait_for_pipeline_1(ctx: Context, poll: float = 60, sleep=None) -> None:
             raise Stop(Outcome.REFUSED, "the run was torn down before AWS Transform's results were retrieved")
         status = str(run.get("status"))
         if status not in ("RUNNING", "None") and not ctx.folder.worker_pid("run"):
-            raise Stop(Outcome.WAITING_HUMAN, f"pipeline 1 stopped ({status}: {str(run.get('message') or '')[:200]}). Claude's review is "
-                                              "ready; reframe resume continues pipeline 1, and the comparison follows when it is done")
+            raise Stop(Outcome.WAITING_HUMAN, f"the AWS Transform assessment stopped ({status}: {str(run.get('message') or '')[:200]}). Claude's review is "
+                                              "ready; reframe resume continues the AWS Transform assessment, and the comparison follows when it is done")
         sleep(poll)
 
 
@@ -95,9 +95,9 @@ def work(ctx: Context) -> Outcome:
     from reframe.claude import workspace as ws
     run = ctx.state
     if not ready(ctx):
-        raise Stop(Outcome.REFUSED, "pipeline 1 has not made the run's snapshot and AWS resources yet; pipeline 2 starts when it has")
+        raise Stop(Outcome.REFUSED, "the AWS Transform assessment has not made the run's snapshot and AWS resources yet; the Claude assessment starts when it has")
     if run.get("torn_down"):
-        raise Stop(Outcome.REFUSED, "this run is torn down; pipeline 2 needs the run's snapshot and Neptune graph")
+        raise Stop(Outcome.REFUSED, "this run is torn down; the Claude assessment needs the run's snapshot and Neptune graph")
     settings = state(ctx)
     mode = settings.get("mode", run.get("mode", "autonomous"))
     update(ctx, started_at=settings.get("started_at") or iso())
@@ -137,7 +137,7 @@ def work(ctx: Context) -> Outcome:
         reply = ask(ctx)("claude-estimate", f"Rule extraction will run {size['shards']} shards: about {size['agents_low']} to "
                          f"{size['agents_high']} agents, up to about {size['tokens_high'] / 1e6:.1f} million tokens and "
                          f"{size['minutes_high']} minutes on your Claude account. The agent limit is {limit}.",
-                         [f"Run it (raises the limit for this run to {max(limit, size['agents_high'])})", "Cancel pipeline 2 for now"])
+                         [f"Run it (raises the limit for this run to {max(limit, size['agents_high'])})", "Cancel the Claude assessment for now"])
         if reply.startswith("Cancel"):
             raise Stop(Outcome.REFUSED, "rule extraction was cancelled at the estimate; reframe claude starts it again")
         limit = max(limit, size["agents_high"])
