@@ -61,7 +61,7 @@ Reframe parses every `DFHMSD`, `DFHMDI` and `DFHMDF` macro, with continuation li
 
 Each screen is drawn as a faithful 3270 copy: a 24 × 80 grid, the field colours and intensities, protected and input fields told apart, and a list of the function keys. Results: `design/screens.json` and `outputs/design/legacy/<map>.html`.
 
-**Checked:** every map in the snapshot is read; every field lies inside the map; no two fields overlap; every named field appears in the symbolic map copybook. The spike (P4-02) does this on all 21 CardDemo maps and writes what it found to `docs/spikes/p4-02-screens.md`.
+**Checked:** every map in the snapshot is read and matched to the program that sends it; every field lies inside the map; every named field appears in the symbolic map copybook. Fields that overlap in the source are reported by kind (data over data, an attribute byte on data, a shared attribute byte), not treated as errors: CardDemo's own maps have eight such notes. A key the screen shows but no program tests, or one a program tests but the screen does not show, is listed for review. The spike (P4-02) did this on all 21 CardDemo maps; what it found is in [spikes/p4-02-screens.md](spikes/p4-02-screens.md).
 
 ### D2 Screen flow (P4-03)
 

@@ -161,7 +161,7 @@ Agreed by the owner on 24 November 2026. From the reconciled and reviewed result
 | Story | Title | Specification | Done when |
 |---|---|---|---|
 | P4-01 | Specification and the owner's decisions | [pipeline-4.md](pipeline-4.md) | `docs/pipeline-4.md` is agreed, with the owner's decisions on: the target stack and where it comes from, which functions go final (signed off only, others marked draft), the default design system and the pipeline's name |
-| P4-02 | Spike: the screen inventory | [§4 D1](pipeline-4.md) | Every BMS map in CardDemo (21) is read into its fields, positions, attributes and function keys, with no model, and each legacy screen is drawn as a faithful 3270 copy |
+| P4-02 | Spike: the screen inventory | [§4 D1](pipeline-4.md) | Done 25 November 2026 ([spikes/p4-02-screens.md](spikes/p4-02-screens.md)): every BMS map in CardDemo (21) is read into its fields, positions, attributes and function keys, with no model, and each legacy screen is drawn as a faithful 3270 copy |
 | P4-03 | How the screens connect | [§4 D2](pipeline-4.md) | The flow between screens and programs is read from the source and shown as a map, each link citing its lines |
 | P4-04 | User journeys | [§4 D3](pipeline-4.md) | Screens are grouped into the tasks people do, each journey linked to its capabilities and requirements |
 | P4-05 | Modernized screens and their mapping | [§4 D4, §5](pipeline-4.md) | Each journey has modern screen designs. A mapping table takes every legacy screen and field to its new component as kept, merged, dropped or new, with the reason; no legacy field is left unmapped |
