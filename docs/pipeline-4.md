@@ -94,7 +94,15 @@ The model step for targets the source leaves open is built when a codebase needs
 
 One model step per domain groups the screens into journeys: the tasks people do (for example *Sign in*, *Find and view an account*, *Update a card*). Each journey has a name, the role who does it (from `personas.md` if given, otherwise from the requirements' user stories), its steps in order (screen and action), and the capabilities and requirements it serves, by key.
 
-**Checked:** every screen is in at least one journey, or is listed as unused with the reason; every step follows a link in D2; every capability and requirement key exists. A failed answer is asked once more with the reasons, as in pipeline 3.
+**Checked:** every screen is in at least one journey, or is listed as unused with the reason; every step follows a link in D2 (or stays on its screen, or goes back the way it came); every capability and requirement key exists, and each requirement belongs to one of the journey's capabilities. A failed answer is asked once more with the reasons, as in pipeline 3; what still fails is kept and listed. A screen belongs to the domain of the business function holding most of its programs' recommended rules. Each step is given its domain's screens (inputs with their labels, outputs, keys), capabilities and requirements, and the whole screen flow, so a journey can start at the sign-on or a menu of another domain.
+
+**Command:** `python -m reframe.design.journeys [--run <run>] [--context <folder>]` writes `design/journeys.json` and `outputs/design/journeys.html`.
+
+**On CardDemo** (25 November 2026):
+- **Steps:** 4, one per domain with screens. They ran on the Claude subscription in about 4 minutes, for $4.10 at API prices.
+- **Journeys:** 20, covering all 21 screens. Every answer passed Reframe's checks the first time, and no screen was left unused.
+- **Examples:** *Find and view an account* (sign-on, Main Menu option 1, View Account, then F3 back to the menu), *Add a transaction type* (Admin Menu, the type list, then F2 to the update screen), and *Report or clear fraud on an authorization*.
+- **Coverage:** 86 of the 154 capabilities and 742 of the 1,136 requirements. The rest are mostly batch and background functions, which section 2 gives specifications but no journeys; P4-07 checks that none of them is a screen's.
 
 ### D4 Modern screens and mapping (P4-05)
 
