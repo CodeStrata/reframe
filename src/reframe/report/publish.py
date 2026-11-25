@@ -17,7 +17,7 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from reframe.core.errors import Outcome, Stop
 from reframe.core.runfolder import RunFolder, iso
@@ -75,6 +75,13 @@ class Cleaner:
         if self.resources is not None and self.resources.search(text):
             found.append("a run resource name")
         return found
+
+
+def run_keys(folder: RunFolder, keys: Iterable[str]) -> dict[str, str]:
+    """Each key as a published copy names it (cleaned: an AWS Transform ID becomes a stand-in) -> the key the run uses,
+    for every key that cleaning changes. A review downloaded from a published copy names items by the cleaned keys."""
+    cleaner = Cleaner(folder)
+    return {cleaned: key for key in keys if (cleaned := cleaner.clean(key)) != key}
 
 
 def _render(template: str, data: dict[str, Any], title: str) -> str:

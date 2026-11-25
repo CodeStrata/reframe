@@ -182,6 +182,35 @@ class InputsTest(unittest.TestCase):
         self.assertIn("Pat: Agree; Sam: Question (why?)", said)
         self.assertFalse((self.folder.root / "claude" / "analysis").exists())  # it copies nothing into the Claude workspace
 
+    def test_reframe_review_counts_reviews_of_a_published_copy(self):
+        from reframe.reconcile import reviews
+        from reframe.report.publish import Cleaner
+        from tests.report.test_report import REQUIREMENTS
+        rid = "03f06db7_e63b_4ee8_9804_248082449101"
+        spec = self.folder.path("outputs/requirements/spec/Payments/CardPayments")
+        spec.mkdir(parents=True)
+        (spec / "requirements.md").write_text(REQUIREMENTS)
+        (spec / "traceability.yaml").write_text(f"rules:\n- rule_id: {rid}\n  program: PAY01C\n  disposition: captured\n  rule_name: Record\n"
+                                                "  rule_text: WHEN a payment is entered THE system SHALL record it\n  req_ids: \"['REQ-F-001']\"\n")
+        rule, fid = f"Payments/CardPayments/{rid}", "Payments/CardPayments"
+        rec = f"rec/aws:{rule}/1"
+        self.folder.save("outputs/reconcile/rules.json", {"rules": [{"key": rec}]})
+        self.folder.save("outputs/reconcile/requirements.json", {"functions": {fid: {"capabilities": [{"number": 1, "requirements": [{"code": "REQ-F-001"}],
+                                                                                                         "questions": []}]}}})
+        clean = Cleaner(self.folder).clean
+        self.assertNotEqual(clean(rule), rule)
+        ctx = Path(self.tmp.name) / "reviews"
+        ctx.mkdir()
+        (ctx / "lee.json").write_text(json.dumps({"source": {"sha256": "a" * 64}, "reviewer": "Lee", "tool": "AWS Transform",
+                                                   "marks": [{"key": clean(rule), "status": "Agree"}, {"key": f"{fid}/REQ-F-001", "status": "Question"}]}))
+        (ctx / "pat.json").write_text(json.dumps({"source": {"sha256": "a" * 64}, "reviewer": "Pat", "tool": "Reframe's reconciliation",
+                                                   "marks": [{"key": clean(rec), "status": "Needs change", "comment": "x"}]}))
+        self.review_csv(ctx / "sam.csv", [{"key": clean(rec), "status": "Agree", "reviewer": "Sam", "tool": "Reframe's reconciliation", "source_sha256": "a" * 64}])
+        value = reviews.summary(self.folder, ctx)
+        self.assertEqual([(r["reviewer"], r["page"], r["marked"], r["items"], r["coverage"]) for r in value["reviewers"]],
+                         [("Lee", "aws", 2, 6, 0.333), ("Pat", "reconciled", 1, 3, 0.333), ("Sam", "reconciled", 1, 3, 0.333)])
+        self.assertEqual([(d["key"], d["combined"]) for d in value["disagreements"]], [(rec, "change")])  # named by the run's own key
+
     def test_reconciled_page_items_include_capabilities(self):
         from reframe.reconcile import reviews
         self.folder.save("outputs/reconcile/rules.json", {"rules": [{"key": "rec/u/1"}]})
