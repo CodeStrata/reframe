@@ -546,6 +546,21 @@ def _reconcile_status(folder: RunFolder, state: dict[str, Any]) -> None:
         ui.state("Next", "fix what the message says, then reframe resume (or reframe reconcile with what it asks for)", "bright_cyan")
 
 
+def claude_next(state: dict[str, Any]) -> str:
+    """What to do once both assessments are done. The reconciliation needs no AWS resources, so the teardown comes first
+    (found on GenApp, 25 November 2026, where status named every next step but the reconciliation)."""
+    torn_down, reconciled = bool(state.get("torn_down")), bool(state.get("reconcile"))
+    steps = []
+    if not reconciled:
+        steps.append("reframe reconcile reconciles the two assessments" if torn_down else
+                     "reframe teardown removes the AWS resources, which the reconciliation does not need; then reframe reconcile "
+                     "reconciles the two assessments")
+    steps += ["reframe compare --open shows the comparison", "reframe report --open each business review"]
+    if reconciled and not torn_down:
+        steps.append("reframe teardown removes the AWS resources")
+    return "; ".join(steps)
+
+
 def _claude_status(folder: RunFolder, state: dict[str, Any]) -> None:
     from reframe.core import ui
     claude_state = state.get("claude") or {}
@@ -574,8 +589,7 @@ def _claude_status(folder: RunFolder, state: dict[str, Any]) -> None:
         g = claude_state["graph"]
         ui.state("Neptune", f"Claude's graph loaded: {g.get('quads')} quads; {g.get('rules_joined_to_aws_programs')} rules join AWS's programs", "")
     if status == Outcome.DONE.value:
-        ui.state("Next", "reframe compare --open shows the comparison; reframe report --open each business review; reframe teardown removes "
-                         "the AWS resources", "bright_cyan")
+        ui.state("Next", claude_next(state), "bright_cyan")
     elif status in CLAUDE_NEXT and not folder.worker_pid("claude"):
         ui.state("Next", CLAUDE_NEXT[status], "bright_cyan")
 
