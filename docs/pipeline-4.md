@@ -1,6 +1,6 @@
 # Reframe specification: the design (pipeline 4)
 
-Status: draft for the owner's agreement (P4-01). The owner's decisions of 25 November 2026 are written in (section 9): the engineer gives the target stack; signed-off functions are final and the rest draft; Reframe's own design system, which a context file replaces; the name *the design*, run with `reframe design`. Stories are in [the plan](plan.md), pipeline 4.
+Status: agreed by the owner on 25 November 2026 (P4-01). The owner's decisions of that day are written in (section 9): the engineer gives the target stack; signed-off functions are final and the rest draft; Reframe's own design system, which a context file replaces; the name *the design*, run with `reframe design`. Stories are in [the plan](plan.md), pipeline 4.
 
 ## 1. Goal
 
@@ -198,7 +198,7 @@ On CardDemo run fa1f61, from the CLI only, with no AWS resources:
 
 | Decision | Choice |
 |---|---|
-| The target stack, and where it comes from | **The engineer gives it**, in the guided command or with `--stack`; Reframe never defaults one. `target-architecture.md` adds detail. *(Read from the owner's answer "can the language be input by the engineer"; to confirm.)* |
+| The target stack, and where it comes from | **The engineer gives it**, in the guided command or with `--stack`; Reframe never defaults one. `target-architecture.md` adds detail. |
 | Which functions go final | Signed-off functions are final; every other function is included and marked draft |
 | The default design system | Reframe's own plain, accessible set, drawn with no outside files; `design-system/` in the context folder replaces it |
 | The name | *The design*, run with `reframe design` |
