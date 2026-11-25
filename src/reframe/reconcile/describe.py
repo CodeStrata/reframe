@@ -39,7 +39,7 @@ SCHEMA = {"type": "object", "required": ["rules"], "properties": {"rules": {"typ
 PROMPT = """Read {input}. It holds business rules about a legacy system that two tools ("AWS Transform" and "Claude's plugin") described the same way. The source is read-only under {legacy}/. Each rule gives the source lines it was found in. Do not change or judge the rules' wording: describe each rule.
 
 - Check that the code the rule describes can run: a paragraph must be reached from the program's entry, and a program from a menu entry, a transaction, an XCTL, LINK or CALL, or a job step that runs (not in a job whose job card has TYPRUN=SCAN, and not commented out). Say so in "reachable": "yes" with the lines that show how it is reached in "entry", "no" if it can never run, or "unknown" if the source cannot show it.
-- In "depends", say what the behaviour depends on outside the source (data, configuration, a program not in the source), or leave it empty.
+- In "depends", say what decides the behaviour from outside the source (configuration, a control or reference table loaded at run time that chooses the path, a program not in the source), or leave it empty; ordinary input data is not a dependency.
 - {kinds}
 - {examples}
 

@@ -298,11 +298,13 @@ Reframe sets each recommended rule's confidence from facts it can check, not fro
 
 | Confidence | When |
 |---|---|
-| **high** | An agent decided it against the code with both tools' rules in front of it (`merged`, `aws`, `claude`, `rewritten`), the code is `reachable: yes` with an `entry` that exists, and nothing outside the source decides it (`depends` empty) |
-| **medium** | It was kept from one tool (`kept`), or agreed without an agent (section 8.4), or `reachable` is `unknown`, or `depends` is not empty |
+| **high** | An agent decided it against the code with both tools' rules in front of it (`merged`, `aws`, `claude`, `rewritten`), and the code is `reachable: yes` with an `entry` that exists |
+| **medium** | It was kept from one tool (`kept`), or agreed without an agent (section 8.4), or `reachable` is `unknown` |
 | **low** | An agreed rule whose code never runs (section 8.4), or a unit that fell back to an SME question |
 
 Why these lines: in the audit every rule an agent decided with both tools' rules was correct (26 of 26), and every error was a rule agreed without an agent or kept from one tool. The two wrong rules described code that never runs.
+
+What the behaviour depends on outside the source (`depends`) is shown with the rule. It does not lower the confidence of a rule whose code is shown to run. The first round after part 2 rated 70% of CardDemo's rules medium, and 580 of those were medium only because the step named a dependency, often ordinary input data. The prompt now asks only for what decides the behaviour from outside the source: configuration, a control or reference table loaded at run time that chooses the path, or a program not in the source.
 
 **Done when** the units of the five audit items that were not correct (A02, A03, A31, A32, A41) are rated medium or low, or are rejected, in the first round after part 2. The audit's figures by confidence (section 8.12) show the errors in the lower levels.
 
@@ -342,7 +344,7 @@ On the SME list a defect becomes one entry of kind `defect`, with its call. An u
 Stage R6's step writes two more things for each capability, from the rules it was given:
 
 - **Decision tables (P3-23).** Where three or more of a capability's rules share their conditions, a table with the conditions as columns and one row per combination, each row giving its outcome and the rule it comes from. A combination no rule covers is listed under the table as a gap, for an SME. Reframe checks that every row cites a rule the step was given; a row that cites none is dropped, and a table left with no rows is dropped.
-- **Risk (P3-24).** What the capability touches, from a fixed list: `money` (amounts, balances, interest, fees), `card_data`, `personal_data`, `security` (sign-on, access), `audit`, `updates_records` (writes to master data), `reporting_only`. Reframe sets the risk from these, not the model: **high** if it touches money, card or personal data, security or audit, or holds a `compliance` rule; **medium** if it updates records; **low** otherwise. A function's risk is its highest capability's.
+- **Risk (P3-24).** What the capability touches, from a fixed list: `money` (amounts, balances, interest, fees), `card_data`, `personal_data`, `security` (sign-on, access), `audit`, `updates_records` (writes to master data), `reporting_only`. Reframe sets the risk from these, not the model: **high** if it touches money, security or audit, or holds a `compliance` rule; **medium** if it holds card or personal data or updates records; **low** otherwise. A function's risk is its highest capability's. (Card and personal data were high at first, which rated every CardDemo function high: in a card system nearly everything holds card data.)
 
 The capability page shows its tables, gaps and risk. The function and domain cards show the risk, and the overview counts functions by risk. *Review first* and sign-off take high-risk functions first. Pipeline 4 uses the order to propose what to modernize first.
 

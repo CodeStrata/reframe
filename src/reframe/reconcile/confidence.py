@@ -1,8 +1,11 @@
 """Pipeline 3, part 2: confidence that means something (docs/pipeline-3.md, section 8.5).
 
 Reframe sets each recommended rule's confidence from facts it has checked, not from the model's word: who decided the
-rule against the code, whether the code runs (with the lines that show how it is reached, which Reframe checked exist),
-and whether anything outside the source decides it. The model's own rating is kept beside it as model_confidence.
+rule against the code, and whether the code runs (with the lines that show how it is reached, which Reframe checked
+exist). What the behaviour depends on outside the source is shown, but lowers the confidence only where the source does
+not show the code runs: on CardDemo the step named an outside dependency for half the rules, ordinary data among them,
+and the audit found the rules agents decided with both tools correct regardless. The model's own rating is kept beside
+it as model_confidence.
 
 In the accuracy audit (P3-11) every rule an agent decided with both tools' rules in front of it was correct, and every
 error was a rule agreed without an agent or kept from one tool; the two wrong rules described code that never runs.
@@ -32,11 +35,12 @@ def rate(decision: str, reachable: str | None, entry: list[str] | None, depends:
         reasons.append(f"it was decided as {decision}")
     if reachable != "yes" or not entry:
         reasons.append("the source does not show that the code runs" if reachable == "unknown" else "how the code is reached is not shown")
-    if depends:
-        reasons.append(f"it depends on something outside the source ({depends})")
+        if depends:  # only where the source cannot show the code runs does an outside dependency say anything more
+            reasons.append(f"it depends on something outside the source ({depends})")
     if reasons:
         return "medium", (reasons[0][0].upper() + reasons[0][1:] + ("; " + "; ".join(reasons[1:]) if reasons[1:] else "") + ".")
-    return "high", "Decided against the code with both tools' rules in front of it, and the code is reached from the lines shown."
+    return "high", ("Decided against the code with both tools' rules in front of it, and the code is reached from the lines shown"
+                    + (f"; it also depends on {depends}." if depends else "."))
 
 
 def facts(rule: dict[str, Any], record: dict[str, Any]) -> dict[str, Any]:

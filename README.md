@@ -75,6 +75,8 @@ An action on a run asks which run, with the latest as the default. After each ac
 | `reframe resume` | Continue a run that stopped, whichever part stopped; nothing with a receipt is repeated |
 | `reframe report [--open]` | Build AWS Transform's business review again |
 | `reframe claude` | The Claude assessment: the same snapshot, assessed with Claude |
+| `reframe reconcile [--context <folder>] [--open]` | The reconciliation: one recommended set from both assessments, decided against the source code |
+| `reframe review --context <folder>` | Each reviewer's coverage, sign-offs and disagreements in a folder of review downloads |
 | `reframe compare [--open]` | Build the comparison page again |
 | `reframe publish --to <folder or aws>` | A copy of the reports, cleaned of your account's identifiers |
 | `reframe reports [open \| download <project> \| teardown]` | The reports published to your AWS account: list, open or save one by project, or remove the bucket |
@@ -284,18 +286,28 @@ reframe reconcile --open                         # the reconciliation page
 **Your context folder** is optional and holds three kinds of file, read by kind:
 
 - **Documents:** Markdown, text, PDF or Word, for example a glossary or a process description. They are given to every decision.
-- **Review exports:** the JSON files you download from the business reviews (*Your review*, *Download as JSON*). A *Needs change* or *Question* mark sends its rule to an agent with your comment; an export of another snapshot is ignored and reported.
+- **Review downloads:** the JSON or CSV files you download from any review page (*Your review*), from as many reviewers as you like. A *Needs change* or *Question* mark sends its rule to an agent with your comment, or, on a requirement or capability, has its function's requirements written again. An *Agree* on a recommended rule keeps it as it is in later rounds. Sign-offs of whole functions are read too. A download of another snapshot is ignored and reported.
 - **Answered questions:** the SME list with its `answer` column filled in, as CSV or JSON.
 
 **What it does:**
 
-1. Rules both tools describe the same way are agreed without an agent.
-2. Every other rule is decided by a headless Claude step that reads the source code: overlapping and conflicting rules merged into the rules the code supports, rules only one tool found kept or rejected, and what the code cannot settle turned into a question. Reframe checks every answer: each cited line exists in the snapshot, and every input rule is covered. A failed answer is asked once more, then becomes a question.
-3. Both tools' open questions and its own are merged into **one SME list**, `reconcile/questions.csv` in the run folder, with the possible defects found in the code.
-4. **Recommended requirements** are written from the recommended rules, in AWS Transform's domains and business functions.
-5. The **reconciliation page** shows each recommended rule with how it was decided, both tools' originals side by side and the cited source lines; the requirements; and the SME list. The other three pages link to it, and `reframe publish` includes it as `reconciled/`.
+1. Rules both tools describe the same way are agreed without an agent deciding them. A step reads their code to say whether it runs, what kind of rule each is, and to give worked examples.
+2. Every other rule is decided by a headless Claude step that reads the source code: overlapping and conflicting rules merged into the rules the code supports, rules only one tool found kept or rejected, rules about code that never runs rejected, and what the code cannot settle turned into a question. Reframe checks every answer: each cited line exists in the snapshot, the lines showing how the code is reached exist, and every input rule is covered. A failed answer is asked once more, then becomes a question.
+3. Each recommended rule gets a **confidence Reframe sets** from what it checked (high only when an agent decided it with both tools' rules and the code is shown to run), a **kind** (business, validation, compliance, error handling, display, technical, side effect or leftover) and one to three **worked examples** whose quoted values Reframe finds in the cited code. A possible defect is noted once per decision, called unintended or deliberate, with the lines that show it.
+4. Both tools' open questions and its own are merged into **one SME list**, `reconcile/questions.csv` in the run folder, with the possible defects found in the code.
+5. **Recommended requirements** are written from the recommended rules, in AWS Transform's domains and business functions, with **decision tables** where rules share conditions (gaps listed for an SME) and a **risk level** per capability that Reframe sets from what it touches: money, security or audit make it high, card or personal data or record updates medium.
+6. The **reconciliation page** opens with **Review first**: code that never runs, conflicts, rewritten rules, open questions, unintended defects, rules only one tool found and the other medium-confidence rules, high-risk functions first. Each recommended rule shows how it was decided, both tools' originals side by side, the cited source lines and how the code is reached. The other three pages link to it, and `reframe publish` includes it as `reconciled/`.
 
 **Running it again.** Fill in the SME list's `answer` column, put the file in your context folder, and run `reframe reconcile` again. Only the rules an answer or a review mark bears on are decided again; the rest keep their decisions, and the page shows which round decided each rule.
+
+**Several reviewers.** Each reviewer marks a review page and downloads their marks (JSON or CSV), and can sign off whole functions. Put every download in the context folder and check them first:
+
+```bash
+reframe review --context ~/carddemo-context      # each reviewer's coverage and sign-offs, and where reviewers disagree
+reframe reconcile --context ~/carddemo-context   # the next round combines them: Needs change and Question over Agree
+```
+
+`reframe status` shows which functions are signed off, by whom and when; pipeline 4 takes signed-off functions as final.
 
 **On CardDemo** (run fa1f61, 24 November 2026), the estimate was 113 batches, 29 to 87 minutes and $56 to $130 at API prices. The run used about $67 at API prices. It decided 431 units with evidence that all exists in the snapshot and covered all 1,111 input rules. It wrote 1,204 recommended rules, 1,153 requirements and an SME list of 313 questions (from 349) with 187 possible defects. Run again with one more answered question, it decided 5 units again in 2 batches and kept 426. On the Claude subscription a full run can reach the five-hour usage limit; it stops with the reason, and `reframe resume` continues where it stopped.
 

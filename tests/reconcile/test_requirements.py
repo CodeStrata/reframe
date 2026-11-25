@@ -149,6 +149,8 @@ class RequirementsTest(InputsTest):
         self.assertEqual(requirements.risk(["reporting_only"], ["business"]), "low")
         self.assertEqual(requirements.risk(["updates_records"], []), "medium")
         self.assertEqual(requirements.risk(["money"], []), "high")
+        self.assertEqual(requirements.risk(["card_data", "personal_data"], []), "medium")  # nearly everything in a card system holds card data
+        self.assertEqual(requirements.risk(["card_data", "security"], []), "high")
         self.assertEqual(requirements.risk([], ["display", "compliance"]), "high")  # a compliance rule makes it high
 
 

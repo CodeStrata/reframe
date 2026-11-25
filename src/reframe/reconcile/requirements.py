@@ -30,7 +30,8 @@ UNASSIGNED = {"key": "unassigned-programs", "name": "Unassigned programs", "kind
 
 # What a capability touches (docs/pipeline-3.md, section 8.9); Reframe sets its risk from these, not the model.
 TOUCHES = ("money", "card_data", "personal_data", "security", "audit", "updates_records", "reporting_only")
-HIGH_RISK = {"money", "card_data", "personal_data", "security", "audit"}
+HIGH_RISK = {"money", "security", "audit"}
+MEDIUM_RISK = {"card_data", "personal_data", "updates_records"}  # card or personal data alone is medium: in a card system nearly everything holds it
 RISKS = ("high", "medium", "low")
 
 SCHEMA = {"type": "object", "required": ["capabilities"], "properties": {"capabilities": {"type": "array", "items": {
@@ -157,7 +158,7 @@ def risk(touches: list[str], kinds: list[str]) -> str:
     """A capability's risk, set by Reframe from what it touches and the kinds of its rules."""
     if HIGH_RISK & set(touches) or "compliance" in kinds:
         return "high"
-    return "medium" if "updates_records" in touches else "low"
+    return "medium" if MEDIUM_RISK & set(touches) else "low"
 
 
 def check(raw: dict[str, Any], ids: dict[str, str], open_ids: dict[str, str]) -> tuple[list[dict[str, Any]], int, set[str]]:

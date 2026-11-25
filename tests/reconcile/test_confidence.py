@@ -14,7 +14,9 @@ class RateTest(unittest.TestCase):
         for decision in ("merged", "aws", "claude", "rewritten"):
             self.assertEqual(confidence.rate(decision, "yes", entry, "")[0], "high")
         self.assertEqual(confidence.rate("merged", "unknown", [], "")[0], "medium")
-        self.assertEqual(confidence.rate("merged", "yes", entry, "the menu table loaded at start")[0], "medium")
+        level, why = confidence.rate("merged", "yes", entry, "the menu table loaded at start")
+        self.assertEqual(level, "high")  # shown to run: an outside dependency is shown, not a reason to doubt it
+        self.assertIn("it also depends on the menu table loaded at start", why)
         self.assertEqual(confidence.rate("kept", "yes", entry, "")[0], "medium")      # one tool found it
         self.assertEqual(confidence.rate("agreed", "yes", entry, "")[0], "medium")    # no agent decided it
         self.assertEqual(confidence.rate("agreed", "no", [], "")[0], "low")           # agreed, but the code never runs
