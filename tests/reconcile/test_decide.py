@@ -20,7 +20,8 @@ def alone(data):
 
 def described(data):
     """An R2b step: every agreed rule's code runs, reached from line 1."""
-    return {"rules": [{"rule": r["key"], "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:1"], "depends": "", "kind": "validation"} for r in data["rules"]]}
+    return {"rules": [{"rule": r["key"], "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:1"], "depends": "", "kind": "validation",
+                       "examples": [{"given": [], "then": "it shows 'line 1'"}]} for r in data["rules"]]}
 
 
 def plain_requirements(data):
@@ -70,7 +71,9 @@ class FakeClaude:
 
 def good(given):
     return {"decisions": [{"unit": u["key"], "decision": "merged" if u["kind"] == "group" else "kept",
-                           "rules": [{"text": "WHEN x, THE system SHALL y", "covers": [r["key"] for r in u["rules"]], "kind": "business"}],
+                           "rules": [{"text": "WHEN x, THE system SHALL y", "covers": [r["key"] for r in u["rules"]], "kind": "business",
+                                     "examples": [{"given": [{"field": "status", "value": "'line 2'"}], "then": "it shows 'line 3'"},
+                                                  {"given": [], "then": "it shows 'line 99'"}]}],
                            "changed": False, "evidence": ["app/cbl/PROG1.cbl:1-3"], "reason": "lines 1-3", "confidence": "high",
                            "question": "", "defect": "", "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:1"], "depends": ""} for u in given]}
 
@@ -191,6 +194,12 @@ class DecideTest(unittest.TestCase):
         decide.decide(self.folder, fake, self.found, self.data["context"], 1)
         self.assertIn('"compliance" (security and access control', fake.calls[0][2])
         self.assertEqual(self.folder.load("reconcile/decisions.json")["aws:a9"]["rules"][0]["kind"], "business")
+
+    def test_examples_are_checked_and_the_ones_not_in_the_code_removed(self):
+        decide.decide(self.folder, self.claude(good), self.found, self.data["context"], 1)
+        kept = self.folder.load("reconcile/decisions.json")["aws:a9"]
+        self.assertEqual([x["then"] for x in kept["rules"][0]["examples"]], ["it shows 'line 3'"])  # 'line 99' is not in PROG1
+        self.assertEqual(kept["examples_removed"], 1)
 
     def test_the_method_is_part_of_each_units_hash(self):
         before = {u["key"]: u["hash"] for u in self.found}

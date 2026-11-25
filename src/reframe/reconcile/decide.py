@@ -23,8 +23,14 @@ GROUP = ("merged", "aws", "claude", "rewritten", "rejected", "needs_sme")
 ONE_SIDED = ("kept", "rejected", "needs_sme")
 UNCOVERED = ("rejected", "needs_sme")  # decisions that need not cover their rules
 REACHABLE = ("yes", "no", "unknown")
+# Worked examples (docs/pipeline-3.md, section 8.7): the same shape as reconcile.examples.SCHEMA, which imports this module.
+EXAMPLES = {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "object", "required": ["given", "then"], "properties": {
+    "given": {"type": "array", "items": {"type": "object", "required": ["field", "value"],
+                                         "properties": {"field": {"type": "string"}, "value": {"type": "string"}}}},
+    "then": {"type": "string"}}}}
 # What kind of rule each recommended rule is (docs/pipeline-3.md, section 8.6); the first three are listed first.
 KINDS = ("business", "validation", "compliance", "error_handling", "display", "technical", "side_effect", "leftover")
+EXAMPLE_GUIDE = """Give each rule one to three worked "examples" a business reader can check against a case they know: "given" lists the inputs as field and value, and "then" says the outcome. Use the values, codes and messages the code has, in quotes exactly as the code has them (for example the message 'ACCOUNT NOT FOUND'); amounts and dates may be any that fit."""
 KIND_GUIDE = """Give each rule its "kind": "business" (a business decision, policy or calculation), "validation" (a check on input data, with the message given when it fails), "compliance" (security and access control, handling of card or personal data, a regulatory record), "error_handling" (what happens when something fails: a file status, an abend, a rollback), "display" (what a screen or report shows and how, other than validation messages), "technical" (opening files, moving data between records, sorting, restart and checkpoint), "side_effect" (a record of what happened: an audit or log record, a counter, a file written for another system) or "leftover" (behaviour that runs but serves no purpose today, such as a field never read)."""
 
 SCHEMA = {"type": "object", "required": ["decisions"], "properties": {"decisions": {"type": "array", "items": {
@@ -34,7 +40,8 @@ SCHEMA = {"type": "object", "required": ["decisions"], "properties": {"decisions
         "unit": {"type": "string"},
         "decision": {"type": "string", "enum": sorted(set(GROUP) | set(ONE_SIDED))},
         "rules": {"type": "array", "items": {"type": "object", "required": ["text", "covers", "kind"], "properties": {
-            "text": {"type": "string"}, "covers": {"type": "array", "items": {"type": "string"}}, "kind": {"type": "string", "enum": list(KINDS)}}}},
+            "text": {"type": "string"}, "covers": {"type": "array", "items": {"type": "string"}}, "kind": {"type": "string", "enum": list(KINDS)},
+            "examples": EXAMPLES}}},
         "changed": {"type": "boolean"},
         "evidence": {"type": "array", "items": {"type": "string"}},
         "reason": {"type": "string"},
@@ -58,7 +65,7 @@ Decide each unit against the source code, not by preferring either tool. Read th
 
 Write the rules for business reviewers who do not read COBOL: plain business language, one sentence each in the form "WHEN <condition>, THE <system part> SHALL <behaviour>" (or "THE <system part> SHALL <behaviour>" when it always applies), at most about 50 words. Give values, codes and messages as the code has them, but name a field, flag or paragraph only in parentheses, and only where a reviewer needs it to check the rule. If the behaviour has separate conditions, write separate rules rather than one long one. Each rule's "covers" lists the keys of the input rules it stands for; together they must cover every input rule of the unit, unless the decision is "rejected" or "needs_sme".
 
-{kinds}
+{kinds} {examples}
 
 For every decision except "needs_sme", give evidence: the lines that support it, as "<path>:<start>-<end>" or "<path>:<line>", with paths relative to {legacy}/ exactly as the files are named. Give a one or two sentence reason naming what in the code decided it, and a confidence. "question" is empty unless the decision is "needs_sme"; "rules" is empty for "rejected" and "needs_sme". If the code does something that looks unintended (a case it reports wrongly, a check it skips), describe it in "defect"; otherwise leave it empty. "entry" lines are given like evidence. "context" names the documents, marks or answers you used, if any. Answer for every unit, using its key exactly. Answer only with the JSON."""
 
@@ -180,7 +187,7 @@ class Batch:
                        + ("; " if documents and answers else "")
                        + (f"answered SME questions in analysis/{project}/reframe/reconcile/{self.name}-answers.json" if answers else "") + ".")
         return PROMPT.format(input=f"analysis/{project}/{path.relative_to(self.places['analysis']).as_posix()}",
-                             legacy=f"legacy/{project}", context=context, kinds=KIND_GUIDE)
+                             legacy=f"legacy/{project}", context=context, kinds=KIND_GUIDE, examples=EXAMPLE_GUIDE)
 
     def answers(self) -> list[dict[str, Any]]:
         """The answered questions this batch's units were given (units.answers_for), each once."""
@@ -224,8 +231,11 @@ class Batch:
                 if wrong:
                     failed[key] = wrong
                     continue
-                a = answers[key]
-                self.decisions.keep(unit, {k: a.get(k) for k in KEPT}, self.round, attempt, [])
+                a = {k: answers[key].get(k) for k in KEPT}
+                from reframe.reconcile.examples import check_rules
+                a["rules"], a["examples_removed"] = check_rules(a.get("rules") or [], list(a.get("evidence") or []) + list(a.get("entry") or []),
+                                                                self.places["legacy"])
+                self.decisions.keep(unit, a, self.round, attempt, [])
                 del pending[key]
         if stop_now.is_set():
             return None

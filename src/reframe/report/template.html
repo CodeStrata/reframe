@@ -176,6 +176,8 @@ function ruleCard(key){
   return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><span class="tag grey">' + esc(r.kind ? KIND[r.kind] || r.kind : 'Business rule') + '</span>' + (r.id && TOOL.key !== 'aws' ? '<code>' + esc(r.id) + '</code>' : '') +
     '<span>' + esc(r.program) + '</span>' + extra + '</div>' +
     '<div class="text"><b>' + prose(r.name) + '</b>' + (r.plain ? '<br>' + prose(r.plain) : '') + '<br>' + prose(r.text).replace(/\n/g, '<br>') + '</div>' +
+    (r.examples && r.examples.length ? '<div class="small" style="margin:6px 0 0"><b>For example</b><ul style="margin:2px 0 0 18px;padding:0">' + r.examples.map(x =>
+      '<li>' + (x.given.length ? x.given.map(g => esc(g.field) + ' ' + prose(g.value)).join(', ') + ' → ' : '') + prose(x.then) + '</li>').join('') + '</ul></div>' : '') +
     (r.decision ? decisionBlock(r) : '') +
     (r.defect ? '<p class="small" style="margin:6px 0 0"><span class="tag warn">' + (r.decision ? 'Possible defect' : 'Suspected defect') + '</span> ' + prose(r.defect) + '</p>' : '') + markControls(key) + '</div>';
 }

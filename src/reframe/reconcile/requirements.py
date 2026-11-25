@@ -72,7 +72,9 @@ def recommended_rules(gathered: dict[str, Any], found: list[dict[str, Any]], kep
         rule = {"key": reconciled_key(r["key"], 1), "unit": r["key"], "n": 1, "text": r["text"], "name": r.get("name") or name(r["covers"]),
                 "covers": r["covers"], "program": r["program"], "decision": "agreed", "reason": r["reason"], "model_confidence": r.get("confidence", ""),
                 "evidence": r["evidence"], "context": [], "round": 0, "changed": False, "defect": "", "unit_rules": 1}
-        made.append({**rule, **facts(rule, described.get(r["key"]) or {}), "kind": (described.get(r["key"]) or {}).get("kind") or ""})
+        about = described.get(r["key"]) or {}
+        made.append({**rule, **facts(rule, about), "kind": about.get("kind") or "", "examples": about.get("examples") or [],
+                     "examples_removed": about.get("examples_removed", 0)})
     for u in found:
         d = kept.get(u["key"]) or {}
         for n, rule in enumerate(d.get("rules") or [], 1):
@@ -80,7 +82,8 @@ def recommended_rules(gathered: dict[str, Any], found: list[dict[str, Any]], kep
                          "covers": list(rule.get("covers") or []), "program": u["program"], "decision": d.get("decision"), "reason": d.get("reason", ""),
                          "evidence": d.get("evidence") or [], "context": d.get("context") or [],
                          "round": d.get("round"), "changed": bool(d.get("changed")), "defect": d.get("defect", ""), "unit_rules": len(d.get("rules") or []),
-                         "conflict": any(p.get("relation") == "conflicting" for p in u.get("pairs") or []), "kind": rule.get("kind") or ""}
+                         "conflict": any(p.get("relation") == "conflicting" for p in u.get("pairs") or []), "kind": rule.get("kind") or "",
+                         "examples": rule.get("examples") or [], "examples_removed": d.get("examples_removed", 0) if n == 1 else 0}
             made.append({**made_rule, **facts(made_rule, d)})
     return made
 
