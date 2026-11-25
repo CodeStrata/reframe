@@ -284,15 +284,49 @@ function domainPage(d){
   let h = crumbs([['Overview', '#/'], [d.name]]) + '<h2>' + esc(d.name) + '</h2><p class="lead">' + esc(d.description || '') + '</p>';
   h += '<h3>' + plural(d.functions.length, 'business function') + '</h3><div class="grid">' + d.functions.map(id => {
     const f = fnById[id], keys = fnItems(f);
-    return '<a class="card" href="#/f/' + f.index + '"><h4>' + esc(f.name) + ' ' + riskTag(f) + '</h4><p>' + esc(f.description || '') + '</p>' +
+    return '<a class="card" href="#/f/' + f.index + '"><h4>' + esc(f.name) + ' ' + riskTag(f) + signedTag(f) + '</h4><p>' + esc(f.description || '') + '</p>' +
       countLine(countsOf(keys), '<span><b>' + f.capabilities.length + '</b> capabilities</span>') + progress(keys) + '</a>';
   }).join('') + '</div>';
   return h;
 }
+// ---- sign-off by function (docs/pipeline-3.md, section 8.11): kept with the marks, under signoff:<function id> -----------
+const SIGNED = D.signoffs || {};  // sign-offs read from the context folder by the reconciliation (reconciled review only)
+function signoffKey(f){ return 'signoff:' + f.id; }
+function signedTag(f){
+  const mine = marks[signoffKey(f)], read = SIGNED[f.id] || [];
+  const who = (mine ? [(reviewer || 'you') + ' (this browser)'] : []).concat(read.map(x => x.reviewer + (x.at ? ', ' + String(x.at).slice(0, 10) : '')));
+  return who.length ? '<span class="tag" title="Signed off by ' + esc(who.join('; ')) + '">✓ Signed off</span>' : '';
+}
+function signoffPanel(f){
+  const m = marks[signoffKey(f)], read = SIGNED[f.id] || [];
+  return '<div class="panel signoff" data-fn="' + esc(f.id) + '"><b>Sign-off</b> ' +
+    (read.length ? '<span class="small muted">Signed off by ' + read.map(x => esc(x.reviewer) + (x.at ? ' on ' + esc(String(x.at).slice(0, 10)) : '') + (x.page ? ' (' + esc(x.page) + ')' : '')).join('; ') + '</span> ' : '') +
+    (m ? '<p class="small" style="margin:6px 0">You signed off this function' + (m.at ? ' on ' + esc(m.at.slice(0, 10)) : '') + '. It goes into your download.</p>' +
+      '<textarea data-signoff="' + esc(f.id) + '" placeholder="Comment (optional)">' + esc(m.comment || '') + '</textarea><button class="btn" data-unsign="' + esc(f.id) + '">Withdraw my sign-off</button>' :
+      '<p class="small muted" style="margin:6px 0">When you have reviewed this function and agree with it as a whole, sign it off. Pipeline 4 takes signed-off functions as final.</p>' +
+      '<button class="btn primary" data-sign="' + esc(f.id) + '">Sign off this function</button>') + '</div>';
+}
+document.addEventListener('click', e => {
+  const sign = e.target.closest('[data-sign]'), unsign = e.target.closest('[data-unsign]');
+  if (!sign && !unsign) return;
+  if (sign) {
+    if (!reviewer) { const name = (prompt('Your name, for the sign-off') || '').trim(); if (!name) return; reviewer = name; try { localStorage.setItem('reframe-reviewer', reviewer); } catch (err) {} }
+    marks['signoff:' + sign.dataset.sign] = {status: 'signoff', comment: '', at: new Date().toISOString()};
+  } else delete marks['signoff:' + unsign.dataset.unsign];
+  save(); route();
+});
+document.addEventListener('input', e => {
+  const id = e.target.dataset && e.target.dataset.signoff; if (!id) return;
+  const m = marks['signoff:' + id]; if (m) { m.comment = e.target.value; save(); }
+});
+function signoffRows(){ return D.functions.filter(f => marks[signoffKey(f)]).map(f => {
+  const m = marks[signoffKey(f)], d = domByKey[f.domain] || {};
+  return {key: signoffKey(f), function: f.id, domain: d.name || '', business_function: f.name, type: 'sign-off', id: '', text: f.name, status: 'Signed off', comment: m.comment || '', marked_at: m.at || ''};
+}); }
 function functionPage(f){
   const d = domByKey[f.domain];
   let h = crumbs([['Overview', '#/'], [d.name, '#/d/' + d.index], [f.name]]) + '<h2>' + esc(f.name) + ' ' + riskTag(f) + '</h2><p class="lead">' + esc(f.description || '') + '</p>';
-  h += '<div class="panel">' + countLine(countsOf(fnItems(f))) + progress(fnItems(f)) + '</div>';
+  h += '<div class="panel">' + countLine(countsOf(fnItems(f))) + progress(fnItems(f)) + '</div>' + signoffPanel(f);
   h += '<h3>' + plural(f.capabilities.length, 'capability', 'capabilities') + '</h3>';
   h += f.capabilities.map(id => {
     const c = capById[id], keys = capItems(c);
@@ -485,7 +519,7 @@ function updateCounts(){
   const keys = allKeys(), c = countsOf(keys), done = reviewed(keys), by = {agree: 0, change: 0, question: 0};
   Object.values(marks).forEach(m => { if (m && by[m.status] != null) by[m.status]++; });
   $('reviewCounts').innerHTML = '<b>' + done + ' of ' + keys.size + '</b> items marked (' + c.req + ' requirements, ' + c.rule + ' business rules, ' + c.q + ' open questions in all).<br>' +
-    'Agree ' + by.agree + ' · Needs change ' + by.change + ' · Question ' + by.question;
+    'Agree ' + by.agree + ' · Needs change ' + by.change + ' · Question ' + by.question + ' · Functions signed off ' + signoffRows().length;
 }
 $('reviewButton').addEventListener('click', () => { $('reviewer').value = reviewer; updateCounts(); if (!stored) $('storageNote').className = 'note'; $('reviewDialog').showModal(); });
 $('closeDialog').addEventListener('click', () => $('reviewDialog').close());
@@ -493,12 +527,13 @@ $('reviewer').addEventListener('input', e => { reviewer = e.target.value.trim();
 $('downloadCsv').addEventListener('click', () => {
   const cols = ['key', 'tool', 'domain', 'business_function', 'capability', 'type', 'id', 'text', 'status', 'comment', 'reviewer', 'marked_at', 'project', 'run', 'source_sha256'];
   const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-  const body = [cols.join(',')].concat(rows().map(r => cols.map(c => cell(c === 'tool' ? TOOL.name : c === 'reviewer' ? reviewer : c === 'project' ? D.project : c === 'run' ? D.run : c === 'source_sha256' ? D.source.sha256 : r[c])).join(','))).join('\r\n');
+  const body = [cols.join(',')].concat(rows().concat(signoffRows()).map(r => cols.map(c => cell(c === 'tool' ? TOOL.name : c === 'reviewer' ? reviewer : c === 'project' ? D.project : c === 'run' ? D.run : c === 'source_sha256' ? D.source.sha256 : r[c])).join(','))).join('\r\n');
   download(fileName('csv'), 'text/csv;charset=utf-8', '﻿' + body);
 });
 $('downloadJson').addEventListener('click', () => {
   download(fileName('json'), 'application/json', JSON.stringify({format: 'reframe-review/1', tool: TOOL.name, project: D.project, run: D.run,
-    source: {name: D.source.name, commit: D.source.commit, sha256: D.source.sha256}, reviewer, exported_at: new Date().toISOString(), marks: rows()}, null, 2));
+    source: {name: D.source.name, commit: D.source.commit, sha256: D.source.sha256}, reviewer, exported_at: new Date().toISOString(), marks: rows(),
+    signoffs: signoffRows().map(r => ({function: r.function, name: r.business_function, domain: r.domain, comment: r.comment, at: r.marked_at}))}, null, 2));
 });
 $('clearMarks').addEventListener('click', () => { if (confirm('Clear every mark you made on this page? Download them first if you want to keep them.')) { marks = {}; save(); updateCounts(); route(); } });
 

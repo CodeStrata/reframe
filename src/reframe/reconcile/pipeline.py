@@ -94,7 +94,8 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
     gathered = inputs.gather(folder, context)
     update(folder, inputs={"rules": len(gathered["rules"]), "pairs": len(gathered["pairs"]), "questions": len(gathered["questions"]),
                            "documents": len(gathered["context"]["documents"]), "marks": len(gathered["context"]["marks"]),
-                           "answers": len(gathered["context"]["answers"]), "ignored": gathered["context"]["ignored"]})
+                           "answers": len(gathered["context"]["answers"]), "ignored": gathered["context"]["ignored"]},
+           signoffs=gathered["context"].get("signoffs") or [])
 
     stage(folder, "agreed")
     agreed = units.agreed(gathered)

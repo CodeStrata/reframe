@@ -129,9 +129,23 @@ class InputsTest(unittest.TestCase):
         self.assertEqual([r["format"] for r in found["reviews"]], ["csv"])
         self.assertEqual(found["answers"], [])  # a review CSV is not an answered SME list
 
+    def test_sign_offs_are_read_from_both_downloads(self):
+        ctx = Path(self.tmp.name) / "context"
+        ctx.mkdir()
+        (ctx / "review-pat.json").write_text(json.dumps({"source": {"sha256": "a" * 64}, "reviewer": "Pat", "tool": "Reframe's reconciliation", "marks": [],
+                                                          "signoffs": [{"function": "rec/f", "name": "Pay bills", "comment": "fine", "at": "2026-11-25T10:00:00Z"}]}))
+        self.review_csv(ctx / "review-sam.csv", [{"key": "signoff:f", "type": "sign-off", "text": "Pay bills", "status": "Signed off", "reviewer": "Sam",
+                                                  "tool": "AWS Transform", "marked_at": "2026-11-25T11:00:00Z", "source_sha256": "a" * 64}])
+        found = inputs.context(self.folder, ctx, self.folder.root / "ctx-copy")
+        self.assertEqual(found["marks"], {})  # a sign-off is not a mark on an item
+        self.assertEqual([(x["page"], x["function"], x["reviewer"], x["at"][:10]) for x in found["signoffs"]],
+                         [("Reframe's reconciliation", "rec/f", "Pat", "2026-11-25"), ("AWS Transform", "f", "Sam", "2026-11-25")])
+
     def test_the_page_downloads_a_key_column(self):
         from reframe.report.build import TEMPLATE
         self.assertIn("const cols = ['key', 'tool',", TEMPLATE)
+        self.assertIn("signoffs: signoffRows()", TEMPLATE)
+        self.assertIn("Sign off this function", TEMPLATE)
 
 
 if __name__ == "__main__":

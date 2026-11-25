@@ -496,6 +496,11 @@ def _reconcile_status(folder: RunFolder, state: dict[str, Any]) -> None:
     if rec.get("requirements"):
         r = rec["requirements"]
         ui.state("Requirements", f"{r['requirements']} recommended, citing {r['rules_cited']} of {r['rules_total']} rules; {r['dropped']} dropped", "")
+    if rec.get("signoffs"):
+        ui.state("Signed off", f"{len({(x['page'], x['function']) for x in rec['signoffs']})} function(s) in the review downloads read", "")
+        for x in rec["signoffs"]:
+            ui.hint(f"{x['page'] or 'a review'}: {x['name'] or x['function']}, by {x['reviewer'] or 'an unnamed reviewer'}"
+                    + (f" on {str(x['at'])[:10]}" if x.get("at") else ""))
     if rec.get("message"):
         ui.say(rec["message"])
     if status == "DONE" and rec.get("page"):

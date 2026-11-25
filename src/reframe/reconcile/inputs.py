@@ -163,8 +163,10 @@ def review_file(path: Path, name: str) -> dict[str, Any] | None:
             return None
         marks = [{"key": str(m.get("key") or ""), "status": MARKS.get(str(m.get("status"))), "comment": str(m.get("comment") or ""),
                   "at": str(m.get("marked_at") or "")} for m in data["marks"] if isinstance(m, dict)]
+        signoffs = [{"function": str(x.get("function") or ""), "name": str(x.get("name") or ""), "comment": str(x.get("comment") or ""),
+                     "at": str(x.get("at") or "")} for x in data.get("signoffs") or [] if isinstance(x, dict) and x.get("function")]
         return {"file": name, "format": "json", "reviewer": str(data.get("reviewer") or ""), "tool": str(data.get("tool") or ""),
-                "sha256": data["source"].get("sha256"), "marks": [m for m in marks if m["key"] and m["status"]]}
+                "sha256": data["source"].get("sha256"), "marks": [m for m in marks if m["key"] and m["status"]], "signoffs": signoffs}
     if path.suffix.lower() != ".csv":
         return None
     with path.open(newline="", encoding="utf-8-sig") as f:
@@ -174,12 +176,20 @@ def review_file(path: Path, name: str) -> dict[str, Any] | None:
             return None
         rows = [{(k or "").strip().lower(): (v or "").strip() for k, v in row.items()} for row in reader]
     first = lambda column: next((r[column] for r in rows if r.get(column)), "")  # noqa: E731
-    found = {"file": name, "format": "csv", "reviewer": first("reviewer"), "tool": first("tool"), "sha256": first("source_sha256"), "marks": []}
+    found = {"file": name, "format": "csv", "reviewer": first("reviewer"), "tool": first("tool"), "sha256": first("source_sha256"), "marks": [], "signoffs": []}
     if "key" not in columns:
         return {**found, "unusable": NO_KEY}
     found["marks"] = [{"key": r["key"], "status": MARKS.get(r.get("status", "")), "comment": r.get("comment", ""), "at": r.get("marked_at", "")}
                       for r in rows if r.get("key") and MARKS.get(r.get("status", ""))]
+    found["signoffs"] = [{"function": r["key"].split(":", 1)[1], "name": r.get("text", ""), "comment": r.get("comment", ""), "at": r.get("marked_at", "")}
+                         for r in rows if r.get("type") == "sign-off" and r.get("key", "").startswith("signoff:")]
     return found
+
+
+def signoffs(reviews: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every sign-off in the review downloads read: which page, which function, who and when (section 8.11)."""
+    return [{"page": r["tool"], "function": x["function"], "name": x["name"], "reviewer": r["reviewer"], "at": x["at"], "comment": x["comment"],
+             "file": r["file"]} for r in reviews for x in r.get("signoffs") or []]
 
 
 def combine(reviews: list[dict[str, Any]]) -> dict[str, Any]:
@@ -209,7 +219,8 @@ def _answer_rows(path: Path) -> list[dict[str, str]] | None:
 
 def context(folder: RunFolder, source: Path | None, target: Path) -> dict[str, Any]:
     """Read the context folder by kind. Documents are copied (Word as text) to `target`, inside the Claude workspace."""
-    found: dict[str, Any] = {"folder": str(source) if source else None, "documents": [], "marks": {}, "answers": [], "ignored": [], "reviews": []}
+    found: dict[str, Any] = {"folder": str(source) if source else None, "documents": [], "marks": {}, "answers": [], "ignored": [], "reviews": [],
+                             "signoffs": []}
     if source is None:
         return found
     sha = (folder.load("snapshot.json") or {}).get("sha256")
@@ -250,6 +261,7 @@ def context(folder: RunFolder, source: Path | None, target: Path) -> dict[str, A
         except (OSError, ValueError, KeyError, zipfile.BadZipFile, UnicodeDecodeError, csv.Error) as error:
             found["ignored"].append({"file": name, "why": f"could not be read ({type(error).__name__})"})
     found["marks"] = combine(found["reviews"])
+    found["signoffs"] = signoffs(found["reviews"])
     return found
 
 

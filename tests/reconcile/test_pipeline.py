@@ -117,6 +117,32 @@ class PipelineTest(InputsTest):
         self.assertNotIn("../report/index.html", copied)
         self.assertIn('"reconciled": "../reconciled/index.html"', (target / "comparison" / "index.html").read_text())
 
+    def test_sign_offs_reach_the_status_and_the_reconciled_review(self):
+        import io
+        import json
+        import re
+        from contextlib import redirect_stdout
+        from reframe.core import commands
+        from reframe.report import reconciled
+        context = self.folder.root.parent / "context"
+        context.mkdir()
+        (context / "review-pat.json").write_text(json.dumps({"source": {"sha256": "a" * 64}, "reviewer": "Pat", "tool": "Reframe's reconciliation", "marks": [],
+                                                             "signoffs": [{"function": "rec/f", "name": "Pay bills", "at": "2026-11-25T10:00:00Z"}]}))
+        pipeline.request(self.folder, context=str(context), max_batches=5)
+        pipeline.work(self.folder, claude=self.fake(good), claude_check=lambda: Report(True))
+        self.assertEqual([x["reviewer"] for x in self.folder.state["reconcile"]["signoffs"]], ["Pat"])
+        page = self.folder.path(reconciled.PAGE).read_text()
+        data = json.loads(re.search(r'<script id="data" type="application/json">(.*?)</script>', page, re.S).group(1))
+        self.assertEqual(list(data["signoffs"]), ["rec/f"])
+        aws = {"functions": [{"id": "f"}]}
+        self.assertEqual(reconciled._signoffs([{"function": "f", "reviewer": "Sam", "at": "", "comment": "", "page": "AWS Transform"},
+                                               {"function": "claude-fn", "reviewer": "Lee", "at": "", "comment": "", "page": "Claude"}], aws),
+                         {"rec/f": [{"reviewer": "Sam", "at": "", "comment": "", "page": "AWS Transform"}]})  # AWS's function shows here; Claude's only in status
+        out = io.StringIO()
+        with redirect_stdout(out):
+            commands._reconcile_status(self.folder, self.folder.state)
+        self.assertIn("Pay bills, by Pat on 2026-11-25", out.getvalue())
+
     def test_above_the_batch_limit_it_stops_and_says_how_to_go_ahead(self):
         pipeline.request(self.folder, max_batches=0)
         with self.assertRaisesRegex(Stop, r"reframe reconcile --max-batches 1"):

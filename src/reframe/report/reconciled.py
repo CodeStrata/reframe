@@ -139,10 +139,23 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
                       "examples": sum(len(r["examples"]) for r in rules), "examples_removed": sum(r.get("examples_removed", 0) for r in made.get("rules") or []), "defects": rec.get("defects", 0), "round": rec.get("round"),
                       "rounds": dict(Counter(str(r["round"]) for r in rules)), "sme": sme.get("counts") or {}, "originals": sme.get("originals", 0),
                       "dropped": written.get("dropped", 0), "tables": written.get("tables", 0), "risk": written.get("risk") or {}},
-        "evidence": {k: v for k, v in evidence.items() if v}, "sme": sme_list,
+        "evidence": {k: v for k, v in evidence.items() if v}, "sme": sme_list, "signoffs": _signoffs(rec.get("signoffs") or [], aws_data),
         "nav": [["AWS Transform's review", "../report/index.html"], ["Claude's review", "../claude/report/index.html"],
                 ["AWS Transform and Claude compared", "../comparison/index.html"]],
     }
+
+
+def _signoffs(read: list[dict[str, Any]], aws_data: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Sign-offs read from the context folder, by the reconciled review's function id: one made on the reconciled review
+    is on rec/<function>; one made on AWS Transform's review is on the same AWS function, so it shows here too. Claude's
+    review has its own functions; those sign-offs show in reframe status only."""
+    aws_ids = {f["id"] for f in aws_data.get("functions") or []}
+    found: dict[str, list[dict[str, Any]]] = {}
+    for x in read:
+        fid = x["function"] if x["function"].startswith("rec/") else ("rec/" + x["function"]) if x["function"] in aws_ids else None
+        if fid:
+            found.setdefault(fid, []).append({"reviewer": x["reviewer"], "at": x["at"], "comment": x["comment"], "page": x["page"]})
+    return found
 
 
 def _how(rec: dict[str, Any], written: dict[str, Any], sme: dict[str, Any]) -> str:
