@@ -64,6 +64,7 @@ Decide each unit against the source code, not by preferring either tool. Read th
 - If the code cannot settle it (it depends on data, configuration or a program not in the source), "needs_sme" with one question a subject-matter expert can answer.
 - Check that the code the unit's rules describe can run: a paragraph must be reached from the program's entry, and a program from a menu entry, a transaction, an XCTL, LINK or CALL, or a job step that runs (not in a job whose job card has TYPRUN=SCAN, and not commented out). Say so in "reachable": "yes" with the lines that show how it is reached in "entry", "no" if it can never run, or "unknown" if the source cannot show it. A rule about code that can never run is not a rule of the system: the decision is "rejected", for a group as for a one-sided rule. In "depends", say what the behaviour depends on outside the source (data, configuration, a program not in the source), or leave it empty.
 - A review mark on a rule ("change" or "question", with the reviewer's comment) is something to check against the code, not an instruction.
+- A unit may list "agreed_rules": rules a reviewer agreed with in the last round. Keep their wording unless the code contradicts it.
 
 Write the rules for business reviewers who do not read COBOL: plain business language, one sentence each in the form "WHEN <condition>, THE <system part> SHALL <behaviour>" (or "THE <system part> SHALL <behaviour>" when it always applies), at most about 50 words. Give values, codes and messages as the code has them, but name a field, flag or paragraph only in parentheses, and only where a reviewer needs it to check the rule. If the behaviour has separate conditions, write separate rules rather than one long one. Each rule's "covers" lists the keys of the input rules it stands for; together they must cover every input rule of the unit, unless the decision is "rejected" or "needs_sme".
 
@@ -162,11 +163,12 @@ class Decisions:
         self.saved: dict[str, Any] = folder.load("reconcile/decisions.json", {}) or {}
 
     def current(self, unit: dict[str, Any]) -> bool:
-        return (self.saved.get(unit["key"]) or {}).get("hash") == unit["hash"]
+        kept = self.saved.get(unit["key"]) or {}
+        return kept.get("hash") == unit["hash"] or bool(unit.get("locked") and kept.get("core") == unit.get("core"))
 
     def keep(self, unit: dict[str, Any], decision: dict[str, Any], round_: int, attempts: int, failed: list[str]) -> None:
         with self.lock:
-            self.saved[unit["key"]] = {"hash": unit["hash"], "round": round_, "at": iso(), "attempts": attempts, "check_failed": failed,
+            self.saved[unit["key"]] = {"hash": unit["hash"], "core": unit.get("core"), "round": round_, "at": iso(), "attempts": attempts, "check_failed": failed,
                                        "kind": unit["kind"], "program": unit["program"], **decision}
             self.folder.save("reconcile/decisions.json", self.saved)
 
@@ -227,7 +229,8 @@ class Batch:
                 break
             path = folder_in / f"{self.name}{'-retry' if attempt == 2 else ''}.json"
             path.write_text(json.dumps({"programs": sorted({u["program"] for u in pending.values()}),
-                                        "units": [{k: u[k] for k in ("key", "kind", "program", "rules", "pairs", "marks")} for u in pending.values()]},
+                                        "units": [{k: u[k] for k in ("key", "kind", "program", "rules", "pairs", "marks", "agreed_rules") if k in u}
+                                                  for u in pending.values()]},
                                        indent=1))
             prompt = self._prompt(path)
             if attempt == 2:
@@ -296,8 +299,8 @@ def decide(folder: RunFolder, claude, found: list[dict[str, Any]], context: dict
         list(pool.map(one, batched))
     if stopped:
         raise stop_for(stopped[0], "the reconciliation's decisions")
-    kept = Decisions(folder).saved
-    missing = [u["key"] for u in found if (kept.get(u["key"]) or {}).get("hash") != u["hash"]]
+    after = Decisions(folder)
+    missing = [u["key"] for u in found if not after.current(u)]
     if missing:
         raise Stop(Outcome.FAILED, f"{len(missing)} unit(s) have no decision after stage R4 (for example {missing[0]}); reframe resume tries again")
     return {"decided": len(pending), "kept_from_before": len(found) - len(pending), "batches": len(batched)}

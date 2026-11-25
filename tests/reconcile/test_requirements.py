@@ -122,6 +122,29 @@ class RequirementsTest(InputsTest):
         requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
         self.assertEqual(len(fake.other_calls), 2)  # the same marks again: already addressed, kept
 
+    def test_an_agreed_requirement_is_kept_word_for_word_while_its_rules_are_unchanged(self):
+        fake = self.fake()
+        first = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        agreed_req = first["functions"]["f"]["capabilities"][0]["requirements"][1]
+        self.gathered["context"]["agreed"] = {f"rec/f/{agreed_req['code']}": [{"reviewer": "Pat", "at": "2026-11-25"}]}
+        self.gathered["context"]["marks"] = {"rec/f/REQ-F-001": {"status": "change", "comment": "Pat: reword"}}  # the function is written again
+        second = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        given = fake.other_calls[-1][1]
+        cited = {r["id"]: r for r in given["rules"]}
+        self.assertEqual([cited[i]["text"] for i in given["covered"]], ["WHEN x, THE system SHALL y"])
+        reqs = second["functions"]["f"]["capabilities"][0]["requirements"]
+        kept = [r for r in reqs if r.get("agreed")]
+        self.assertEqual([(r["code"], r["text"], r["rules"]) for r in kept], [(agreed_req["code"], agreed_req["text"], agreed_req["rules"])])
+        codes = [r["code"] for r in reqs]
+        self.assertEqual(len(codes), len(set(codes)))  # the kept code is not given to another requirement
+
+        # a change to a rule it cites ends the keeping
+        unit, n = agreed_req["rules"][0][len("rec/"):].rsplit("/", 1)
+        self.kept[unit]["rules"][int(n) - 1]["text"] = "WHEN z, THE system SHALL w"
+        self.gathered["context"]["marks"] = {}
+        third = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        self.assertFalse(any(r.get("agreed") for c in third["functions"]["f"]["capabilities"] for r in c["requirements"]))
+
     def test_risk(self):
         self.assertEqual(requirements.risk(["reporting_only"], ["business"]), "low")
         self.assertEqual(requirements.risk(["updates_records"], []), "medium")

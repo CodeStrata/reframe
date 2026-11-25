@@ -55,6 +55,7 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
     aws_links, claude_links = _links(aws_data, "../report/index.html"), _links(collect_claude(folder), "../claude/report/index.html")
     tech = {f["id"]: f.get("technical") for f in aws_data["functions"]}
     inputs = gathered.get("rules") or {}
+    agreed = (gathered.get("context") or {}).get("agreed") or {}
 
     fn_id = lambda fid: "rec/" + (fid or "unassigned")  # noqa: E731
     rules = []
@@ -73,7 +74,7 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
                       "changed": r.get("changed", False), "confidence_why": r.get("confidence_why", ""), "model_confidence": r.get("model_confidence", ""),
                       "reachable": r.get("reachable", ""), "entry": r.get("entry") or [], "depends": r.get("depends", ""), "unit": r["unit"], "n": r.get("n", 1),
                       "unit_rules": r.get("unit_rules", 1), "conflict": r.get("conflict", False), "kind": r.get("kind", ""),
-                      "examples": r.get("examples") or [], "defect_call": r.get("defect_call", ""), "defect_evidence": r.get("defect_evidence") or []})
+                      "examples": r.get("examples") or [], "agreed_by": agreed.get(r["key"]) or [], "defect_call": r.get("defect_call", ""), "defect_evidence": r.get("defect_evidence") or []})
     rule_by_key = {r["key"]: r for r in rules}
 
     names = written.get("names") or {}
@@ -102,7 +103,8 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
                         rule_by_key[k]["requirements"].append(req["code"])
                     requirements.append({"key": key, "code": req["code"], "kind": "N" if req["kind"] == "non-functional" else "F",
                                          "pattern": EARS.get(req.get("pattern", ""), req.get("pattern", "")), "text": req["text"], "capability": cid,
-                                         "function": fid_page, "rules": keys, "programs": sorted({rule_by_key[k]["program"] for k in keys} - {""})})
+                                         "function": fid_page, "rules": keys, "programs": sorted({rule_by_key[k]["program"] for k in keys} - {""}),
+                                         "agreed_by": agreed.get(key) or [], "kept": bool(req.get("agreed"))})
                     capability["requirements"].append(key)
                 for q in cap["questions"]:
                     key = f"{fid_page}/{q['code']}"

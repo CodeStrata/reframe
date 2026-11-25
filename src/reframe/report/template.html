@@ -169,12 +169,15 @@ const KIND = {business: 'Business rule', validation: 'Validation', compliance: '
 const KIND_ORDER = Object.keys(KIND);
 const kindRank = key => { const r = ruleByKey[key]; const i = r && r.kind ? KIND_ORDER.indexOf(r.kind) : -1; return i < 0 ? KIND_ORDER.length : i; };
 const byKind = keys => keys.slice().sort((a, b) => kindRank(a) - kindRank(b));
+// Agree keeps a rule (section 8.11): who agreed, from the review downloads the last round read.
+function agreedTag(x){ return x && x.agreed_by && x.agreed_by.length ? '<span class="tag" title="Kept as agreed in later rounds">✓ Agreed by ' +
+  esc(x.agreed_by.map(a => (a.reviewer || 'a reviewer') + (a.at ? ', ' + String(a.at).slice(0, 10) : '')).join('; ')) + '</span>' : ''; }
 function ruleCard(key){
   const r = ruleByKey[key]; if (!r) return '';
   const extra = (r.priority ? '<span class="tag' + (r.priority === 'P0' ? ' warn' : '') + '">' + esc(r.priority) + '</span>' : '') + (r.category ? '<span class="tag grey">' + esc(r.category) + '</span>' : '') +
     (r.confidence ? '<span class="tag ' + (r.decision && r.confidence !== 'high' ? 'warn' : 'grey') + '"' + (r.confidence_why ? ' title="' + esc(r.confidence_why) + '"' : '') + '>Confidence: ' + esc(r.confidence) + '</span>' : '') + (r.source ? '<code>' + esc(r.source) + '</code>' : '');
   return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><span class="tag grey">' + esc(r.kind ? KIND[r.kind] || r.kind : 'Business rule') + '</span>' + (r.id && TOOL.key !== 'aws' ? '<code>' + esc(r.id) + '</code>' : '') +
-    '<span>' + esc(r.program) + '</span>' + extra + '</div>' +
+    '<span>' + esc(r.program) + '</span>' + extra + agreedTag(r) + '</div>' +
     '<div class="text"><b>' + prose(r.name) + '</b>' + (r.plain ? '<br>' + prose(r.plain) : '') + '<br>' + prose(r.text).replace(/\n/g, '<br>') + '</div>' +
     (r.examples && r.examples.length ? '<div class="small" style="margin:6px 0 0"><b>For example</b><ul style="margin:2px 0 0 18px;padding:0">' + r.examples.map(x =>
       '<li>' + (x.given.length ? x.given.map(g => esc(g.field) + ' ' + prose(g.value)).join(', ') + ' → ' : '') + prose(x.then) + '</li>').join('') + '</ul></div>' : '') +
@@ -217,7 +220,7 @@ function requirementCard(key){
   const rules = (r.rules || []).filter(k => ruleByKey[k] && ruleByKey[k].disposition === 'captured');
   const kind = r.kind === 'N' ? 'Non-functional' : 'Functional';
   return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><code>' + esc(r.code) + '</code>' + GEN + '<span class="tag">' + esc(PATTERN[r.pattern] || r.pattern || kind) + '</span>' +
-    (r.kind === 'N' ? '<span class="tag grey">Non-functional</span>' : '') + '</div><div class="text">' + prose(r.text) + '</div>' + markControls(key) +
+    (r.kind === 'N' ? '<span class="tag grey">Non-functional</span>' : '') + agreedTag(r) + '</div><div class="text">' + prose(r.text) + '</div>' + markControls(key) +
     (rules.length ? '<details><summary>' + plural(rules.length, 'business rule') + ' behind it</summary><div class="rules">' + byKind(rules).map(ruleCard).join('') + '</div></details>' : '') + '</div>';
 }
 function questionCard(key){

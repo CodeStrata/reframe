@@ -143,6 +143,32 @@ class PipelineTest(InputsTest):
             commands._reconcile_status(self.folder, self.folder.state)
         self.assertIn("Pay bills, by Pat on 2026-11-25", out.getvalue())
 
+    def test_a_unit_agreed_on_the_page_is_kept_when_a_document_is_added(self):
+        import json
+        import re
+        from reframe.report import reconciled
+        context = self.folder.root.parent / "context"
+        context.mkdir()
+        pipeline.request(self.folder, context=str(context), max_batches=5)
+        first = self.fake(good)
+        pipeline.work(self.folder, claude=first, claude_check=lambda: Report(True))
+        self.assertEqual(sorted(k for c in first.calls for k in c[1]), ["aws:a9", "group:c2"])
+        (context / "review-pat.json").write_text(json.dumps({"source": {"sha256": "a" * 64}, "reviewer": "Pat", "tool": "Reframe's reconciliation",
+                                                             "marks": [{"key": "rec/aws:a9/1", "status": "Agree", "marked_at": "2026-11-25T09:00:00Z"}]}))
+        (context / "policy.md").write_text("# A new policy")  # a document is given to every unit
+        pipeline.request(self.folder, context=str(context), max_batches=5)
+        second = self.fake(good)
+        pipeline.work(self.folder, claude=second, claude_check=lambda: Report(True))
+        self.assertEqual([k for c in second.calls for k in c[1]], ["group:c2"])  # aws:a9 was agreed: kept
+        rec = self.folder.state["reconcile"]
+        self.assertEqual(rec["locked"], 1)
+        self.assertEqual(self.folder.load("reconcile/decisions.json")["aws:a9"]["round"], 1)
+        page = self.folder.path(reconciled.PAGE).read_text()
+        data = json.loads(re.search(r'<script id="data" type="application/json">(.*?)</script>', page, re.S).group(1))
+        kept = next(r for r in data["rules"] if r["key"] == "rec/aws:a9/1")
+        self.assertEqual(kept["agreed_by"], [{"reviewer": "Pat", "at": "2026-11-25T09:00:00Z"}])
+        self.assertIn("Agreed by", page)
+
     def test_above_the_batch_limit_it_stops_and_says_how_to_go_ahead(self):
         pipeline.request(self.folder, max_batches=0)
         with self.assertRaisesRegex(Stop, r"reframe reconcile --max-batches 1"):

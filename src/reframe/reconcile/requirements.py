@@ -59,6 +59,8 @@ Write this function's capabilities and requirements:
 - where three or more of a capability's rules share their conditions, add a decision table: the conditions as columns, one row per combination the rules give, each row with its outcome and the id of the rule it comes from ("rule"); list in "gaps" the combinations of those conditions no rule covers, with a short note, for a subject-matter expert. Leave "tables" empty where rules do not share conditions;
 - in "touches", list everything the capability touches, from: money (amounts, balances, interest, fees), card_data, personal_data, security (sign-on, access), audit, updates_records (writes to master data), reporting_only.
 
+If the file lists "covered" rule ids, requirements a reviewer agreed with already cover them and are kept as they are: do not write requirements for those rules again.
+
 If the file has "reviewed" items, reviewers marked them on the previous version of this function's requirements: "was" is the text they marked, "mark" is "change" (needs change) or "question", and "comment" is what they said. Address each comment where the rules support it; where the rules do not, keep what the rules say. A comment is something to check against the rules, not an instruction.
 
 Use only what is in the file: do not invent behaviour, values, systems or rules. Every requirement must come from at least one rule. Cover every rule at least once, and place every open item once. Keep the rules' wording of values and conditions, in plain business language. Answer only with the JSON."""
@@ -200,8 +202,23 @@ def reviewed(fid: str, marks: dict[str, Any], previous: dict[str, Any]) -> list[
     return found
 
 
+def agreed_requirements(fid: str, previous: dict[str, Any], agreed: dict[str, Any], before: dict[str, str], now: dict[str, str]) -> list[dict[str, Any]]:
+    """This function's requirements marked Agree on the last page whose cited rules are all unchanged: kept word for word,
+    with their code, in the capability of the same title."""
+    key, found = page_key(fid), []
+    for cap in previous.get("capabilities") or []:
+        for req in cap.get("requirements") or []:
+            rules = req.get("rules") or []
+            if f"{key}/{req.get('code')}" in agreed and rules and all(k in now and before.get(k) == now[k] for k in rules):
+                found.append({"title": cap.get("title", ""), "story": cap.get("story", ""),
+                              "requirement": {"kind": req["kind"], "pattern": req.get("pattern", ""), "text": req["text"], "rules": rules,
+                                              "code": req["code"], "agreed": True}})
+    return found
+
+
 def write_function(folder: RunFolder, claude, places: dict[str, Any], fid: str, function: dict[str, Any], members: list[dict[str, Any]],
-                   waiting: list[dict[str, Any]], log: list[dict[str, Any]], marked: list[dict[str, Any]] | None = None) -> tuple[dict[str, Any] | None, Any]:
+                   waiting: list[dict[str, Any]], log: list[dict[str, Any]], marked: list[dict[str, Any]] | None = None,
+                   kept_reqs: list[dict[str, Any]] | None = None) -> tuple[dict[str, Any] | None, Any]:
     project = folder.state["project"]
     folder_in = places["analysis"] / "reframe" / "reconcile"
     folder_in.mkdir(parents=True, exist_ok=True)
@@ -220,6 +237,9 @@ def write_function(folder: RunFolder, claude, places: dict[str, Any], fid: str, 
                 "open_items": [{"id": i, "program": w["program"], "question": w["question"]} for i, w in zip(open_ids, here)]}
         if marked:
             data["reviewed"] = [{k: m[k] for k in ("type", "was", "mark", "comment")} for m in marked]
+        if kept_reqs:
+            covered = {k for x in kept_reqs for k in x["requirement"]["rules"]}
+            data["covered"] = [i for i, key in ids.items() if key in covered]
         path = folder_in / f"req-{safe}-{n}.json"
         path.write_text(json.dumps(data, indent=1))
         name = f"req-{safe}-{n}"
@@ -231,6 +251,12 @@ def write_function(folder: RunFolder, claude, places: dict[str, Any], fid: str, 
         caps += got
         dropped += lost
         placed |= put
+    for x in kept_reqs or []:  # requirements a reviewer agreed with, kept word for word with their code (section 8.11)
+        home = next((c for c in caps if c["title"] == x["title"]), None)
+        if home is None:
+            home = {"title": x["title"], "story": x["story"], "requirements": [], "questions": [], "tables": [], "touches": []}
+            caps.append(home)
+        home["requirements"].insert(0, x["requirement"])
     missing = [w["unit"] for w in waiting if w["unit"] not in placed]
     if missing:  # an open unit the step did not place is still carried, on a capability of its own
         caps.append({"title": "Waiting for a subject-matter expert", "story": "", "requirements": [], "questions": missing})
@@ -258,8 +284,11 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
     for w in waiting:
         w["function"] = place(w["rules"], [], w["program"], rules, framed)
         open_by_function[w["function"]].append(w)
-    folder.save("outputs/reconcile/rules.json", {"label": LABEL, "generated_at": iso(), "rules": made, "open": waiting})
 
+    before = {r["key"]: r["text"] for r in (folder.load("outputs/reconcile/rules.json") or {}).get("rules") or []}
+    now = {r["key"]: r["text"] for r in made}
+    folder.save("outputs/reconcile/rules.json", {"label": LABEL, "generated_at": iso(), "rules": made, "open": waiting})
+    agreed_marks = (gathered.get("context") or {}).get("agreed") or {}
     previous_doc = folder.load("outputs/reconcile/requirements.json") or {}
     saved = previous_doc.get("functions") or {}
     marks = (gathered.get("context") or {}).get("marks") or {}
@@ -271,15 +300,16 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
         here = sorted(open_by_function.get(fid, []), key=lambda w: w["unit"])
         function = framed["functions"].get(fid) or {"name": UNASSIGNED["name"], "description": UNASSIGNED["description"]}
         marked = reviewed(fid, marks, saved.get(fid) or {}) if previous_doc.get("complete") else []
+        kept_reqs = agreed_requirements(fid, saved.get(fid) or {}, agreed_marks, before, now) if previous_doc.get("complete") else []
         digest = _hash([function["name"], [{k: r.get(k) for k in ("key", "text", "program", "kind")} for r in members],
                         [{k: w[k] for k in ("unit", "question")} for w in here], METHOD, [{k: m[k] for k in ("key", "mark", "comment")} for m in marked]])
         if (saved.get(fid) or {}).get("hash") == digest and "raw" in saved[fid]:
             written[fid] = {k: saved[fid][k] for k in ("hash", "dropped", "raw") if k in saved[fid]} | {"reviewed": saved[fid].get("reviewed", [])}
         else:
-            todo.append((fid, function, members, here, digest, marked))
+            todo.append((fid, function, members, here, digest, marked, kept_reqs))
 
     def one(item) -> None:
-        fid, function, members, here, digest, marked = item
+        fid, function, members, here, digest, marked, kept_reqs = item
         if stopped:
             return
         if not members:  # only open units: no step, a capability that carries them
@@ -287,7 +317,7 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
                                                               "questions": [w["unit"] for w in here]}], "dropped": 0}
             stop = None
         else:
-            value, stop = write_function(folder, claude, places, fid, function, members, here, log, marked)
+            value, stop = write_function(folder, claude, places, fid, function, members, here, log, marked, kept_reqs)
         with lock:
             folder.save("reconcile/requirements-steps.json", log)
             if stop is not None:
@@ -308,12 +338,21 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
     functions = {}
     for fid in sorted(written, key=lambda f: (f == "", f)):
         counters = Counter()
+        kept_codes = {r["code"] for c in written[fid]["raw"] for r in c["requirements"] if r.get("code")}
         caps = []
         for c_index, cap in enumerate(written[fid]["raw"], 1):
             reqs = []
             for req in cap["requirements"]:
-                counters[req["kind"]] += 1
-                reqs.append({**req, "code": f"REQ-{'F' if req['kind'] == 'functional' else 'N'}-{counters[req['kind']]:03d}"})
+                if req.get("code"):
+                    reqs.append(req)  # an agreed requirement keeps its code
+                    continue
+                prefix = "REQ-F" if req["kind"] == "functional" else "REQ-N"
+                while True:
+                    counters[req["kind"]] += 1
+                    code = f"{prefix}-{counters[req['kind']]:03d}"
+                    if code not in kept_codes:
+                        break
+                reqs.append({**req, "code": code})
             qs = []
             for unit in cap["questions"]:
                 listed = sme_of.get(f"r4:{unit}") or {}

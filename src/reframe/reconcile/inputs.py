@@ -287,9 +287,17 @@ def recommended_covers(folder: RunFolder) -> dict[str, list[str]]:
     return found
 
 
+def agreed_marks(marks: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Items marked Agree on the reconciled review (rules and requirements), with who agreed and when (section 8.11)."""
+    return {k: [{"reviewer": b["reviewer"], "at": b.get("at", "")} for b in m.get("by") or [m] if b.get("status", m["status"]) == "agree"]
+            for k, m in marks.items() if m["status"] == "agree" and k.startswith("rec/")}
+
+
 def expand_marks(marks: dict[str, Any], covers: dict[str, list[str]]) -> dict[str, Any]:
-    """A mark made on the reconciliation page is on a recommended rule; it goes to every input rule that rule covers, so
-    the next round decides that unit again. A mark made in a tool's own review stays on its rule."""
+    """A Needs change or Question mark made on the reconciliation page is on a recommended rule; it goes to every input
+    rule that rule covers, so the next round decides that unit again. An Agree there keeps the unit (section 8.11), so it
+    is not passed on. A mark made in a tool's own review stays on its rule."""
+    marks = {k: v for k, v in marks.items() if not (k in covers and v["status"] == "agree")}
     found = {k: v for k, v in marks.items() if k not in covers}
     for key, mark in marks.items():
         for rule in covers.get(key, []):
@@ -309,6 +317,7 @@ def gather(folder: RunFolder, context_folder: Path | None) -> dict[str, Any]:
     all_rules = rules(folder)
     pairs = [p for p in pairing.get("pairs") or [] if p.get("aws") in all_rules and p.get("claude") in all_rules]
     read = context(folder, context_folder, places["analysis"] / "reframe" / "reconcile" / "context")
+    read["agreed"] = agreed_marks(read["marks"])
     read["marks"] = expand_marks(read["marks"], recommended_covers(folder))
     asked = [{**q, "rules": [k for k in q.get("rules") or [] if k in all_rules]} for q in questions(folder)]
     gathered = {"at": iso(), "rules": all_rules, "pairs": pairs, "questions": asked, "context": read,

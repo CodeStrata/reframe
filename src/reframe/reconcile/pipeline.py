@@ -103,6 +103,8 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
 
     stage(folder, "estimate")
     found = units.units(gathered)
+    locked = units.lock(found, decide.Decisions(folder).saved, gathered["context"].get("agreed") or {})
+    update(folder, locked=len(locked))
     pending = [u for u in found if not decide.Decisions(folder).current(u)]
     batched = units.batches(pending)
     size = units.estimate(pending, batched, agreed)
