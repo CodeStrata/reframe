@@ -27,7 +27,7 @@ The links between the pages still work in the copy.
 
 Each is replaced by a placeholder such as `<account>`. Reframe then checks the whole copy for each of those patterns. If any is still there, nothing is written and the file is named.
 
-The review marks in a published copy stay in each reader's browser, as in the original.
+The review marks in a published copy stay in each reader's browser, as in the original. A reviewer downloads them from the page; the reconciliation's next round and `reframe review` read that download like one made on the run's own page, although the copy names items by their cleaned keys ([pipeline-3.md](pipeline-3.md), section 8.11).
 
 ## 3. The CardDemo reports in the repository (S-02)
 

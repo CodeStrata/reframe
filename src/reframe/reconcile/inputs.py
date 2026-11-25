@@ -271,6 +271,8 @@ def context(folder: RunFolder, source: Path | None, target: Path) -> dict[str, A
                                        "read_as": copy.relative_to(target.parent.parent.parent).as_posix()})
         except (OSError, ValueError, KeyError, zipfile.BadZipFile, UnicodeDecodeError, csv.Error) as error:
             found["ignored"].append({"file": name, "why": f"could not be read ({type(error).__name__})"})
+    from reframe.reconcile.reviews import as_run_keys
+    found["reviews"] = as_run_keys(folder, found["reviews"])  # a review of a published copy names items by cleaned keys
     found["marks"] = combine(found["reviews"])
     found["signoffs"] = signoffs(found["reviews"])
     return found

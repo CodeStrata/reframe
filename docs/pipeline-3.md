@@ -362,7 +362,7 @@ The reconciled review opens with a *Review first* view. It lists the items an SM
 
 Within each group, items from high-risk capabilities come first (a rule takes the risk of the first capability whose requirements cite it), and `business`, `validation` and `compliance` rules before the other kinds. Capability risk is used rather than function risk because a function takes its riskiest capability's: on CardDemo 10 of 11 functions are high, against 74 of 153 capabilities. Each group shows its count and how many are marked. Filters choose decision kind, rule kind, confidence and capability risk. On CardDemo, after the recalibration, the view lists the 467 medium and low rules and the open items. The 718 high-confidence rules need not be opened to finish it.
 
-### 8.11 The review loop (P3-15 to P3-19)
+### 8.11 The review loop (P3-15 to P3-19, P3-25)
 
 **Sign-off by function (P3-15).** Every review page (AWS Transform's, Claude's and the reconciled review) has a *Sign off this function* button on each function, with an optional comment. A sign-off records the reviewer's name and the time. The downloads carry the sign-offs: the JSON has a `signoffs` list, and the CSV has one row of type `sign-off` per function. The reconciliation reads them from the context folder. `reframe status` lists the signed-off functions, by page, with who signed and when. The reconciled review shows a *Signed off by* tag on the function and its card. A sign-off on another snapshot's review is ignored, like its marks. Pipeline 4 takes signed-off functions as final.
 
@@ -387,6 +387,8 @@ The page shows *Agreed by <name>, <date>* on each agreed item.
 - the items two reviewers marked differently, with each mark and comment.
 
 It writes `reconcile/reviews.json`. The next round combines every reviewer's marks. *Needs change* and *Question* take precedence over *Agree*. Comments from every reviewer are kept, each prefixed with the reviewer's name.
+
+**Reviews of a published copy (P3-25).** A reviewer who has no Reframe marks the copy that `reframe publish` made. That copy replaces each AWS Transform ID with a stand-in (`id-` and ten hex digits), and the IDs appear in keys: AWS Transform's rule keys, and the reconciled review's keys built from them (`rec/aws:<domain>/<function>/<ID>/1`). So the download names those items differently from the run. The next round and `reframe review` read such downloads: before combining, each mark's key and each sign-off's function are named as the run names them, for every item on AWS Transform's, Claude's and the reconciled review (requirements, rules, open questions, capabilities and functions). A mark or sign-off made on a published copy then counts exactly as the same one made on the run's own page: it reaches the next round, it shows as *Agreed by* or *Signed off by* on the reconciled review, and `reframe review` counts it in the reviewer's coverage.
 
 ### 8.12 Acceptance of part 2 (P3-20)
 

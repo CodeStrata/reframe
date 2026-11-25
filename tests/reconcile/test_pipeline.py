@@ -169,6 +169,53 @@ class PipelineTest(InputsTest):
         self.assertEqual(kept["agreed_by"], [{"reviewer": "Pat", "at": "2026-11-25T09:00:00Z"}])
         self.assertIn("Agreed by", page)
 
+    def test_a_review_downloaded_from_a_published_copy_reaches_the_next_round(self):
+        import json
+        import re
+        from reframe.report import publish, reconciled
+        # AWS Transform IDs in rule keys and a function id: `reframe publish` replaces each with a stand-in
+        a2, a9 = "Payments/CardPayments/03f06db7_e63b_4ee8_9804_248082449101", "Payments/CardPayments/1f5b9b93-67ea-4ee8-9804-248082449102"
+        fid = "Payments/6f1c2d3e_1111_4222_8333_444455556666"
+        self.data = inputs([pair("a1", "c1", "same"), pair(a2, "c2", "overlapping")], extra=[(a9, "aws", "PROG1")])
+        for r in self.data["rules"].values():
+            r["function"] = fid
+        self.folder.save("outputs/comparison/ai-pairs.json", {"complete": True, "pairs": self.data["pairs"]})
+        frame = {"domains": [{"key": "payments", "name": "Payments", "kind": "business", "description": "", "functions": [fid]}],
+                 "functions": {fid: {"id": fid, "name": "Pay bills", "description": ""}}, "by_program": {"PROG1": [fid]}}
+        with mock.patch("reframe.reconcile.requirements.frame", lambda folder: frame):
+            pipeline.request(self.folder, max_batches=5)
+            pipeline.work(self.folder, claude=self.fake(good), claude_check=lambda: Report(True))
+            kept, changed, function = f"rec/aws:{a9}/1", "rec/group:c2/1", f"rec/{fid}"
+            clean = publish.Cleaner(self.folder).clean
+            self.assertTrue(all(clean(k) != k for k in (kept, function)))  # the published copy names them differently
+
+            def download(folder, name):
+                folder.mkdir()
+                (folder / "review-pat.json").write_text(json.dumps({
+                    "source": {"sha256": "a" * 64}, "reviewer": "Pat", "tool": "Reframe's reconciliation",
+                    "marks": [{"key": name(kept), "status": "Agree", "marked_at": "2026-11-25T09:00:00Z"},
+                              {"key": name(changed), "status": "Needs change", "comment": "the limit is 500"}],
+                    "signoffs": [{"function": name(function), "name": "Pay bills", "at": "2026-11-25T10:00:00Z"}]}))
+                return folder
+
+            own, copy = download(self.folder.root.parent / "own", lambda k: k), download(self.folder.root.parent / "copy", clean)
+            by_own, by_copy = inputlib.gather(self.folder, own)["context"], inputlib.gather(self.folder, copy)["context"]
+            for part in ("agreed", "marks", "signoffs"):
+                self.assertEqual(by_copy[part], by_own[part], part)
+            self.assertEqual(list(by_copy["agreed"]), [kept])
+            self.assertEqual(sorted(by_copy["marks"]), sorted([a2, "c2"]))  # the Needs change goes to the rules its recommended rule covers
+            self.assertEqual([x["function"] for x in by_copy["signoffs"]], [function])
+
+            pipeline.request(self.folder, context=str(copy), max_batches=5)
+            second = self.fake(good)
+            pipeline.work(self.folder, claude=second, claude_check=lambda: Report(True))
+        self.assertEqual([k for c in second.calls for k in c[1]], ["group:c2"])  # aws:<a9> was agreed: kept; group:c2 is decided again
+        self.assertEqual(self.folder.state["reconcile"]["locked"], 1)
+        page = self.folder.path(reconciled.PAGE).read_text()
+        data = json.loads(re.search(r'<script id="data" type="application/json">(.*?)</script>', page, re.S).group(1))
+        self.assertEqual(next(r for r in data["rules"] if r["key"] == kept)["agreed_by"], [{"reviewer": "Pat", "at": "2026-11-25T09:00:00Z"}])
+        self.assertEqual(list(data["signoffs"]), [function])
+
     def test_above_the_batch_limit_it_stops_and_says_how_to_go_ahead(self):
         pipeline.request(self.folder, max_batches=0)
         with self.assertRaisesRegex(Stop, r"reframe reconcile --max-batches 1"):
