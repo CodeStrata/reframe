@@ -1,6 +1,6 @@
 # Reframe specification: sharing the results
 
-Status: draft for the owner's agreement. Stories S-01 to S-04 in [the plan](plan.md), in their own epic, outside pipelines 1 and 2.
+Status: draft for the owner's agreement. Stories S-01 to S-12 in [the plan](plan.md), in their own epic, outside pipelines 1 and 2.
 
 ## 1. Goal
 
@@ -76,3 +76,36 @@ The owner's direction (24 November 2026): an engineer runs and publishes; an arc
 **Without Reframe (S-11).** `reframe publish --to aws` also uploads `report.zip`, the same cleaned copy in one file, with everything in one folder `<project>-<run>/`, next to the pages. `reframe reports open` and `download` leave it out. A reader signs in to the AWS console, opens the bucket in S3, and downloads `<project>/<run>/report.zip`: the console downloads single files, not folders. They unzip it and open `index.html`.
 
 Pre-signed download links are left out on purpose: they work for anyone who has the link, with no sign-in.
+
+## 7. Requirements to a spreadsheet (S-12)
+
+People who plan the new system work in spreadsheets: they sort, filter, assign and add their own columns. `reframe export --to xlsx` writes the reconciled results as one Excel workbook, so nobody has to copy them out of the page.
+
+| Command | What it does |
+|---|---|
+| `reframe export --to xlsx` | Writes `outputs/reconcile/<project>-<run>-requirements.xlsx` from the latest run's reconciliation |
+| `reframe export --to xlsx --out <file or folder>` | Writes it there instead; a folder gets the same file name |
+| `reframe export --to xlsx --context <folder>` | Adds the reviewers' marks from the review downloads in that folder (default: the reconciliation's context folder) |
+| `reframe export --to xlsx --open` | Opens it in the computer's spreadsheet app when written |
+
+It needs the reconciliation done. It runs nothing, uses no AWS and no Claude, and reads only the run folder and the context folder.
+
+**Sheets.** Each sheet is one table with a header row, frozen, with filters on, every column named in plain words. The workbook opens on Requirements.
+
+| Sheet | One row per | Columns |
+|---|---|---|
+| About | fact | project, run, source and its SHA-256, round, when it was written, what it is (recommended by Reframe, model output for review), the counts, and the review downloads read or ignored |
+| Domains | domain | name, kind, description, business functions, requirements |
+| Business functions | function | domain, name, description, risk, capabilities, requirements, business rules, who signed it off and when |
+| Capabilities | capability | domain, function, number, title, user story, risk, what it touches, requirements, open questions, decision tables |
+| Requirements | requirement | domain, function, capability, ID, functional or non-functional, EARS pattern, the requirement, the business rules behind it (ID and name), their programs and source lines, kept from an earlier review |
+| Business rules | recommended rule | domain, function, ID, name, the rule, kind, decision, confidence and why, program, source lines, whether the code runs and how it is reached, what it depends on, worked examples, requirements that cite it, possible defect, the AWS Transform and Claude rules it came from, round, who agreed it |
+| Decision tables | table row or gap | domain, function, capability, table, conditions, values, outcome, the rule it cites, or "Gap" with the note for an SME |
+| Open questions | question a requirement left | domain, function, capability, ID, question, status |
+| SME list | SME question | ID, kind, defect call, question, owner, status, answer, settled by, where it came from, evidence |
+
+Requirements, business rules, capabilities and open questions also carry two review columns: **Mark**, the reviewers' marks combined as the next round combines them (*Needs change*, then *Question*, then *Agree*), and **Reviewers' marks**, each reviewer's own mark and comment. Only downloads from the reconciled review of the same snapshot are read; others are listed as ignored on About, with the reason. The last column of those sheets is the item's **Key**, as the page names it, cleaned like every other cell (an AWS Transform ID becomes the stand-in `reframe publish` gives it). Marks downloaded from the run's own page and from a published copy are both matched.
+
+**Kept safe.** Every cell is written as text, never as a formula, so a value that starts with `=` stays text. Every cell is cleaned as `reframe publish` cleans its copy (account ID, ARNs, S3 locations, IDs, e-mail addresses, local paths, the AWS profile); if anything is left, nothing is written and the sheet and row are named. The file is written with the standard library, so Reframe gains no dependency.
+
+**Not read back.** The workbook is for reading and planning. Answers go in the SME list CSV (`reconcile/questions.csv`) and marks in the page's review downloads, which `reframe reconcile --context` reads; About says so.
