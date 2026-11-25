@@ -3,7 +3,7 @@
 Each rule has one to three examples: a "given" (inputs, as field and value) and a "then" (the outcome), using the
 values, codes and messages the code has. Reframe checks that every quoted value in an example (a message, a code in
 quotes) appears in a file the decision cites; numbers are not checked, since an example may use any amount. An example
-that fails is removed and counted; a rule keeps its decision even when all its examples are removed.
+that fails is removed and counted on its own rule; a rule keeps its decision even when all its examples are removed.
 """
 
 from __future__ import annotations
@@ -68,10 +68,11 @@ def check(examples: list[dict[str, Any]] | None, cites: list[str], legacy: Path)
 
 
 def check_rules(rules: list[dict[str, Any]], cites: list[str], legacy: Path) -> tuple[list[dict[str, Any]], int]:
-    """Every rule of a decision with its examples checked; returns the rules and the examples removed in all."""
+    """Every rule of a decision with its examples checked, each rule with its own count of examples removed (P3-27);
+    returns the rules and the examples removed in all."""
     out, removed = [], 0
     for r in rules or []:
         kept, lost = check(r.get("examples"), cites, legacy)
-        out.append({**r, "examples": kept})
+        out.append({**r, "examples": kept, "examples_removed": lost})
         removed += lost
     return out, removed

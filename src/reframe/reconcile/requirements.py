@@ -103,7 +103,9 @@ def recommended_rules(gathered: dict[str, Any], found: list[dict[str, Any]], kep
                          "round": d.get("round"), "changed": bool(d.get("changed")), "defect": d.get("defect", ""), "defect_call": d.get("defect_call", ""),
                          "defect_evidence": d.get("defect_evidence") or [], "unit_rules": len(d.get("rules") or []),
                          "conflict": any(p.get("relation") == "conflicting" for p in u.get("pairs") or []), "kind": rule.get("kind") or "",
-                         "examples": rule.get("examples") or [], "examples_removed": d.get("examples_removed", 0) if n == 1 else 0}
+                         "examples": rule.get("examples") or [],
+                         # each rule's own count (P3-27); a decision made before it has one count, on its unit's first rule
+                         "examples_removed": rule["examples_removed"] if "examples_removed" in rule else d.get("examples_removed", 0) if n == 1 else 0}
             made.append({**made_rule, **facts(made_rule, d)})
     return made
 

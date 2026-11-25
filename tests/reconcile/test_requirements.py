@@ -188,6 +188,14 @@ class RequirementsTest(InputsTest):
         self.assertEqual(len(after), 4)
         self.assertEqual(sum(after.get(c) != t for c, t in before.items()), 1)  # only the changed rule's requirement is written again
 
+    def test_removed_examples_are_counted_on_each_rule(self):
+        self.kept["group:c2"]["rules"][0]["examples_removed"] = 0  # decided after P3-27: each rule has its own count
+        self.kept["group:c2"]["rules"][1]["examples_removed"] = 2
+        self.kept["group:c2"]["examples_removed"] = 2
+        self.kept["claude:c8"]["examples_removed"] = 1  # decided before P3-27: one count for the unit
+        made = {r["key"]: r["examples_removed"] for r in requirements.recommended_rules(self.gathered, self.found, self.kept, self.agreed)}
+        self.assertEqual((made["rec/group:c2/1"], made["rec/group:c2/2"], made["rec/claude:c8/1"]), (0, 2, 1))
+
     def test_risk(self):
         self.assertEqual(requirements.risk(["reporting_only"], ["business"]), "low")
         self.assertEqual(requirements.risk(["updates_records"], []), "medium")
