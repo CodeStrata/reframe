@@ -130,8 +130,7 @@ class RequirementsTest(InputsTest):
         self.gathered["context"]["marks"] = {"rec/f/REQ-F-001": {"status": "change", "comment": "Pat: reword"}}  # the function is written again
         second = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
         given = fake.other_calls[-1][1]
-        cited = {r["id"]: r for r in given["rules"]}
-        self.assertEqual([cited[i]["text"] for i in given["covered"]], ["WHEN x, THE system SHALL y"])
+        self.assertEqual(given["covered"], ["R2", "R3", "R4"])  # all but the rule of the requirement marked Needs change (P3-26)
         reqs = second["functions"]["f"]["capabilities"][0]["requirements"]
         kept = [r for r in reqs if r.get("agreed")]
         self.assertEqual([(r["code"], r["text"], r["rules"]) for r in kept], [(agreed_req["code"], agreed_req["text"], agreed_req["rules"])])
@@ -144,6 +143,58 @@ class RequirementsTest(InputsTest):
         self.gathered["context"]["marks"] = {}
         third = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
         self.assertFalse(any(r.get("agreed") for c in third["functions"]["f"]["capabilities"] for r in c["requirements"]))
+
+    def only_uncovered(self):
+        """A step that writes requirements only for the rules it is not told are covered, as the prompt asks."""
+        def answer(data):
+            covered = set(data.get("covered") or [])
+            return {"capabilities": [{"title": "Pay again", "story": "As a cardholder, I want to pay", "questions": [o["id"] for o in data["open_items"]],
+                                      "requirements": [{"kind": "functional", "pattern": "event-driven", "text": f"New text for {r['id']}: {r['text']}", "rules": [r["id"]]}
+                                                       for r in data["rules"] if r["id"] not in covered]}]}
+        claude = FakeClaude(req=answer)
+        claude.root = self.folder.root / "claude"
+        return claude
+
+    def test_what_nobody_marked_is_kept_word_for_word(self):
+        first = requirements.build(self.folder, self.fake(), self.gathered, self.found, self.kept, self.agreed, self.sme)
+        was = {r["code"]: r for r in first["functions"]["f"]["capabilities"][0]["requirements"]}
+        self.gathered["context"]["marks"] = {"rec/f/REQ-F-001": {"status": "change", "comment": "Pat: reword"}}
+        fake = self.only_uncovered()
+        second = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        self.assertEqual(fake.other_calls[0][1]["covered"], ["R2", "R3", "R4"])
+        caps = second["functions"]["f"]["capabilities"]
+        self.assertEqual((caps[0]["number"], caps[0]["title"]), (1, "Pay"))  # the unmarked capability keeps its place and title
+        kept = {r["code"]: r for r in caps[0]["requirements"]}
+        self.assertEqual({c: (r["text"], r["rules"]) for c, r in kept.items()},
+                         {c: (was[c]["text"], was[c]["rules"]) for c in ("REQ-F-002", "REQ-F-003", "REQ-F-004")})
+        self.assertFalse(any(r.get("agreed") for r in kept.values()))  # kept because nobody marked it, not agreed
+        new = [r for c in caps[1:] for r in c["requirements"]]
+        self.assertEqual([(r["code"], r["text"].split(":")[0], r["rules"]) for r in new], [("REQ-F-001", "New text for R1", was["REQ-F-001"]["rules"])])  # a free code: the kept ones are not reused
+
+    def test_a_marked_capability_and_a_changed_rule_are_written_again(self):
+        requirements.build(self.folder, self.fake(), self.gathered, self.found, self.kept, self.agreed, self.sme)
+        self.gathered["context"]["marks"] = {"rec/f#1": {"status": "question", "comment": "Sam: is this two capabilities?"}}
+        fake = self.only_uncovered()
+        second = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        self.assertEqual(fake.other_calls[-1][1].get("covered"), None)  # nothing in a marked capability is kept
+        self.gathered["context"]["marks"] = {}
+        self.kept["claude:c8"]["rules"][0]["text"] = "WHEN z, THE system SHALL w"  # one rule changes; nothing is marked
+        third = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        given = fake.other_calls[-1][1]
+        changed = next(r["id"] for r in given["rules"] if r["text"] == "WHEN z, THE system SHALL w")
+        self.assertEqual(set(given["rules"][i]["id"] for i in range(len(given["rules"]))) - set(given["covered"]), {changed})
+        texts = lambda v: {r["code"]: r["text"] for c in v["functions"]["f"]["capabilities"] for r in c["requirements"]}  # noqa: E731
+        before, after = texts(second), texts(third)
+        self.assertEqual(len(after), 4)
+        self.assertEqual(sum(after.get(c) != t for c, t in before.items()), 1)  # only the changed rule's requirement is written again
+
+    def test_removed_examples_are_counted_on_each_rule(self):
+        self.kept["group:c2"]["rules"][0]["examples_removed"] = 0  # decided after P3-27: each rule has its own count
+        self.kept["group:c2"]["rules"][1]["examples_removed"] = 2
+        self.kept["group:c2"]["examples_removed"] = 2
+        self.kept["claude:c8"]["examples_removed"] = 1  # decided before P3-27: one count for the unit
+        made = {r["key"]: r["examples_removed"] for r in requirements.recommended_rules(self.gathered, self.found, self.kept, self.agreed)}
+        self.assertEqual((made["rec/group:c2/1"], made["rec/group:c2/2"], made["rec/claude:c8/1"]), (0, 2, 1))
 
     def test_risk(self):
         self.assertEqual(requirements.risk(["reporting_only"], ["business"]), "low")

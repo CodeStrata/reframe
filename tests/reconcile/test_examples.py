@@ -47,6 +47,13 @@ class ExamplesTest(unittest.TestCase):
         checked, removed = examples.check_rules(rules, ["app/P.cbl:1"], self.legacy)
         self.assertEqual((checked[0]["text"], checked[0]["examples"], removed), ("r", [], 1))
 
+    def test_each_rule_counts_its_own_removed_examples(self):
+        rules = [{"text": "r1", "covers": ["a"], "kind": "business", "examples": [ex("ok")]},
+                 {"text": "r2", "covers": ["b"], "kind": "business", "examples": [ex("shows 'NOPE'"), ex("also 'NOPE'")]}]
+        checked, removed = examples.check_rules(rules, ["app/P.cbl:1"], self.legacy)
+        self.assertEqual([(r["text"], len(r["examples"]), r["examples_removed"]) for r in checked], [("r1", 1, 0), ("r2", 0, 2)])
+        self.assertEqual(removed, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

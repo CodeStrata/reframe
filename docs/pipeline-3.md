@@ -329,7 +329,7 @@ The page shows the kind on each rule and can filter by it. *Review first* and th
 
 Each recommended rule has one to three worked examples, each a `given` (the inputs, as field and value) and a `then` (the outcome). They use the values, codes and messages the code has, so a reviewer can check a rule against a case they know. The same examples become acceptance criteria in the exports (S-13) and test data in pipeline 4.
 
-**The check.** Every quoted value in an example (a message, a code in quotes) must appear in a file the decision cites. Numbers are not checked: an example may use any amount. An example that fails is removed and counted. A rule whose examples all fail keeps its decision, with no examples, so a bad example never sends a unit to an SME.
+**The check.** Every quoted value in an example (a message, a code in quotes) must appear in a file the decision cites. Numbers are not checked: an example may use any amount. An example that fails is removed and counted on its own rule (P3-27), so a rule with no examples always says how many were removed. A rule whose examples all fail keeps its decision, with no examples, so a bad example never sends a unit to an SME. The decision step must give every rule at least one example. Decisions made before P3-27 keep their unit's count on the unit's first rule until the unit is decided again.
 
 The page shows the examples under each rule as *For example*: given → then.
 
@@ -375,6 +375,8 @@ Within each group, items from high-risk capabilities come first (a rule takes th
 - A unit whose recommended rules were all marked *Agree* keeps its decision in later rounds, even when a document changes. Only a later *Needs change* or *Question* mark on one of its rules, or a change to its input rules or to an answer that names them, reopens it.
 - A unit decided again with some rules agreed gives those rules to the step as *agreed by a reviewer: keep this wording unless the code contradicts it*.
 - A requirement marked *Agree* is kept word for word by Reframe while the rules it cites are unchanged. The step is told those rules are already covered.
+
+**What nobody marked is kept (P3-26).** When a function's requirements are written again, for a mark or because its rules changed, every requirement of the previous version that no reviewer marked *Needs change* or *Question*, and that is not in a capability so marked, is kept word for word with its code, in its capability with that capability's story, touches and decision tables, while every rule it cites is unchanged and still in the function. The step is told those rules are already covered and writes requirements only for the rest: the marked items, the marked capabilities' requirements, and rules that are new or changed. A reviewer's earlier marks therefore still point at the text they marked. On CardDemo in P3-20, before this, a function written again for one requirement and one capability reworded 34 of its 36 requirements. Replayed on the same round, P3-26 keeps 30 word for word and writes 6 again: the 5 of the capability asked about, and the one whose rule round 4 decided again.
 
 The page shows *Agreed by <name>, <date>* on each agreed item.
 

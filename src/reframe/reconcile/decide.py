@@ -40,7 +40,7 @@ SCHEMA = {"type": "object", "required": ["decisions"], "properties": {"decisions
     "properties": {
         "unit": {"type": "string"},
         "decision": {"type": "string", "enum": sorted(set(GROUP) | set(ONE_SIDED))},
-        "rules": {"type": "array", "items": {"type": "object", "required": ["text", "covers", "kind"], "properties": {
+        "rules": {"type": "array", "items": {"type": "object", "required": ["text", "covers", "kind", "examples"], "properties": {
             "text": {"type": "string"}, "covers": {"type": "array", "items": {"type": "string"}}, "kind": {"type": "string", "enum": list(KINDS)},
             "examples": EXAMPLES}}},
         "changed": {"type": "boolean"},
