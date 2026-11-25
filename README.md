@@ -364,9 +364,12 @@ python -m unittest discover -s tests -t .
 
 ## Next
 
-Next, in [docs/plan.md](docs/plan.md):
+Next, in this order, in [docs/plan.md](docs/plan.md):
 
-- **Final requirements** (planned as pipeline 4) produces the final requirements, business rules and wireframes from the reconciliation and the reviews.
+1. **The reconciliation, part 2:** an accuracy audit on CardDemo, confidence and possible defects that mean something, and a review an SME can finish: a review-first view, sign-off by function, and every reviewer's marks read back.
+2. **Exports:** requirements to a spreadsheet, and backlog items with acceptance criteria for Jira or Azure DevOps.
+3. **Pipeline 4:** final requirements, an interactive clickable prototype of the modernized screens mapped one to one to the legacy ones, and an AI-DLC package for Claude Code or Kiro, updated as people add context.
+4. **Proving it at scale:** a larger codebase, then Claude on Amazon Bedrock.
 
 Earlier work stays in the repository's history: the build before this rebuild ends at commit `000b816`, and releases are tagged on `main`: `v0.3.0`, the first, and `v0.4.0`, the three pipelines (AWS Transform assessment, Claude assessment and reconciliation).
 

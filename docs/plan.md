@@ -1,6 +1,6 @@
 # Reframe plan
 
-The parts of Reframe are named for what they do: the AWS Transform assessment (pipeline 1), the Claude assessment (pipeline 2), the reconciliation (pipeline 3) and the final requirements (pipeline 4, planned). The numbers stay as short labels in the plan and the specifications.
+The parts of Reframe are named for what they do: the AWS Transform assessment (pipeline 1), the Claude assessment (pipeline 2), the reconciliation (pipeline 3) and the final requirements, wireframes and AI-DLC package (pipeline 4, planned). The numbers stay as short labels in the plan and the specifications.
 
 Status: draft for the owner's agreement, with [the specification](specification.md).
 
@@ -123,8 +123,55 @@ Specification: [pipeline-3.md](pipeline-3.md). It starts from the comparison of 
 | P3-09 | The reconciliation page and publish | §4 R7 | The page as specified, linked from the comparison, with marks and downloads; `reframe publish` includes it as `reconciled/` with a fourth card |
 | P3-10 | Live acceptance and README | §7 | Every point of section 7 passes from the CLI; the README and `docs/cli.md` describe pipeline 3 from the tested commands |
 
-## Later work
+## The reconciliation, part 2: accuracy and the review loop (pipeline 3)
 
-Specified after pipelines 1 and 2 have been tested, first each on its own and then together.
+Agreed by the owner on 24 November 2026, after the reconciliation's live acceptance. On CardDemo it wrote 1,204 recommended rules from 1,111 input rules; 1,182 were rated high confidence and 636 carried a possible-defect note, and the reconciled review has 2,358 items to mark. Part 2 first measures how accurate the recommended rules are, then makes the review something an SME can finish and closes the loop from their marks back into the next round. Its specification is added to [pipeline-3.md](pipeline-3.md) before the stories start.
 
-- **Final requirements (pipeline 4): requirements, business rules and wireframes.** It produces them, takes more human context (text, Markdown, documents, PDFs and similar), and gives the updated version of each. This is where Reframe ends.
+| Story | Title | Specification | Done when |
+|---|---|---|---|
+| P3-11 | Spike: accuracy audit on CardDemo | to be added | About 60 recommended rules, sampled across the decision kinds, are checked against the source code by Claude and by a second model as an independent judge, with the owner settling disagreements. The accuracy per decision kind, and how often confidence and the defect notes were right, are written into the specification |
+| P3-12 | Confidence that means something | to be added | Each confidence level has criteria the decision step can apply and Reframe can check. On the audit sample, the errors found in P3-11 fall in the lower levels |
+| P3-13 | Possible defects narrowed | to be added | A possible defect is noted only where the cited lines contradict a tool's rule or each other, and cites them. On CardDemo the count falls, and the independent judge confirms the defects in the audit sample |
+| P3-14 | Review first | to be added | The reconciled review has a *Review first* view: conflicts, rules rewritten from the code, one-sided rules kept, rules waiting for an SME, possible defects and lower confidence, in that order, with a filter by decision kind |
+| P3-15 | Sign-off by function | to be added | A reviewer signs off a function in any review page; the download carries the sign-offs, the reconciliation reads them, and `reframe status` and the reconciled review show which functions are signed off and by whom |
+| P3-16 | Marks on requirements and capabilities read | to be added | *Needs change* and *Question* marks on requirements and capabilities, with their comments, make the requirements step rewrite that function's requirements in the next round; nothing else is redone |
+| P3-17 | Marks from the CSV download read | to be added | A review's CSV download in the context folder is read like its JSON download; another snapshot's is ignored with the reason |
+| P3-18 | Agree keeps a rule | to be added | A rule or requirement marked *Agree* is kept as agreed in later rounds unless a later mark or a change to its inputs reopens it; the page shows who agreed |
+| P3-19 | Several reviewers' files | to be added | `reframe review --context <folder>` shows each reviewer's coverage and where reviewers disagree. The next round combines every reviewer's marks, *Needs change* and *Question* taking precedence over *Agree*, and keeps each comment with its reviewer's name |
+| P3-20 | Live acceptance of part 2 | to be added | On CardDemo: the audit's figures improve on P3-11, an SME's marks and sign-offs from two review files go through a second round, and the README and `docs/cli.md` describe it from the tested commands |
+
+## Exports
+
+Part of sharing the results: the requirements in the forms people work in. Specified in [sharing.md](sharing.md) before the stories start.
+
+| Story | Title | Specification | Done when |
+|---|---|---|---|
+| S-12 | Requirements to a spreadsheet | to be added | `reframe export --to xlsx` writes one workbook from a run's reconciled results: domains, functions, capabilities, requirements, business rules and open questions as sheets, each requirement with the rules and source lines behind it and the reviewers' marks |
+| S-13 | Backlog items with acceptance criteria | to be added | `reframe export --to jira` and `--to azure-devops` write each tool's CSV import file: an epic per function, a story per capability with its requirements, and acceptance criteria in Given/When/Then written from the rules, each citing them. No credentials are needed; the file is imported by a person |
+
+## Final requirements, wireframes and the AI-DLC package (pipeline 4)
+
+Agreed by the owner on 24 November 2026. From the reconciled and reviewed results, pipeline 4 designs the modernized application, not a lift and shift of the 3270 screens: every legacy screen is mapped one to one to what replaces it, and the new screens are an interactive, clickable prototype. It writes the final specifications and an AI-DLC package that Claude Code or Kiro loads for the forward deployment. People keep adding context after the first run (a design system, the target architecture, personas, SME answers, marks on the prototype, decisions), and each round redoes only the journeys, screens, specifications and package parts that context touches, with a summary of what changed. Model steps write structured results that cite requirements, rules and screens; Reframe checks the citations and draws every page and the prototype itself. Specification: `pipeline-4.md`, written in P4-01.
+
+| Story | Title | Specification | Done when |
+|---|---|---|---|
+| P4-01 | Specification and the owner's decisions | – | `docs/pipeline-4.md` is agreed, with the owner's decisions on: the target stack and where it comes from, which functions go final (signed off only, others marked draft), the default design system and the pipeline's name |
+| P4-02 | Spike: the screen inventory | to be written | Every BMS map in CardDemo (21) is read into its fields, positions, attributes and function keys, with no model, and each legacy screen is drawn as a faithful 3270 copy |
+| P4-03 | How the screens connect | to be written | The flow between screens and programs is read from the source and shown as a map, each link citing its lines |
+| P4-04 | User journeys | to be written | Screens are grouped into the tasks people do, each journey linked to its capabilities and requirements |
+| P4-05 | Modernized screens and their mapping | to be written | Each journey has modern screen designs. A mapping table takes every legacy screen and field to its new component as kept, merged, dropped or new, with the reason; no legacy field is left unmapped |
+| P4-06 | The clickable prototype | to be written | One static HTML app with a route per screen, sample data shaped by the copybooks and messages written from the rules, each screen beside the legacy screens it replaces; screens and components can be marked *Agree*, *Needs change* or *Question* and the marks downloaded |
+| P4-07 | Final specifications | to be written | Per capability: the final requirements and business rules, screen specifications, data contracts from the copybooks, acceptance criteria and the questions still open, each citing its sources |
+| P4-08 | The AI-DLC package | to be written | One package in two forms: Kiro (`.kiro/specs/<capability>/` with `requirements.md`, `design.md` and `tasks.md`, and steering files) and Claude Code (`CLAUDE.md`, the specifications, the prototype as the UI reference and the tasks), every item keeping its requirement and rule IDs. Checked by loading it into Claude Code and building one journey |
+| P4-09 | Rounds with more context | to be written | Added context redoes only the parts it touches; each round versions the package and writes what changed since the last |
+| P4-10 | Live acceptance and README | to be written | On CardDemo, from the CLI: the prototype covers every screen, a second round with added context changes only what it should, and the README and `docs/cli.md` describe pipeline 4 from the tested commands |
+
+## Proving it at scale
+
+After everything above is tested and the owner is satisfied.
+
+| Story | Title | Specification | Done when |
+|---|---|---|---|
+| SC-01 | Spike: a larger codebase | – | A public mainframe codebase several times CardDemo's size, with a licence that allows it, is chosen with the owner |
+| SC-02 | All pipelines on the larger codebase | to be written | Every pipeline runs to the end on it, with the time, agents and cost of each recorded in the documentation |
+| SC-03 | Amazon Bedrock, live | to be written | The Claude assessment, the reconciliation and pipeline 4 run live with Claude on Amazon Bedrock. Held until the owner's security clearance for using Bedrock on the codebase |
