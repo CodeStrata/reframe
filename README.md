@@ -20,7 +20,7 @@ The design is in [docs/specification.md](docs/specification.md) (the AWS Transfo
 | Claude assessment | Alongside AWS Transform, Claude's code-modernization plugin assesses the same snapshot. Reframe puts its results in AWS Transform's shape, with generated requirements, and loads Claude's graph into the same Neptune cluster. Optional, and offered by default. |
 | 3. Reports | AWS Transform's business review, Claude's business review in the same layout, and a page comparing the two. |
 | 4. Reconciliation | `reframe reconcile` turns the two assessments into one recommended set. Rules both tools describe the same way are agreed; Claude decides every other rule against the source code, with evidence Reframe checks; both tools' open questions become one SME list, with the possible defects found in the code; recommended requirements and the reconciliation page are written from the result. You can give it a context folder (documents, review marks, the answered SME list), and running it again redoes only what your answers bear on. It needs no AWS resources. |
-| 5. Share | `reframe publish` makes a copy of the reports, cleaned of your account's identifiers, that anyone can open; it includes the reconciliation. |
+| 5. Share | `reframe publish` makes a copy of the reports, cleaned of your account's identifiers, that anyone can open; it includes the reconciliation. `reframe export --to xlsx` writes the reconciled requirements and business rules as one Excel workbook. |
 | 6. Teardown | Only when you run `reframe teardown`, after you consent to the full list. |
 
 Every change and step is written down before it starts and confirmed after, so a run that stops (an expired sign-in, Claude's usage limit) continues with `reframe resume` without repeating anything. The AWS Transform assessment takes about an hour; the Claude assessment about two, alongside it; the reconciliation about half an hour to an hour and a half of decisions on CardDemo. The stage-by-stage detail is in [docs/specification.md](docs/specification.md), [docs/pipeline-2.md](docs/pipeline-2.md) and [docs/pipeline-3.md](docs/pipeline-3.md).
@@ -77,6 +77,7 @@ An action on a run asks which run, with the latest as the default. After each ac
 | `reframe claude` | The Claude assessment: the same snapshot, assessed with Claude |
 | `reframe reconcile [--context <folder>] [--open]` | The reconciliation: one recommended set from both assessments, decided against the source code |
 | `reframe review --context <folder>` | Each reviewer's coverage, sign-offs and disagreements in a folder of review downloads |
+| `reframe export --to xlsx [--out <file or folder>] [--open]` | The reconciled results as one Excel workbook, with the reviewers' marks |
 | `reframe compare [--open]` | Build the comparison page again |
 | `reframe publish --to <folder or aws>` | A copy of the reports, cleaned of your account's identifiers |
 | `reframe reports [open \| download <project> \| teardown]` | The reports published to your AWS account: list, open or save one by project, or remove the bucket |
@@ -309,7 +310,17 @@ reframe reconcile --context ~/carddemo-context   # the next round combines them:
 
 `reframe status` shows which functions are signed off, by whom and when; pipeline 4 takes signed-off functions as final.
 
+**In a spreadsheet.** `reframe export --to xlsx` writes the reconciliation as one Excel workbook: a sheet each for domains, business functions, capabilities, requirements (with the business rules, programs and source lines behind each), business rules (with decision, confidence, evidence and worked examples), decision tables with their gaps, open questions and the SME list. With a context folder it adds each reviewer's mark and comment, and the sign-offs. Every cell is text, cleaned as `reframe publish` cleans its copy. Reframe does not read the workbook back: answers still go in the SME list CSV and marks in the review downloads.
+
+```bash
+reframe export --to xlsx --context ~/carddemo-context --open
+```
+
+On GenApp (run 8e5a08, 25 November 2026) it wrote 417 requirements, 446 business rules, 224 decision table rows and 190 SME questions in under two seconds.
+
 **On CardDemo** (run fa1f61, 24 November 2026), the estimate was 113 batches, 29 to 87 minutes and $56 to $130 at API prices. The run used about $67 at API prices. It decided 431 units with evidence that all exists in the snapshot and covered all 1,111 input rules. It wrote 1,204 recommended rules, 1,153 requirements and an SME list of 313 questions (from 349) with 187 possible defects. Run again with one more answered question, it decided 5 units again in 2 batches and kept 426. On the Claude subscription a full run can reach the five-hour usage limit; it stops with the reason, and `reframe resume` continues where it stopped.
+
+**Part 2 on CardDemo** (25 November 2026). Round 3 decided all 431 units again in about 52 minutes and $32 at API prices: 1,185 recommended rules with Reframe's confidence (718 high, 463 medium, 4 low), a kind and worked examples, 1,131 requirements with 114 decision tables, and 182 possible defects shown once each. An audit of a new sample found no rule wrong by both judges and 56 of 65 correct, with 6 for the owner to settle, and every rule with an error rated medium. Two reviewers' files, one JSON and one CSV with a disagreement and two sign-offs, went through `reframe review`, and round 4 decided 1 unit again and wrote one function's requirements again. The figures are in [docs/pipeline-3.md](docs/pipeline-3.md), section 8.12.
 
 ## Sharing the reports
 
@@ -379,7 +390,7 @@ python -m unittest discover -s tests -t .
 Next, in this order, in [docs/plan.md](docs/plan.md):
 
 1. **The reconciliation, part 2:** an accuracy audit on CardDemo, confidence and possible defects that mean something, and a review an SME can finish: a review-first view, sign-off by function, and every reviewer's marks read back.
-2. **Exports:** requirements to a spreadsheet, and backlog items with acceptance criteria for Jira or Azure DevOps.
+2. **Exports:** backlog items with acceptance criteria for Jira or Azure DevOps (requirements to a spreadsheet is built: `reframe export --to xlsx`).
 3. **Pipeline 4:** final requirements, an interactive clickable prototype of the modernized screens mapped one to one to the legacy ones, and an AI-DLC package for Claude Code or Kiro, updated as people add context.
 4. **Proving it at scale:** a larger codebase, then Claude on Amazon Bedrock.
 

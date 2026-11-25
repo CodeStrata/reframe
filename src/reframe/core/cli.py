@@ -24,6 +24,7 @@ HANDLERS = {
     "claude": "reframe.core.commands:claude",
     "reconcile": "reframe.core.commands:reconcile",
     "review": "reframe.core.commands:review",
+    "export": "reframe.core.commands:export",
     "compare": "reframe.core.commands:compare",
     "publish": "reframe.core.commands:publish",
     "reports": "reframe.core.commands:reports",
@@ -107,6 +108,14 @@ def parser() -> argparse.ArgumentParser:
                      "runs nothing, and the next reframe reconcile --context with the same folder combines them")
     _run_option(review)
     review.add_argument("--context", required=True, help="the folder holding the review downloads (JSON or CSV)")
+
+    export = command("export", "Write a run's reconciled results as one Excel workbook: domains, functions, capabilities, requirements, business "
+                     "rules, decision tables, open questions and the SME list, with the reviewers' marks; runs nothing")
+    _run_option(export)
+    export.add_argument("--to", required=True, choices=("xlsx",), help="the format: xlsx, an Excel workbook")
+    export.add_argument("--out", help="the file or folder to write it to (default: outputs/reconcile/<project>-<run>-requirements.xlsx in the run folder)")
+    export.add_argument("--context", help="a folder of review downloads whose marks to add (default: the reconciliation's context folder)")
+    export.add_argument("--open", action="store_true", help="open the workbook when written")
 
     compare = command("compare", "Build the page comparing AWS Transform's and Claude's results again")
     _run_option(compare)

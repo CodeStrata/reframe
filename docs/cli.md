@@ -48,6 +48,7 @@ reframe reconcile --context <folder>      # the reconciliation: shows the estima
 reframe reconcile --max-batches <n>       # go ahead with the estimate it showed
 reframe reconcile --open                  # the reconciliation page, opening with Review first
 reframe review --context <folder>         # several reviewers' downloads: coverage, sign-offs, disagreements
+reframe export --to xlsx                  # the reconciled results as one Excel workbook
 reframe publish --to aws                  # a cleaned copy in your account's private reports bucket
 reframe reports open <project>           # open the project's latest published copy with your AWS sign-in
 reframe teardown                          # remove the run's AWS resources, after you type yes
@@ -219,7 +220,27 @@ Read the review downloads in a folder and show each reviewer's coverage, sign-of
 reframe review --context ~/carddemo-context  # each reviewer's coverage, sign-offs and disagreements in the folder's review downloads
 ```
 
-It writes `reconcile/reviews.json` in the run folder. A download of another snapshot, or a CSV downloaded before part 2 (without a `key` column), is listed as ignored with the reason.
+On CardDemo (25 November 2026) it read a JSON and a CSV download, showed each reviewer's sign-off and the one item they marked differently; the next round decided only that item's unit again. It writes `reconcile/reviews.json` in the run folder. A download of another snapshot, or a CSV downloaded before part 2 (without a `key` column), is listed as ignored with the reason.
+
+### `reframe export`
+
+Write a run's reconciled results as one Excel workbook: domains, functions, capabilities, requirements, business rules, decision tables, open questions and the SME list, with the reviewers' marks; runs nothing.
+
+| Option | What it does |
+|---|---|
+| `--run <run>` | the run to act on (default: the latest run) |
+| `--to xlsx` | the format: xlsx, an Excel workbook |
+| `--out <out>` | the file or folder to write it to (default: outputs/reconcile/<project>-<run>-requirements.xlsx in the run folder) |
+| `--context <context>` | a folder of review downloads whose marks to add (default: the reconciliation's context folder) |
+| `--open` | open the workbook when written |
+
+```bash
+reframe export --to xlsx                               # the latest run's reconciled results as an Excel workbook in its run folder
+reframe export --to xlsx --out ~/Desktop --open        # write it to a folder and open it
+reframe export --to xlsx --context ~/carddemo-context  # with the reviewers' marks from the downloads in a folder
+```
+
+It opens on the Requirements sheet; every sheet has a frozen header row and filters. Requirements, business rules, capabilities and open questions carry **Mark** (every reviewer's marks combined, as the next round combines them), **Reviewers' marks** (each one, with the comment) and **Key**. Only downloads from the reconciled review of the same snapshot are read, from the run's own page or a published copy; the About sheet lists the files read and ignored. Every cell is text, never a formula, and cleaned as `reframe publish` cleans its copy; if anything is left, nothing is written. Reframe does not read the workbook back. See [sharing.md](sharing.md), section 7.
 
 ### `reframe compare`
 
