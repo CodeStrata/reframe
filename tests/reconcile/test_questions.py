@@ -22,7 +22,8 @@ class QuestionsTest(InputsTest):
                                       asked("aws", "f/OQ-002", "Who closes accounts?", ["a9"])]
         from reframe.reconcile import units
         self.found = units.units(self.gathered)
-        self.kept = {"group:c1": {"decision": "merged", "defect": "A negative limit passes validation", "evidence": ["app/cbl/PROG1.cbl:5-9"]},
+        self.kept = {"group:c1": {"decision": "merged", "defect": "A negative limit passes validation", "defect_call": "unintended",
+                                  "defect_evidence": ["app/cbl/PROG1.cbl:5-9"], "evidence": ["app/cbl/PROG1.cbl:1-3"]},
                      "aws:a9": {"decision": "needs_sme", "question": "Is the closing date the business date?", "defect": ""}}
 
     def fake(self, **others):
@@ -50,6 +51,7 @@ class QuestionsTest(InputsTest):
                          ["aws:f/OQ-001", "aws:f/OQ-002", "claude:claude/q1", "r4:aws:a9"])
         defect = next(q for q in listed if q["kind"] == "defect")
         self.assertEqual((defect["id"], defect["evidence"], defect["rules"]), ("DEF-001", ["app/cbl/PROG1.cbl:5-9"], ["c1", "a1"]))
+        self.assertEqual((defect["call"], defect["question"]), ("unintended", "Is this intended? A negative limit passes validation"))
         self.assertEqual(value["counts"], {"questions": 3, "defects": 1, "open": 4})
         rows = list(csv.DictReader(io.StringIO(self.folder.path("reconcile/questions.csv").read_text())))
         self.assertEqual(list(rows[0]), questions.COLUMNS)
@@ -57,6 +59,12 @@ class QuestionsTest(InputsTest):
         self.assertEqual(len(fake.other_calls), 1)
         questions.build(self.folder, fake, self.gathered, self.found, self.kept)
         self.assertEqual(len(fake.other_calls), 1)  # nothing changed: the merge is kept
+
+    def test_a_deliberate_defect_asks_to_confirm_it(self):
+        self.kept["group:c1"]["defect_call"] = "deliberate"
+        listed = questions.build(self.folder, self.fake(), self.gathered, self.found, self.kept)["questions"]
+        defect = next(q for q in listed if q["kind"] == "defect")
+        self.assertEqual(defect["question"], "Confirm this is deliberate: A negative limit passes validation")
 
     def test_a_merge_that_fails_the_check_is_asked_again_then_repaired(self):
         def broken(data):

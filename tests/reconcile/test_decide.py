@@ -195,6 +195,27 @@ class DecideTest(unittest.TestCase):
         self.assertIn('"compliance" (security and access control', fake.calls[0][2])
         self.assertEqual(self.folder.load("reconcile/decisions.json")["aws:a9"]["rules"][0]["kind"], "business")
 
+    def test_a_possible_defect_is_called_and_shown_by_its_lines_once_per_unit(self):
+        unit = next(u for u in self.found if u["kind"] == "aws_only")
+        ok = good([unit])["decisions"][0]
+        uncalled = {**ok, "defect": {"text": "A total is never reset", "call": "", "evidence": []}}
+        self.assertEqual(decide.problems(unit, uncalled, self.legacy),
+                         ["a possible defect needs its call: unintended or deliberate", "a possible defect needs the lines that show it, in its evidence"])
+        called = {**ok, "defect": {"text": "A total is never reset", "call": "deliberate", "evidence": ["app/cbl/PROG1.cbl:4-5"]}}
+        self.assertEqual(decide.problems(unit, called, self.legacy), [])
+        self.assertEqual(decide.split_defect(called["defect"]),
+                         {"defect": "A total is never reset", "defect_call": "deliberate", "defect_evidence": ["app/cbl/PROG1.cbl:4-5"]})
+        self.assertEqual(decide.split_defect({"text": "", "call": "deliberate", "evidence": ["x"]}), {"defect": "", "defect_call": "", "defect_evidence": []})
+
+        def with_defect(given):
+            answer = good(given)
+            for d in answer["decisions"]:
+                d["defect"] = {"text": "A total is never reset", "call": "unintended", "evidence": ["app/cbl/PROG1.cbl:4"]}
+            return answer
+        decide.decide(self.folder, self.claude(with_defect), self.found, self.data["context"], 1)
+        kept = self.folder.load("reconcile/decisions.json")["aws:a9"]
+        self.assertEqual((kept["defect"], kept["defect_call"], kept["defect_evidence"]), ("A total is never reset", "unintended", ["app/cbl/PROG1.cbl:4"]))
+
     def test_examples_are_checked_and_the_ones_not_in_the_code_removed(self):
         decide.decide(self.folder, self.claude(good), self.found, self.data["context"], 1)
         kept = self.folder.load("reconcile/decisions.json")["aws:a9"]

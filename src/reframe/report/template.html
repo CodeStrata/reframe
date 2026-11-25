@@ -179,7 +179,15 @@ function ruleCard(key){
     (r.examples && r.examples.length ? '<div class="small" style="margin:6px 0 0"><b>For example</b><ul style="margin:2px 0 0 18px;padding:0">' + r.examples.map(x =>
       '<li>' + (x.given.length ? x.given.map(g => esc(g.field) + ' ' + prose(g.value)).join(', ') + ' → ' : '') + prose(x.then) + '</li>').join('') + '</ul></div>' : '') +
     (r.decision ? decisionBlock(r) : '') +
-    (r.defect ? '<p class="small" style="margin:6px 0 0"><span class="tag warn">' + (r.decision ? 'Possible defect' : 'Suspected defect') + '</span> ' + prose(r.defect) + '</p>' : '') + markControls(key) + '</div>';
+    (r.defect && !(r.decision && r.n > 1) ? defectBlock(r) : '') + markControls(key) + '</div>';
+}
+// A possible defect belongs to the decision that found it: shown once, on its first rule (docs/pipeline-3.md, section 8.8).
+function defectBlock(r){
+  if (!r.decision) return '<p class="small" style="margin:6px 0 0"><span class="tag warn">Suspected defect</span> ' + prose(r.defect) + '</p>';
+  return '<div class="small" style="margin:6px 0 0"><span class="tag warn">Possible defect</span>' +
+    (r.defect_call ? '<span class="tag grey">' + (r.defect_call === 'deliberate' ? 'Looks deliberate' : 'Looks unintended') + '</span>' : '') +
+    (r.unit_rules > 1 ? '<span class="muted">applies to the ' + r.unit_rules + ' rules of this decision</span>' : '') + '<br>' + prose(r.defect) +
+    ((r.defect_evidence || []).length ? '<details><summary>The lines that show it</summary>' + r.defect_evidence.map(excerpt).join('') + '</details>' : '') + '</div>';
 }
 // Pipeline 3: how a recommended rule was decided, the rules it came from and the source lines behind it.
 const DECISION = {agreed: 'Agreed by both tools', merged: 'Merged from both tools', aws: 'AWS Transform was right', claude: "Claude's plugin was right",
@@ -369,7 +377,7 @@ function techPage(tab){
     'with the possible defects found in the code. Download it, fill in the <b>answer</b> column, put the file in your context folder and run <code>reframe reconcile</code> again.</p>' +
     '<p><button class="btn" id="smeCsv">Download the SME list (CSV)</button></p>' + filtered('sme', D.sme, {
     text: x => x.id + ' ' + x.question + ' ' + x.owner + ' ' + (x.from || []).join(' '),
-    selects: [['kind', 'Questions and possible defects', x => x.kind, () => [['question', 'Questions'], ['defect', 'Possible defects']]],
+    selects: [['kind', 'Questions and possible defects', x => x.kind + (x.call ? ':' + x.call : ''), () => [['question', 'Questions'], ['defect:unintended', 'Possible defects that look unintended'], ['defect:deliberate', 'Possible defects that look deliberate']]],
       ['status', 'Any status', x => x.status, () => [['open', 'Open'], ['settled', 'Settled by your context'], ['answered', 'Answered']]]],
     cols: [['ID', '90px'], ['Question', ''], ['Holds up', '28%'], ['Status', '150px']],
     render: x => '<tr><td class="id"><code>' + esc(x.id) + '</code></td><td>' + prose(x.question) + '<br><span class="small muted">From: ' + esc((x.from || []).join('; ')) + ' · For: ' + esc(x.owner) + '</span>' +
@@ -484,7 +492,7 @@ $('title').textContent = (D.reconcile ? 'Reconciled review' : 'Business review')
 $('subtitle').textContent = (D.reconcile ? 'AWS Transform and Claude reconciled against the source of ' : TOOL.name + ' assessment of ') + (D.source.name || 'the source') + (D.source.commit ? ' @ ' + String(D.source.commit).slice(0, 12) : '');
 document.addEventListener('click', e => {
   if (!e.target.closest('#smeCsv')) return;
-  const cols = ['id', 'kind', 'question', 'owner', 'status', 'rules', 'originals', 'from', 'evidence', 'settled_by', 'settled_answer', 'answer'];
+  const cols = ['id', 'kind', 'call', 'question', 'owner', 'status', 'rules', 'originals', 'from', 'evidence', 'settled_by', 'settled_answer', 'answer'];
   const cell = v => '"' + String(v == null ? '' : Array.isArray(v) ? v.join(' ') : v).replace(/"/g, '""') + '"';
   download('sme-list-' + (D.project || 'run') + '.csv', 'text/csv;charset=utf-8', '\ufeff' + [cols.join(',')].concat(D.sme.map(x => cols.map(c => cell(c === 'from' ? (x.from || []).join('; ') : x[c])).join(','))).join('\r\n'));
 });

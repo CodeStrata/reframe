@@ -96,6 +96,8 @@ class PipelineTest(InputsTest):
         self.assertEqual(data["evidence"]["app/cbl/PROG1.cbl:1"]["lines"], ["line 1"])  # the entry lines, read from the snapshot
         self.assertIn("How the code is reached", page)
         self.assertEqual((data["reconcile"]["examples"], data["reconcile"]["examples_removed"]), (5, 0))
+        self.assertIn("applies to the ' + r.unit_rules + ' rules of this decision", page)
+        self.assertIn("r.defect && !(r.decision && r.n > 1)", page)  # a unit's note is shown on its first rule only
         self.assertEqual([q["id"] for q in data["sme"]], ["SME-001"])
         self.assertEqual(len(data["requirements"]), 3)
         self.assertTrue(all(r["requirements"] for r in data["rules"]))  # every recommended rule backs a requirement

@@ -23,6 +23,7 @@ GROUP = ("merged", "aws", "claude", "rewritten", "rejected", "needs_sme")
 ONE_SIDED = ("kept", "rejected", "needs_sme")
 UNCOVERED = ("rejected", "needs_sme")  # decisions that need not cover their rules
 REACHABLE = ("yes", "no", "unknown")
+CALLS = ("unintended", "deliberate")  # a possible defect's call (docs/pipeline-3.md, section 8.8)
 # Worked examples (docs/pipeline-3.md, section 8.7): the same shape as reconcile.examples.SCHEMA, which imports this module.
 EXAMPLES = {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "object", "required": ["given", "then"], "properties": {
     "given": {"type": "array", "items": {"type": "object", "required": ["field", "value"],
@@ -47,7 +48,8 @@ SCHEMA = {"type": "object", "required": ["decisions"], "properties": {"decisions
         "reason": {"type": "string"},
         "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
         "question": {"type": "string"},
-        "defect": {"type": "string"},
+        "defect": {"type": "object", "required": ["text", "call", "evidence"], "properties": {
+            "text": {"type": "string"}, "call": {"type": "string", "enum": ["", *CALLS]}, "evidence": {"type": "array", "items": {"type": "string"}}}},
         "reachable": {"type": "string", "enum": list(REACHABLE)},
         "entry": {"type": "array", "items": {"type": "string"}},
         "depends": {"type": "string"},
@@ -67,7 +69,7 @@ Write the rules for business reviewers who do not read COBOL: plain business lan
 
 {kinds} {examples}
 
-For every decision except "needs_sme", give evidence: the lines that support it, as "<path>:<start>-<end>" or "<path>:<line>", with paths relative to {legacy}/ exactly as the files are named. Give a one or two sentence reason naming what in the code decided it, and a confidence. "question" is empty unless the decision is "needs_sme"; "rules" is empty for "rejected" and "needs_sme". If the code does something that looks unintended (a case it reports wrongly, a check it skips), describe it in "defect"; otherwise leave it empty. "entry" lines are given like evidence. "context" names the documents, marks or answers you used, if any. Answer for every unit, using its key exactly. Answer only with the JSON."""
+For every decision except "needs_sme", give evidence: the lines that support it, as "<path>:<start>-<end>" or "<path>:<line>", with paths relative to {legacy}/ exactly as the files are named. Give a one or two sentence reason naming what in the code decided it, and a confidence. "question" is empty unless the decision is "needs_sme"; "rules" is empty for "rejected" and "needs_sme". If the code does something that may be a defect (a case it reports wrongly, a check it skips), describe it once for the unit in "defect": its "text", whether it looks "unintended" or "deliberate" in "call" (deliberate when a comment, the way it is written or the rest of the code shows it was meant), and in "evidence" the lines that show which; otherwise leave the text, call and evidence empty. "entry" lines are given like evidence. "context" names the documents, marks or answers you used, if any. Answer for every unit, using its key exactly. Answer only with the JSON."""
 
 RETRY = """Your answer for some units failed Reframe's checks. Answer again for these units only, in the same JSON shape:
 
@@ -125,6 +127,15 @@ def problems(unit: dict[str, Any], answer: dict[str, Any] | None, legacy: Path) 
     bad = missing_evidence(evidence, legacy)
     if bad:
         found.append(f"evidence that does not exist in the snapshot: {', '.join(map(str, bad))}")
+    defect = answer.get("defect") if isinstance(answer.get("defect"), dict) else {"text": str(answer.get("defect") or "")}
+    if str(defect.get("text") or "").strip():
+        if defect.get("call") not in CALLS:
+            found.append(f'a possible defect needs its call: {" or ".join(CALLS)}')
+        if not defect.get("evidence"):
+            found.append("a possible defect needs the lines that show it, in its evidence")
+        bad_defect = missing_evidence(defect.get("evidence") or [], legacy)
+        if bad_defect:
+            found.append(f"defect evidence that does not exist in the snapshot: {', '.join(map(str, bad_defect))}")
     wrong_kind = [str(r.get("kind")) for r in answer.get("rules") or [] if r.get("kind") not in KINDS]
     if wrong_kind:
         found.append(f"a rule's kind must be one of {', '.join(KINDS)}, not {', '.join(wrong_kind)}")
@@ -158,6 +169,13 @@ class Decisions:
             self.saved[unit["key"]] = {"hash": unit["hash"], "round": round_, "at": iso(), "attempts": attempts, "check_failed": failed,
                                        "kind": unit["kind"], "program": unit["program"], **decision}
             self.folder.save("reconcile/decisions.json", self.saved)
+
+
+def split_defect(defect: Any) -> dict[str, Any]:
+    """A decision's possible defect as kept: its text in "defect", with "defect_call" and "defect_evidence"."""
+    d = defect if isinstance(defect, dict) else {"text": str(defect or "")}
+    text = str(d.get("text") or "").strip()
+    return {"defect": text, "defect_call": d.get("call", "") if text else "", "defect_evidence": list(d.get("evidence") or []) if text else []}
 
 
 def fallback(unit: dict[str, Any], failed: list[str]) -> dict[str, Any]:
@@ -232,6 +250,7 @@ class Batch:
                     failed[key] = wrong
                     continue
                 a = {k: answers[key].get(k) for k in KEPT}
+                a.update(split_defect(a.get("defect")))
                 from reframe.reconcile.examples import check_rules
                 a["rules"], a["examples_removed"] = check_rules(a.get("rules") or [], list(a.get("evidence") or []) + list(a.get("entry") or []),
                                                                 self.places["legacy"])

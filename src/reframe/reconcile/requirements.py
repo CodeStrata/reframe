@@ -81,7 +81,8 @@ def recommended_rules(gathered: dict[str, Any], found: list[dict[str, Any]], kep
             made_rule = {"key": reconciled_key(u["key"], n), "unit": u["key"], "n": n, "text": rule.get("text", ""), "name": name(rule.get("covers") or []),
                          "covers": list(rule.get("covers") or []), "program": u["program"], "decision": d.get("decision"), "reason": d.get("reason", ""),
                          "evidence": d.get("evidence") or [], "context": d.get("context") or [],
-                         "round": d.get("round"), "changed": bool(d.get("changed")), "defect": d.get("defect", ""), "unit_rules": len(d.get("rules") or []),
+                         "round": d.get("round"), "changed": bool(d.get("changed")), "defect": d.get("defect", ""), "defect_call": d.get("defect_call", ""),
+                         "defect_evidence": d.get("defect_evidence") or [], "unit_rules": len(d.get("rules") or []),
                          "conflict": any(p.get("relation") == "conflicting" for p in u.get("pairs") or []), "kind": rule.get("kind") or "",
                          "examples": rule.get("examples") or [], "examples_removed": d.get("examples_removed", 0) if n == 1 else 0}
             made.append({**made_rule, **facts(made_rule, d)})
