@@ -237,3 +237,26 @@ For a rejected item the input rule itself is judged: a `wrong` or `unsure` verdi
 **Settling.** Where the two judges give different verdicts, or different defect answers, the item goes to `reconcile/audit/settle.csv` with both answers and an empty `owner` column for the owner to fill in. Items the judges agree on take their shared answer.
 
 **The figures** (`reconcile/audit/audit.json`, and the results below): per decision kind and overall, the share of items `correct`, `correct` or `minor`, and `wrong`; how often the judges agreed; the confidence of the items found `minor` or `wrong`; the share of defect notes found `real`; and the time and cost of each judge.
+
+### Results (P3-11, 25 November 2026)
+
+On CardDemo run fa1f61: 59 items (56 recommended rules and the 3 rejected input rules), judged by Opus 5.5 in a fresh session and by Sonnet 5.5, on the Claude subscription. Both judges took about 7 to 9 minutes; together they cost about $8 at API prices. Seven items wait for the owner's settling, so the figures below give the judges' shared answers and, for the disputed items, a range.
+
+| Kind | Items | Both judges: correct | Disputed | Both judges: wrong |
+|---|---|---|---|---|
+| Agreed without an agent | 8 | 6 | 2 | 0 |
+| Merged | 20 | 20 | 0 | 0 |
+| Kept, found only by AWS Transform | 12 | 10 | 2 | 0 |
+| Kept, found only by Claude | 8 | 7 | 1 | 0 |
+| Rewritten from the code | 6 | 6 | 0 | 0 |
+| Claude's rule chosen | 2 | 2 | 0 | 0 |
+| **Recommended rules** | **56** | **51 (91%)** | **5** | **0** |
+| Rejected input rules | 3 | – | 0 | 3: every rejection upheld |
+
+- **Accuracy.** Between 51 and 56 of the 56 recommended rules are correct (91% to 100%), and no rule was judged wrong by both judges. The 5 disputed rules are a wrong or missing detail in 3 cases and, in 2, behaviour that does not happen when the code runs: a menu branch no menu entry reaches, and a load job whose job card carries `TYPRUN=SCAN`, so it is only syntax-checked. With 56 items this is a sample: the share of correct rules in the whole set could be lower by about 10 points.
+- **Where the errors are.** Merged and rewritten rules, the ones an agent decided against the code with both tools' rules in front of it, were all correct (26 of 26). The disputed rules are rules both tools described the same way, which no agent checked, and rules only one tool found. Two tools agreeing is not proof.
+- **Rejections.** All 3 were right: each rejected rule describes code that can never run.
+- **Confidence.** Every sampled rule is rated high, the disputed ones included, so confidence says nothing about which rules to check (P3-12).
+- **Possible defects.** Of the 27 unit notes judged, both judges found 24 real, 1 not a defect, and 2 are disputed. The notes are mostly right. The earlier count of 636 rules with a note came from each unit's note being repeated on every rule of the unit; 187 of the 431 units have one. P3-13 therefore becomes showing each note once, on its unit, and telling real defects from deliberate behaviour, rather than cutting their number.
+- **The judges.** They agreed on 52 of the 59 verdicts and on 25 of the 27 defect answers. Both are Claude models, so they are independent of the decisions but not of each other's training; a judge from another model family would be a stronger check.
+- **The audit's own questions.** A first pass, kept as `reconcile/audit-v1/`, showed three ways the questions misled the judges: a rule describing code that can never run was judged `correct`, which made right rejections look wrong; one rule of a unit split in two was said to lose the other half; and a unit's defect note was judged on every sampled rule of the unit. The method above fixes all three.
