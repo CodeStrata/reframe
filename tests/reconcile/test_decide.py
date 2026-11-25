@@ -20,7 +20,7 @@ def alone(data):
 
 def described(data):
     """An R2b step: every agreed rule's code runs, reached from line 1."""
-    return {"rules": [{"rule": r["key"], "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:1"], "depends": ""} for r in data["rules"]]}
+    return {"rules": [{"rule": r["key"], "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:1"], "depends": "", "kind": "validation"} for r in data["rules"]]}
 
 
 def plain_requirements(data):
@@ -70,7 +70,7 @@ class FakeClaude:
 
 def good(given):
     return {"decisions": [{"unit": u["key"], "decision": "merged" if u["kind"] == "group" else "kept",
-                           "rules": [{"text": "WHEN x, THE system SHALL y", "covers": [r["key"] for r in u["rules"]]}],
+                           "rules": [{"text": "WHEN x, THE system SHALL y", "covers": [r["key"] for r in u["rules"]], "kind": "business"}],
                            "changed": False, "evidence": ["app/cbl/PROG1.cbl:1-3"], "reason": "lines 1-3", "confidence": "high",
                            "question": "", "defect": "", "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:1"], "depends": ""} for u in given]}
 
@@ -181,6 +181,16 @@ class DecideTest(unittest.TestCase):
         self.assertEqual(decide.problems(group, dead_group, self.legacy), [])  # a group about code that never runs may be rejected
         self.assertIn("can never run", decide.PROMPT)
         self.assertIn("TYPRUN=SCAN", decide.PROMPT)
+
+    def test_each_rule_has_one_of_the_kinds(self):
+        unit = next(u for u in self.found if u["kind"] == "aws_only")
+        ok = good([unit])["decisions"][0]
+        odd = {**ok, "rules": [{**ok["rules"][0], "kind": "policy"}]}
+        self.assertEqual(decide.problems(unit, odd, self.legacy), [f"a rule's kind must be one of {', '.join(decide.KINDS)}, not policy"])
+        fake = self.claude(good)
+        decide.decide(self.folder, fake, self.found, self.data["context"], 1)
+        self.assertIn('"compliance" (security and access control', fake.calls[0][2])
+        self.assertEqual(self.folder.load("reconcile/decisions.json")["aws:a9"]["rules"][0]["kind"], "business")
 
     def test_the_method_is_part_of_each_units_hash(self):
         before = {u["key"]: u["hash"] for u in self.found}

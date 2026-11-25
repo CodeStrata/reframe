@@ -163,11 +163,17 @@ const PATTERN = {'Ubiquitous': 'Always', 'Event-driven': 'When something happens
 function crumbs(parts){ return '<div class="crumbs">' + parts.map(([label, href]) => href ? '<a href="' + href + '">' + esc(label) + '</a>' : '<b>' + esc(label) + '</b>').join('<span>›</span>') + '</div>'; }
 function numbers(list){ return '<div class="numbers">' + list.map(([n, l]) => '<div><b>' + n + '</b><span>' + esc(l) + '</span></div>').join('') + '</div>'; }
 function countLine(c, extra){ return '<div class="counts">' + (extra || '') + '<span><b>' + c.req + '</b> requirements</span><span><b>' + c.rule + '</b> business rules</span><span><b>' + c.q + '</b> open questions</span></div>'; }
+// Pipeline 3: what kind of rule (docs/pipeline-3.md, section 8.6); business, validation and compliance rules come first.
+const KIND = {business: 'Business rule', validation: 'Validation', compliance: 'Compliance', error_handling: 'Error handling', display: 'Display',
+  technical: 'Technical step', side_effect: 'Side effect', leftover: 'Leftover'};
+const KIND_ORDER = Object.keys(KIND);
+const kindRank = key => { const r = ruleByKey[key]; const i = r && r.kind ? KIND_ORDER.indexOf(r.kind) : -1; return i < 0 ? KIND_ORDER.length : i; };
+const byKind = keys => keys.slice().sort((a, b) => kindRank(a) - kindRank(b));
 function ruleCard(key){
   const r = ruleByKey[key]; if (!r) return '';
   const extra = (r.priority ? '<span class="tag' + (r.priority === 'P0' ? ' warn' : '') + '">' + esc(r.priority) + '</span>' : '') + (r.category ? '<span class="tag grey">' + esc(r.category) + '</span>' : '') +
     (r.confidence ? '<span class="tag ' + (r.decision && r.confidence !== 'high' ? 'warn' : 'grey') + '"' + (r.confidence_why ? ' title="' + esc(r.confidence_why) + '"' : '') + '>Confidence: ' + esc(r.confidence) + '</span>' : '') + (r.source ? '<code>' + esc(r.source) + '</code>' : '');
-  return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><span class="tag grey">Business rule</span>' + (r.id && TOOL.key !== 'aws' ? '<code>' + esc(r.id) + '</code>' : '') +
+  return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><span class="tag grey">' + esc(r.kind ? KIND[r.kind] || r.kind : 'Business rule') + '</span>' + (r.id && TOOL.key !== 'aws' ? '<code>' + esc(r.id) + '</code>' : '') +
     '<span>' + esc(r.program) + '</span>' + extra + '</div>' +
     '<div class="text"><b>' + prose(r.name) + '</b>' + (r.plain ? '<br>' + prose(r.plain) : '') + '<br>' + prose(r.text).replace(/\n/g, '<br>') + '</div>' +
     (r.decision ? decisionBlock(r) : '') +
@@ -202,7 +208,7 @@ function requirementCard(key){
   const kind = r.kind === 'N' ? 'Non-functional' : 'Functional';
   return '<div class="item ' + ((marks[key] || {}).status || '') + '" id="' + anchor(key) + '"><div class="head"><code>' + esc(r.code) + '</code>' + GEN + '<span class="tag">' + esc(PATTERN[r.pattern] || r.pattern || kind) + '</span>' +
     (r.kind === 'N' ? '<span class="tag grey">Non-functional</span>' : '') + '</div><div class="text">' + prose(r.text) + '</div>' + markControls(key) +
-    (rules.length ? '<details><summary>' + plural(rules.length, 'business rule') + ' behind it</summary><div class="rules">' + rules.map(ruleCard).join('') + '</div></details>' : '') + '</div>';
+    (rules.length ? '<details><summary>' + plural(rules.length, 'business rule') + ' behind it</summary><div class="rules">' + byKind(rules).map(ruleCard).join('') + '</div></details>' : '') + '</div>';
 }
 function questionCard(key){
   const q = qByKey[key];
@@ -273,7 +279,7 @@ function functionPage(f){
   }).join('');
   const notes = f.notes.filter(n => !n.technical);
   if (notes.length) h += '<h3>Notes for the whole function</h3>' + notes.map(n => '<details class="panel doc"><summary>' + esc(n.heading) + '</summary>' + n.html + '</details>').join('');
-  if (f.other_rules.length) h += '<h3>Other business rules</h3><p class="small muted">Rules ' + esc(TOOL.name) + ' kept for this function that no requirement cites.</p>' + f.other_rules.map(ruleCard).join('');
+  if (f.other_rules.length) h += '<h3>Other business rules</h3><p class="small muted">Rules ' + esc(TOOL.name) + ' kept for this function that no requirement cites.</p>' + byKind(f.other_rules).map(ruleCard).join('');
   if (f.set_aside.length) h += '<details class="panel"><summary>' + plural(f.set_aside.length, 'technical step') + ' AWS set aside</summary><p class="small muted">AWS judged these not to be business rules (for example opening a file). They are not part of the review.</p>' +
     f.set_aside.map(k => { const r = ruleByKey[k]; return '<p><b>' + prose(r.name) + '</b> <span class="muted small">' + esc(r.program) + ' · ' + esc(r.reason) + '</span><br>' + prose(r.text) + '</p>'; }).join('') + '</details>';
   const t = f.technical, chips = (label, xs) => xs.length ? '<p><b>' + label + ':</b> ' + xs.map(x => '<span class="tag grey">' + esc(x) + '</span> ').join('') + '</p>' : '';
@@ -342,10 +348,11 @@ function techPage(tab){
     text: r => r.name + ' ' + r.text + ' ' + r.program + ' ' + r.requirements.join(' '),
     selects: [byFunction, byCapability(r => capOfRule(r.key)),
       ['disp', 'Business rules and technical steps', r => r.disposition, rows => [...new Set(rows.map(r => r.disposition))].sort().map(d => [d, d === 'captured' ? 'Business rules' : 'Set aside: ' + d.replace(/_/g, ' ')])],
-      ['program', 'All programs', r => r.program, rows => [...new Set(rows.map(r => r.program).filter(Boolean))].sort().map(p => [p, p])]],
+      ['program', 'All programs', r => r.program, rows => [...new Set(rows.map(r => r.program).filter(Boolean))].sort().map(p => [p, p])]]
+      .concat(D.rules.some(r => r.kind) ? [['rkind', 'Every kind of rule', r => r.kind || '', () => KIND_ORDER.map(k => [k, KIND[k]])]] : []),
     cols: [['Function and capability', '22%'], ['Program', '100px'], ['Rule', ''], [TOOL.short + ' kept it as', '140px'], ['Backs', '112px']],
     render: r => '<tr><td>' + place(r.function, capOfRule(r.key)) + '</td><td>' + esc(r.program) + '</td><td>' + (r.id && TOOL.key !== 'aws' ? '<code>' + esc(r.id) + '</code> ' : '') + '<b>' + prose(r.name) + '</b><br>' + prose(r.text).replace(/\n/g, '<br>') + '</td><td>' +
-      (r.decision ? esc(DECISION[r.decision] || r.decision) + '<br><span class="small muted">Round ' + esc(r.round || 0) + (r.confidence ? ' · confidence ' + esc(r.confidence) : '') + '</span>' :
+      (r.decision ? esc(DECISION[r.decision] || r.decision) + '<br><span class="small muted">' + (r.kind ? esc(KIND[r.kind] || r.kind) + ' · ' : '') + 'Round ' + esc(r.round || 0) + (r.confidence ? ' · confidence ' + esc(r.confidence) : '') + '</span>' :
        r.disposition === 'captured' ? 'Business rule' + (r.priority ? ' · ' + esc(r.priority) : '') + (r.confidence ? '<br><span class="small muted">Confidence ' + esc(r.confidence) + '</span>' : '') : esc(r.disposition.replace(/_/g, ' ')) + (r.reason ? '<br><span class="small muted">' + esc(r.reason) + '</span>' : '')) + '</td><td>' +
       r.requirements.map(code => idLink(code, (reqByKey[r.function + '/' + code] || {}).capability, r.function + '/' + code)).join(' ') + '</td></tr>'});
   if (tab === 'questions') h += filtered('questions', D.questions, {

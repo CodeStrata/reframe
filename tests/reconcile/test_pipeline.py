@@ -47,6 +47,7 @@ class PipelineTest(InputsTest):
         self.assertEqual({d: r["confidence"] for d, r in made.items()}, {"agreed": "medium", "merged": "high", "kept": "medium"})
         self.assertEqual((made["merged"]["reachable"], made["merged"]["entry"], made["merged"]["model_confidence"]), ("yes", ["app/cbl/PROG1.cbl:1"], "high"))
         self.assertEqual(rec["described"]["described"], 1)
+        self.assertEqual({d: r["kind"] for d, r in made.items()}, {"agreed": "validation", "merged": "business", "kept": "business"})
         self.assertEqual(pipeline.request(self.folder)["round"], 2)  # a finished round: the next request is a new one
         self.assertEqual((rec["estimate"]["batches"], rec["estimate"]["round"]), (1, 1))
         pipeline.update(self.folder, round=1, status="RUNNING")  # resumed in the same round, with nothing left to decide
@@ -89,6 +90,7 @@ class PipelineTest(InputsTest):
         self.assertEqual(data["evidence"]["app/cbl/PROG1.cbl:1-3"]["lines"], ["line 1", "line 2", "line 3"])  # read from the snapshot
         self.assertEqual(data["reconcile"]["rules"], {"agreed": 1, "merged": 1, "kept": 1})
         self.assertEqual(data["reconcile"]["confidence"], {"medium": 2, "high": 1})
+        self.assertEqual(data["reconcile"]["kinds"], {"validation": 1, "business": 2})
         self.assertEqual((merged["confidence"], merged["entry"]), ("high", ["app/cbl/PROG1.cbl:1"]))
         self.assertEqual(data["evidence"]["app/cbl/PROG1.cbl:1"]["lines"], ["line 1"])  # the entry lines, read from the snapshot
         self.assertIn("How the code is reached", page)

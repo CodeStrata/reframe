@@ -3,7 +3,7 @@
 
 Identical pairs are agreed without an agent deciding them (stage R2, the owner's decision). They still need what every
 other recommended rule has, so a headless step reads each agreed rule's cited lines and says whether the code runs, how
-it is reached and what it depends on outside the source. It does not change the wording or the decision. Answers are
+it is reached, what it depends on outside the source, and what kind of rule it is. It does not change the wording or the decision. Answers are
 checked like stage R4's, asked once more if they fail, and kept by rule with a hash of the rule, so a later round
 describes only rules that changed.
 
@@ -21,14 +21,15 @@ from typing import Any
 
 from reframe.core.runfolder import RunFolder, iso
 from reframe.reconcile import units as unitlib
-from reframe.reconcile.decide import REACHABLE, missing_evidence
+from reframe.reconcile.decide import KIND_GUIDE, KINDS, REACHABLE, missing_evidence
 
 FILE = "reconcile/described.json"
 
 SCHEMA = {"type": "object", "required": ["rules"], "properties": {"rules": {"type": "array", "items": {
-    "type": "object", "required": ["rule", "reachable", "entry", "depends"],
+    "type": "object", "required": ["rule", "reachable", "entry", "depends", "kind"],
     "properties": {
         "rule": {"type": "string"},
+        "kind": {"type": "string", "enum": list(KINDS)},
         "reachable": {"type": "string", "enum": list(REACHABLE)},
         "entry": {"type": "array", "items": {"type": "string"}},
         "depends": {"type": "string"}}}}}}
@@ -37,6 +38,7 @@ PROMPT = """Read {input}. It holds business rules about a legacy system that two
 
 - Check that the code the rule describes can run: a paragraph must be reached from the program's entry, and a program from a menu entry, a transaction, an XCTL, LINK or CALL, or a job step that runs (not in a job whose job card has TYPRUN=SCAN, and not commented out). Say so in "reachable": "yes" with the lines that show how it is reached in "entry", "no" if it can never run, or "unknown" if the source cannot show it.
 - In "depends", say what the behaviour depends on outside the source (data, configuration, a program not in the source), or leave it empty.
+- {kinds}
 
 Give "entry" lines as "<path>:<start>-<end>" or "<path>:<line>", with paths relative to {legacy}/ exactly as the files are named. Answer for every rule, using its key exactly. Answer only with the JSON."""
 
@@ -44,7 +46,7 @@ RETRY = """Your answer for some rules failed Reframe's checks. Answer again for 
 
 {problems}"""
 
-FIELDS = ("reachable", "entry", "depends")
+FIELDS = ("reachable", "entry", "depends", "kind")
 
 
 def _hash(value: Any) -> str:
@@ -64,6 +66,8 @@ def problems(answer: dict[str, Any] | None, legacy: Path) -> list[str]:
     if answer is None:
         return ["no answer for this rule"]
     found = []
+    if answer.get("kind") not in KINDS:
+        found.append(f"kind must be one of {', '.join(KINDS)}")
     reachable = answer.get("reachable")
     if reachable not in REACHABLE:
         found.append(f'reachable must be one of {", ".join(REACHABLE)}')
@@ -78,7 +82,7 @@ def problems(answer: dict[str, Any] | None, legacy: Path) -> list[str]:
 
 
 def fallback(failed: list[str]) -> dict[str, Any]:
-    return {"reachable": "unknown", "entry": [], "depends": "", "check_failed": failed}
+    return {"reachable": "unknown", "entry": [], "depends": "", "kind": "", "check_failed": failed}
 
 
 def describe(folder: RunFolder, claude, agreed: list[dict[str, Any]]) -> dict[str, Any]:
@@ -115,7 +119,8 @@ def describe(folder: RunFolder, claude, agreed: list[dict[str, Any]]) -> dict[st
             path = folder_in / f"{name}{'-retry' if attempt == 2 else ''}.json"
             path.write_text(json.dumps({"rules": [{"key": i["key"], "program": i["program"], "name": i["name"], "text": i["text"], "cites": i["cites"]}
                                                   for i in todo.values()]}, indent=1))
-            prompt = PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", legacy=f"legacy/{project}")
+            prompt = PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", legacy=f"legacy/{project}",
+                                   kinds=KIND_GUIDE)
             if attempt == 2:
                 prompt += "\n\n" + RETRY.format(problems="\n".join(f"- {k}: {'; '.join(v)}" for k, v in failed.items()))
             step = claude.run(f"{name}{'-retry' if attempt == 2 else ''}", prompt, timeout=3600, schema=SCHEMA)

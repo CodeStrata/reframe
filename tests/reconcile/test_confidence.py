@@ -55,21 +55,22 @@ class DescribeTest(unittest.TestCase):
         def answer(data):
             attempts.append([r["key"] for r in data["rules"]])
             if len(attempts) == 1:  # the first answer cites a line past the end for a2: asked once more for a2 only
-                return {"rules": [{"rule": "agreed:a1", "reachable": "no", "entry": [], "depends": ""},
-                                  {"rule": "agreed:a2", "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:99"], "depends": ""}]}
-            return {"rules": [{"rule": "agreed:a2", "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:3"], "depends": ""}]}
+                return {"rules": [{"rule": "agreed:a1", "reachable": "no", "entry": [], "depends": "", "kind": "display"},
+                                  {"rule": "agreed:a2", "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:99"], "depends": "", "kind": "business"}]}
+            return {"rules": [{"rule": "agreed:a2", "reachable": "yes", "entry": ["app/cbl/PROG1.cbl:3"], "depends": "", "kind": "business"}]}
         result = describe.describe(self.folder, self.fake(answer), self.agreed)
         self.assertEqual(result, {"described": 2, "kept_from_before": 0, "batches": 1})
         self.assertEqual(attempts, [["agreed:a1", "agreed:a2"], ["agreed:a2"]])
         saved = self.folder.load(describe.FILE)
         self.assertEqual((saved["agreed:a1"]["reachable"], saved["agreed:a2"]["entry"], saved["agreed:a2"]["attempts"]), ("no", ["app/cbl/PROG1.cbl:3"], 2))
+        self.assertEqual((saved["agreed:a1"]["kind"], saved["agreed:a2"]["kind"]), ("display", "business"))
         again = describe.describe(self.folder, self.fake(answer), self.agreed)
         self.assertEqual(again["described"], 0)
         self.agreed[0]["text"] = "rule 1, reworded"
         self.assertEqual(describe.describe(self.folder, self.fake(answer), self.agreed)["described"], 1)
 
     def test_an_answer_that_fails_twice_is_described_as_unknown(self):
-        bad = lambda data: {"rules": [{"rule": r["key"], "reachable": "yes", "entry": [], "depends": ""} for r in data["rules"]]}  # noqa: E731
+        bad = lambda data: {"rules": [{"rule": r["key"], "reachable": "yes", "entry": [], "depends": "", "kind": "business"} for r in data["rules"]]}  # noqa: E731
         describe.describe(self.folder, self.fake(bad), self.agreed)
         saved = self.folder.load(describe.FILE)
         self.assertEqual(saved["agreed:a1"]["reachable"], "unknown")

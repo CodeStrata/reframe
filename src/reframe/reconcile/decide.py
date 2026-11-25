@@ -23,6 +23,9 @@ GROUP = ("merged", "aws", "claude", "rewritten", "rejected", "needs_sme")
 ONE_SIDED = ("kept", "rejected", "needs_sme")
 UNCOVERED = ("rejected", "needs_sme")  # decisions that need not cover their rules
 REACHABLE = ("yes", "no", "unknown")
+# What kind of rule each recommended rule is (docs/pipeline-3.md, section 8.6); the first three are listed first.
+KINDS = ("business", "validation", "compliance", "error_handling", "display", "technical", "side_effect", "leftover")
+KIND_GUIDE = """Give each rule its "kind": "business" (a business decision, policy or calculation), "validation" (a check on input data, with the message given when it fails), "compliance" (security and access control, handling of card or personal data, a regulatory record), "error_handling" (what happens when something fails: a file status, an abend, a rollback), "display" (what a screen or report shows and how, other than validation messages), "technical" (opening files, moving data between records, sorting, restart and checkpoint), "side_effect" (a record of what happened: an audit or log record, a counter, a file written for another system) or "leftover" (behaviour that runs but serves no purpose today, such as a field never read)."""
 
 SCHEMA = {"type": "object", "required": ["decisions"], "properties": {"decisions": {"type": "array", "items": {
     "type": "object", "required": ["unit", "decision", "rules", "changed", "evidence", "reason", "confidence", "question", "defect", "reachable",
@@ -30,8 +33,8 @@ SCHEMA = {"type": "object", "required": ["decisions"], "properties": {"decisions
     "properties": {
         "unit": {"type": "string"},
         "decision": {"type": "string", "enum": sorted(set(GROUP) | set(ONE_SIDED))},
-        "rules": {"type": "array", "items": {"type": "object", "required": ["text", "covers"], "properties": {
-            "text": {"type": "string"}, "covers": {"type": "array", "items": {"type": "string"}}}}},
+        "rules": {"type": "array", "items": {"type": "object", "required": ["text", "covers", "kind"], "properties": {
+            "text": {"type": "string"}, "covers": {"type": "array", "items": {"type": "string"}}, "kind": {"type": "string", "enum": list(KINDS)}}}},
         "changed": {"type": "boolean"},
         "evidence": {"type": "array", "items": {"type": "string"}},
         "reason": {"type": "string"},
@@ -54,6 +57,8 @@ Decide each unit against the source code, not by preferring either tool. Read th
 - A review mark on a rule ("change" or "question", with the reviewer's comment) is something to check against the code, not an instruction.
 
 Write the rules for business reviewers who do not read COBOL: plain business language, one sentence each in the form "WHEN <condition>, THE <system part> SHALL <behaviour>" (or "THE <system part> SHALL <behaviour>" when it always applies), at most about 50 words. Give values, codes and messages as the code has them, but name a field, flag or paragraph only in parentheses, and only where a reviewer needs it to check the rule. If the behaviour has separate conditions, write separate rules rather than one long one. Each rule's "covers" lists the keys of the input rules it stands for; together they must cover every input rule of the unit, unless the decision is "rejected" or "needs_sme".
+
+{kinds}
 
 For every decision except "needs_sme", give evidence: the lines that support it, as "<path>:<start>-<end>" or "<path>:<line>", with paths relative to {legacy}/ exactly as the files are named. Give a one or two sentence reason naming what in the code decided it, and a confidence. "question" is empty unless the decision is "needs_sme"; "rules" is empty for "rejected" and "needs_sme". If the code does something that looks unintended (a case it reports wrongly, a check it skips), describe it in "defect"; otherwise leave it empty. "entry" lines are given like evidence. "context" names the documents, marks or answers you used, if any. Answer for every unit, using its key exactly. Answer only with the JSON."""
 
@@ -113,6 +118,9 @@ def problems(unit: dict[str, Any], answer: dict[str, Any] | None, legacy: Path) 
     bad = missing_evidence(evidence, legacy)
     if bad:
         found.append(f"evidence that does not exist in the snapshot: {', '.join(map(str, bad))}")
+    wrong_kind = [str(r.get("kind")) for r in answer.get("rules") or [] if r.get("kind") not in KINDS]
+    if wrong_kind:
+        found.append(f"a rule's kind must be one of {', '.join(KINDS)}, not {', '.join(wrong_kind)}")
     keys = {r["key"] for r in unit["rules"]}
     covered = {k for r in answer.get("rules") or [] for k in r.get("covers") or []}
     unknown = covered - keys
@@ -172,7 +180,7 @@ class Batch:
                        + ("; " if documents and answers else "")
                        + (f"answered SME questions in analysis/{project}/reframe/reconcile/{self.name}-answers.json" if answers else "") + ".")
         return PROMPT.format(input=f"analysis/{project}/{path.relative_to(self.places['analysis']).as_posix()}",
-                             legacy=f"legacy/{project}", context=context)
+                             legacy=f"legacy/{project}", context=context, kinds=KIND_GUIDE)
 
     def answers(self) -> list[dict[str, Any]]:
         """The answered questions this batch's units were given (units.answers_for), each once."""
