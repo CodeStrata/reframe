@@ -491,7 +491,7 @@ $('reviewButton').addEventListener('click', () => { $('reviewer').value = review
 $('closeDialog').addEventListener('click', () => $('reviewDialog').close());
 $('reviewer').addEventListener('input', e => { reviewer = e.target.value.trim(); try { localStorage.setItem('reframe-reviewer', reviewer); } catch (err) {} });
 $('downloadCsv').addEventListener('click', () => {
-  const cols = ['tool', 'domain', 'business_function', 'capability', 'type', 'id', 'text', 'status', 'comment', 'reviewer', 'marked_at', 'project', 'run', 'source_sha256'];
+  const cols = ['key', 'tool', 'domain', 'business_function', 'capability', 'type', 'id', 'text', 'status', 'comment', 'reviewer', 'marked_at', 'project', 'run', 'source_sha256'];
   const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const body = [cols.join(',')].concat(rows().map(r => cols.map(c => cell(c === 'tool' ? TOOL.name : c === 'reviewer' ? reviewer : c === 'project' ? D.project : c === 'run' ? D.run : c === 'source_sha256' ? D.source.sha256 : r[c])).join(','))).join('\r\n');
   download(fileName('csv'), 'text/csv;charset=utf-8', '﻿' + body);

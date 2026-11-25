@@ -105,6 +105,34 @@ class InputsTest(unittest.TestCase):
                          {"review-other.json": "a review of another snapshot",
                           "picture.png": "not a document, review export or answered questions file Reframe reads"})
 
+    def review_csv(self, path, rows, key=True):
+        cols = (["key"] if key else []) + ["tool", "type", "id", "text", "status", "comment", "reviewer", "marked_at", "project", "run", "source_sha256"]
+        with path.open("w", newline="", encoding="utf-8") as f:
+            f.write("\ufeff")
+            w = csv.writer(f)
+            w.writerow(cols)
+            for r in rows:
+                w.writerow([r.get(c, "") for c in cols])
+
+    def test_the_csv_download_is_read_like_the_json(self):
+        ctx = Path(self.tmp.name) / "context"
+        ctx.mkdir()
+        self.review_csv(ctx / "review-sam.csv", [{"key": "rec/u/1", "status": "Question", "comment": "why 3?", "reviewer": "Sam", "source_sha256": "a" * 64},
+                                                 {"key": "rec/u/2", "status": "Agree", "reviewer": "Sam", "source_sha256": "a" * 64}])
+        self.review_csv(ctx / "review-old.csv", [{"status": "Agree", "reviewer": "Lee", "source_sha256": "a" * 64}], key=False)
+        self.review_csv(ctx / "review-elsewhere.csv", [{"key": "k", "status": "Agree", "source_sha256": "b" * 64}])
+        found = inputs.context(self.folder, ctx, self.folder.root / "ctx-copy")
+        self.assertEqual(found["marks"], {"rec/u/1": {"status": "question", "comment": "why 3?", "reviewer": "Sam", "file": "review-sam.csv"},
+                                          "rec/u/2": {"status": "agree", "comment": "", "reviewer": "Sam", "file": "review-sam.csv"}})
+        self.assertEqual({i["file"]: i["why"] for i in found["ignored"]},
+                         {"review-old.csv": inputs.NO_KEY, "review-elsewhere.csv": "a review of another snapshot"})
+        self.assertEqual([r["format"] for r in found["reviews"]], ["csv"])
+        self.assertEqual(found["answers"], [])  # a review CSV is not an answered SME list
+
+    def test_the_page_downloads_a_key_column(self):
+        from reframe.report.build import TEMPLATE
+        self.assertIn("const cols = ['key', 'tool',", TEMPLATE)
+
 
 if __name__ == "__main__":
     unittest.main()
