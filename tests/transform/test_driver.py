@@ -26,6 +26,22 @@ READINESS = ("**Readiness Summary for Your Reimagine Selection:**\n\nYou have se
              "2. **Switch selection** to different business domains or functions\n"
              "3. **Drop unassigned programs** and reimagine only the 3 business functions in the named domains\n\n"
              "Please reply with your choice.")
+# A name that is both a business domain and a business function, in the three wordings AWS used on GenApp on 25 November 2026.
+CLASH_BARE = ('I need you to decide between these two options for "Web Service Interface Generation":\n\n'
+              "1. **domain Web Service Interface Generation** \u2014 reimagine all business functions in that domain\n"
+              "2. **function Web Service Interface Generation** \u2014 reimagine only that one business function\n\n"
+              'Please reply with either "domain" or "function" to clarify, and I\'ll proceed with your full selection.')
+CLASH_INTEND = ('I need you to clarify the ambiguity for "Web Service Interface Generation" before I can proceed.\n\n'
+                '**"Web Service Interface Generation"** exists as both a business domain AND a business function with the same name.\n\n'
+                "Please reply with one of these:\n\n"
+                "- **domain Web Service Interface Generation** \u2014 to reimagine all business functions in that domain\n"
+                "- **function Web Service Interface Generation** \u2014 to reimagine only that one business function\n\n"
+                "Which did you intend?")
+CLASH_PREFER = ('The tool found an ambiguity: **"Web Service Interface Generation"** exists as both a business domain and a business '
+                "function with the same name.\n\nPlease clarify which you meant:\n\n"
+                "- **Domain Web Service Interface Generation** \u2014 to reimagine all business functions in that domain\n"
+                "- **Function Web Service Interface Generation** \u2014 to reimagine only that one business function\n\n"
+                "Which would you prefer?")
 NO_ACTION = ("Your reimagine workflow for those business domains and unassigned programs is already in progress. The system has "
              "started generating modernization requirements for:\n\n- Payments\n- Accounts\n- Unassigned programs\n\n"
              "No further action is needed at this time. The workflow will continue processing, and you can check on results as "
@@ -165,6 +181,27 @@ class DriverTest(unittest.TestCase):
         self.assertEqual(self.client.changed("complete_task"), [])
         self.assertEqual(self.folder.load("question.json")["id"], "m4")
 
+    def test_name_clash_answered_with_the_domain(self):
+        # GenApp, 25 November 2026: the selection named business domain "Web Service Interface Generation", which is also a
+        # business function's name. AWS asked which was meant; Reframe left it waiting, the stall rule submitted the review
+        # form over it, and the run looped (selection, the same question) until the owner answered "domain".
+        d, waiting = self.readiness_after_catalog(menu=CLASH_PREFER)
+        self.assertEqual(self.api.sent[-1]["text"], "domain Web Service Interface Generation")
+        self.assertFalse(self.folder.exists("question.json"))
+        self.assertIn("names business domains only", self.folder.load("decisions.json")[-1]["reason"])
+        self.step(d, waiting, system("m5", CLASH_BARE, "2026-11-25T17:11:59"))
+        self.assertEqual(self.api.sent[-1]["text"], "domain")
+        self.assertFalse(self.folder.exists("question.json"))  # nothing waits for the person
+
+    def test_name_clash_waits_in_interactive_mode(self):
+        d, waiting = self.readiness_after_catalog(mode="interactive", menu=CLASH_INTEND)
+        question = self.folder.load("question.json")
+        self.assertEqual((question["kind"], question["replies"]),
+                         ("clash", ["domain Web Service Interface Generation", "function Web Service Interface Generation"]))
+        for _ in range(8):
+            self.step(d, waiting)
+        self.assertEqual(self.client.changed("complete_task"), [])
+
     def test_stalled_catalog_form_with_foreign_bucket_asks(self):
         d, waiting, template = self.stalled_after_catalog()
         self.client.tasks["t2"]["_responseTemplate"] = {**template, "s3Uri": "s3://someone-else/transform-output/x/business-functions/delivery.zip"}
@@ -296,6 +333,19 @@ class AnswersTest(unittest.TestCase):
         notified = ("Reimagine workflow started. Specification generation is now running.\n\nYou'll be notified when the "
                     "specifications are ready. Feel free to query results or check status at any time.")
         self.assertIsNone(answers.chat_question(system("m", notified, "t"), awaiting=True))
+
+    def test_name_clash(self):
+        for text, reply in ((CLASH_BARE, "domain"), (CLASH_INTEND, "domain Web Service Interface Generation"),
+                            (CLASH_PREFER, "domain Web Service Interface Generation")):
+            question = answers.chat_question(system("m", text, "t"))
+            self.assertEqual((question.kind, answers.autonomous(question).text), ("clash", reply))
+            self.assertEqual(answers.interactive(question, [2], None).text, reply.replace("domain", "function"))
+        two = ("Both names are ambiguous:\n\n- domain Payments: every function\n- function Payments: that one\n"
+               "- domain Accounts: every function\n- function Accounts: that one\n\nWhich did you mean?")
+        self.assertEqual(answers.autonomous(answers.chat_question(system("m", two, "t"))).text, "domain Payments, domain Accounts")
+        # The readiness menu and the catalog name domains and functions, but never one name both ways.
+        self.assertEqual(answers.chat_question(system("m", READINESS, "t")).kind, "choice")
+        self.assertEqual(answers.name_clashes(CATALOG), [])
 
     def test_readiness_menu(self):
         question = answers.chat_question(system("m", READINESS, "t"), awaiting=True)
