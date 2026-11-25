@@ -55,7 +55,7 @@ def _next_round(current: dict[str, Any]) -> int:
     return previous + 1 if previous == 0 or current.get("status") == Outcome.DONE.value else previous
 
 
-def claude_code(folder: RunFolder, auth: str):
+def claude_code(folder: RunFolder, auth: str, model: str | None = None):
     from reframe.claude import plugin
     from reframe.claude.runner import ClaudeCode, environment
     from reframe.claude.workspace import paths
@@ -65,7 +65,7 @@ def claude_code(folder: RunFolder, auth: str):
         from reframe.core.pipeline import Context
         aws_credentials = Context.load(folder).aws.credentials_environment
     env = environment(auth, aws_credentials=aws_credentials, region=folder.state.get("region"))
-    return ClaudeCode(places["root"], places["policy"], plugin.plugin_dir(), places["logs"], env)
+    return ClaudeCode(places["root"], places["policy"], plugin.plugin_dir(), places["logs"], env, model=model)
 
 
 def page(folder: RunFolder) -> None:

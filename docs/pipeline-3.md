@@ -199,3 +199,41 @@ Every point passed on fa1f61, from the CLI, on the Claude subscription. The cont
 
 Found and fixed in the run: an answer giving the tool's question code (OQ-008) was not matched to its question, since codes repeat from one function to the next (it now matches by code and one of the question's rules); a resumed round replaced its estimate with what was left of it (a round now keeps its first estimate); and the header said "no context folder" when a request kept the one given before.
 
+
+## 8. Part 2: accuracy and the review loop
+
+Part 2 (P3-11 to P3-20 in the plan) starts by measuring how accurate the recommended rules are. Its other stories are specified here as each starts, from what the audit finds.
+
+### 8.1 The accuracy audit (P3-11)
+
+The evidence check of R4 proves that the cited lines exist, not that they support the rule. The audit measures that, on a sample, with two judges that did not decide the rules and do not see how they were decided.
+
+**Command.** `python -m reframe.reconcile.audit [--run <run>] [--size 60] [--seed 1]`, on a run whose reconciliation is done. It needs no AWS resources and reads the snapshot only. It writes to `reconcile/audit/` in the run folder; a second run reuses the sample and every judgment already made, so it continues after a usage limit and costs nothing once complete.
+
+**The sample.** Drawn once, with a fixed seed, across the decision kinds, so that the rare kinds are checked at all:
+
+| Kind | Items |
+|---|---|
+| Agreed without an agent | 8 |
+| Merged | 20 |
+| Kept, found only by AWS Transform | 12 |
+| Kept, found only by Claude | 8 |
+| Rewritten from the code | 6 |
+| Claude's rule chosen | all (2 on CardDemo) |
+| Rejected (the input rule that was rejected) | all (3 on CardDemo) |
+
+A kind with fewer rules than its share gives all it has. The `needs_sme` units are left to the SME. Each unit in the sample with a possible-defect note also has that note judged.
+
+**The judges.** Two headless Claude Code steps judge every item on their own, each with read-only access to the snapshot: the model that decided the rules (Opus 5.5 on CardDemo) in a fresh session, and a different model (Sonnet 5.5). Each judge is given an item's rule, the source lines it cites and the input rules it stands for. It is not given the decision, reason, confidence or the other judge's answer. Items are judged in batches of up to 6, a program's items together and small programs packed, at most 4 batches at a time. The judge answers:
+
+- `verdict`: `correct` (every statement is true of the code), `minor` (true in substance, with a wrong or missing detail: a value, a condition, a message), `wrong` (the code does not do this, or a condition or behaviour is materially different) or `unsure` (the source cannot settle it);
+- `evidence`: `supports`, `partly` or `no`, for the rule's cited lines;
+- `lost`: a true detail of the input rules the recommended rule leaves out, or empty;
+- `defect` (where the item has a note): `real`, `not_a_defect` or `unsure`;
+- a reason and the lines it read, which Reframe checks exist in the snapshot. An answer that fails the check is asked for once more, then recorded as `unsure`.
+
+For a rejected item the input rule itself is judged: a `wrong` or `unsure` verdict means the rejection stands.
+
+**Settling.** Where the two judges give different verdicts, or different defect answers, the item goes to `reconcile/audit/settle.csv` with both answers and an empty `owner` column for the owner to fill in. Items the judges agree on take their shared answer.
+
+**The figures** (`reconcile/audit/audit.json`, and the results below): per decision kind and overall, the share of items `correct`, `correct` or `minor`, and `wrong`; how often the judges agreed; the confidence of the items found `minor` or `wrong`; the share of defect notes found `real`; and the time and cost of each judge.
