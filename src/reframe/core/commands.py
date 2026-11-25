@@ -197,6 +197,34 @@ def reconcile(args) -> int:
     return 0
 
 
+def export(args) -> int:
+    """`reframe export --to xlsx` (docs/sharing.md, section 7): the reconciled results as one workbook; runs nothing."""
+    from reframe.core import ui
+    from reframe.report import export as exporter
+    try:
+        folder = find_run(args.run)
+        given = args.context or (folder.state.get("reconcile") or {}).get("context")
+        context = Path(given).expanduser().resolve() if given else None
+        if context and not context.is_dir():
+            raise Stop(Outcome.REFUSED, f"the context folder {given} does not exist")
+        target = Path(args.out).expanduser().resolve() if args.out else None
+        value = exporter.export(folder, target, context)
+    except Stop as stop:
+        return _fail(stop)
+    ui.section(f"Run {folder.root.name} · export to Excel")
+    ui.table(["Sheet", "Rows"], [[k, str(v)] for k, v in value["counts"].items()])
+    if context:
+        ui.hint(f"review downloads read from {context}: {len(value['read'])}, with marks on {value['marks']} item(s)")
+        for i in value["ignored"]:
+            ui.hint(f"ignored {i['file']}: {i['why']}")
+    else:
+        ui.hint("no context folder: the workbook has no reviewers' marks")
+    ui.ok(f"Workbook: {value['path']}")
+    if args.open:
+        subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(value["path"])], check=False)
+    return 0
+
+
 def review(args) -> int:
     """Several reviewers' files (docs/pipeline-3.md, section 8.11): coverage, sign-offs and disagreements; runs nothing."""
     from reframe.core import ui
@@ -540,8 +568,8 @@ def _reconcile_status(folder: RunFolder, state: dict[str, Any]) -> None:
     if rec.get("message"):
         ui.say(rec["message"])
     if status == "DONE" and rec.get("page"):
-        ui.state("Next", "reframe reconcile --open shows the reconciliation page; answer the SME list (reconcile/questions.csv) and run "
-                         "reframe reconcile --context <folder> again; reframe publish includes it", "bright_cyan")
+        ui.state("Next", "reframe reconcile --open shows the reconciliation page; reframe export --to xlsx writes it as a workbook; answer the "
+                         "SME list (reconcile/questions.csv) and run reframe reconcile --context <folder> again; reframe publish includes it", "bright_cyan")
     if status not in ("DONE", "RUNNING", "REQUESTED") and not pid:
         ui.state("Next", "fix what the message says, then reframe resume (or reframe reconcile with what it asks for)", "bright_cyan")
 

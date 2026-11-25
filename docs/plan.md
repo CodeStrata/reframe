@@ -151,7 +151,7 @@ Part of sharing the results: the requirements in the forms people work in. Speci
 
 | Story | Title | Specification | Done when |
 |---|---|---|---|
-| S-12 | Requirements to a spreadsheet | to be added | `reframe export --to xlsx` writes one workbook from a run's reconciled results: domains, functions, capabilities, requirements, business rules and open questions as sheets, each requirement with the rules and source lines behind it and the reviewers' marks |
+| S-12 | Requirements to a spreadsheet | [sharing §7](sharing.md) | `reframe export --to xlsx` writes one workbook from a run's reconciled results: domains, functions, capabilities, requirements, business rules, decision tables, open questions and the SME list as sheets, each requirement with the rules and source lines behind it and the reviewers' marks; every cell is text, cleaned as `reframe publish` cleans its copy |
 | S-13 | Backlog items with acceptance criteria | to be added | `reframe export --to jira` and `--to azure-devops` write each tool's CSV import file: an epic per function, a story per capability with its requirements, and acceptance criteria in Given/When/Then written from the rules, each citing them. No credentials are needed; the file is imported by a person |
 
 ## Final requirements, wireframes and the AI-DLC package (pipeline 4)
