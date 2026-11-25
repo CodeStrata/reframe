@@ -40,7 +40,7 @@ class PipelineTest(InputsTest):
         self.assertEqual(rec["decisions"], {"agreed": 1, "merged": 1, "kept": 1})
         self.assertEqual(rec["inputs"]["questions"], 1)
         self.assertEqual(rec["questions"], {"questions": 1, "defects": 0, "open": 1})
-        self.assertEqual(rec["requirements"], {"requirements": 3, "dropped": 0, "rules_cited": 3, "rules_total": 3})
+        self.assertEqual(rec["requirements"], {"requirements": 3, "dropped": 0, "rules_cited": 3, "rules_total": 3, "tables": 0, "risk": {"low": 1}})
         self.assertTrue(self.folder.exists("reconcile/questions.csv"))
         self.assertEqual(len(self.folder.load("reconcile/agreed.json")), 1)
         made = {r["decision"]: r for r in self.folder.load("outputs/reconcile/rules.json")["rules"]}

@@ -77,6 +77,38 @@ class RequirementsTest(InputsTest):
         self.assertEqual(caps[-1]["title"], "Waiting for a subject-matter expert")
         self.assertEqual([q["unit"] for q in caps[-1]["questions"]], ["aws:a9"])
 
+    def test_decision_tables_keep_rows_that_cite_a_rule_and_risk_is_set_by_reframe(self):
+        def with_table(data):
+            answer = one_capability(data)
+            cap = answer["capabilities"][0]
+            first = data["rules"][0]["id"]
+            cap["touches"] = ["updates_records", "made_up"]
+            cap["tables"] = [{"title": "Payment outcome", "conditions": ["Account status", "Amount"], "outcome": "Result",
+                              "rows": [{"values": ["'Y'", "> 0"], "outcome": "accepted", "rule": first},
+                                       {"values": ["'N'", "> 0"], "outcome": "refused", "rule": "R99"},      # no such rule: dropped
+                                       {"values": ["'N'"], "outcome": "refused", "rule": first}],            # a value missing: dropped
+                              "gaps": [{"values": ["'Y'", "0"], "note": "A zero payment is not handled"}]},
+                             {"title": "Empty", "conditions": ["x"], "outcome": "y", "rows": [{"values": ["1"], "outcome": "z", "rule": "R98"}], "gaps": []}]
+            return answer
+        fake = FakeClaude(req=with_table)
+        fake.root = self.folder.root / "claude"
+        value = requirements.build(self.folder, fake, self.gathered, self.found, self.kept, self.agreed, self.sme)
+        cap = value["functions"]["f"]["capabilities"][0]
+        self.assertEqual(len(cap["tables"]), 1)  # the table left with no rows is dropped
+        table = cap["tables"][0]
+        self.assertEqual([r["outcome"] for r in table["rows"]], ["accepted"])
+        self.assertTrue(table["rows"][0]["rule"].startswith("rec/"))
+        self.assertEqual(table["gaps"], [{"values": ["'Y'", "0"], "note": "A zero payment is not handled"}])
+        self.assertEqual((cap["touches"], cap["risk"], value["functions"]["f"]["risk"]), (["updates_records"], "medium", "medium"))
+        self.assertEqual((value["tables"], value["risk"]), (1, {"medium": 1}))
+        self.assertIn("decision table", fake.other_calls[0][2])
+
+    def test_risk(self):
+        self.assertEqual(requirements.risk(["reporting_only"], ["business"]), "low")
+        self.assertEqual(requirements.risk(["updates_records"], []), "medium")
+        self.assertEqual(requirements.risk(["money"], []), "high")
+        self.assertEqual(requirements.risk([], ["display", "compliance"]), "high")  # a compliance rule makes it high
+
 
 if __name__ == "__main__":
     unittest.main()

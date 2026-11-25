@@ -85,12 +85,15 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
             fid_page = fn_id(fid)
             cited: set[str] = set()
             entry = {"id": fid_page, "domain": d["key"], "name": (names.get(fid) or {}).get("name", fid), "description": (names.get(fid) or {}).get("description", ""),
+                     "risk": body.get("risk", ""),
                      "capabilities": [], "notes": [], "summary": {}, "set_aside": [],
                      "technical": tech.get(fid) or {"programs": [], "jobs": [], "screens": [], "data_stores": []}}
             for cap in body["capabilities"]:
                 cid = f"{fid_page}#{cap['number']}"
                 capability = {"id": cid, "function": fid_page, "number": cap["number"], "title": cap["title"], "story": cap.get("story", ""),
-                              "fields": {}, "other": "", "requirements": [], "questions": []}
+                              "fields": {}, "other": "", "requirements": [], "questions": [], "risk": cap.get("risk", ""), "touches": cap.get("touches") or [],
+                              "tables": [{**t, "rows": [{**row, "rule_id": rule_by_key[row["rule"]]["id"] if row["rule"] in rule_by_key else ""} for row in t["rows"]]}
+                                         for t in cap.get("tables") or []]}
                 for req in cap["requirements"]:
                     key = f"{fid_page}/{req['code']}"
                     keys = [k for k in req["rules"] if k in rule_by_key]
@@ -135,7 +138,7 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
                       for d in (folder.load("reconcile/decisions.json", {}) or {}).values() if str(d.get("defect") or "").strip())), "confidence": dict(Counter(r["confidence"] for r in rules)), "kinds": dict(Counter(r["kind"] or "unclassed" for r in rules)),
                       "examples": sum(len(r["examples"]) for r in rules), "examples_removed": sum(r.get("examples_removed", 0) for r in made.get("rules") or []), "defects": rec.get("defects", 0), "round": rec.get("round"),
                       "rounds": dict(Counter(str(r["round"]) for r in rules)), "sme": sme.get("counts") or {}, "originals": sme.get("originals", 0),
-                      "dropped": written.get("dropped", 0)},
+                      "dropped": written.get("dropped", 0), "tables": written.get("tables", 0), "risk": written.get("risk") or {}},
         "evidence": {k: v for k, v in evidence.items() if v}, "sme": sme_list,
         "nav": [["AWS Transform's review", "../report/index.html"], ["Claude's review", "../claude/report/index.html"],
                 ["AWS Transform and Claude compared", "../comparison/index.html"]],

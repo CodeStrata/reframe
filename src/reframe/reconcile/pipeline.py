@@ -140,7 +140,7 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
 
     stage(folder, "requirements")
     written = requirements.build(folder, claude, gathered, found, kept, agreed, listed)
-    update(folder, requirements={k: written[k] for k in ("requirements", "dropped", "rules_cited", "rules_total")})
+    update(folder, requirements={k: written[k] for k in ("requirements", "dropped", "rules_cited", "rules_total", "tables", "risk")})
 
     stage(folder, "page")
     page(folder)

@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from reframe.core.runfolder import RunFolder, iso
-from reframe.reconcile.units import PARALLEL, reconciled_key
+from reframe.reconcile.units import METHOD, PARALLEL, reconciled_key
 
 LABEL = "recommended by Reframe from both assessments"
 PART_RULES = 60
@@ -28,10 +28,22 @@ PATTERNS = ["ubiquitous", "event-driven", "state-driven", "unwanted behaviour", 
 UNASSIGNED = {"key": "unassigned-programs", "name": "Unassigned programs", "kind": "unassigned",
               "description": "Programs in no business function of AWS Transform's frame."}
 
+# What a capability touches (docs/pipeline-3.md, section 8.9); Reframe sets its risk from these, not the model.
+TOUCHES = ("money", "card_data", "personal_data", "security", "audit", "updates_records", "reporting_only")
+HIGH_RISK = {"money", "card_data", "personal_data", "security", "audit"}
+RISKS = ("high", "medium", "low")
+
 SCHEMA = {"type": "object", "required": ["capabilities"], "properties": {"capabilities": {"type": "array", "items": {
-    "type": "object", "required": ["title", "story", "requirements", "questions"],
+    "type": "object", "required": ["title", "story", "requirements", "questions", "tables", "touches"],
     "properties": {
         "title": {"type": "string"}, "story": {"type": "string"},
+        "touches": {"type": "array", "items": {"type": "string", "enum": list(TOUCHES)}},
+        "tables": {"type": "array", "items": {"type": "object", "required": ["title", "conditions", "outcome", "rows", "gaps"], "properties": {
+            "title": {"type": "string"}, "conditions": {"type": "array", "items": {"type": "string"}}, "outcome": {"type": "string"},
+            "rows": {"type": "array", "items": {"type": "object", "required": ["values", "outcome", "rule"], "properties": {
+                "values": {"type": "array", "items": {"type": "string"}}, "outcome": {"type": "string"}, "rule": {"type": "string"}}}},
+            "gaps": {"type": "array", "items": {"type": "object", "required": ["values", "note"], "properties": {
+                "values": {"type": "array", "items": {"type": "string"}}, "note": {"type": "string"}}}}}}},
         "requirements": {"type": "array", "items": {"type": "object", "required": ["kind", "pattern", "text", "rules"], "properties": {
             "kind": {"type": "string", "enum": ["functional", "non-functional"]}, "pattern": {"type": "string", "enum": PATTERNS},
             "text": {"type": "string"}, "rules": {"type": "array", "items": {"type": "string"}}}}},
@@ -43,7 +55,9 @@ Write this function's capabilities and requirements:
 - each capability is a user story ("As a ..., I want ..., so that ...") with a short title;
 - each capability has requirements, each one sentence in EARS form ("The system shall ...", "When ..., the system shall ...", "While ..., the system shall ...", "If ..., then the system shall ...", "Where ..., the system shall ..."), with its kind (functional or non-functional) and EARS pattern;
 - every requirement lists in "rules" the ids of the rules it comes from;
-- put each open item's id in "questions" of the capability it holds up.
+- put each open item's id in "questions" of the capability it holds up;
+- where three or more of a capability's rules share their conditions, add a decision table: the conditions as columns, one row per combination the rules give, each row with its outcome and the id of the rule it comes from ("rule"); list in "gaps" the combinations of those conditions no rule covers, with a short note, for a subject-matter expert. Leave "tables" empty where rules do not share conditions;
+- in "touches", list everything the capability touches, from: money (amounts, balances, interest, fees), card_data, personal_data, security (sign-on, access), audit, updates_records (writes to master data), reporting_only.
 
 Use only what is in the file: do not invent behaviour, values, systems or rules. Every requirement must come from at least one rule. Cover every rule at least once, and place every open item once. Keep the rules' wording of values and conditions, in plain business language. Answer only with the JSON."""
 
@@ -120,6 +134,28 @@ def place(covers: list[str], unit_rules: list[str], program: str, rules: dict[st
 
 # ---- one function -----------------------------------------------------------------------------------------------------
 
+def tables(raw: list[dict[str, Any]], ids: dict[str, str]) -> list[dict[str, Any]]:
+    """Decision tables kept with the rule key each row cites; a row citing no given rule, or with a value for each
+    condition missing, is dropped, and a table left with no rows is dropped."""
+    kept = []
+    for t in raw or []:
+        conditions = [str(c) for c in t.get("conditions") or []]
+        rows = [{"values": [str(v) for v in r.get("values") or []], "outcome": str(r.get("outcome", "")), "rule": ids[r["rule"]]}
+                for r in t.get("rows") or [] if isinstance(r, dict) and r.get("rule") in ids and len(r.get("values") or []) == len(conditions)]
+        if conditions and rows:
+            gaps = [{"values": [str(v) for v in g.get("values") or []], "note": str(g.get("note", ""))} for g in t.get("gaps") or []
+                    if isinstance(g, dict) and len(g.get("values") or []) == len(conditions)]
+            kept.append({"title": str(t.get("title", "")), "conditions": conditions, "outcome": str(t.get("outcome", "")), "rows": rows, "gaps": gaps})
+    return kept
+
+
+def risk(touches: list[str], kinds: list[str]) -> str:
+    """A capability's risk, set by Reframe from what it touches and the kinds of its rules."""
+    if HIGH_RISK & set(touches) or "compliance" in kinds:
+        return "high"
+    return "medium" if "updates_records" in touches else "low"
+
+
 def check(raw: dict[str, Any], ids: dict[str, str], open_ids: dict[str, str]) -> tuple[list[dict[str, Any]], int, set[str]]:
     """Requirements kept with the rule keys they cite; one citing no given rule dropped and counted. Returns the
     capabilities, the number dropped and the open units placed."""
@@ -135,7 +171,8 @@ def check(raw: dict[str, Any], ids: dict[str, str], open_ids: dict[str, str]) ->
         questions = [open_ids[q] for q in cap.get("questions") or [] if q in open_ids and open_ids[q] not in placed]
         placed.update(questions)
         if requirements or questions:
-            caps.append({"title": cap.get("title", ""), "story": cap.get("story", ""), "requirements": requirements, "questions": questions})
+            caps.append({"title": cap.get("title", ""), "story": cap.get("story", ""), "requirements": requirements, "questions": questions,
+                         "tables": tables(cap.get("tables"), ids), "touches": sorted({t for t in cap.get("touches") or [] if t in TOUCHES})})
     return caps, dropped, placed
 
 
@@ -205,7 +242,8 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
         members = sorted(by_function.get(fid, []), key=lambda r: (r["program"], r["key"]))
         here = sorted(open_by_function.get(fid, []), key=lambda w: w["unit"])
         function = framed["functions"].get(fid) or {"name": UNASSIGNED["name"], "description": UNASSIGNED["description"]}
-        digest = _hash([function["name"], [{k: r[k] for k in ("key", "text", "program")} for r in members], [{k: w[k] for k in ("unit", "question")} for w in here]])
+        digest = _hash([function["name"], [{k: r.get(k) for k in ("key", "text", "program", "kind")} for r in members],
+                        [{k: w[k] for k in ("unit", "question")} for w in here], METHOD])
         if (saved.get(fid) or {}).get("hash") == digest and "raw" in saved[fid]:
             written[fid] = {k: saved[fid][k] for k in ("hash", "dropped", "raw")}
         else:
@@ -235,6 +273,7 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
         raise stop_for(stopped[0], "the reconciliation's recommended requirements")
 
     sme_of = {k: q for q in sme.get("questions") or [] for k in q["originals"]}
+    kind_of = {r["key"]: r.get("kind", "") for r in made}
     open_of = {w["unit"]: w for w in waiting}
     functions = {}
     for fid in sorted(written, key=lambda f: (f == "", f)):
@@ -251,8 +290,11 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
                 counters["question"] += 1
                 qs.append({"code": listed.get("id") or f"OQ-{counters['question']:03d}", "unit": unit, "rules": open_of.get(unit, {}).get("rules", []),
                            "text": listed.get("question") or open_of.get(unit, {}).get("question", ""), "status": listed.get("status", "open")})
-            caps.append({"number": c_index, "title": cap["title"], "story": cap["story"], "requirements": reqs, "questions": qs})
-        functions[fid] = {**written[fid], "capabilities": caps}
+            cited_kinds = [kind_of.get(k, "") for r in cap["requirements"] for k in r["rules"]] + [kind_of.get(row["rule"], "") for t in cap.get("tables") or [] for row in t["rows"]]
+            caps.append({"number": c_index, "title": cap["title"], "story": cap["story"], "requirements": reqs, "questions": qs,
+                         "tables": cap.get("tables") or [], "touches": cap.get("touches") or [], "risk": risk(cap.get("touches") or [], cited_kinds)})
+        top = min((RISKS.index(c["risk"]) for c in caps), default=RISKS.index("low"))
+        functions[fid] = {**written[fid], "capabilities": caps, "risk": RISKS[top]}
     cited = {k for f in functions.values() for c in f["capabilities"] for q in c["requirements"] for k in q["rules"]}
     value = {"label": LABEL, "complete": True, "generated_at": iso(), "functions": functions,
              "domains": [{"key": d["key"], "name": d["name"], "description": d.get("description", ""), "kind": d["kind"],
@@ -261,7 +303,9 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
              "names": {fid: {"name": (framed["functions"].get(fid) or UNASSIGNED)["name"], "description": (framed["functions"].get(fid) or UNASSIGNED).get("description", "")}
                        for fid in functions},
              "dropped": sum(f["dropped"] for f in functions.values()), "rules_cited": len(cited), "rules_total": len(made),
-             "requirements": sum(len(c["requirements"]) for f in functions.values() for c in f["capabilities"])}
+             "requirements": sum(len(c["requirements"]) for f in functions.values() for c in f["capabilities"]),
+             "tables": sum(len(c["tables"]) for f in functions.values() for c in f["capabilities"]),
+             "risk": dict(Counter(f["risk"] for f in functions.values()))}
     value["domains"] = [d for d in value["domains"] if d["functions"]]
     folder.save("outputs/reconcile/requirements.json", value)
     return value

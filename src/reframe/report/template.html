@@ -249,6 +249,8 @@ function overview(){
       [n('claude'), "Claude's plugin right"], [n('rewritten'), 'rewritten from the code'], [n('kept'), 'kept (one tool found it)']]);
     h += numbers([[u.rejected || 0, 'one-sided rules rejected'], [u.needs_sme || 0, 'waiting for an SME'], [R.defects || 0, 'possible defects'],
       [(R.sme || {}).questions || 0, 'questions on the SME list'], [R.dropped || 0, 'requirements dropped (no rule)'], [Object.keys(R.rounds || {}).length, 'rounds that decided them']]);
+    const risk = R.risk || {};
+    if (Object.keys(risk).length) h += numbers([[risk.high || 0, 'high-risk functions'], [risk.medium || 0, 'medium-risk functions'], [risk.low || 0, 'low-risk functions'], [R.tables || 0, 'decision tables']]);
     const conf = R.confidence || {};
     h += numbers([[conf.high || 0, 'high confidence'], [conf.medium || 0, 'medium: check these'], [conf.low || 0, 'low: check these first']]) +
       '<p class="small muted">Reframe sets confidence from what it checked: high when an agent decided the rule against the code with both tools\' rules and the code is shown to run; ' +
@@ -263,6 +265,16 @@ function overview(){
     ', SHA-256 ' + esc(String(D.source.sha256 || '').slice(0, 16)) + '… · results retrieved ' + esc(D.retrieved_at || '') + ' · page built ' + esc(D.generated_at) + '</p>';
   return h;
 }
+// Pipeline 3: risk per capability and function, and decision tables (docs/pipeline-3.md, section 8.9).
+const RISK = {high: 'High risk', medium: 'Medium risk', low: 'Low risk'};
+const TOUCH = {money: 'money', card_data: 'card data', personal_data: 'personal data', security: 'security', audit: 'audit', updates_records: 'record updates', reporting_only: 'reporting only'};
+function riskTag(x){ return x && x.risk ? '<span class="tag ' + (x.risk === 'high' ? 'warn' : 'grey') + '"' + (x.touches && x.touches.length ? ' title="Touches ' + esc(x.touches.map(t => TOUCH[t] || t).join(', ')) + '"' : '') + '>' + RISK[x.risk] + '</span>' : ''; }
+function tableBlock(t){
+  return '<div class="panel"><h4 style="margin-top:0">' + esc(t.title || 'Decision table') + '</h4><div class="scroll"><table><thead><tr>' + t.conditions.map(c => '<th>' + esc(c) + '</th>').join('') +
+    '<th>' + esc(t.outcome || 'Outcome') + '</th><th>Rule</th></tr></thead><tbody>' + t.rows.map(r => '<tr>' + r.values.map(v => '<td>' + prose(v) + '</td>').join('') + '<td>' + prose(r.outcome) + '</td><td>' +
+    (ruleByKey[r.rule] ? '<a href="#/c/' + (capById[capOfRule(r.rule)] || {index: ''}).index + '/' + encodeURIComponent(r.rule) + '"><code>' + esc(r.rule_id || r.rule) + '</code></a>' : '') + '</td></tr>').join('') +
+    t.gaps.map(g => '<tr class="muted">' + g.values.map(v => '<td>' + prose(v) + '</td>').join('') + '<td colspan="2"><span class="tag warn">Gap</span> ' + prose(g.note) + '</td></tr>').join('') + '</tbody></table></div></div>';
+}
 function domainCard(d){
   const keys = domItems(d);
   return '<a class="card" href="#/d/' + d.index + '"><h4>' + esc(d.name) + '</h4><p>' + esc(d.description || '') + '</p>' +
@@ -272,19 +284,19 @@ function domainPage(d){
   let h = crumbs([['Overview', '#/'], [d.name]]) + '<h2>' + esc(d.name) + '</h2><p class="lead">' + esc(d.description || '') + '</p>';
   h += '<h3>' + plural(d.functions.length, 'business function') + '</h3><div class="grid">' + d.functions.map(id => {
     const f = fnById[id], keys = fnItems(f);
-    return '<a class="card" href="#/f/' + f.index + '"><h4>' + esc(f.name) + '</h4><p>' + esc(f.description || '') + '</p>' +
+    return '<a class="card" href="#/f/' + f.index + '"><h4>' + esc(f.name) + ' ' + riskTag(f) + '</h4><p>' + esc(f.description || '') + '</p>' +
       countLine(countsOf(keys), '<span><b>' + f.capabilities.length + '</b> capabilities</span>') + progress(keys) + '</a>';
   }).join('') + '</div>';
   return h;
 }
 function functionPage(f){
   const d = domByKey[f.domain];
-  let h = crumbs([['Overview', '#/'], [d.name, '#/d/' + d.index], [f.name]]) + '<h2>' + esc(f.name) + '</h2><p class="lead">' + esc(f.description || '') + '</p>';
+  let h = crumbs([['Overview', '#/'], [d.name, '#/d/' + d.index], [f.name]]) + '<h2>' + esc(f.name) + ' ' + riskTag(f) + '</h2><p class="lead">' + esc(f.description || '') + '</p>';
   h += '<div class="panel">' + countLine(countsOf(fnItems(f))) + progress(fnItems(f)) + '</div>';
   h += '<h3>' + plural(f.capabilities.length, 'capability', 'capabilities') + '</h3>';
   h += f.capabilities.map(id => {
     const c = capById[id], keys = capItems(c);
-    return '<a class="card" style="margin-bottom:10px" href="#/c/' + c.index + '"><div class="caprow"><span class="num">' + c.number + '</span><div style="flex:1"><h4>' + esc(c.title) + '</h4>' +
+    return '<a class="card" style="margin-bottom:10px" href="#/c/' + c.index + '"><div class="caprow"><span class="num">' + c.number + '</span><div style="flex:1"><h4>' + esc(c.title) + ' ' + riskTag(c) + '</h4>' +
       '<p>' + esc(c.story.length > 260 ? c.story.slice(0, 257) + '…' : c.story) + '</p>' + countLine(countsOf(keys)) + progress(keys) + '</div></div></a>';
   }).join('');
   const notes = f.notes.filter(n => !n.technical);
@@ -300,7 +312,8 @@ function functionPage(f){
 function capabilityPage(c, focus){
   const f = fnById[c.function], d = domByKey[f.domain];
   let h = crumbs([['Overview', '#/'], [d.name, '#/d/' + d.index], [f.name, '#/f/' + f.index], [c.number + '. ' + c.title]]);
-  h += '<h2>' + c.number + '. ' + esc(c.title) + '</h2>';
+  h += '<h2>' + c.number + '. ' + esc(c.title) + ' ' + riskTag(c) + '</h2>';
+  if (c.touches && c.touches.length) h += '<p class="small muted">Touches ' + esc(c.touches.map(t => TOUCH[t] || t).join(', ')) + '</p>';
   if (c.story) h += '<div class="story">' + prose(c.story) + '</div>';
   const fields = Object.entries(c.fields || {});
   if (fields.length) h += '<dl class="fields">' + fields.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + prose(v) + '</dd>').join('') + '</dl>';
@@ -308,6 +321,7 @@ function capabilityPage(c, focus){
   const fr = c.requirements.filter(k => reqByKey[k].kind !== 'N'), nf = c.requirements.filter(k => reqByKey[k].kind === 'N');
   if (fr.length) h += '<h3>Requirements</h3>' + fr.map(requirementCard).join('');
   if (nf.length) h += '<h3>Non-functional requirements</h3>' + nf.map(requirementCard).join('');
+  if (c.tables && c.tables.length) h += '<h3>Decision tables</h3><p class="small muted">Rules that share their conditions, one row each. A gap is a combination no rule covers: a question for the business.</p>' + c.tables.map(tableBlock).join('');
   if (c.questions.length) h += '<h3>Open questions for the business</h3>' + c.questions.map(questionCard).join('');
   if (c.other) h += '<details class="panel doc"><summary>More from ' + esc(TOOL.name) + '</summary>' + c.other + '</details>';
   const siblings = f.capabilities, at = siblings.indexOf(c.id), prev = capById[siblings[at - 1]], next = capById[siblings[at + 1]];
