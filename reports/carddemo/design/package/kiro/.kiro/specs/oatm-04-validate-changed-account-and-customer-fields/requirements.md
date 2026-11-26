@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Checks every account and customer field once the operator has changed a fetched account, and only moves the update to awaiting confirmation when all checks pass. Amounts must be present and valid currency numbers but may be negative or zero. It must never let an invalid field through to confirmation, and shows only the first error found.
+Checks every changed account and customer field before the operator may confirm the update: flags, dates, amounts, SSN, FICO score, names and address. Changes may be confirmed only when every check passes. Invalid details must never be saved, and only the first error found is shown.
 
 **User story:** As an operator, I want every changed account and customer field checked before I can confirm, so that only valid details are saved.
 
@@ -56,16 +56,16 @@ Checks every account and customer field once the operator has changed a fetched 
 #### Acceptance criteria
 
 1. If an amount is not supplied (blank or '*'), then the system shall reject it with the message '<field> must be supplied.' (for example 'Credit Limit must be supplied.'). (rules OATM-BR-037)
-2. GIVEN a fetched account is shown and the operator changes a field and clears the Credit Limit (or enters '*') WHEN the changes are validated THEN the input is rejected with the message 'Credit Limit must be supplied.' (OATM-C04-AC-15; OATM-BR-037)
-3. GIVEN a fetched account is shown, the credit limit is valid and the operator leaves Cash Credit Limit blank WHEN the changes are validated THEN the input is rejected with the message 'Cash Credit Limit must be supplied.' (OATM-C04-AC-16; OATM-BR-037)
+2. GIVEN an account is shown for update and the operator has changed a field WHEN the operator clears the Credit Limit (or enters '*') and submits THEN the change is rejected with 'Credit Limit must be supplied.' and the update does not move to awaiting confirmation (OATM-C04-AC-15; OATM-BR-037)
+3. GIVEN an account is shown for update and the operator has changed a field WHEN the operator leaves the Cash Credit Limit blank and submits THEN the change is rejected with 'Cash Credit Limit must be supplied.' (OATM-C04-AC-16; OATM-BR-037)
 
 ### Requirement 6: OATM-REQ-F-038 (business rule)
 
 #### Acceptance criteria
 
 1. If a supplied amount is not a valid currency number, then the system shall reject it with the message '<field> is not valid', using the names 'Credit Limit', 'Cash Credit Limit', 'Current Balance', 'Current Cycle Credit Limit' or 'Current Cycle Debit Limit'. (rules OATM-BR-038)
-2. GIVEN a fetched account is shown and the operator enters 'ABC' as the Current Balance WHEN the changes are validated THEN the input is rejected with the message 'Current Balance is not valid' (OATM-C04-AC-17; OATM-BR-038)
-3. GIVEN a fetched account is shown and the operator enters '12x.50' as the current cycle debit WHEN the changes are validated THEN the input is rejected with the message 'Current Cycle Debit Limit is not valid' (OATM-C04-AC-18; OATM-BR-038)
+2. GIVEN an account is shown for update WHEN the operator enters 'ABC' as the Current Balance and submits THEN the change is rejected with 'Current Balance is not valid' (OATM-C04-AC-17; OATM-BR-038)
+3. GIVEN an account is shown for update WHEN the operator enters '12x.50' as the current cycle credit and submits THEN the change is rejected with 'Current Cycle Credit Limit is not valid'; an invalid current cycle debit is rejected the same way with 'Current Cycle Debit Limit is not valid' (OATM-C04-AC-18; OATM-BR-038)
 
 ### Requirement 7: OATM-REQ-F-039 (business rule)
 

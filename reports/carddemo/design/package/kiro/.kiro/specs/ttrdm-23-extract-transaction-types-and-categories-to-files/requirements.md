@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as sc
 
 ## Introduction
 
-Backs up the current transaction type and category files, then produces fresh copies from the database for downstream use such as the transaction report. Types are written in type code order and categories in type then category order, as fixed 60-character records. A failed unload must never leave a partial file behind.
+A scheduled job for operations that backs up the current transaction type and category extract files and then writes fresh extracts from the database, for downstream processing such as the transaction report. The extracts must hold exactly the database contents in code order and in a fixed 60-character layout. A failed extract must never leave a partial file behind.
 
 **User story:** As an operations user, I want to back up the current transaction type and category files and unload fresh copies from the database, so that downstream processing such as the transaction report has current reference data.
 
@@ -46,7 +46,7 @@ Backs up the current transaction type and category files, then produces fresh co
 #### Acceptance criteria
 
 1. The system shall write each extracted transaction type as one 60-character record: the type code, the description padded to 50 characters, then eight '0' characters. (rules TTRDM-BR-167)
-2. GIVEN The transaction type table holds type code '01' with description 'Purchase' WHEN The transaction type extract runs THEN The extract file holds a 60-character record made of '01', then 'Purchase' padded with spaces to 50 characters, then '00000000' (TTRDM-C23-AC-10; TTRDM-BR-167)
+2. GIVEN The transaction type table holds type code '01' with description 'Purchase' WHEN The transaction type extract runs THEN The extract contains one 60-character record for it: '01', then 'Purchase' padded with spaces to 50 characters, then '00000000' (TTRDM-C23-AC-10; TTRDM-BR-167)
 
 ### Requirement 6: TTRDM-REQ-F-156 (error handling)
 
@@ -68,7 +68,7 @@ Backs up the current transaction type and category files, then produces fresh co
 #### Acceptance criteria
 
 1. The system shall write each extracted category as one 60-character record: the type code, the category code, the category description padded to 50 characters, then four '0' characters. (rules TTRDM-BR-170)
-2. GIVEN The transaction type category table holds a category for type code '01' with category description 'Regular Sales Draft' WHEN The transaction category extract runs THEN The extract file holds one 60-character record for it, made of the type code '01', then the category code, then 'Regular Sales Draft' padded with spaces to 50 characters, then '0000' (TTRDM-C23-AC-11; TTRDM-BR-170)
+2. GIVEN The transaction category table holds type code '01', category code '0001', description 'Regular Sales Draft' WHEN The transaction category extract runs THEN The extract contains one 60-character record for it: '01', then '0001', then 'Regular Sales Draft' padded with spaces to 50 characters, then '0000' (TTRDM-C23-AC-11; TTRDM-BR-170)
 
 ### Requirement 9: TTRDM-REQ-F-159 (error handling)
 

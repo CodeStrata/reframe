@@ -10,7 +10,7 @@
 
 As a user requesting a transaction report, I want to pick Monthly, Yearly or Custom and have my custom start and end dates checked, so that only a report with a clear, valid period is submitted.
 
-Lets a user pick a Monthly, Yearly or Custom transaction report. If more than one is marked, the first in that order wins. For Custom, every start and end date part is checked as present, numeric, in range and a real calendar date. It must never submit a report with no type selected or with an invalid custom date, and it always points the user to the first field in error.
+Lets a user choose a Monthly, Yearly or Custom transaction report. If several are marked, the first in that order wins. For Custom, every part of the start and end dates is checked, and the first missing or invalid part is reported with the cursor placed on it. A custom report must never be submitted with a missing, non-numeric or impossible calendar date.
 
 **Acceptance scenarios:**
 

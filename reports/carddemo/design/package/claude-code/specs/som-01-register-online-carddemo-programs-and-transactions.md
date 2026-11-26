@@ -6,7 +6,7 @@ User Access Control · System Operations and Maintenance · runs as scheduled jo
 
 ## Introduction
 
-Registers the sign-on program and the admin menu program with the online system so that users can start them: sign-on under transaction code CC00, and the admin menu under CCAD and CCDM. This is set up by operations and is not something users see. It must never leave an entry point unregistered or attached to the wrong program, because then users cannot sign on or administrators cannot reach their menu.
+Sets up the entry points users and administrators start from: the sign-on screen and the Admin Menu, each reachable by its own short code. This is set up once per environment by operations staff, not by end users. It must never leave the sign-on or Admin Menu unregistered or linked to the wrong code, because then nobody can sign on or reach administration.
 
 **User story:** As a system administrator, I want the CardDemo sign-on and admin menu programs and their transactions registered in the online system, so that users can start them by transaction code.
 
@@ -37,7 +37,7 @@ Registers the sign-on program and the admin menu program with the online system 
 
 ### Sign in (S-SIGN-IN)
 
-Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+Sign in to CardDemo with a user ID and password. Administrators and regular users both land on Home, which shows the functions their role allows.
 
 Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
 
@@ -46,7 +46,7 @@ Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COS
 
 ### Home (S-HOME)
 
-One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+Landing page after sign-in. It lists every function the signed-in role may use as links, and replaces the numbered Main Menu, the Admin Menu and the typed option number.
 
 Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
 
@@ -80,9 +80,9 @@ None.
 
 ## Design notes
 
-- SOM-BR-001: The sign-on entry point must be set up as part of deployment configuration, such as a route table or service registration. Its legacy code CC00 maps to the sign-on screen, and it must be usable from any node or region (the legacy data location ANY). Keep CC00 as an alias only if outside links or operators still use it.
-- SOM-BR-002: Register the admin menu as a deployable entry point (a route or service) that answers to the legacy code CCAD. It must be declared in the same deployment configuration as sign-on (the CARDDEMO group), so the two are always released together.
-- SOM-BR-003: A second legacy code, CCDM, must open the same admin menu. Model it as an alias route or redirect to the admin menu entry point, not as a separate screen. No location restriction is needed (ANY).
+- SOM-BR-001: Register the sign-on screen as a routable entry point (for example a route or deep-link code that matches legacy code CC00) in the application's deployment or route configuration, which is applied when the environment is provisioned. It must be open to any user who has not signed on. No data-location setting is needed.
+- SOM-BR-002: Register the Admin Menu as a routable entry point under the code CCAD in the same deployment or route configuration as the sign-on screen, so the configuration is versioned and applied with each release.
+- SOM-BR-003: Map a second entry code, CCDM, to the same Admin Menu route, so both CCAD and CCDM open the Admin Menu. Keep it as an alias in the route configuration, not a separate screen.
 
 ## Open questions
 

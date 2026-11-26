@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Lets administrators mark exactly one listed transaction type 'D' (delete) or 'U' (update) and then asks them to confirm with F10 before anything changes. It must reject any other action code ('Action code selected is invalid') and more than one marked row ('Please select only 1 action'). Marks entered while a filter is being changed are cleared rather than acted on.
+An administrator marks exactly one listed transaction type with 'D' (delete) or 'U' (update) and presses Enter; the row is highlighted and the user is asked to confirm with F10. Invalid action codes and more than one marked row are rejected with clear messages. The screen must never prepare a change for more than one row, or for a row picked under filters the user has since changed.
 
 **User story:** As an administrator, I want to mark one transaction type on the list for update or delete and be asked to confirm, so that I can review the change before it is applied.
 

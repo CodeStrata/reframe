@@ -429,6 +429,8 @@ def run(folder, claude, stack: str | None = None, more=None, plan_only: bool = F
         if before.get("hash") != digest or before.get("problems"):
             todo.append((name, data, digest))
             why.append((name, rounds.changed(before or None, batch_parts(data)) if before.get("hash") != digest else ["problems"]))
+        elif before and not before.get("parts") and not plan_only:  # kept, but made before rounds recorded its pieces (P4-10)
+            before["parts"] = batch_parts(data)
     told = rounds.summary(why, [n for n, _ in plan if n not in {x[0] for x in todo}])
     if plan_only:
         return {"round": told}

@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as scheduled job
 
 ## Introduction
 
-A batch job for operations that copies the whole pending authorization database out to extract files: each account summary followed by all of its authorization details. Only summaries with a numeric account id are written, and a detail is never written without its summary. Any unexpected read or write failure must stop the run with return code 16 and a clear message, so a partly written extract is never mistaken for a complete one.
+A batch job that copies every pending authorization summary and its details out of the pending authorization database into extract files, so they can be kept or reloaded elsewhere. It must write each summary before its details, skip summaries whose account id is not numeric, and stop with a failure code on any unexpected read or write error instead of reporting success on a partial extract.
 
 **User story:** As a batch operations team member, I want to unload the pending authorization database to extract files, so that the summaries and their details can be kept or reloaded outside the online system.
 
@@ -32,7 +32,7 @@ A batch job for operations that copies the whole pending authorization database 
 #### Acceptance criteria
 
 1. If a pending authorization summary's account id is not numeric, then the system shall skip it without writing it or any of its details. (rules CAFM-BR-164)
-2. GIVEN the pending authorization database holds a summary whose account id is 'ABC123' with two details under it WHEN the unload runs THEN neither that summary nor either of its details is written to the unload files, and the run continues with the next summary (CAFM-C17-AC-06; CAFM-BR-164)
+2. GIVEN the database holds a summary with account id 'ABC123' that has two details, and a summary with numeric account id 00000000123 WHEN the unload runs THEN neither the 'ABC123' summary nor its two details are written to the unload files, and the 00000000123 summary and its details are written (CAFM-C17-AC-06; CAFM-BR-164)
 
 ### Requirement 4: CAFM-REQ-F-150 (design note)
 
@@ -53,28 +53,28 @@ A batch job for operations that copies the whole pending authorization database 
 #### Acceptance criteria
 
 1. When reading details reaches the end of the current summary (status 'GE'), the system shall print 'CHILD SEG FLAG GE : Y', stop reading details and clear the read status so the next summary can be read. (rules CAFM-BR-167)
-2. GIVEN a summary with a numeric account id whose details have all been written WHEN reading the next detail of that summary returns status 'GE' THEN 'CHILD SEG FLAG GE : Y' is printed, detail reading stops, the read status is cleared and the next summary is read (CAFM-C17-AC-07; CAFM-BR-167)
+2. GIVEN a summary with three details is being unloaded WHEN the fourth detail read returns 'GE' THEN 'CHILD SEG FLAG GE : Y' is printed, no further details are read for that summary, the read status is cleared and the next summary is read (CAFM-C17-AC-07; CAFM-BR-167)
 
 ### Requirement 7: CAFM-REQ-F-153 (error handling)
 
 #### Acceptance criteria
 
 1. If reading the next pending authorization summary returns any status other than blank or 'GB', then the system shall print 'AUTH SUM GN FAILED :' with the status and the key feedback, print 'DBUNLDGS ABENDING ...', set return code 16 and end, leaving the unload files partly written. (rules CAFM-BR-168)
-2. GIVEN reading the next pending authorization summary returns status 'AI' (not blank or 'GB') WHEN the unload processes summaries THEN 'AUTH SUM GN FAILED :' is printed with AI and the key feedback, 'DBUNLDGS ABENDING ...' is printed, the run ends with return code 16 and the unload files are left as written so far (CAFM-C17-AC-08; CAFM-BR-168)
+2. GIVEN the unload has written some summaries and the next summary read returns a status other than blank or 'GB', for example 'AI' WHEN the unload continues THEN 'AUTH SUM GN FAILED :' is printed with AI and the key feedback, 'DBUNLDGS ABENDING ...' is printed, the job ends with return code 16, and the records already written stay in the unload files (CAFM-C17-AC-08; CAFM-BR-168)
 
 ### Requirement 8: CAFM-REQ-F-154 (error handling)
 
 #### Acceptance criteria
 
 1. If reading the next detail of a summary returns any status other than blank or 'GE', then the system shall print 'GNP CALL FAILED :' with the status and the key feedback, set return code 16 and end. (rules CAFM-BR-169)
-2. GIVEN a summary with a numeric account id is being unloaded and reading its next detail returns status 'AI' (not blank or 'GE') WHEN the unload reads that summary's details THEN 'GNP CALL FAILED :' is printed with AI and the key feedback, and the run ends with return code 16 (CAFM-C17-AC-09; CAFM-BR-169)
+2. GIVEN a summary is being unloaded and a detail read returns a status other than blank or 'GE', for example 'AI' WHEN the unload continues THEN 'GNP CALL FAILED :' is printed with AI and the key feedback, and the job ends with return code 16 (CAFM-C17-AC-09; CAFM-BR-169)
 
 ### Requirement 9: CAFM-REQ-F-155 (error handling)
 
 #### Acceptance criteria
 
 1. If writing a pending authorization summary or detail to its unload file returns a non-blank status, then the system shall print 'GSAM PARENT FAIL :' with the status and key feedback, set return code 16 and end. (rules CAFM-BR-170, CAFM-BR-171)
-2. GIVEN writing a summary to the summary unload file, or a detail to the detail unload file, returns a non-blank status WHEN the unload writes that record THEN 'GSAM PARENT FAIL :' is printed with the status and key feedback (the same text for summaries and details), and the run ends with return code 16 (CAFM-C17-AC-10; CAFM-BR-170, CAFM-BR-171)
+2. GIVEN writing a summary, or writing a detail, to its unload file returns a non-blank status WHEN the unload tries to write that record THEN 'GSAM PARENT FAIL :' is printed with the status and key feedback (the same text for summaries and details), and the job ends with return code 16 (CAFM-C17-AC-10; CAFM-BR-170, CAFM-BR-171)
 
 ## Screens and components
 
@@ -138,11 +138,11 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-162: Needs a scheduled full-database export of pending authorizations that reads the live data without locking out online users, writes a new variable-length extract (records up to 27990 bytes) under a fixed name, and removes the extract if the job fails so no partial file is left registered as complete.
-- CAFM-BR-163: The export walks all account summaries in storage order and, for each with a numeric account id, writes the summary and then all its details, so every detail follows its parent summary in the output. In a relational model this is an ordered scan of summaries joined to their details.
-- CAFM-BR-165: Reaching the end of the summaries is the normal finish of the export, not an error; the job completes successfully.
-- CAFM-BR-166: For each exported summary, every detail belonging to that account is read in turn and each successfully read detail is written to the detail export file.
-- CAFM-BR-167: Running out of details for a summary is normal: log 'CHILD SEG FLAG GE : Y', reset the per-summary state and move on to the next summary. It must not be treated as an error or stop the job.
+- CAFM-BR-162: A scheduled full extract of the pending authorization store into a single new file of variable-length records (up to 27990 bytes), read without locking out online users. The file must only be published when the job succeeds: write to a temporary name and rename on success, or delete it on failure, so a failed run never leaves a usable-looking extract.
+- CAFM-BR-163: The extract walks all summaries in a stable order (by account id) and, for each one with a numeric account id, writes the summary and then all its details before moving to the next summary. With a relational store this is a query of summaries ordered by account id joined to their details, streamed out so memory use does not grow with volume.
+- CAFM-BR-165: The job ends normally when there are no more summaries to read; reaching the end of the data is a normal finish, not an error.
+- CAFM-BR-166: For each summary, every one of its details is written to the separate detail file, in the order they are held under that summary (newest first in the legacy store), so a reload can attach each detail to its summary.
+- CAFM-BR-167: Running out of details for a summary is a normal step, not an error: log 'CHILD SEG FLAG GE : Y', reset the per-summary state and continue with the next summary.
 
 ## Open questions
 

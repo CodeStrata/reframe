@@ -4,31 +4,21 @@
 
 ## Overview
 
-Keeps the fraud register for fraud analysts: each fraud report or removal is recorded against the card and the exact authorization, with the action and today's date. There must be exactly one current fraud record per card and authorization timestamp; a repeat action updates it rather than adding a second one. Failures must be returned with the database code and state, never silently ignored.
+Keeps the fraud register: every fraud report or removal is recorded against the card and the exact authorization, so there is one current fraud record per authorization with its action and report date. A repeated action on the same authorization must update the existing record, never create a second one, and any failure must be returned to the caller with the database code and state.
 
-Runs as online. Journeys: J15.
+Runs as online. Journeys: J13.
 
 ## Screens and components
 
-### Pending authorizations (S-PENDING-AUTHS)
+### Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
 
-Look up an account and see its customer, limits, balances and approved/declined totals together with a paged table of its pending authorizations; open any authorization from its row.
+Look up an account and see everything on one screen: the customer, limits and balances, pending authorization totals, the authorizations in a paged table, and the selected authorization's full details. Fraud can be reported or cleared without leaving the list.
 
-Prototype: `ui-reference/index.html#/S-PENDING-AUTHS`. Replaces the legacy screens COPAU0A.
-
-| Component | Type | Shows | Checks | Goes to | Requirements |
-|---|---|---|---|---|---|
-
-### Authorization details (S-AUTH-DETAIL)
-
-Review one pending authorization — card, amount, response and reason, POS, merchant and fraud status — move to the account's next authorization, and mark or clear fraud on it.
-
-Prototype: `ui-reference/index.html#/S-AUTH-DETAIL`. Replaces the legacy screens COPAU1A.
+Prototype: `ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS`. Replaces the legacy screens COPAU0A, COPAU1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Confirm fraud action | dialog | Card, amount, merchant and the action about to be recorded (report fraud or remove fraud) in the fraud register; Confirm / Cancel |  |  | CAFM-REQ-F-142, CAFM-REQ-F-143, CAFM-REQ-F-144 |
-| Fraud action result | message | Success: 'AUTH MARKED FRAUD...' or 'AUTH FRAUD REMOVED...'; failure: the fraud register's message, ' System error while FRAUD Tagging, ROLLBACK\|\|<code>', or that the action could not be completed and nothing was changed; the same authorization is redisplayed |  |  | CAFM-REQ-F-145, CAFM-REQ-F-146 |
+| Report fraud / Remove fraud mark | **primary button** | Reads 'Report fraud' when the authorization is not marked fraud and 'Remove fraud mark' when it is. It opens a confirmation dialog that repeats what will change: the authorization, amount and merchant, and 'Fraud status: Not reported -> Fraud reported, dated today' or the reverse. On success it shows 'Authorization marked as fraud' or 'Fraud mark removed' and redisplays the same authorization with its new fraud status and date. The authorization and the fraud register change together or not at all. | Fraud register update failed: the fraud program's message (for example 'SYSTEM ERROR DB2: CODE <code>') and 'Nothing was changed - try again, and report the code if it repeats.' Authorization save failed: 'System error while FRAUD Tagging, ROLLBACK <code>' and 'Nothing was changed - try again.' Fraud service did not respond: 'The fraud update did not complete. Nothing was changed - try again.' |  | CAFM-REQ-F-142, CAFM-REQ-F-143, CAFM-REQ-F-144, CAFM-REQ-F-145, CAFM-REQ-F-146 |
 
 
 ## Data models
@@ -65,7 +55,7 @@ None.
 
 ## Design notes
 
-- CAFM-BR-157: The pending authorization stores its time in complemented form (999999999 minus the time) so newest sorts first. The fraud register needs the real timestamp, so the new application must convert back (999999999 minus the stored value) and combine it with the original authorization date. Card number plus that timestamp is the unique key of a fraud record; if the new data model stores the real time directly, the conversion goes away but the key must stay the same.
+- CAFM-BR-157: The fraud register is keyed by card number plus the authorization's original timestamp. The legacy authorization stores its time as a complement (999999999 minus the time) so newest sorts first; the new application should store the real authorization timestamp on the authorization and use it directly, with a unique key on (card number, authorization timestamp) so that recording is an upsert. If legacy data is migrated, convert the complemented time once, during migration.
 
 ## Open questions
 

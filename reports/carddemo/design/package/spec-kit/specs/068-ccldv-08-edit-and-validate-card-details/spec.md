@@ -10,7 +10,7 @@
 
 As a card operations user, I want to change a card's embossed name, active status and expiry date and have my changes checked, so that only valid card details are put forward for saving.
 
-Lets card operations staff change a card's embossed name, active status and expiry month and year, and checks each change before it can be saved. The name may hold only letters and spaces, the status must be Y or N, the month must be 1-12 and the year 1950-2099. It must never put forward invalid details for saving, and it shows only the first failing check's message.
+Card operations users change a card's embossed name, active status and expiry month and year, and each change is checked before it can be saved. The name may hold only letters and spaces, the status must be Y or N, the month must be 1 to 12 and the year 1950 to 2099. When more than one field fails, only the first failure in that order is reported. Changes must not go forward for confirmation until every changed field passes.
 
 **Acceptance scenarios:**
 
@@ -46,7 +46,7 @@ Lets card operations staff change a card's embossed name, active status and expi
 30. **Given** card active status entered: X; screen state before: 'S', **when** the operator has changed the card details and at least one of the changed values failed its edit checks (state 'E'), **then** State becomes 'E'; the info line shows 'Update card details presented above.' and the error line shows 'Card Active Status must be Y or N'. (CCLDV-C08-AC-30)
 31. **Given** Card status: N (was Y), **when** the changed values pass all checks, **then** Message 'Changes validated.Press F5 to save' (CCLDV-C08-AC-31)
 32. **Given** State: N; Key: Enter, **when** the edits still have errors ('E'), or the changes are validated ('N') and the operator presses a key other than PF5, **then** Nothing saved; 'Changes validated.Press F5 to save' shown again (CCLDV-C08-AC-32)
-33. **Given** a card fetched with embossed name 'JOHN SMITH', status 'Y', expiry 2025-03-31, and the operator has entered name 'JANE SMITH', status 'N', expiry month '13' and expiry year '2026', which leaves the screen in stage 'E', **when** the card update screen is redisplayed, **then** it shows the entered name 'JANE SMITH', status 'N', expiry month '13' and expiry year '2026', and the card's original expiry day '31' (CCLDV-C08-AC-33)
+33. **Given** a card was fetched with embossed name 'JOHN SMITH', status 'Y', expiry month '08', expiry year '2027' and expiry day '15', and the operator then entered name 'JANE SMITH', status 'N', month '13', year '2028', so the update is in stage 'E', **when** the card update screen is redisplayed, **then** the screen shows name 'JANE SMITH', status 'N', expiry month '13' and expiry year '2028' as entered by the operator, and expiry day '15' from the card's original details (CCLDV-C08-AC-33)
 
 ## Requirements
 

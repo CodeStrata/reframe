@@ -18,15 +18,23 @@ Runs as online.
 
 ### Account (S-ACCOUNT-VIEW)
 
-Find an account by number and review its status, dates, balances and limits together with the cardholder's profile, address and contacts, with direct links (new) to update it or pay its balance.
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Account number | search | 11-digit account number; has focus whenever the screen opens | Required: 'No input received' when blank; must be 11 digits and not all zeros: 'Account Filter must be a non-zero 11 digit number'. |  | OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125 |
-| View account | button |  |  |  | OATM-REQ-F-136 |
-| Account lookup error | message | Error naming what to fix, such as 'Account:<number> not found in Cross ref file', 'Account:<number> not found in Acct Master file', 'CustId:<number> not found in customer master', or a file error; the account number field is marked in error |  |  | OATM-REQ-F-127, OATM-REQ-F-128, OATM-REQ-F-129 |
+| Account or card number | **lookup field** | 11-digit account number or 16-digit card number (spaces and dashes ignored); a card number is resolved to its account through the card cross-reference | Blank: 'No input received' - enter an account number (11 digits) or a card number (16 digits). Not digits, wrong length or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number' (or a 16-digit card number). Not in the card cross-reference: 'Account:<number> not found in Cross ref file.' - check the number with the caller. The error shows under the field. |  | OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126, OATM-REQ-F-127, OATM-REQ-F-128, OATM-REQ-F-129, OATM-REQ-F-130, OATM-REQ-F-131, OATM-REQ-F-132, OATM-REQ-F-133, OATM-REQ-F-134, OATM-REQ-F-135, OATM-REQ-F-136 |
+
+### Application header and navigation (S-APP-SHELL)
+
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
+
+Prototype: `ui-reference/index.html#/S-APP-SHELL`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Find account (account or card number) | **lookup field** | 11-digit account number or 16-digit card number | Same checks as the account search on S-ACCOUNT-VIEW; an empty search says 'No input received' - enter an account number (11 digits) or a card number (16 digits). | S-ACCOUNT-VIEW | OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126 |
 
 
 ## Data model
@@ -118,9 +126,9 @@ Record `CUSTOMER-RECORD`:
 
 ## Design notes
 
-- OATM-BR-130: Needs a keyed lookup from account number to its card cross-reference entry, which gives the customer number and card number (a secondary index or account-keyed query on the card-account link). Both values must be kept in the user's session for the following reads and later screens.
-- OATM-BR-133: Needs a keyed read of the account by account number, done only after the cross-reference lookup succeeds. A successful read sets an 'account found' flag that the screen uses to decide whether to show account details.
-- OATM-BR-136: Needs a keyed read of the customer by the customer number that came from the cross-reference, not by any value the user typed. A successful read sets a 'customer found' flag that controls display of the customer details.
+- OATM-BR-130: Needs a lookup of the card-to-account link by account number (a secondary index or query on account ID). When a link is found, the customer number and card number it holds are kept in the user's session for the rest of the interaction and used by the later customer lookup.
+- OATM-BR-133: Needs a read of the account by its 11-digit account number, which is the primary key. A successful read sets an 'account found' flag that tells the view to show the account's financial details.
+- OATM-BR-136: Needs a read of the customer by the customer number taken from the card-to-account link, not from anything the user typed. A successful read sets a 'customer found' flag that tells the view to show the customer details.
 
 ## Decision tables
 

@@ -24,9 +24,9 @@ None found in the source.
 
 ## Design notes
 
-- SOM-BR-032: A batch step that copies every record of the FTP test file into its existing backup file (or object), replacing what is there. It must not stop other readers using either file while it runs, for example by copying to a temporary file and then renaming it, or by copying object to object in storage.
-- SOM-BR-033: Once the backup step finishes, the job must trigger the follow-on job (INTRDRJ2) using its stored job definition, unchanged. In the new application this is a dependency in the scheduler or workflow (backup, then distribute), or an event or message that starts the follow-on job, not a submission of job text.
-- SOM-BR-034: The follow-on job copies every record of the backup file into the existing second copy (the legacy '.INTRDR' copy). Like the first step, it must not lock out other jobs reading or writing these files while it runs.
+- SOM-BR-032: A scheduled job step that copies the FTP test file record for record into the existing backup location, for example object-storage copy or file copy. It must not lock out other readers or writers while it runs, and it fails if the backup target does not already exist.
+- SOM-BR-033: After the backup step succeeds, the job triggers the follow-on job (INTRDRJ2) from its stored, unchanged definition. In a modern scheduler or workflow engine this is a job dependency or chained trigger, not the copying of a job definition to a reader. The legacy output class 'A' becomes the follow-on job's default log destination.
+- SOM-BR-034: A follow-on job that copies every record of the backup file into the already-existing secondary copy (the '.INTRDR' copy). Both files stay readable by other jobs while it runs. It runs only when the first job triggers it.
 
 ## Decision tables
 

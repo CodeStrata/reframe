@@ -4,24 +4,32 @@
 
 ## Overview
 
-Lets an operator change the details of a fetched account. Every field is checked, and the changes are saved only when the operator confirms them with PF5. Unchanged or invalid submissions must never be saved, and the operator must always see the outcome: committed, a lock failure, an update failure, or a record that someone else changed meanwhile.
+Lets an operator change an account's and its customer's details. Every changed value is checked, and a save happens only after the operator explicitly confirms with PF5. Changes that fail a check, or that are not confirmed, must never be saved. The operator must always be told whether there was nothing to change, whether the changes were validated, or whether the save was committed or failed.
 
 Runs as online. Journeys: J02.
 
 ## Screens and components
 
+### Account (S-ACCOUNT-VIEW)
+
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
+
+Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Update account (S-ACCOUNT-EDIT)
 
-Fetch an account, change its account and customer details in one form, see every error at its field, and save both records together only after reviewing the changes.
+Change an account's and its customer's details after confirming the caller. Each field is checked as it is left and again on save; every failing field shows its own message and a summary lists them all. Save asks for confirmation, listing each change from old to new value. Tab order: account and status, dates, amounts, customer identity, name and address, contact, then Save changes.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-EDIT`. Replaces the legacy screens CACTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Account and customer details | form | All account and customer fields, fetched values pre-filled; editable only while details are shown or have errors | If nothing differs from the fetched values (ignoring case): 'No change detected with respect to values fetched.' and nothing is checked or saved. |  |  |
-| Check changes | button | Checks every changed field; when all pass, opens the save confirmation |  |  | OATM-REQ-F-118, OATM-REQ-F-120 |
-| Save changes | button | Saves the account and customer together, or neither | If the stored record changed since it was fetched: 'Record changed by some one else. Please review' and nothing is saved. |  |  |
-| Save result | message | Success: 'Changes committed to database'; failure: 'Changes unsuccessful. Please try again' or 'Update of record failed'; the next submit starts a new search |  |  | OATM-REQ-F-122 |
+| Name and address | **summary card** | First name, Middle name (optional), Last name; Address line 1, Address line 2 (optional); City; State (a choice of US state codes); ZIP; Country | '<field> must be supplied.' for First Name, Last Name, City, State, Country and Address Line 1; '<field> can have alphabets only.' for names, city, state and country; 'Middle Name can have alphabets only.'; 'State: is not a valid state code'; ZIP: 'ZIP must be supplied.', must be all numeric, 5 digits and not zero; 'Invalid zip code for state' - check the state and ZIP together. |  |  |
+| Fix these before saving | **summary card** | Shown after a save attempt with errors: each field in error with its message, each a link that moves focus to the field; focus moves to this summary. Replaces the legacy single message line, which showed only the first error; every invalid field is still flagged |  |  | OATM-REQ-F-120 |
+| Save changes | **primary button** | Runs every check; with no change shows 'No change detected with respect to values fetched.' and saves nothing; when all checks pass, a confirmation dialog lists each change (old to new) with Confirm and Cancel; success shows 'Changes committed to database' and the account returns to view | If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved. |  | OATM-REQ-F-118, OATM-REQ-F-119, OATM-REQ-F-120, OATM-REQ-F-121, OATM-REQ-F-122 |
 
 
 ## Data models

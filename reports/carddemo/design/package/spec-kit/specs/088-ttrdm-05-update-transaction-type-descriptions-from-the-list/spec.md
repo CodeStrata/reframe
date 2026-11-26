@@ -10,7 +10,7 @@
 
 As an administrator, I want to mark a listed transaction type for update or delete and change its description on the list screen, so that I can correct reference data online with clear validation feedback.
 
-Lets administrators change a transaction type's description directly on a list row marked 'U', with checks before anything is saved. A changed description must be supplied and may hold only letters, digits and spaces. An unchanged one is reported as 'No change detected with respect to database values.'. The screen must never save, or appear to accept, a description that failed these checks.
+On the transaction type list an administrator can mark one row 'U' and type a new description in place. The description is checked before anything is saved: it must be supplied, must actually differ from the stored one (ignoring case and surrounding spaces), and may hold only letters, digits and spaces. The screen must never save an invalid or unchanged description, and must show the user exactly which field is wrong.
 
 **Acceptance scenarios:**
 
@@ -25,8 +25,8 @@ Lets administrators change a transaction type's description directly on a list r
 9. **Given** Type code filter: A1, **when** the submitted screen has an input error, **then** The list screen is shown again with 'TYPE CODE FILTER,IF SUPPLIED MUST BE A 2 DIGIT NUMBER' (TTRDM-C05-AC-09)
 10. **Given** Type code filter: blank; Row error: invalid row action; First type code on page: 05, **when** the submitted screen has an input error but both the type code filter and the description filter are acceptable, **then** The page is re-read from type 05 and shown with the error message (TTRDM-C05-AC-10)
 11. **Given** Type code filter: X9, **when** the submitted screen has an input error but both the type code filter and the description filter are acceptable, **then** The list is not re-read; the screen is redisplayed with the filter error (TTRDM-C05-AC-11)
-12. **Given** row 3 shows type '02' with stored description 'Payment', and no other message has been set, **when** the administrator marks row 3 'U', clears its description to blank (or types '*') and presses Enter, **then** the input is rejected, the message 'Transaction Desc must be supplied.' is shown and nothing is saved (TTRDM-C05-AC-12)
-13. **Given** row 2 shows type '01' with stored description 'Purchase', and no other row has an action, **when** the administrator marks row 2 'U', types 'Retail Purchase' as its description and presses Enter, **then** row 2 shows 'Retail Purchase' rather than 'Purchase' when the page is shown again (TTRDM-C05-AC-13)
+12. **Given** Transaction type '01' is shown on the list with stored description 'Purchase' and no other message has been set, **when** The user marks the row for '01' with 'U', clears its description (or enters only '*') and presses Enter, **then** The input is rejected, nothing is saved, and the message 'Transaction Desc must be supplied.' is shown (TTRDM-C05-AC-12)
+13. **Given** Transaction type '01' is shown on the list with stored description 'Purchase', **when** The user marks only the row for '01' with 'U', types 'Retail Purchase' as its description and presses Enter, **then** The redisplayed row for '01' shows 'Retail Purchase', not the stored 'Purchase' (TTRDM-C05-AC-13)
 
 ## Requirements
 

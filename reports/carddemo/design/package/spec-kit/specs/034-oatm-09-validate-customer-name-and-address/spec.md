@@ -10,7 +10,7 @@
 
 As an operator, I want customer names and address details checked when I change them, so that only well-formed and consistent names and addresses are saved.
 
-Checks the customer's names, address line 1, city, state, ZIP and country when the operator changes details, including that the state is a valid US state code and matches the ZIP prefix. Middle name and address line 2 are optional. It must never save a missing required name or address part, non-letter characters in names, or a state and ZIP that do not belong together.
+Checks customer names and address when the operator changes account or customer details. First name, last name, city, state and country are required and may contain letters and spaces only. Address line 1 is required. The state must be a valid US state code, the ZIP must be 5 non-zero digits, and the two must go together. A missing, malformed or inconsistent name or address must never be saved.
 
 **Acceptance scenarios:**
 
@@ -25,11 +25,11 @@ Checks the customer's names, address line 1, city, state, ZIP and country when t
 9. **Given** State: NY; ZIP: 10001, **when** both the state and the ZIP code have passed their own edits, **then** 'NY10' is a valid combination; the address passes the cross-check (OATM-C09-AC-09)
 10. **Given** State: XX; ZIP: 90210, **when** both the state and the ZIP code have passed their own edits, **then** Cross-check is not performed because the state already failed its own edit (OATM-C09-AC-10)
 11. **Given** State: NY; ZIP: 90210, **when** the state and first two ZIP digits are not a valid combination, **then** Change rejected with 'Invalid zip code for state'; state and ZIP both flagged (OATM-C09-AC-11)
-12. **Given** a fetched account is shown and the operator changes details and clears the First Name, **when** the changes are validated, **then** the input is rejected with 'First Name must be supplied.' and the First Name field is marked blank ('B') (OATM-C09-AC-12)
-13. **Given** a fetched account is shown, all earlier fields are valid, and the operator enters '*' as the City, **when** the changes are validated, **then** the input is rejected with 'City must be supplied.' and the City field is marked blank ('B') (OATM-C09-AC-13)
-14. **Given** a changed account where all earlier fields are valid and the ZIP is blank, **when** the changes are validated, **then** the input is rejected with 'ZIP must be supplied.' and the ZIP is flagged 'B' (OATM-C09-AC-14)
-15. **Given** a changed account where all earlier fields are valid and the ZIP is '12A45', **when** the changes are validated, **then** the input is rejected with '<field> must be all numeric.' naming the ZIP field and the ZIP is flagged '0' (OATM-C09-AC-15)
-16. **Given** a changed account where all earlier fields are valid and the ZIP is '00000', **when** the changes are validated, **then** the input is rejected with '<field> must not be zero.' naming the ZIP field and the ZIP is flagged '0' (OATM-C09-AC-16)
+12. **Given** an account is shown for update and the operator has changed a field, **when** the operator clears the First Name (or enters '*') and submits, **then** the input is rejected with 'First Name must be supplied.' and the first name is flagged blank ('B') (OATM-C09-AC-12)
+13. **Given** an account is shown for update and the operator has changed a field, **when** the operator leaves the City blank and submits, **then** the input is rejected with 'City must be supplied.' and the city is flagged blank ('B') (OATM-C09-AC-13)
+14. **Given** an account is shown for update with changes, **when** the operator leaves the ZIP blank and submits, **then** the input is rejected with 'ZIP must be supplied.' and the ZIP is flagged 'B' (OATM-C09-AC-14)
+15. **Given** an account is shown for update with changes, **when** the operator enters ZIP '12A45' and submits, **then** the input is rejected with 'ZIP must be all numeric.' and the ZIP is flagged '0' (OATM-C09-AC-15)
+16. **Given** an account is shown for update with changes, **when** the operator enters ZIP '00000' and submits, **then** the input is rejected with 'ZIP must not be zero.' and the ZIP is flagged '0' (OATM-C09-AC-16)
 
 ## Requirements
 

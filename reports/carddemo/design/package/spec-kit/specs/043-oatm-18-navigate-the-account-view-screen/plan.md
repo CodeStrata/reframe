@@ -18,15 +18,23 @@ Runs as online.
 
 ### Account (S-ACCOUNT-VIEW)
 
-Find an account by number and review its status, dates, balances and limits together with the cardholder's profile, address and contacts, with direct links (new) to update it or pay its balance.
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| View account | button |  |  |  | OATM-REQ-F-146, OATM-REQ-F-147 |
-| Account lookup error | message | Error naming what to fix, such as 'Account:<number> not found in Cross ref file', 'Account:<number> not found in Acct Master file', 'CustId:<number> not found in customer master', or a file error; the account number field is marked in error |  |  |  |
-| Back | link |  |  | S-APP-SHELL | OATM-REQ-F-143, OATM-REQ-F-144, OATM-REQ-F-145 |
+| Account or card number | **lookup field** | 11-digit account number or 16-digit card number (spaces and dashes ignored); a card number is resolved to its account through the card cross-reference | Blank: 'No input received' - enter an account number (11 digits) or a card number (16 digits). Not digits, wrong length or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number' (or a 16-digit card number). Not in the card cross-reference: 'Account:<number> not found in Cross ref file.' - check the number with the caller. The error shows under the field. |  | OATM-REQ-F-143, OATM-REQ-F-146 |
+
+### Application header and navigation (S-APP-SHELL)
+
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
+
+Prototype: `ui-reference/index.html#/S-APP-SHELL`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Account | **primary button** |  |  | S-ACCOUNT-VIEW | OATM-REQ-F-144, OATM-REQ-F-145 |
 
 
 ## Data model
@@ -118,8 +126,8 @@ Record `CUSTOMER-RECORD`:
 
 ## Design notes
 
-- OATM-BR-150: The screen needs a per-user conversation state with a 'first entry' marker. When there is no session, or the user arrives fresh from the main menu, the server creates new screen state and ignores any data passed in. Only a return visit to the same screen reuses its state.
-- OATM-BR-152: Each time the account view is rendered, store its session state server-side (or in a signed client token) marked as 're-entry'. The next request from the user then resumes the same account view conversation. No process stays waiting between requests: the flow is stateless request handling with persisted session state.
+- OATM-BR-150: When the view is opened with no session state, or opened from the main menu as a new visit, the application must create a new, empty view state and discard any data handed over by the previous screen. Only an explicit re-entry from the same view may reuse existing state.
+- OATM-BR-152: The view is a request/response interaction that keeps its state between requests. Every time the screen is returned, the session must be marked as 're-entry' and the entered account number and lookup results kept, so that the user's next submission is handled as a continuation of the same Account View interaction.
 
 ## Decision tables
 

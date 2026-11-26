@@ -46,8 +46,8 @@ def parser() -> argparse.ArgumentParser:
     def command(name: str, help: str) -> argparse.ArgumentParser:
         return commands.add_parser(name, help=help, description=help)
 
-    run = command("run", "Assess mainframe source with AWS Transform: with no options, a guided run that checks and sets up "
-                              "everything first; the AWS resources stay until reframe teardown")
+    run = command("run", "Assess mainframe source with AWS Transform and Claude, or with Claude only (--tools claude, no AWS): with no "
+                              "options, a guided run that checks and sets up everything first; the AWS resources stay until reframe teardown")
     run.add_argument("--source", help="the mainframe source: a local folder, a local .zip file, or a GitHub URL; given, nothing is asked "
                      "and the prerequisites are assumed to be set up")
     run.add_argument("--profile", help="the AWS CLI profile to sign in with (default: the one saved by the guided setup)")
@@ -60,8 +60,14 @@ def parser() -> argparse.ArgumentParser:
                      "(default: interactive mode asks; autonomous mode creates a new graph)")
     run.add_argument("--terraform", help="the Terraform binary to use (default: REFRAME_TERRAFORM, then the one Reframe installed, then terraform on PATH)")
     run.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
+    run.add_argument("--tools", choices=("both", "claude", "aws"), default="both",
+                     help="both: AWS Transform and Claude, side by side (needs an AWS account); claude: Claude only, with no AWS at all; aws: "
+                          "AWS Transform only (reframe claude adds Claude later)")
+    run.add_argument("--max-agents", type=int, help="the agent limit for Claude's rule extraction (default 600; use 650 or more for CardDemo)")
 
-    command("setup", "Check and set up the prerequisites and the AWS sign-in, without starting a run")
+    setup = command("setup", "Check and set up the prerequisites and the AWS sign-in, without starting a run")
+    setup.add_argument("--tools", choices=("both", "claude"), default="both",
+                       help="both: everything, with the AWS sign-in; claude: only Git, Claude Code and the plugin, with no AWS")
 
     status = command("status", "The run's stage, the job's plan steps, any waiting question and the next step")
     _run_option(status)
@@ -94,9 +100,9 @@ def parser() -> argparse.ArgumentParser:
                         help="load Claude's graph into the cluster (default: yes on a graph the run created, no on an existing cluster)")
     claude.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
 
-    reconcile = command("reconcile", "The reconciliation: decide every rule the two assessments do not agree on against the source code, with "
-                        "evidence Reframe checks, then write recommended requirements, one SME list and the reconciliation page; needs both "
-                        "assessments done, and no AWS resources")
+    reconcile = command("reconcile", "The reconciliation: decide every rule the two assessments do not agree on (with Claude only, every rule) "
+                        "against the source code, with evidence Reframe checks, then write recommended requirements, one SME list and the "
+                        "reconciliation page; needs the run's assessments done, and no AWS resources")
     _run_option(reconcile)
     reconcile.add_argument("--context", help="a folder of context: documents (Markdown, text, PDF, Word), review exports and answered questions")
     reconcile.add_argument("--auth", choices=("subscription", "bedrock"), default=None,
@@ -134,10 +140,13 @@ def parser() -> argparse.ArgumentParser:
     _run_option(compare)
     compare.add_argument("--open", action="store_true", help="open the page in the browser")
 
-    publish = command("publish", "Copy a run's reports, cleaned of the AWS account's identifiers, into a folder others can open")
+    publish = command("publish", "Optional: copy a run's reports, cleaned of the AWS account's identifiers, into a folder others can open, upload the run's "
+                                 "source, results and reports to your account's private bucket, or publish the copy to a GitHub Pages site")
     _run_option(publish)
-    publish.add_argument("--to", required=True, help="a folder to write the copy into (for example reports/carddemo), or aws to upload it to "
-                         "the private Reframe bucket in your AWS account, with the run's source and results")
+    publish.add_argument("--to", required=True, help="a folder to write the copy into (for example reports/carddemo); aws to upload it to "
+                         "the private Reframe bucket in your AWS account, with the run's source and results; or pages to publish it to a GitHub "
+                         "Pages site, which is public, after you type yes")
+    publish.add_argument("--repo", help="for --to pages: the GitHub repository, <owner>/<name>; the copy goes on its gh-pages branch")
     publish.add_argument("--profile", help="for --to aws: the AWS profile (default: the one saved by reframe setup)")
     publish.add_argument("--region", help="for --to aws: the AWS region (default: the saved one, then us-east-1)")
 

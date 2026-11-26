@@ -10,7 +10,7 @@
 
 As a card operations user, I want to mark one card in the list with S or U, so that I can go straight to its details or its update screen.
 
-Lets card operations staff mark one card in the list with 'S' to view its details or 'U' to update it, and takes them straight to that screen with the card's account and card number. It must never act when more than one row is marked or when a code other than S, U or blank is entered.
+From the card list, a card operations user marks one card with S to view its details or U to update it, and goes straight to that screen with the card's account and card number. Only one row may be selected and only S, U or blank are valid codes. Any other input is rejected with its exact message and the list is shown again, so the user never lands on the wrong card.
 
 **Acceptance scenarios:**
 

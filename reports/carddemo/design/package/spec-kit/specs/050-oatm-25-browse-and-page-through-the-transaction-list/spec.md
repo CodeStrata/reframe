@@ -10,7 +10,7 @@
 
 As a signed-on user, I want to see transactions ten at a time, start from a transaction ID I choose, and page forward and backward, so that I can find the transaction I am looking for.
 
-Lets any signed-on user browse the transaction list ten rows at a time in transaction ID order. They can start from a transaction ID they type and page forward and backward. Paging must never skip or repeat a transaction at a page boundary. A non-numeric filter must be rejected, and the user must be told plainly when they reach the top or bottom of the list.
+Lets any signed-on user browse the transaction list ten rows at a time, starting from the first transaction or from a transaction ID they type, and page forward (PF8) and backward (PF7). It must never skip or repeat a transaction between pages, must reject a non-numeric Tran ID filter, and must say clearly when the user is already at the top or bottom of the list.
 
 **Acceptance scenarios:**
 
@@ -44,7 +44,8 @@ Lets any signed-on user browse the transaction list ten rows at a time in transa
 28. **Given** Current page number: 3; Transactions before the new first row: 10, **when** all ten rows have been filled while paging backward, **then** Page number becomes 2. (OATM-C25-AC-28)
 29. **Given** Current page number: 2; Transactions before the new first row: none, **when** all ten rows have been filled while paging backward, **then** Page number becomes 1. (OATM-C25-AC-29)
 30. **Given** Current page number: 2; Earlier transactions: only 6, **when** the start of the transaction file is reached before all ten rows are filled while paging backward, **then** Rows 5 to 10 show the 6 transactions, rows 1 to 4 are blank, 'You have reached the top of the page...' is shown, and the page number stays 2. (OATM-C25-AC-30)
-31. **Given** a transaction on file with amount -125.50 and origination timestamp 2022-07-18 14:30:00, **when** the transaction is placed in a row of the transaction list page, **then** the row shows the amount as a signed value (-125.50, not 125.50) and the date as 07/18/22 (month, day, last two digits of the year of the origination timestamp) (OATM-C25-AC-31)
+31. **Given** a transaction on file with amount -125.50 and origination timestamp 2022-07-18 14:32:05.000000, **when** the transaction is placed on a row of the transaction list page, **then** the row shows the amount as the signed value -00000125.50 and the date as 07/18/22 (month, day, last two digits of the year) (OATM-C25-AC-31)
+32. **Given** a transaction on file with amount 50.00 and origination timestamp 2023-01-05 09:00:00.000000, **when** the transaction is placed on a row of the transaction list page, **then** the row shows the amount as +00000050.00 and the date as 01/05/23 (OATM-C25-AC-32)
 
 ## Requirements
 

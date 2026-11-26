@@ -3,9 +3,9 @@
 **Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
 
 - [ ] 1. SOM-C01-T1 [api] Build the scheduled job
-  - SOM-BR-001: The sign-on entry point must be set up as part of deployment configuration, such as a route table or service registration. Its legacy code CC00 maps to the sign-on screen, and it must be usable from any node or region (the legacy data location ANY). Keep CC00 as an alias only if outside links or operators still use it.
-  - SOM-BR-002: Register the admin menu as a deployable entry point (a route or service) that answers to the legacy code CCAD. It must be declared in the same deployment configuration as sign-on (the CARDDEMO group), so the two are always released together.
-  - SOM-BR-003: A second legacy code, CCDM, must open the same admin menu. Model it as an alias route or redirect to the admin menu entry point, not as a separate screen. No location restriction is needed (ANY).
+  - SOM-BR-001: Register the sign-on screen as a routable entry point (for example a route or deep-link code that matches legacy code CC00) in the application's deployment or route configuration, which is applied when the environment is provisioned. It must be open to any user who has not signed on. No data-location setting is needed.
+  - SOM-BR-002: Register the Admin Menu as a routable entry point under the code CCAD in the same deployment or route configuration as the sign-on screen, so the configuration is versioned and applied with each release.
+  - SOM-BR-003: Map a second entry code, CCDM, to the same Admin Menu route, so both CCAD and CCDM open the Admin Menu. Keep it as an alias in the route configuration, not a separate screen.
   - _Requirements: SOM-REQ-F-001, SOM-REQ-F-002, SOM-REQ-F-003_
   - _Rules: SOM-BR-001, SOM-BR-002, SOM-BR-003_
 - [ ] 2. SOM-C01-T2 [test-generation] Write a test for every acceptance criterion

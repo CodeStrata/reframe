@@ -10,7 +10,7 @@
 
 As a signed-on user, I want to mark a transaction in the list with 'S' and open its details, so that I can look at one transaction closely.
 
-Lets a signed-on user mark one transaction on the list with 'S' (or 's') and open its details on the Transaction View. Only the first marked row, top to bottom, counts. Any other code is rejected with 'Invalid selection. Valid value is S'. A stale earlier selection must never open a transaction the user did not choose.
+Lets a signed-on user mark one row of the transaction list with 'S' and open that transaction's details. Only the first marked row, top to bottom, counts. Any code other than 'S' or 's' is rejected with 'Invalid selection. Valid value is S', and no transaction is ever opened when no row is marked.
 
 **Acceptance scenarios:**
 

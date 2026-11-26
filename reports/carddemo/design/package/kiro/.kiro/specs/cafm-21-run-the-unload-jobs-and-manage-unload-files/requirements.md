@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as scheduled job
 
 ## Introduction
 
-Defines how the pending authorization unload jobs run and what happens to their output files, so operations can rely on the outcome. Files are kept or removed according to how the job ended, and failure to open an output file stops the job with return code 16. A failure to close a file is reported but must not change the job's result.
+Runs the pending authorization unload jobs and handles their output files the same way every time: new extract files are kept only when the job succeeds and removed when it fails, while the standing root and child files are always kept. A file that cannot be opened stops the job with return code 16; a file that will not close is reported but does not fail an otherwise good run.
 
 **User story:** As an operations analyst, I want the pending authorization unload jobs to run against the database and handle their output files predictably, so that unload files are opened, closed, kept or removed consistently with how the job ended.
 
@@ -55,11 +55,11 @@ Defines how the pending authorization unload jobs run and what happens to their 
 #### Acceptance criteria
 
 1. If either unload file fails to open with a status other than blank or '00', then the system shall display 'ERROR IN OPENING OPFILE1:' or 'ERROR IN OPENING OPFILE2:' with the status, display 'IMSUNLOD ABENDING ...', and end with return code 16. (rules CAFM-BR-199)
-2. GIVEN opening the first unload file returns status '35' (not blank or '00') WHEN the unload starts THEN 'ERROR IN OPENING OPFILE1:' is displayed with 35, 'IMSUNLOD ABENDING ...' is displayed, and the run ends with return code 16; if instead the second file fails to open, 'ERROR IN OPENING OPFILE2:' is displayed with its status, with the same ending (CAFM-C21-AC-09; CAFM-BR-199)
+2. GIVEN the second unload file cannot be opened and the open returns status '37' WHEN the unload job starts THEN 'ERROR IN OPENING OPFILE2:' is displayed with 37, 'IMSUNLOD ABENDING ...' is displayed, the job ends with return code 16 and no records are read from the database; the same applies to the first file with 'ERROR IN OPENING OPFILE1:' (CAFM-C21-AC-09; CAFM-BR-199)
 
 ### Requirement 7: CAFM-REQ-F-183 (error handling)
 
 #### Acceptance criteria
 
 1. If closing either unload file returns a status other than blank or '00', then the system shall display 'ERROR IN CLOSING 1ST FILE:' or 'ERROR IN CLOSING 2ND FILE:' with the status and still end normally, without changing the return code. (rules CAFM-BR-200)
-2. GIVEN the unload has reached the end of the database and closing the second unload file returns status '30' (not blank or '00') WHEN the unload closes its files THEN 'ERROR IN CLOSING 2ND FILE:' is displayed with 30 and the run still ends normally without the return code changing; a failure on the first file shows 'ERROR IN CLOSING 1ST FILE:' in the same way (CAFM-C21-AC-10; CAFM-BR-200)
+2. GIVEN the unload has read every summary and detail without error, and closing the first unload file returns status '30' WHEN the job closes its files THEN 'ERROR IN CLOSING 1ST FILE:' is displayed with 30, and the job still ends normally with its return code unchanged; the same applies to the second file with 'ERROR IN CLOSING 2ND FILE:' (CAFM-C21-AC-10; CAFM-BR-200)

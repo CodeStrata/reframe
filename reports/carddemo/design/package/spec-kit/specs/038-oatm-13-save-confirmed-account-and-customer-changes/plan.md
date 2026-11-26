@@ -16,16 +16,24 @@ Runs as online.
 
 ## Screens
 
+### Account (S-ACCOUNT-VIEW)
+
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
+
+Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Update account (S-ACCOUNT-EDIT)
 
-Fetch an account, change its account and customer details in one form, see every error at its field, and save both records together only after reviewing the changes.
+Change an account's and its customer's details after confirming the caller. Each field is checked as it is left and again on save; every failing field shows its own message and a summary lists them all. Save asks for confirmation, listing each change from old to new value. Tab order: account and status, dates, amounts, customer identity, name and address, contact, then Save changes.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-EDIT`. Replaces the legacy screens CACTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Save changes | button | Saves the account and customer together, or neither | If the stored record changed since it was fetched: 'Record changed by some one else. Please review' and nothing is saved. |  | OATM-REQ-F-107, OATM-REQ-N-004 |
-| Save result | message | Success: 'Changes committed to database'; failure: 'Changes unsuccessful. Please try again' or 'Update of record failed'; the next submit starts a new search |  |  | OATM-REQ-F-112, OATM-REQ-F-113 |
+| Save changes | **primary button** | Runs every check; with no change shows 'No change detected with respect to values fetched.' and saves nothing; when all checks pass, a confirmation dialog lists each change (old to new) with Confirm and Cancel; success shows 'Changes committed to database' and the account returns to view | If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved. |  | OATM-REQ-F-107, OATM-REQ-F-108, OATM-REQ-F-109, OATM-REQ-F-110, OATM-REQ-F-111, OATM-REQ-F-112, OATM-REQ-F-113, OATM-REQ-N-004 |
 
 
 ## Data model

@@ -18,19 +18,18 @@ Runs as online.
 
 ### Transactions (S-TRANSACTION-LIST)
 
-Browse transactions page by page from a chosen ID and open any one with a row action instead of typing S against it.
+Browse transactions in a sortable, paged table or jump to a transaction ID, and open one with Enter or a click instead of typing S beside it. Tab order: search, table, pager, Add transaction.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy screens COTRN0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Start from transaction ID | search | Optional; the list starts at this ID or the next higher one; blank starts at the first | Digits only: 'Tran ID must be Numeric ...'; above every ID on file: 'You are at the top of the page...'. |  | OATM-REQ-F-198, OATM-REQ-F-199, OATM-REQ-F-200 |
-| Transactions | table | Transaction ID, date (MM/DD/YY), description and signed amount; ten rows a page in ID order, all accounts; page number; Previous and Next page controls; row action View opens the transaction | Previous on the first page: 'You are already at the top of the page...'; Next on the last page: 'You are already at the bottom of the page...'. |  | OATM-REQ-F-212 |
-| List error | message | 'Unable to lookup transaction...' when the file cannot be read; focus returns to the search |  |  | OATM-REQ-F-197, OATM-REQ-F-211 |
+| Start from transaction ID | **lookup field** | Transaction ID (up to 16 digits); the table starts at that ID | Not all digits: 'Tran ID must be Numeric ...' - enter digits only. Higher than every ID on file: 'You are at the top of the page...'. |  | OATM-REQ-F-197, OATM-REQ-F-198, OATM-REQ-F-199, OATM-REQ-F-200, OATM-REQ-F-201, OATM-REQ-F-202 |
+| Transactions | **data table** | Columns Transaction ID, Date (26 Nov 2026), Description, Amount (right-aligned, two decimals), sortable; 20 rows a page with page number and next/previous; the row opens the transaction | Rows open on Enter or click, so there is no selection code to mistype (legacy: 'Invalid selection. Valid value is S'). At the first or last page the previous or next control is disabled and says 'You are already at the top of the page...' / 'You have reached the bottom of the page...'. Empty state: 'No transactions yet. Use Add transaction to record the first one.' | S-TRANSACTION-VIEW | OATM-REQ-F-195, OATM-REQ-F-196, OATM-REQ-F-203, OATM-REQ-F-204, OATM-REQ-F-205, OATM-REQ-F-206, OATM-REQ-F-207, OATM-REQ-F-208, OATM-REQ-F-209, OATM-REQ-F-210, OATM-REQ-F-211, OATM-REQ-F-212, OATM-REQ-F-213, OATM-REQ-F-214, OATM-REQ-F-215, OATM-REQ-F-216, OATM-REQ-F-217, OATM-REQ-F-218, OATM-REQ-F-219 |
 
 ### Transaction (S-TRANSACTION-VIEW)
 
-Show one transaction's card, type, category, source, amount, dates and merchant together, opened from the list or looked up by ID.
+Show one transaction in full with its merchant, opened from the list or by typing its ID. Tab order: transaction ID, details, merchant, Back to transactions.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-VIEW`. Replaces the legacy screens COTRN1A.
 
@@ -70,10 +69,10 @@ Record `TRAN-RECORD`:
 
 ## Design notes
 
-- OATM-BR-206: Every request to the list starts from a clean state: no leftover message, no error, end-of-list or next-page flags carried over, and focus on the transaction ID filter. Page position comes only from the paging state the server keeps (or the request carries), not from previous screen contents.
-- OATM-BR-216: Each page response must keep the transaction ID of its first row and of its last row as paging cursors. The first ID is where the next previous-page request starts. Keep them in the user's session or return them as opaque cursors.
-- OATM-BR-217: The ID of the tenth row is the cursor for the next-page request. The next page is a keyed range read of transactions with ID strictly greater than this cursor, in ascending ID order, limited to 10 (plus one look-ahead to tell whether more exist).
-- OATM-BR-226: The previous page is a keyed range read of transactions with ID strictly less than the current page's first ID, in descending order, limited to 10, then reversed for display. The current first transaction is never repeated. Use an index on transaction ID that supports reading in both directions from a key.
+- OATM-BR-206: Each request to the list starts from a clean screen state: no leftover message, error, end-of-list or next-page flags, and focus on the Tran ID filter. In a modern UI this is just rendering the list view fresh per request rather than carrying flags between requests.
+- OATM-BR-216: The page needs to keep the IDs of its first and last rows (in the page response or a cursor token) so the next request can page backward from the first ID. A keyset/cursor query on transaction ID does this; offset paging would not match the legacy behaviour.
+- OATM-BR-217: The ID of the tenth row is the forward cursor: the next-page query reads transactions with ID greater than it, in ascending ID order, limit 10 (plus one look-ahead row to know whether another page exists).
+- OATM-BR-226: The previous-page query reads transactions with ID strictly less than the current page's first ID, in descending order, limit 10 (plus one look-ahead), and reverses them for display, so the current first row is never repeated.
 
 ## Decision tables
 

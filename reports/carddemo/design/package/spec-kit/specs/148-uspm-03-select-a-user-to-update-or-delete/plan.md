@@ -18,7 +18,7 @@ Runs as online.
 
 ### Sign in (S-SIGN-IN)
 
-Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+Sign in to CardDemo with a user ID and password. Administrators and regular users both land on Home, which shows the functions their role allows.
 
 Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
 
@@ -27,7 +27,7 @@ Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COS
 
 ### Home (S-HOME)
 
-One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+Landing page after sign-in. It lists every function the signed-in role may use as links, and replaces the numbered Main Menu, the Admin Menu and the typed option number.
 
 Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
 
@@ -36,19 +36,17 @@ Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1
 
 ### Users (S-USER-LIST)
 
-Find users and act on them: search by User ID, page through a table of users, and edit or delete a user from its row; add a new user from here.
+Find a user and act on them. A searchable, paged table of all users has Edit and Delete actions on each row, plus Add user. It replaces the typed U and D selection codes and the F7 and F8 paging keys.
 
 Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens COUSR0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Search by User ID | search | User ID to start the list from; blank lists from the first user |  |  | USPM-REQ-F-035 |
-| Edit | button | Row action that opens the user for update | Only Edit and Delete are offered, so 'Invalid selection. Valid values are U and D' cannot arise | S-USER-EDIT | USPM-REQ-F-034, USPM-REQ-F-036, USPM-REQ-F-038 |
-| Delete | button | Row action that opens the user for deletion |  | S-USER-DELETE | USPM-REQ-F-037 |
+| Users | **data table** | Columns User ID, First name, Last name and User type (Admin or User), sorted by User ID. The table shows 20 rows a page, with Previous, Next and 'Page n'. Each row has an Edit action (opens Update user) and a Delete action (opens Delete user). Empty state: 'No users yet. Choose Add user to create the first one.' | Previous is disabled on page 1 and Next on the last page. The disabled buttons say 'You are already at the top of the page...' and 'You are already at the bottom of the page...', and the last page says 'You have reached the bottom of the page...'. The actions are buttons on each row, so the 'Invalid selection. Valid values are U and D' error cannot happen. If the users cannot be read while paging: 'Unable to lookup User...'. | S-USER-EDIT | USPM-REQ-F-034, USPM-REQ-F-036, USPM-REQ-F-037, USPM-REQ-F-038 |
 
 ### Update user (S-USER-EDIT)
 
-Change a user's name, password or user type. Opens with the user already loaded when chosen from the list; another user can be looked up by User ID.
+Correct a user's name, password or user type. It opens already filled in from the Users table; you can also type a user ID to look up another user.
 
 Prototype: `ui-reference/index.html#/S-USER-EDIT`. Replaces the legacy screens COUSR2A.
 
@@ -57,7 +55,7 @@ Prototype: `ui-reference/index.html#/S-USER-EDIT`. Replaces the legacy screens C
 
 ### Delete user (S-USER-DELETE)
 
-Check a user's name and type and delete them so they can no longer sign in; deletion is confirmed in a dialog (new).
+Remove a user who should no longer have access. The screen shows who will be deleted and asks for confirmation; the confirmation is new, because the legacy deleted on PF5 without asking.
 
 Prototype: `ui-reference/index.html#/S-USER-DELETE`. Replaces the legacy screens COUSR3A.
 
@@ -89,8 +87,8 @@ Record `SEC-USER-DATA`:
 
 ## Design notes
 
-- USPM-BR-039: When the list is submitted with no row marked, clear any pending selected action and user held in the session and simply reload the list, so that a stale selection can never open the update or delete screen.
-- USPM-BR-040: Reset the pending selection (action code and selected User ID) to empty on every submit that has no marked row, before the routing decision is made.
+- USPM-BR-039: When the list is submitted with no row marked, clear any pending action and selected User ID held in the session, so that no stale selection opens an update or delete screen. Then just refresh the list.
+- USPM-BR-040: The pending selection (action code and User ID) must be reset to empty on every submit that has no marked row. It must not be carried over from an earlier interaction.
 
 ## Decision tables
 

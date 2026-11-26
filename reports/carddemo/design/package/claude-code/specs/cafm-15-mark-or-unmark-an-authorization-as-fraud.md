@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-Lets a card operations user mark a pending authorization as fraud, or remove a fraud mark, with one action on the detail screen. The fraud register and the authorization record must change together or not at all: a partial update where one says fraud and the other does not must never be left behind. The user must be told clearly whether the authorization was marked fraud, had fraud removed, or the change was rolled back.
+Lets a card operations user mark a pending authorization as fraud, or remove that mark, with a single action on the detail screen. The change is recorded in two places, the authorization itself and the fraud register, and they must never disagree: both are saved together or neither is. The user is told plainly whether the authorization was marked or cleared, or why the change failed.
 
 **User story:** As a card operations user, I want to press PF5 on an authorization to report fraud or remove a fraud mark, so that suspected fraudulent authorizations are flagged consistently in the authorization record and the fraud register.
 
@@ -38,14 +38,14 @@ Lets a card operations user mark a pending authorization as fraud, or remove a f
 #### Acceptance criteria
 
 1. The system shall send the whole authorization record, the account number, the customer number and the fraud action to the fraud update program (COPAUS2C). (rules CAFM-BR-147)
-2. GIVEN the detail screen shows a selected authorization for a known account number and customer number, and the fraud action to request is 'F' WHEN the user presses PF5 THEN the fraud update receives the whole authorization record, the account number, the customer number and the fraud action 'F' (CAFM-C15-AC-15; CAFM-BR-147)
+2. GIVEN a selected authorization with fraud flag blank, for account 00000000123 and customer 000000456 WHEN the user presses PF5 THEN the fraud update service receives the whole authorization record, account number 00000000123, customer number 000000456 and fraud action 'F' (CAFM-C15-AC-15; CAFM-BR-147)
 
 ### Requirement 4: CAFM-REQ-F-136 (business rule)
 
 #### Acceptance criteria
 
 1. The system shall set the fraud report date on the authorization record returned by the fraud update program to today's date in MM/DD/YY form with separators, which the detail screen then saves on the pending authorization and displays. (rules CAFM-BR-147, CAFM-BR-148)
-2. GIVEN today's date is 25 November 2026 and the user presses PF5 on a selected authorization WHEN the fraud update returns the authorization record THEN the record's fraud report date is 11/25/26, that date is saved on the pending authorization and the detail screen shows it next to the fraud flag (CAFM-C15-AC-16; CAFM-BR-147, CAFM-BR-148)
+2. GIVEN today's date is 26 November 2026 and a selected authorization not marked fraud WHEN the user presses PF5 and the fraud update succeeds THEN the authorization record returned by the fraud update carries the fraud report date 11/26/26, that date is saved on the pending authorization, and the screen shows the flag F, '-', and 11/26/26 (CAFM-C15-AC-16; CAFM-BR-147, CAFM-BR-148)
 
 ### Requirement 5: CAFM-REQ-F-137 (business rule)
 
@@ -71,7 +71,7 @@ Lets a card operations user mark a pending authorization as fraud, or remove a f
 #### Acceptance criteria
 
 1. If the replace of the authorization detail returns any other status, then the system shall roll back both the fraud register change and the authorization detail change, set the error flag and show ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by the database status code. (rules CAFM-BR-152, CAFM-BR-153)
-2. GIVEN the user presses PF5, the fraud update reports success 'S', and replacing the pending authorization detail returns status 'AJ' (not blank or 'FW') WHEN the system saves the updated authorization detail THEN both the fraud register change and the authorization detail change are rolled back, the error flag is set, and ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by AJ is shown (CAFM-C15-AC-17; CAFM-BR-152, CAFM-BR-153)
+2. GIVEN a selected authorization marked fraud ('F'), the fraud update program reports success ('S'), and the replace of the authorization detail returns a status other than blank or 'FW', for example 'AI' WHEN the user presses PF5 THEN both the fraud register change and the authorization detail change are rolled back, the error flag is set, the message ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by AI is shown, and the stored authorization keeps fraud flag 'F' (CAFM-C15-AC-17; CAFM-BR-152, CAFM-BR-153)
 
 ### Requirement 8: CAFM-REQ-F-139 (error handling)
 
@@ -97,26 +97,15 @@ Lets a card operations user mark a pending authorization as fraud, or remove a f
 
 ## Screens and components
 
-### Pending authorizations (S-PENDING-AUTHS)
+### Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
 
-Look up an account and see its customer, limits, balances and approved/declined totals together with a paged table of its pending authorizations; open any authorization from its row.
+Look up an account and see everything on one screen: the customer, limits and balances, pending authorization totals, the authorizations in a paged table, and the selected authorization's full details. Fraud can be reported or cleared without leaving the list.
 
-Prototype: `ui-reference/index.html#/S-PENDING-AUTHS`. Replaces the legacy screens COPAU0A.
-
-| Component | Type | Shows | Checks | Goes to | Requirements |
-|---|---|---|---|---|---|
-
-### Authorization details (S-AUTH-DETAIL)
-
-Review one pending authorization — card, amount, response and reason, POS, merchant and fraud status — move to the account's next authorization, and mark or clear fraud on it.
-
-Prototype: `ui-reference/index.html#/S-AUTH-DETAIL`. Replaces the legacy screens COPAU1A.
+Prototype: `ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS`. Replaces the legacy screens COPAU0A, COPAU1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Mark as fraud / Remove fraud mark | button | Label follows the current state: 'Remove fraud mark' when flagged F, otherwise 'Mark as fraud'; opens a confirmation |  |  | CAFM-REQ-F-133, CAFM-REQ-F-134 |
-| Confirm fraud action | dialog | Card, amount, merchant and the action about to be recorded (report fraud or remove fraud) in the fraud register; Confirm / Cancel |  |  | CAFM-REQ-F-135, CAFM-REQ-F-136, CAFM-REQ-F-137 |
-| Fraud action result | message | Success: 'AUTH MARKED FRAUD...' or 'AUTH FRAUD REMOVED...'; failure: the fraud register's message, ' System error while FRAUD Tagging, ROLLBACK\|\|<code>', or that the action could not be completed and nothing was changed; the same authorization is redisplayed |  |  | CAFM-REQ-F-138, CAFM-REQ-F-139, CAFM-REQ-F-140, CAFM-REQ-F-141, CAFM-REQ-N-003 |
+| Report fraud / Remove fraud mark | **primary button** | Reads 'Report fraud' when the authorization is not marked fraud and 'Remove fraud mark' when it is. It opens a confirmation dialog that repeats what will change: the authorization, amount and merchant, and 'Fraud status: Not reported -> Fraud reported, dated today' or the reverse. On success it shows 'Authorization marked as fraud' or 'Fraud mark removed' and redisplays the same authorization with its new fraud status and date. The authorization and the fraud register change together or not at all. | Fraud register update failed: the fraud program's message (for example 'SYSTEM ERROR DB2: CODE <code>') and 'Nothing was changed - try again, and report the code if it repeats.' Authorization save failed: 'System error while FRAUD Tagging, ROLLBACK <code>' and 'Nothing was changed - try again.' Fraud service did not respond: 'The fraud update did not complete. Nothing was changed - try again.' |  | CAFM-REQ-F-133, CAFM-REQ-F-134, CAFM-REQ-F-135, CAFM-REQ-F-136, CAFM-REQ-F-137, CAFM-REQ-F-138, CAFM-REQ-F-139, CAFM-REQ-F-140, CAFM-REQ-F-141, CAFM-REQ-N-003 |
 
 
 ## Data models
@@ -188,7 +177,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-147: Marking or unmarking fraud calls a separate fraud-recording service, passing the full authorization, account number, customer number and the requested action ('F' or 'R'). The service stamps today's date (MM/DD/YY) as the fraud report date on the authorization it returns and reports success or failure with a message. This call and the save of the authorization record must run in one transaction (or an equivalent saga with compensation) so both commit or both roll back.
+- CAFM-BR-147: The fraud action is one synchronous call from the detail screen to a fraud-recording service, passing the full authorization, the account number, the customer number and the action ('F' report or 'R' remove). The service stamps today's date (MM/DD/YY) as the fraud report date on the authorization it returns and reports success or failure with a message. Both the fraud register write and the authorization update must run in one transaction (or an equivalent all-or-nothing mechanism), committed only after the authorization update succeeds.
 
 ## Open questions
 

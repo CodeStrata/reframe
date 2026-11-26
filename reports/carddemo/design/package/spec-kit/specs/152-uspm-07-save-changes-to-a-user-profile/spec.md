@@ -10,7 +10,7 @@
 
 As an administrator, I want to save changes to a user's name, password and user type, so that the user's security profile stays correct.
 
-Lets an administrator save changes to a user's first name, last name, password and user type, either staying on the screen or saving and leaving. It must require every field and report only the first blank one. It must write the record only when at least one field actually changed, and say plainly whether the save happened.
+Lets an administrator save changes to a user's first name, last name, password and user type. They can save and stay (PF5) or save and leave (PF3). It must require every field, write only when at least one value actually changed, and confirm a successful save.
 
 **Acceptance scenarios:**
 
@@ -26,7 +26,7 @@ Lets an administrator save changes to a user's first name, last name, password a
 10. **Given** Last Name: (blank); Key: PF3, **when** PF3 is pressed with a blank required field, **then** No update is written and the user is taken back to the previous screen (USPM-C07-AC-10)
 11. **Given** Stored user: JSMITH01, John, Smith, pass1234, type U; Screen: JSMITH01, John, Smith, pass1234, type A; Key: PF5, **when** the admin saves (PF5 or PF3) and User ID, First Name, Last Name, Password and User Type are all filled in, **then** The user record is rewritten with User Type 'A'; the other fields stay as they were. (USPM-C07-AC-11)
 12. **Given** Stored user: JSMITH01, John, Smith, pass1234, type U; Screen: JSMITH01, John, Smith, pass1234, type U; Key: PF5, **when** the admin saves and none of First Name, Last Name, Password or User Type differs from the stored user, **then** Nothing is written; the message 'Please modify to update ...' is shown in red. (USPM-C07-AC-12)
-13. **Given** user 'USER0001' is stored with Last Name 'Smith' and the administrator has changed Last Name to 'Jones' with all other fields filled, **when** the administrator presses PF5 and the changed record is saved successfully, **then** the message 'User USER0001 has been updated ...' is shown in green (USPM-C07-AC-13)
+13. **Given** user 'USER0001' is stored with Last Name 'Smith' and the administrator has changed Last Name to 'Jones', with all other fields filled, **when** the administrator presses PF5 and the changed record is saved successfully, **then** the message 'User USER0001 has been updated ...' is shown in green (USPM-C07-AC-13)
 
 ## Requirements
 

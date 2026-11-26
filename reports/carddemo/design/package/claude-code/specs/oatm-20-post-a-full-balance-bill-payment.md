@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Posts a confirmed bill payment as a new transaction for the full current balance, clears the account balance to zero, and gives the cardholder the new transaction ID as proof. The payment is numbered one above the highest existing transaction ID. As the legacy system behaves, the balance is still cleared even when the payment transaction could not be written, so the build team must decide explicitly whether to keep that.
+Posts a confirmed online bill payment. It records a type '02', category 2 transaction for the full current balance under the next transaction ID, clears the account balance to zero and gives the cardholder the transaction ID as proof. It must never charge a different amount than the balance or reuse a transaction ID. Note that the legacy system clears the balance even when the payment record cannot be written, so the team must decide whether to keep that or make the two steps all-or-nothing.
 
 **User story:** As a cardholder, I want my confirmed payment recorded as a transaction for the full balance and my account balance cleared, so that my account is paid off and I get a transaction ID as proof.
 
@@ -71,7 +71,7 @@ Posts a confirmed bill payment as a new transaction for the full current balance
 #### Acceptance criteria
 
 1. When the bill payment transaction is written successfully, the system shall clear the account ID, balance and confirmation fields and show in green 'Payment successful. Your Transaction ID is <new ID>.'. (rules OATM-BR-175)
-2. GIVEN A cardholder has confirmed a bill payment with 'Y' on account 00000000001 and the new payment transaction 0000000000000124 is written successfully WHEN The Bill Payment screen is shown again THEN The account ID, balance and confirmation fields are empty and the message 'Payment successful. Your Transaction ID is 0000000000000124.' is shown in green (OATM-C20-AC-15; OATM-BR-175)
+2. GIVEN A cardholder confirmed with 'Y' a payment on an account with a balance above zero, and the highest existing transaction ID is 0000000000000041 WHEN The payment transaction 0000000000000042 is written successfully THEN The account ID, balance and confirmation fields are cleared and the message 'Payment successful. Your Transaction ID is 0000000000000042.' is shown in green (OATM-C20-AC-15; OATM-BR-175)
 
 ### Requirement 9: OATM-REQ-F-168 (error handling)
 
@@ -97,16 +97,25 @@ Posts a confirmed bill payment as a new transaction for the full current balance
 
 ## Screens and components
 
+### Account (S-ACCOUNT-VIEW)
+
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
+
+Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Pay balance (S-BILL-PAY)
 
-See the balance owed on an account and pay it in full after confirming.
+Pay off the full balance owed on an account, recorded as a payment transaction. The account comes from the account in context or is looked up here; the balance shows before paying and the payment is confirmed in a dialog, not by typing Y or N. Tab order: account, balance, Pay balance.
 
 Prototype: `ui-reference/index.html#/S-BILL-PAY`. Replaces the legacy screens COBIL0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Pay full balance | button | Opens the confirmation; offered only when a balance is owed |  |  | OATM-REQ-F-164, OATM-REQ-F-165 |
-| Payment result | message | Success: 'Payment successful. Your Transaction ID is <id>.' and the form clears; failures: 'Tran ID already exist...', 'Unable to Add Bill pay Transaction...', 'Unable to Update Account...' |  |  | OATM-REQ-F-166, OATM-REQ-F-167, OATM-REQ-F-169 |
+| Balance to pay | **summary card** | Account number, Current balance (right-aligned, two decimals). The payment is the full current balance | When the balance is zero or less: 'You have nothing to pay...' and Pay balance is unavailable. |  | OATM-REQ-F-164 |
+| Pay balance | **primary button** | Opens a confirmation dialog repeating what will change: 'Pay $<balance> on account <account>? The balance becomes $0.00.' with Pay and Cancel. Success shows the payment transaction ID and the new balance | The dialog offers only Pay or Cancel, so no other value can be entered (legacy: 'Invalid value. Valid values are (Y/N)...'). If the card linked to the account is not found, nothing is paid and the message says so. The payment and the balance change are saved together or not at all. |  | OATM-REQ-F-160, OATM-REQ-F-161, OATM-REQ-F-162, OATM-REQ-F-163, OATM-REQ-F-164, OATM-REQ-F-165, OATM-REQ-F-166, OATM-REQ-F-167, OATM-REQ-F-168, OATM-REQ-F-169, OATM-REQ-F-170 |
 
 
 ## Data models
@@ -229,8 +238,8 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- OATM-BR-167: Needs the highest existing transaction ID (a 'max ID' query or a descending keyed read of the last record). When there are no transactions it returns zero. Because 'highest plus 1' can race between concurrent payments, the new application should use a database sequence or an atomic ID generator, with the unique key as a safety net.
-- OATM-BR-174: After the payment transaction is written, the account read for update earlier is saved with its reduced current balance. This should be an update on the same locked or version-checked account row. Ideally it runs in the same database transaction as the payment insert, so the balance and the payment record cannot disagree (subject to the decision on the non-atomic legacy behaviour).
+- OATM-BR-167: Needs the highest existing transaction ID, taken as the last key in transaction-ID order (equivalent to a max query over transactions), so the new payment can be numbered one higher. Because two payments could otherwise get the same number, the new application should allocate IDs safely under concurrency, for example with a database sequence or a locked read of the max. It must still treat an empty transaction store as ID 0.
+- OATM-BR-174: After the payment transaction is written, the account read earlier for update must be saved with its current balance reduced by the payment amount. This needs a locked or version-checked update of that account by account ID, so that no change made in between is overwritten.
 
 ## Open questions
 

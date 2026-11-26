@@ -4,15 +4,15 @@
 
 ## Overview
 
-Lets an administrator add a user with first name, last name, User ID, password and user type, so the person can sign on. It must require all five fields and report the first blank one, refuse a User ID that already exists, and never overwrite an existing user. As in the legacy system, the password is stored as typed (up to 8 characters) and any non-blank user type is accepted.
+Lets an administrator add a CardDemo user with first name, last name, User ID, password and user type. Every field is required and checked in a fixed order, and User IDs must be unique. It must never add a user with a blank field, and it must never overwrite an existing user who has the same User ID.
 
-Runs as online. Journeys: J18.
+Runs as online. Journeys: J16.
 
 ## Screens and components
 
 ### Sign in (S-SIGN-IN)
 
-Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+Sign in to CardDemo with a user ID and password. Administrators and regular users both land on Home, which shows the functions their role allows.
 
 Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
 
@@ -21,37 +21,27 @@ Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COS
 
 ### Home (S-HOME)
 
-One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+Landing page after sign-in. It lists every function the signed-in role may use as links, and replaces the numbered Main Menu, the Admin Menu and the typed option number.
 
 Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Users (S-USER-LIST)
-
-Find users and act on them: search by User ID, page through a table of users, and edit or delete a user from its row; add a new user from here.
-
-Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens COUSR0A.
-
-| Component | Type | Shows | Checks | Goes to | Requirements |
-|---|---|---|---|---|---|
-
 ### Add user (S-USER-ADD)
 
-Create a user with name, User ID, password and user type so the person can sign in.
+Create a user profile so a new person can sign in. The form clears after each add, so several users can be added in a row.
 
 Prototype: `ui-reference/index.html#/S-USER-ADD`. Replaces the legacy screens COUSR1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| New user | form | Fields in tab order: First name, Last name, User ID, Password, User type; errors are listed in a summary and next to each field, and focus moves to the first one |  |  | USPM-REQ-F-039, USPM-REQ-F-046 |
-| First name | text | Up to 20 characters | Required: 'First Name can NOT be empty...' |  | USPM-REQ-F-040 |
-| Last name | text | Up to 20 characters | Required: 'Last Name can NOT be empty...' |  | USPM-REQ-F-041 |
-| User ID | text | Up to 8 characters, must be unique | Required: 'User ID can NOT be empty...'. Already used: 'User ID already exist...' |  | USPM-REQ-F-042, USPM-REQ-F-048 |
-| Password | password | Up to 8 characters, hidden, with a Show password toggle | Required: 'Password can NOT be empty...' |  | USPM-REQ-F-043, USPM-REQ-N-002 |
-| User type | radio | Admin (A) or Regular user (U) | Required: 'User Type can NOT be empty...'; only Admin or Regular user can be chosen |  | USPM-REQ-F-044, USPM-REQ-F-045 |
-| Result | message | Success: 'User <id> has been added ...' and the form clears for the next user; failure: 'Unable to Add User...' | An unsupported action shows 'Invalid key pressed. Please see below...' |  | USPM-REQ-F-047, USPM-REQ-F-049, USPM-REQ-F-050 |
+| First name | **lookup field** | First name, up to 20 characters. Focus starts here. | Blank: 'First Name can NOT be empty...' |  | USPM-REQ-F-040 |
+| Last name | **lookup field** | Last name, up to 20 characters. | Blank: 'Last Name can NOT be empty...' |  | USPM-REQ-F-041 |
+| User ID | **lookup field** | The new user ID, up to 8 characters, checked for availability when you leave the field. | Blank: 'User ID can NOT be empty...' Already used: 'User ID already exist...'; nothing is added and the existing user is not changed. |  | USPM-REQ-F-042, USPM-REQ-F-048 |
+| Password | **lookup field** | Password, masked, up to 8 characters, with a Show password toggle. It is stored protected and never shown again (the legacy stored it as typed). | Blank: 'Password can NOT be empty...' |  | USPM-REQ-F-043, USPM-REQ-N-002 |
+| User type | **lookup field** | A choice of Admin (A) or User (U), with no default. Only these two values can be saved; the legacy accepted any character, and every type other than A signed in as a regular user. | None chosen: 'User Type can NOT be empty...' |  | USPM-REQ-F-044, USPM-REQ-F-045 |
+| Add user | **primary button** | Adds the user and shows 'User <id> has been added ...'. The form then clears, with focus on First name for the next user and a link back to Users. Only the button and its shortcut act, so the 'Invalid key pressed. Please see below...' message is no longer needed. | Checks First name, Last name, User ID, Password and User type in that order. Every blank field is listed in an error summary at the top, each linked to its field, and nothing is added until all are filled. Any other failure: 'Unable to Add User...', with focus on First name. |  | USPM-REQ-F-039, USPM-REQ-F-046, USPM-REQ-F-047, USPM-REQ-F-049, USPM-REQ-F-050 |
 
 
 ## Data models
@@ -127,7 +117,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- USPM-BR-051: Build one user record from the five validated fields and insert it keyed on User ID, with a uniqueness constraint on that key. The insert must fail, not overwrite, when the key already exists, so that the 'User ID already exist...' path can be detected.
+- USPM-BR-051: Map the five entered fields onto a new user record keyed by User ID and insert it into the user store as a create-only operation. The insert must fail with a distinct 'duplicate key' result when the User ID already exists, so the screen can tell 'already exists' apart from other failures.
 
 ## Open questions
 

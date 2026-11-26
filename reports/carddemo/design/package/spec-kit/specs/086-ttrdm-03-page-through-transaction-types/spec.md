@@ -10,7 +10,7 @@
 
 As an administrator, I want to page forwards and backwards through the transaction types, seven at a time, so that I can review every type in code order.
 
-Lets administrators page forwards and backwards through transaction types seven at a time, in ascending type-code order, within any accepted filters. It must never skip or repeat a type between pages. At either end of the list it must say so ('No more pages to display', 'No previous pages to display', 'No more pages for these search conditions') rather than show a wrong page.
+Administrators page forwards and backwards through transaction types seven at a time, in ascending type-code order, limited to any accepted filters. The list must never skip or repeat a type when paging, and must tell the user plainly when there are no more pages, no previous pages, or no records.
 
 **Acceptance scenarios:**
 

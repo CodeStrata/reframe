@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Lets administrators narrow the transaction type list by an exact two-digit type code and by text contained in the description. A blank or '00' code filter, or a blank description filter, means no filter. A non-numeric code filter must be rejected with 'TYPE CODE FILTER,IF SUPPLIED MUST BE A 2 DIGIT NUMBER', and changing either filter must restart paging from the first page.
+Administrators narrow the transaction type list by an exact two-digit type code and/or by text the description contains. A blank, zero or '00' type code means no filter; a non-numeric one is rejected with a clear message. Changing a filter must restart paging from page 1 and must never let a pending update or delete go through against a different result set.
 
 **User story:** As an administrator, I want to filter the transaction type list by type code and by description text, so that I can find the types I need quickly.
 
@@ -62,7 +62,7 @@ Lets administrators narrow the transaction type list by an exact two-digit type 
 #### Acceptance criteria
 
 1. When a description filter is entered, the system shall list, page and count only transaction types whose description contains the entered text (trimmed and wrapped in '%' for a contains match). (rules TTRDM-BR-045)
-2. GIVEN transaction types '01' 'Purchase', '02' 'Payment' and '05' 'Refund of Purchase' exist, and the type code filter is blank WHEN the administrator enters ' Purchase ' in the description filter and presses Enter THEN only types '01' and '05' are listed, paged and counted (descriptions containing 'Purchase', with the spaces trimmed off the filter), and type '02' does not appear (TTRDM-C04-AC-12; TTRDM-BR-045)
+2. GIVEN The transaction types include 'Purchase', 'Retail Purchase' and 'Payment', and the type code filter is blank WHEN The user enters ' Purchase ' (with surrounding spaces) in the description filter and submits THEN The list, its paging and its record count include only the types whose description contains 'Purchase' ('Purchase' and 'Retail Purchase'), and 'Payment' is not shown (TTRDM-C04-AC-12; TTRDM-BR-045)
 
 ### Requirement 8: TTRDM-REQ-F-039 (business rule)
 

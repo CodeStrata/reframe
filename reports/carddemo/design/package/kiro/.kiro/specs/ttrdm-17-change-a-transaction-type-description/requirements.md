@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Lets an administrator change a transaction type's description, check it, and confirm with F5 before it is written to the transaction type table. The description must be supplied, may hold only letters, digits and spaces, and is limited to 50 characters. Nothing is saved until the administrator confirms, and a record lock must be reported as unsuccessful. The legacy screen reports other update failures as committed; the team should review that behaviour rather than copy it unknowingly.
+An administrator changes a transaction type's description. The new description must be supplied and contain only letters, digits and spaces, up to 50 characters. The administrator confirms with F5 before it is written to the transaction type table, and can cancel with F12 before then. Nothing may be saved without that confirmation, a record lock must be reported as unsuccessful, and the screen must report the outcome of every save.
 
 **User story:** As an administrator, I want to change a transaction type's description and confirm it before saving, so that the transaction type reference data stays correct.
 
@@ -31,14 +31,14 @@ Lets an administrator change a transaction type's description, check it, and con
 #### Acceptance criteria
 
 1. If the changed description is blank (spaces or '*'), then the system shall show 'Transaction Desc must be supplied.' and keep the changes-not-OK state ('E'). (rules TTRDM-BR-132)
-2. GIVEN A transaction type's details are on screen and the operator has changed them WHEN The operator sets the description to spaces, or to '*', and presses Enter THEN The screen shows 'Transaction Desc must be supplied.' and the state stays changes not OK ('E'); no save is offered (TTRDM-C17-AC-12; TTRDM-BR-132)
+2. GIVEN A transaction type's details are on screen for editing WHEN The operator clears the description (all spaces), or enters '*', and presses Enter THEN The screen shows 'Transaction Desc must be supplied.', the state stays changes-not-OK ('E'), and no save is offered (TTRDM-C17-AC-12; TTRDM-BR-132)
 
 ### Requirement 4: TTRDM-REQ-F-120 (business rule)
 
 #### Acceptance criteria
 
 1. If the changed description contains any character other than letters, digits and spaces, then the system shall show 'Transaction Desc can have numbers or alphabets only.' and keep the changes-not-OK state ('E'). (rules TTRDM-BR-133)
-2. GIVEN A transaction type's details are on screen and the operator has changed them WHEN The operator enters the description 'Cash-Advance #1' and presses Enter THEN The screen shows 'Transaction Desc can have numbers or alphabets only.' and the state stays changes not OK ('E'); no save is offered (TTRDM-C17-AC-13; TTRDM-BR-133)
+2. GIVEN A transaction type's details are on screen for editing WHEN The operator changes the description to 'Cash-Advance!' and presses Enter THEN The screen shows 'Transaction Desc can have numbers or alphabets only.', the state stays changes-not-OK ('E'), and no save is offered (TTRDM-C17-AC-13; TTRDM-BR-133)
 
 ### Requirement 5: TTRDM-REQ-F-121 (business rule)
 
@@ -88,7 +88,7 @@ Lets an administrator change a transaction type's description, check it, and con
 #### Acceptance criteria
 
 1. If the update fails with any other negative SQLCODE, then the system shall show the error 'Error updating: TRANSACTION_TYPE Table. SQLCODE:…' with the database error text, yet set the outcome to committed ('C') and show 'Changes committed to database' instead of 'Changes unsuccessful'. (rules TTRDM-BR-140)
-2. GIVEN A changed description has been validated and is waiting for F5 confirmation (state 'N') WHEN The operator presses F5 and the update of the transaction type table fails with a negative SQLCODE other than -911 THEN The error 'Error updating: TRANSACTION_TYPE Table. SQLCODE:' is shown, followed by the code and the database error text; the outcome is set to committed ('C') and the screen shows 'Changes committed to database', not 'Changes unsuccessful' (TTRDM-C17-AC-14; TTRDM-BR-140)
+2. GIVEN A changed description has been validated and is awaiting confirmation (state 'N') WHEN The operator presses F5 and the update of the transaction type table fails with a negative SQLCODE other than -911 THEN The error 'Error updating: TRANSACTION_TYPE Table. SQLCODE:' is shown, followed by the code and the database error text; the outcome is set to committed ('C') and the information message is 'Changes committed to database', not 'Changes unsuccessful' (TTRDM-C17-AC-14; TTRDM-BR-140)
 
 ### Requirement 11: TTRDM-REQ-F-127 (business rule)
 

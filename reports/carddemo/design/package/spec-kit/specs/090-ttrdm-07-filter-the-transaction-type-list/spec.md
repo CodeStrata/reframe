@@ -10,14 +10,14 @@
 
 As an administrator, I want to filter the transaction type list by type code and description, so that I only see the transaction types I am looking for.
 
-When an administrator supplies a type code filter, a description filter or both, the list first counts the transaction types that match. If none match, it reports 'No Records found for these filter conditions' and highlights the filters. It must never show an empty list as if it were normal when the filters match nothing, and it must report a failed count as a database error rather than as 'no records'.
+When an administrator filters the transaction type list, the system first checks that the filters match at least one type. If none match, the user is told 'No Records found for these filter conditions' with the filters highlighted, and no row actions can be taken. A failed count must be reported as a database error, never shown as an empty result.
 
 **Acceptance scenarios:**
 
 1. **Given** Type filter: blank; Description filter: blank, **when** neither the type filter nor the description filter holds a usable value (both blank, or the type filter is blank or not numeric with no description), **then** No match check is made; the full list is shown (TTRDM-C07-AC-01)
 2. **Given** Type filter: 99; Type 99 exists: no; Key: Enter, **when** no transaction type matches the supplied filters, **then** 'No Records found for these filter conditions' is shown, the type filter is red and rows cannot be marked (TTRDM-C07-AC-02)
 3. **Given** Description filter: Refund; Database count: fails with SQL code -904, **when** the database count of matching transaction types fails, **then** The screen is shown again with an error message beginning 'Error reading TRANSACTION_TYPE table ' (TTRDM-C07-AC-03)
-4. **Given** types '01' 'Purchase', '05' 'Refund of Purchase' and '02' 'Payment' exist, **when** the administrator enters type code filter '05' and description filter 'Purchase' and presses Enter, **then** the count of matching types is 1 (only '05'). With type filter '05' alone the count is 1, and with description filter 'Purchase' alone it is 2 (TTRDM-C07-AC-04)
+4. **Given** The transaction types include '01' 'Purchase', '02' 'Payment' and '03' 'Credit', **when** The user submits type code filter '01' with description filter 'Purch', **then** The system counts 1 matching transaction type (code '01', description containing 'Purch') and no 'No Records found for these filter conditions' message is shown; with type code filter '02' and description filter 'Purch' the count is 0 (TTRDM-C07-AC-04)
 
 ## Requirements
 

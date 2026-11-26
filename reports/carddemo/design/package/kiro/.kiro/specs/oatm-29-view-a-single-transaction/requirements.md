@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Lets cardholders and staff look up one transaction by its Transaction ID and see its full details: card, type, category, source, signed amount, description, timestamps and merchant. It must show the exact stored record and amount sign. A missing ID gets 'Transaction ID NOT found...', and a lookup failure gets 'Unable to lookup Transaction...'. PF3, PF4 and PF5 return, clear or go to the list.
+Shows the full details of one transaction found by its Transaction ID: card, type, category, source, signed amount, description, timestamps and merchant. Cardholders and staff use it to review a charge. It must show the amount with its sign exactly as stored, and say 'Transaction ID NOT found...' or 'Unable to lookup Transaction...' rather than show stale details. PF3 goes back, PF4 clears the screen and PF5 opens the transaction list.
 
 **User story:** As a cardholder or staff user, I want to look up a transaction by its Transaction ID and see its full details, so that I can review what was charged, where and when.
 
@@ -39,14 +39,14 @@ Lets cardholders and staff look up one transaction by its Transaction ID and see
 #### Acceptance criteria
 
 1. When the transaction is found, the system shall show its transaction ID, card number, type code, category code, source, amount (signed), description, original and processed timestamps, and merchant ID, name, city and ZIP. (rules OATM-BR-244)
-2. GIVEN a transaction on file with ID 0000000000000042, its card number, type code, category code, source, amount, description, original and processed timestamps, and merchant ID, name, city and ZIP WHEN the user enters 0000000000000042 on the Transaction View and presses Enter THEN the screen shows that transaction ID, card number, type code, category code, source, signed amount, description, original and processed timestamps, and merchant ID, name, city and ZIP, each matching the stored record (OATM-C29-AC-12; OATM-BR-244)
+2. GIVEN a transaction with ID 0000000000000042 exists on file WHEN the user enters 0000000000000042 on the Transaction View and presses Enter THEN the screen shows that transaction's ID, card number, type code, category code, source, signed amount, description, original timestamp, processed timestamp, merchant ID, merchant name, merchant city and merchant ZIP, each taken from the stored record (OATM-C29-AC-12; OATM-BR-244)
 
 ### Requirement 5: OATM-REQ-F-232 (formatting)
 
 #### Acceptance criteria
 
 1. The system shall show the transaction amount on the Transaction View with a leading sign, 8 digits before the decimal point and 2 after (format +99999999.99). (rules OATM-BR-245)
-2. GIVEN a transaction on file with amount 1234.56 and another with amount -50.00 WHEN each is shown on the Transaction View THEN the amounts are shown as +00001234.56 and -00000050.00 (leading sign, 8 digits before the decimal point, 2 after) (OATM-C29-AC-13; OATM-BR-245)
+2. GIVEN a transaction with amount 1234.50 and another with amount -75.00 WHEN each is shown on the Transaction View THEN the amounts are displayed as +00001234.50 and -00000075.00 (leading sign, 8 digits before the decimal point, 2 after) (OATM-C29-AC-13; OATM-BR-245)
 
 ### Requirement 6: OATM-REQ-F-233 (business rule)
 

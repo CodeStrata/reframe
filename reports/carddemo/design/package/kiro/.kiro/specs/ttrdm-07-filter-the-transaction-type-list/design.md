@@ -4,22 +4,22 @@
 
 ## Overview
 
-When an administrator supplies a type code filter, a description filter or both, the list first counts the transaction types that match. If none match, it reports 'No Records found for these filter conditions' and highlights the filters. It must never show an empty list as if it were normal when the filters match nothing, and it must report a failed count as a database error rather than as 'no records'.
+When an administrator filters the transaction type list, the system first checks that the filters match at least one type. If none match, the user is told 'No Records found for these filter conditions' with the filters highlighted, and no row actions can be taken. A failed count must be reported as a database error, never shown as an empty result.
 
-Runs as online. Journeys: J11.
+Runs as online. Journeys: J09.
 
 ## Screens and components
 
 ### Transaction types (S-TRANTYPE-LIST)
 
-Find transaction types by code or description, correct a description in place, or delete an obsolete type, confirming each change; start adding a new type.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Filter transaction types | form | Type code and description filters, applied together; changing a filter cancels any pending row change and returns to the first page |  |  | TTRDM-REQ-F-052, TTRDM-REQ-F-053 |
-| No matching transaction types | message | Error under the filters: 'No transaction types match these filters. Change or clear the filters.'; on a database error: 'The transaction types could not be read. Try again.' | Supplied filters must match at least one type: 'No transaction types match these filters.' (legacy 'No Records found for these filter conditions') |  | TTRDM-REQ-F-054, TTRDM-REQ-F-055 |
+| Type code | **lookup field** | Two-digit type code; blank or 00 lists every code | 'Type code filter, if supplied, must be a 2 digit number. Enter two digits, for example 01, or leave it blank.' No type matches: 'No Records found for these filter conditions. Change or clear the filters.' |  | TTRDM-REQ-F-054 |
+| Description contains | **lookup field** | Text the description must contain; blank means no description filter | Checked against the data only when a filter holds a value: 'No Records found for these filter conditions. Change or clear the filters.' |  | TTRDM-REQ-F-052 |
 
 
 ## Data models

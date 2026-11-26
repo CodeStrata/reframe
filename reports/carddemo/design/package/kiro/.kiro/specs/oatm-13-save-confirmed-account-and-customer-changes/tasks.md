@@ -18,10 +18,9 @@
   - _After: OATM-C13-T1_
 - [ ] 4. OATM-C13-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - button "Save changes": If the stored record changed since it was fetched: 'Record changed by some one else. Please review' and nothing is saved.
-  - message "Save result"
-  - _Requirements: OATM-REQ-F-107, OATM-REQ-N-004, OATM-REQ-F-112, OATM-REQ-F-113_
-  - _Rules: OATM-BR-110, OATM-BR-114, OATM-BR-115, OATM-BR-116_
+  - **primary button** "Save changes": If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved.
+  - _Requirements: OATM-REQ-F-107, OATM-REQ-F-108, OATM-REQ-F-109, OATM-REQ-F-110, OATM-REQ-F-111, OATM-REQ-N-004, OATM-REQ-F-112, OATM-REQ-F-113_
+  - _Rules: OATM-BR-110, OATM-BR-111, OATM-BR-112, OATM-BR-113, OATM-BR-114, OATM-BR-115, OATM-BR-116_
   - _After: OATM-C13-T2, OATM-C13-T3_
 - [ ] 5. OATM-C13-T5 [test-generation] Write a test for every acceptance criterion
   - 8 acceptance criteria, each a test named by its ID.

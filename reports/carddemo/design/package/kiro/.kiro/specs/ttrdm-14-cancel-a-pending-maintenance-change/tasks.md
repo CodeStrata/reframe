@@ -12,16 +12,8 @@
   - _Requirements: TTRDM-REQ-F-103, TTRDM-REQ-F-104, TTRDM-REQ-F-105_
   - _Rules: TTRDM-BR-116, TTRDM-BR-117, TTRDM-BR-118_
   - _After: TTRDM-C14-T1_
-- [ ] 3. TTRDM-C14-T3 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - button "Cancel"
-  - dialog "Save this transaction type?"
-  - dialog "Delete this transaction type?"
-  - _Requirements: TTRDM-REQ-F-103, TTRDM-REQ-F-104, TTRDM-REQ-F-105_
-  - _Rules: TTRDM-BR-116, TTRDM-BR-117, TTRDM-BR-118_
-  - _After: TTRDM-C14-T2_
-- [ ] 4. TTRDM-C14-T4 [test-generation] Write a test for every acceptance criterion
+- [ ] 3. TTRDM-C14-T3 [test-generation] Write a test for every acceptance criterion
   - 3 acceptance criteria, each a test named by its ID.
   - _Requirements: TTRDM-REQ-F-103, TTRDM-REQ-F-104, TTRDM-REQ-F-105_
   - _Criteria: TTRDM-C14-AC-01, TTRDM-C14-AC-02, TTRDM-C14-AC-03_
-  - _After: TTRDM-C14-T1, TTRDM-C14-T2, TTRDM-C14-T3_
+  - _After: TTRDM-C14-T1, TTRDM-C14-T2_

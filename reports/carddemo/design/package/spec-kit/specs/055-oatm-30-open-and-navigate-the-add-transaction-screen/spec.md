@@ -10,7 +10,7 @@
 
 As a staff user, I want to open the Add Transaction screen, pre-filled from a selected or the most recent transaction where useful, and move between screens with function keys, so that I can enter new transactions quickly within a signed-on session.
 
-Gives staff the Add Transaction screen within a signed-on session. It can be pre-filled from a selected value or, with PF5, copied from the most recent transaction on file. PF3 goes back, PF4 clears the form and Enter validates and adds. Users without a session go to sign-on, and other keys get 'Invalid key pressed. Please see below...'.
+Opens the Add Transaction form for a signed-on staff user. The form can be pre-filled with a card number passed from another screen, or with the details of the most recent transaction (PF5). PF3 returns to the caller, PF4 clears the form and other keys get 'Invalid key pressed. Please see below...'. Users without a session are sent to sign-on, and nothing is added until the entries pass the checks and are confirmed.
 
 **Acceptance scenarios:**
 

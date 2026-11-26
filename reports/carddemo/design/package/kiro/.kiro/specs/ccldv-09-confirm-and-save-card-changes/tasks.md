@@ -16,16 +16,11 @@
   - _Requirements: CCLDV-REQ-F-096, CCLDV-REQ-F-098_
   - _Rules: CCLDV-BR-111, CCLDV-BR-112, CCLDV-BR-113_
   - _After: CCLDV-C09-T1_
-- [ ] 4. CCLDV-C09-T4 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
+- [ ] 4. CCLDV-C09-T4 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
   - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - button "Edit card"
-  - form "Edit card": Something must change (ignoring upper/lower case): 'No changes to save. The details match the stored values.' (legacy 'No change detected with respect to values fetched.') Errors are reported in the order name, status, expiry month, expiry year.
-  - button "Save changes"
-  - button "Discard changes"
-  - dialog "Save changes to this card?"
-  - message "Save result"
-  - _Requirements: CCLDV-REQ-F-093, CCLDV-REQ-F-094, CCLDV-REQ-F-095, CCLDV-REQ-F-096, CCLDV-REQ-F-097, CCLDV-REQ-F-098, CCLDV-REQ-F-099_
-  - _Rules: CCLDV-BR-105, CCLDV-BR-107, CCLDV-BR-108, CCLDV-BR-109, CCLDV-BR-110, CCLDV-BR-111, CCLDV-BR-112, CCLDV-BR-113, CCLDV-BR-114, CCLDV-BR-115, CCLDV-BR-116_
+  - **primary button** "Save card": Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year.
+  - _Requirements: CCLDV-REQ-F-094, CCLDV-REQ-F-096, CCLDV-REQ-F-097, CCLDV-REQ-F-098, CCLDV-REQ-F-099_
+  - _Rules: CCLDV-BR-109, CCLDV-BR-111, CCLDV-BR-112, CCLDV-BR-113, CCLDV-BR-114, CCLDV-BR-115, CCLDV-BR-116_
   - _After: CCLDV-C09-T2, CCLDV-C09-T3_
 - [ ] 5. CCLDV-C09-T5 [test-generation] Write a test for every acceptance criterion
   - 14 acceptance criteria, each a test named by its ID.

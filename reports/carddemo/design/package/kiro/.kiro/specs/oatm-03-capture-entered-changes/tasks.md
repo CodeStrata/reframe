@@ -7,31 +7,26 @@
   - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSLKPCDY, CSMSG01Y, CSSETATY, CSSTRPFY, CSUSR01Y, CSUTLDPY, CSUTLDWY, CVCRD01Y.
   - _Requirements: OATM-REQ-F-025, OATM-REQ-F-026, OATM-REQ-F-027, OATM-REQ-F-028, OATM-REQ-F-029, OATM-REQ-F-030, OATM-REQ-F-031, OATM-REQ-F-032_
 - [ ] 2. OATM-C03-T2 [api] Build the services behind the screens
-  - OATM-BR-026: Input binding for account group: map blank or '*' to an explicit 'not supplied' value (null), otherwise keep the entered text as the proposed group.
-  - OATM-BR-027: Input binding for country code: map blank or '*' to null (not supplied), otherwise keep the entered value as the proposed country code.
-  - OATM-BR-028: Input binding for customer number once details are shown: blank or '*' becomes null; any other value is carried as the proposed value, compared with the snapshot and written to the customer record on save.
-  - OATM-BR-029: Input binding for government-issued ID once details are shown: blank or '*' becomes null; otherwise the entered value is the proposed ID, compared with the snapshot and written to the customer record on save.
-  - OATM-BR-030: Input binding for the five amounts (credit limit, cash credit limit, current balance, current cycle credit, current cycle debit): blank or '*' becomes null (not supplied) so validation can report it as missing.
-  - OATM-BR-031: A currency parser that accepts an optional '$', thousands commas, a sign and decimals, and yields a decimal amount at scale 2 (use a decimal type, not floating point); unparseable text stays as entered for validation to reject.
-  - OATM-BR-032: Input binding for open, expiry and reissue dates as separate year, month and day parts: each part that is blank or '*' becomes null, any other entry is kept exactly as typed for the date checks.
-  - OATM-BR-033: Input binding for date of birth parts (year, month, day): blank or '*' becomes null, otherwise the part is kept as the proposed value.
+  - OATM-BR-026: Model the proposed account group as an optional value: blank or '*' input becomes 'absent' (null), not an empty string. Any other input becomes the proposed group.
+  - OATM-BR-027: Treat blank or '*' country code input as absent (null). Otherwise take the entered value as the proposed country code.
+  - OATM-BR-028: Treat a blank or '*' customer number as absent (null); otherwise it is the proposed value. Change detection compares it with the stored customer number, and it is written to the customer record on save.
+  - OATM-BR-029: Treat a blank or '*' government-issued ID as absent (null); otherwise it is the proposed value. Change detection compares it with the stored ID, and it is written to the customer record on save.
+  - OATM-BR-030: Hold each of the five amounts as an optional input: credit limit, cash credit limit, current balance, current cycle credit and current cycle debit. Blank or '*' means absent, which validation then reports as 'must be supplied.'.
+  - OATM-BR-031: Parse entered amounts with a currency parser that accepts an optional '$', thousands commas, a sign and decimals. Convert to an exact decimal with two places (a decimal type, never floating point). Input that does not parse stays as entered text so validation can report it as not valid.
+  - OATM-BR-032: Capture the open, expiry and reissue dates as three separate optional parts (year, month, day). A blank or '*' part is absent; any other part is kept exactly as typed so date validation can check it.
+  - OATM-BR-033: Capture the date of birth as three separate optional parts (year, month, day). A blank or '*' part is absent; any other part is kept as typed for validation.
   - _Requirements: OATM-REQ-F-025, OATM-REQ-F-026, OATM-REQ-F-027, OATM-REQ-F-028, OATM-REQ-F-029, OATM-REQ-F-030, OATM-REQ-F-031, OATM-REQ-F-032_
   - _Rules: OATM-BR-026, OATM-BR-027, OATM-BR-028, OATM-BR-029, OATM-BR-030, OATM-BR-031, OATM-BR-032, OATM-BR-033_
   - _After: OATM-C03-T1_
 - [ ] 3. OATM-C03-T3 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - text "Account group (optional)"
-  - money "Credit limit": Required: 'Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Credit Limit is not valid'; negative and zero amounts are accepted.
-  - money "Cash credit limit": Required: 'Cash Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Cash Credit Limit is not valid'; negative and zero amounts are accepted.
-  - money "Current balance": Required: 'Current Balance must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Balance is not valid'; negative and zero amounts are accepted.
-  - money "Current cycle credit": Required: 'Current Cycle Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Cycle Credit Limit is not valid'; negative and zero amounts are accepted.
-  - money "Current cycle debit": Required: 'Current Cycle Debit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Cycle Debit Limit is not valid'; negative and zero amounts are accepted.
-  - display "Customer ID"
-  - date "Date of birth": Year, month and day must all be supplied: 'Date of Birth : Year must be supplied.', 'Date of Birth : Month must be supplied.', 'Date of Birth : Day must be supplied.'. The year must be 4 digits: 'Date of Birth must be 4 digit number.', starting 19 or 20: 'Date of Birth : Century is not valid.'. 'Date of Birth: Month must be a number between 1 and 12.'; 'Date of Birth:day must be a number between 1 and 31.'; 'Date of Birth:Cannot have 31 days in this month.'; 'Date of Birth:Cannot have 30 days in this month.'; 'Date of Birth:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Date of Birth validation error ...'. Must be before today: 'Date of Birth:cannot be in the future '.
-  - display "Country"
-  - text "Government-issued ID reference"
-  - _Requirements: OATM-REQ-F-025, OATM-REQ-F-026, OATM-REQ-F-027, OATM-REQ-F-028, OATM-REQ-F-029, OATM-REQ-F-030, OATM-REQ-F-032_
-  - _Rules: OATM-BR-026, OATM-BR-027, OATM-BR-028, OATM-BR-029, OATM-BR-030, OATM-BR-031, OATM-BR-033_
+  - **summary card** "Status and group": Status is required: 'Account Status must be supplied.' and must be Active or Inactive ('Account Status must be Y or N.'). The choice offers only those two values.
+  - **summary card** "Account dates": For each date, in the rule's words: '<date> : Year must be supplied.', '<date> must be 4 digit number.', '<date> : Century is not valid.' (year must start 19 or 20), '<date> : Month must be supplied.', '<date>: Month must be a number between 1 and 12.', '<date> : Day must be supplied.', '<date>:day must be a number between 1 and 31.', '<date>:Cannot have 31 days in this month.', '<date>:Cannot have 30 days in this month.', '<date>:Not a leap year.Cannot have 29 days in this month.', and a final calendar check '<date> validation error'. The message sits under the part to fix.
+  - **summary card** "Limits and balances": Each amount is required: '<field> must be supplied.' (e.g. 'Credit Limit must be supplied.'), and must be a currency number: '<field> is not valid' - enter an amount such as 1,250.00. Negative values and zero are accepted.
+  - **summary card** "Customer identity": SSN: 'SSN: First 3 chars must be supplied.', 'SSN: First 3 chars must be all numeric.', 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'; the 4th & 5th and last 4 characters must each be supplied, all numeric and non-zero. Date of birth: the date checks above, and 'Date of Birth:cannot be in the future '. FICO: 'FICO Score must be supplied.', 'FICO Score must be all numeric.', 'FICO Score must not be zero.', 'FICO Score: should be between 300 and 850'.
+  - **summary card** "Name and address": '<field> must be supplied.' for First Name, Last Name, City, State, Country and Address Line 1; '<field> can have alphabets only.' for names, city, state and country; 'Middle Name can have alphabets only.'; 'State: is not a valid state code'; ZIP: 'ZIP must be supplied.', must be all numeric, 5 digits and not zero; 'Invalid zip code for state' - check the state and ZIP together.
+  - _Requirements: OATM-REQ-F-025, OATM-REQ-F-026, OATM-REQ-F-027, OATM-REQ-F-028, OATM-REQ-F-029, OATM-REQ-F-030, OATM-REQ-F-031, OATM-REQ-F-032_
+  - _Rules: OATM-BR-026, OATM-BR-027, OATM-BR-028, OATM-BR-029, OATM-BR-030, OATM-BR-031, OATM-BR-032, OATM-BR-033_
   - _After: OATM-C03-T2_
 - [ ] 4. OATM-C03-T4 [test-generation] Write a test for every acceptance criterion
   - 15 acceptance criteria, each a test named by its ID.

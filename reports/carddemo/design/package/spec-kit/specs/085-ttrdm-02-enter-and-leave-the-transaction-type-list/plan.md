@@ -18,34 +18,31 @@ Runs as online.
 
 ### Transaction types (S-TRANTYPE-LIST)
 
-Find transaction types by code or description, correct a description in place, or delete an obsolete type, confirming each change; start adding a new type.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Filter transaction types | form | Type code and description filters, applied together; changing a filter cancels any pending row change and returns to the first page |  |  | TTRDM-REQ-F-012, TTRDM-REQ-F-015 |
-| Transaction types | table | Columns: type code, description. Pages in ascending type-code order with Previous and Next page controls and the page number; Previous is disabled on page 1, Next on the last page. |  |  | TTRDM-REQ-F-016 |
 
-### Transaction type (S-TRANTYPE-EDIT)
+### Add or change a transaction type (S-TRANTYPE-EDIT)
 
-Look up a transaction type by code to change its description or delete it, or add a new type when the code is not on file; each save or delete is confirmed and can be cancelled.
+Add a new transaction type or change an existing one's description in one step: enter the code, see its description or start a new one if it is not on file, then save. Replaces the F5 create, Enter check and F5 confirm sequence; delete is the Delete row action on the list.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-EDIT`. Replaces the legacy screens CTRTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Back to transaction types | link |  |  | S-TRANTYPE-LIST | TTRDM-REQ-F-013, TTRDM-REQ-F-014 |
 
 ### Application header and navigation (S-APP-SHELL)
 
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
 
 Prototype: `ui-reference/index.html#/S-APP-SHELL`.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Transaction types | link |  |  | S-TRANTYPE-LIST | TTRDM-REQ-F-012 |
+| Transaction types | **data table** | Navigation entry for the transaction type list, shown only to administrators; the server checks the administrator role on every list, add, update and delete instead of assuming it |  | S-TRANTYPE-LIST | TTRDM-REQ-F-014 |
 
 
 ## Data model
@@ -63,13 +60,13 @@ Prototype: `ui-reference/index.html#/S-APP-SHELL`.
 
 ## Design notes
 
-- TTRDM-BR-015: The list keeps its filters, row selections and paging position in per-user session state. Navigating to the list from another screen (for example admin menu option 5) must reset that state and load the first page, so a fresh entry never shows an earlier visit's view.
-- TTRDM-BR-016: Same entry behaviour as above, seen from the request side: a fresh entry is handled as a plain 'show list' request (the Enter action) with empty filters and page 1. A route or query parameter showing where the user came from is enough to tell a fresh entry from a submission of the list's own form.
-- TTRDM-BR-017: Going back from the transaction type add/update screen must land on a freshly loaded first page of the list. It is not an exit from the list, so the back action from that screen goes to the list route with its state reset.
-- TTRDM-BR-018: The add/update screen's back/exit action, when returning to the list, is treated as a 'show list' request on page 1. The list must not take it as its own exit and pass the user on to the admin menu.
-- TTRDM-BR-019: Exit from the list commits any open unit of work and navigates back to the screen that opened it. Keep a 'return to' value in the session; when it is missing or points at the list itself, go to the admin menu.
-- TTRDM-BR-020: When the list's own form is submitted, the server-side handler runs its checks in a fixed order: row actions first, then the description filter, then the type code filter, then whether any record matches the filters. Keep that order, because which message wins depends on it.
-- TTRDM-BR-021: Page numbers start at 1. A freshly started list has page number 0 or none; set it to 1 when the first page of rows is loaded.
+- TTRDM-BR-015: The list keeps per-user view state (filters, selected row, page number, first and last code on the page). When the user navigates to the list from any other screen, that state must be reset, not restored, and the first page loaded.
+- TTRDM-BR-016: Opening the list from another screen is handled exactly like a plain refresh (Enter): clear filters and paging and load page 1 from the lowest type code. A route or entry parameter telling the list it was opened fresh is enough; no previous view state is carried over.
+- TTRDM-BR-017: Coming back from the add/change transaction type screen via its Back/Exit action counts as a fresh entry to the list: the list must not interpret it as its own exit, and must load page 1 with no filters.
+- TTRDM-BR-018: Same as returning from the add/change screen: the back navigation lands on a freshly reset list (page 1, no filters, no selection); any earlier list state is discarded rather than restored.
+- TTRDM-BR-019: Exit from the list finishes any open unit of work (commit) and navigates back to the screen that opened it; if it was opened directly or there is no recorded caller other than itself, navigate to the admin menu. The navigation needs a recorded 'return to' target in the user's session.
+- TTRDM-BR-020: When the list form is submitted, the server reads the submitted form and validates in a fixed order: row actions, then the description filter, then the type code filter, then a count of records matching the filters. Keep this order, since it decides which error message the user sees first.
+- TTRDM-BR-021: Page numbers start at 1: when the first page is loaded on a fresh start, the page number in the view state is set to 1, not left at 0.
 
 ## Decision tables
 

@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as scheduled job
 
 ## Introduction
 
-Defines how the pending authorization unload jobs run and what happens to their output files, so operations can rely on the outcome. Files are kept or removed according to how the job ended, and failure to open an output file stops the job with return code 16. A failure to close a file is reported but must not change the job's result.
+Runs the pending authorization unload jobs and handles their output files the same way every time: new extract files are kept only when the job succeeds and removed when it fails, while the standing root and child files are always kept. A file that cannot be opened stops the job with return code 16; a file that will not close is reported but does not fail an otherwise good run.
 
 **User story:** As an operations analyst, I want the pending authorization unload jobs to run against the database and handle their output files predictably, so that unload files are opened, closed, kept or removed consistently with how the job ended.
 
@@ -55,14 +55,14 @@ Defines how the pending authorization unload jobs run and what happens to their 
 #### Acceptance criteria
 
 1. If either unload file fails to open with a status other than blank or '00', then the system shall display 'ERROR IN OPENING OPFILE1:' or 'ERROR IN OPENING OPFILE2:' with the status, display 'IMSUNLOD ABENDING ...', and end with return code 16. (rules CAFM-BR-199)
-2. GIVEN opening the first unload file returns status '35' (not blank or '00') WHEN the unload starts THEN 'ERROR IN OPENING OPFILE1:' is displayed with 35, 'IMSUNLOD ABENDING ...' is displayed, and the run ends with return code 16; if instead the second file fails to open, 'ERROR IN OPENING OPFILE2:' is displayed with its status, with the same ending (CAFM-C21-AC-09; CAFM-BR-199)
+2. GIVEN the second unload file cannot be opened and the open returns status '37' WHEN the unload job starts THEN 'ERROR IN OPENING OPFILE2:' is displayed with 37, 'IMSUNLOD ABENDING ...' is displayed, the job ends with return code 16 and no records are read from the database; the same applies to the first file with 'ERROR IN OPENING OPFILE1:' (CAFM-C21-AC-09; CAFM-BR-199)
 
 ### Requirement 7: CAFM-REQ-F-183 (error handling)
 
 #### Acceptance criteria
 
 1. If closing either unload file returns a status other than blank or '00', then the system shall display 'ERROR IN CLOSING 1ST FILE:' or 'ERROR IN CLOSING 2ND FILE:' with the status and still end normally, without changing the return code. (rules CAFM-BR-200)
-2. GIVEN the unload has reached the end of the database and closing the second unload file returns status '30' (not blank or '00') WHEN the unload closes its files THEN 'ERROR IN CLOSING 2ND FILE:' is displayed with 30 and the run still ends normally without the return code changing; a failure on the first file shows 'ERROR IN CLOSING 1ST FILE:' in the same way (CAFM-C21-AC-10; CAFM-BR-200)
+2. GIVEN the unload has read every summary and detail without error, and closing the first unload file returns status '30' WHEN the job closes its files THEN 'ERROR IN CLOSING 1ST FILE:' is displayed with 30, and the job still ends normally with its return code unchanged; the same applies to the second file with 'ERROR IN CLOSING 2ND FILE:' (CAFM-C21-AC-10; CAFM-BR-200)
 
 ## Screens and components
 
@@ -116,11 +116,11 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-194: Needs a scheduled batch job running the summary-and-detail unload (DBUNLDGS in the legacy) with read-only, shared access to the pending authorization data and its index, so online use is not blocked while it runs.
-- CAFM-BR-195: This job writes to two existing output files, the summary file (AWS.M2.CARDDEMO.PAUTDB.ROOT.GSAM) and the detail file (AWS.M2.CARDDEMO.PAUTDB.CHILD.GSAM). No other process may write to them during the run, and they are kept whether the job succeeds or fails, so downstream steps must check the job status before using them.
-- CAFM-BR-196: Needs a second scheduled export job (PAUDBUNL in the legacy) that reads the pending authorization data and its index with shared, read-only access and writes summaries to the first output file and details to the second.
-- CAFM-BR-197: The job creates a new summary export file (AWS.M2.CARDDEMO.PAUTDB.ROOT.FILEO) of fixed 100-byte records. It is published or registered only when the job succeeds and is deleted when the job fails, for example by writing to a temporary location and renaming it on success.
-- CAFM-BR-198: The job creates a new detail export file (AWS.M2.CARDDEMO.PAUTDB.CHILD.FILEO) of fixed 206-byte records. It is published only when the job succeeds and deleted when the job fails, the same way as the summary file.
+- CAFM-BR-194: A scheduled batch job (legacy DBUNLDGS) that reads the whole pending authorization store, summaries with their details, with read-only shared access so online users are not locked out.
+- CAFM-BR-195: This job writes to two standing output files, root (summary) and child (detail), that already exist. Only this job may write to them while it runs, and both are kept whether the job succeeds or fails, so downstream users must check the job's outcome before trusting their contents.
+- CAFM-BR-196: A second scheduled batch job (legacy PAUDBUNL) that reads the pending authorization store with shared read-only access and writes summaries to the first output file and details to the second.
+- CAFM-BR-197: The root unload file, of fixed 100-byte records, is created new on each run and published only when the job succeeds; on failure it is deleted (write under a temporary name and rename on success).
+- CAFM-BR-198: The child unload file, of fixed 206-byte records, is created new on each run and published only when the job succeeds; on failure it is deleted, the same as the root file.
 
 ## Open questions
 

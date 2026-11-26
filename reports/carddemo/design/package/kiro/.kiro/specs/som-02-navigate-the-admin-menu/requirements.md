@@ -6,7 +6,7 @@ User Access Control · System Operations and Maintenance · runs as online · ri
 
 ## Introduction
 
-The Admin Menu lets administrators pick a numbered option, 1 to 6, to reach the user-security screens (list, add, update and delete users) and the transaction-type maintenance screens. It must check every entry, reject keys and option numbers it does not support with the exact messages, and pass the session on to the chosen screen. Today the menu does not check that the user is an administrator, so the new application must decide on purpose where that admin-only check sits.
+Gives administrators a numbered menu of the user-security and transaction-type maintenance functions and opens the one they choose. It must reject option numbers outside 1–6 and unsupported keys with the exact legacy messages. If a chosen function is missing it must say 'This option is not installed ...' and not fail. Note that the legacy menu does not re-check that the user is an administrator: it relies on sign-on for that.
 
 **User story:** As an administrator, I want to pick a numbered option from the Admin Menu, so that I am taken to the administration function I need.
 
@@ -24,7 +24,7 @@ The Admin Menu lets administrators pick a numbered option, 1 to 6, to reach the 
 #### Acceptance criteria
 
 1. The system shall list each admin option (currently 6) on its own line in order, as the option number, '. ' and the option name, whenever the Admin Menu is displayed. (rules SOM-BR-005)
-2. GIVEN the admin option table holds 6 options WHEN the Admin Menu is displayed THEN 6 option lines are shown, one per line, in order 1 to 6, each written as the option number followed by '. ' and the option name (for example '1. User List (Security)'), and no further option lines are shown (SOM-C02-AC-14; SOM-BR-005)
+2. GIVEN The admin option table holds 6 options: 1 'User List (Security)', 2 'User Add (Security)', 3 'User Update (Security)', 4 'User Delete (Security)', 5 'Transaction Type List/Update (Db2)', 6 'Transaction Type Maintenance (Db2)' WHEN The Admin Menu is displayed THEN Six option lines are shown, one per line in order 1 to 6, the first reading '1. User List (Security)' and the sixth reading '6. Transaction Type Maintenance (Db2)', each formed as the option number, '. ' and the option name (SOM-C02-AC-14; SOM-BR-005)
 
 ### Requirement 3: SOM-REQ-F-006 (business rule)
 
@@ -64,7 +64,7 @@ The Admin Menu lets administrators pick a numbered option, 1 to 6, to reach the 
 #### Acceptance criteria
 
 1. If the program of a selected Admin Menu option is not defined in CICS, then the system shall redisplay the menu with the green message 'This option is not installed ...' (without the option name) and wait for the next entry. (rules SOM-BR-011)
-2. GIVEN an administrator is on the Admin Menu and the program for option 1 is not deployed or registered WHEN they enter option 1 and press Enter THEN the Admin Menu is shown again with the green message 'This option is not installed ...', which does not include the option name; no screen change happens, and the menu waits for the next entry (SOM-C02-AC-15; SOM-BR-011)
+2. GIVEN The Admin Menu is displayed and the program behind option 5 is not installed in the running system WHEN The operator enters option 5 and presses Enter THEN The Admin Menu is redisplayed with the message 'This option is not installed ...' in green, without the option name. No other screen is opened, and the menu waits for the next entry. (SOM-C02-AC-15; SOM-BR-011)
 
 ### Requirement 8: SOM-REQ-F-011 (historical artifact)
 

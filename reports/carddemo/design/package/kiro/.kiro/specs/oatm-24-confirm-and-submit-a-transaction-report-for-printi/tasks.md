@@ -16,16 +16,15 @@
   - _Rules: OATM-BR-202, OATM-BR-203, OATM-BR-204_
   - _After: OATM-C24-T1_
 - [ ] 4. OATM-C24-T4 [api] Build the services behind the screens
-  - OATM-BR-200: The report job needs the start and end dates as YYYY-MM-DD parameters, plus a combined 'YYYY-MM-DD YYYY-MM-DD' date value. The new application should pass these as named parameters on the job submission request (for example, a message to the batch scheduler or a job-run API). It should not edit a job script text.
+  - OATM-BR-200: The report job takes its period as two parameters, a start date and an end date, each in YYYY-MM-DD form. In the legacy job these are also passed together as the single string 'YYYY-MM-DD YYYY-MM-DD'. The new application should send these as typed parameters on the request it submits to the scheduled or queued transaction-report job, so that the batch run filters transactions to exactly that inclusive range.
   - _Requirements: OATM-REQ-F-191_
   - _Rules: OATM-BR-200_
   - _After: OATM-C24-T1, OATM-C24-T2, OATM-C24-T3_
 - [ ] 5. OATM-C24-T5 [ui-modernization] Build the screen Transaction reports (S-REPORT-REQUEST)
   - To the prototype: ui-reference/index.html#/S-REPORT-REQUEST.
-  - dialog "Print this report?"
-  - message "Submission result"
-  - _Requirements: OATM-REQ-F-187, OATM-REQ-F-188, OATM-REQ-F-190, OATM-REQ-F-193, OATM-REQ-F-194_
-  - _Rules: OATM-BR-196, OATM-BR-197, OATM-BR-199, OATM-BR-202, OATM-BR-203, OATM-BR-204_
+  - **primary button** "Submit report": The dialog offers only Submit or Cancel, replacing the typed confirmation and its messages 'Please confirm to print the <report name> report...' and '"<value>" is not a valid value to confirm...'. If the job cannot be queued, the message says the report was not submitted and to try again.
+  - _Requirements: OATM-REQ-F-187, OATM-REQ-F-188, OATM-REQ-F-189, OATM-REQ-F-190, OATM-REQ-F-191, OATM-REQ-F-192, OATM-REQ-F-193, OATM-REQ-F-194_
+  - _Rules: OATM-BR-196, OATM-BR-197, OATM-BR-198, OATM-BR-199, OATM-BR-200, OATM-BR-201, OATM-BR-202, OATM-BR-203, OATM-BR-204_
   - _After: OATM-C24-T2, OATM-C24-T3, OATM-C24-T4_
 - [ ] 6. OATM-C24-T6 [test-generation] Write a test for every acceptance criterion
   - 9 acceptance criteria, each a test named by its ID.

@@ -10,7 +10,7 @@
 
 As a customer service operator, I want to mark one listed authorization with 'S' to open its details, so that I can examine a specific authorization.
 
-Lets a customer service operator mark one listed authorization with 'S' (or 's') to open its details on the Authorization details screen. Only the first marked row from the top counts. Any other selection code shows 'Invalid selection. Valid value is S' and the list is redisplayed, never an unintended record.
+Lets a customer service operator open one authorization from the list by marking its row with 'S' (or 's'), taking them to that authorization's detail screen with a way back to the list. Only the first marked row, from the top, counts. Any other mark is rejected with 'Invalid selection. Valid value is S'.
 
 **Acceptance scenarios:**
 

@@ -10,7 +10,7 @@
 
 As an administrator, I want to change a transaction type's description and confirm it before saving, so that the transaction type reference data stays correct.
 
-Lets an administrator change a transaction type's description, check it, and confirm with F5 before it is written to the transaction type table. The description must be supplied, may hold only letters, digits and spaces, and is limited to 50 characters. Nothing is saved until the administrator confirms, and a record lock must be reported as unsuccessful. The legacy screen reports other update failures as committed; the team should review that behaviour rather than copy it unknowingly.
+An administrator changes a transaction type's description. The new description must be supplied and contain only letters, digits and spaces, up to 50 characters. The administrator confirms with F5 before it is written to the transaction type table, and can cancel with F12 before then. Nothing may be saved without that confirmation, a record lock must be reported as unsuccessful, and the screen must report the outcome of every save.
 
 **Acceptance scenarios:**
 
@@ -25,9 +25,9 @@ Lets an administrator change a transaction type's description, check it, and con
 9. **Given** Type: 07; SQLCODE: -911, **when** the update cannot lock the row (SQLCODE -911), **then** The screen shows 'Changes unsuccessful' with the error 'Could not lock record for update', and nothing is committed. (TTRDM-C17-AC-09)
 10. **Given** Screen state: awaiting confirmation (N); Key pressed: F12, **when** F12 is pressed while validated changes await confirmation (state 'N'), **then** Nothing is saved and 'Update was cancelled' is shown. (TTRDM-C17-AC-10)
 11. **Given** Screen state: backed out (B); Key pressed: Enter; Details changed: no, **when** changes were backed out (state 'B') and the next input brings no new change, **then** State becomes changes not OK and 'Update transaction type details shown.' is shown. (TTRDM-C17-AC-11)
-12. **Given** A transaction type's details are on screen and the operator has changed them, **when** The operator sets the description to spaces, or to '*', and presses Enter, **then** The screen shows 'Transaction Desc must be supplied.' and the state stays changes not OK ('E'); no save is offered (TTRDM-C17-AC-12)
-13. **Given** A transaction type's details are on screen and the operator has changed them, **when** The operator enters the description 'Cash-Advance #1' and presses Enter, **then** The screen shows 'Transaction Desc can have numbers or alphabets only.' and the state stays changes not OK ('E'); no save is offered (TTRDM-C17-AC-13)
-14. **Given** A changed description has been validated and is waiting for F5 confirmation (state 'N'), **when** The operator presses F5 and the update of the transaction type table fails with a negative SQLCODE other than -911, **then** The error 'Error updating: TRANSACTION_TYPE Table. SQLCODE:' is shown, followed by the code and the database error text; the outcome is set to committed ('C') and the screen shows 'Changes committed to database', not 'Changes unsuccessful' (TTRDM-C17-AC-14)
+12. **Given** A transaction type's details are on screen for editing, **when** The operator clears the description (all spaces), or enters '*', and presses Enter, **then** The screen shows 'Transaction Desc must be supplied.', the state stays changes-not-OK ('E'), and no save is offered (TTRDM-C17-AC-12)
+13. **Given** A transaction type's details are on screen for editing, **when** The operator changes the description to 'Cash-Advance!' and presses Enter, **then** The screen shows 'Transaction Desc can have numbers or alphabets only.', the state stays changes-not-OK ('E'), and no save is offered (TTRDM-C17-AC-13)
+14. **Given** A changed description has been validated and is awaiting confirmation (state 'N'), **when** The operator presses F5 and the update of the transaction type table fails with a negative SQLCODE other than -911, **then** The error 'Error updating: TRANSACTION_TYPE Table. SQLCODE:' is shown, followed by the code and the database error text; the outcome is set to committed ('C') and the information message is 'Changes committed to database', not 'Changes unsuccessful' (TTRDM-C17-AC-14)
 
 ## Requirements
 

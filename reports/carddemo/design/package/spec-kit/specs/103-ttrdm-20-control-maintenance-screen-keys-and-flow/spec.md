@@ -10,7 +10,7 @@
 
 As an administrator, I want the maintenance screen to accept only the keys that make sense at each step and to start over cleanly, so that I cannot trigger an action out of sequence.
 
-Controls which keys the transaction type maintenance screen accepts at each step, so an administrator cannot save, delete or cancel out of sequence. A key that is not allowed in the current step shows 'Invalid key pressed' and does nothing else. After any finished or cancelled action, the screen starts over cleanly at the empty search screen.
+The maintenance screen accepts only the keys and actions that make sense in its current step. Any other key gets 'Invalid key pressed' and nothing else happens. After a completed, failed or cancelled action the screen starts over at an empty search. No action may ever run out of sequence, such as a save without validation or a delete without confirmation.
 
 **Acceptance scenarios:**
 

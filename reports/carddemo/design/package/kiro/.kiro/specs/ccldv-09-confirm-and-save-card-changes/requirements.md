@@ -6,7 +6,7 @@ Customer Data Setup · Credit Card List Detail View and Update · runs as online
 
 ## Introduction
 
-Saves validated card changes only after the operator confirms them with PF5, and lets them drop unsaved edits with PF12. Before writing, it locks the card and checks it still matches what was fetched. It must never overwrite a card that someone else changed in the meantime, and must never save without confirmation.
+After the changes pass the checks, the card operations user confirms them with PF5, and only then is the card record saved. PF12 discards unsaved edits and reloads the card. The save must never overwrite changes someone else made since the card was shown. If the stored card has changed, or it cannot be locked or rewritten, nothing is written and the user is told with the exact message.
 
 **User story:** As a card operations user, I want to confirm validated changes with PF5 and have them saved safely, so that the card record is updated only with my confirmed changes and not over someone else's changes.
 

@@ -221,7 +221,7 @@ Record `CUSTOMER-RECORD`:
 
 ## Design notes
 
-- CAFM-BR-060: Send each reply as a one-off, non-persistent message to the reply address named in the request, with the request's correlation id and a short time-to-live (expiry 50, which is 5 seconds in MQ's tenths of a second). This way stale replies expire instead of piling up. If the send fails, log critical error 'M004'.
+- CAFM-BR-060: Publish each authorization reply once to the reply queue the requester named, carrying the request's correlation id. Send it non-persistent with a short expiry (50, in tenths of a second, so 5 seconds), so stale answers are dropped. If publishing fails, log critical error 'M004'.
 
 ## Decision tables
 

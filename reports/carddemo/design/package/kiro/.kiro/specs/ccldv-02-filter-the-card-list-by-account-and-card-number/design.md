@@ -4,28 +4,26 @@
 
 ## Overview
 
-Lets card operations staff narrow the card list to one account, one card number, or both. A filter left blank or all zeros is not applied. The list must show only cards that match every filter supplied, and must reject a non-numeric filter with its exact message instead of showing an unfiltered list.
+Card operations users can narrow the card list to one account number, one card number, or both. A filter left blank or all zeros is ignored. A non-numeric filter is rejected with its exact message, and while a filter is in error the list must not be re-read or offer row selection. When both filters are given, only cards that match both may be listed.
 
-Runs as online. Journeys: J07, J09.
+Runs as online. Journeys: J07, J08.
 
 ## Screens and components
 
 ### Cards (S-CARD-LIST)
 
-Browse and filter credit cards by account and card number, and open a card to view or edit it from its row.
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Filter cards | form | Account number and card number filters, applied together; a card must match both when both are given |  |  | CCLDV-REQ-F-021, CCLDV-REQ-F-024, CCLDV-REQ-F-025, CCLDV-REQ-F-026 |
-| Account number | text | Optional 11-digit account number; numeric keypad on touch devices | If supplied, must be an 11-digit number; blank or all zeros means no account filter. Message: 'Account filter, if supplied, must be an 11-digit number.' |  | CCLDV-REQ-F-021, CCLDV-REQ-F-023, CCLDV-REQ-F-027 |
-| Card number | text | Optional 16-digit card number | If supplied, must be a 16-digit number; blank or all zeros means no card filter. Message: 'Card number filter, if supplied, must be a 16-digit number.' |  | CCLDV-REQ-F-021, CCLDV-REQ-F-022, CCLDV-REQ-F-027 |
-| Problems with the filters | message | Error summary at the top of the form listing each filter error, each linked to its field; field errors also shown under the field and announced to screen readers; the table is left unchanged |  |  | CCLDV-REQ-F-027 |
+| Account number | **lookup field** | Account number filter, 11 digits; blank or all zeros means no account filter | Must be an 11-digit number if entered: 'Account filter, if supplied, must be an 11 digit number. Enter the 11 digits or leave it blank.' |  | CCLDV-REQ-F-021, CCLDV-REQ-F-023, CCLDV-REQ-F-025 |
+| Card number | **lookup field** | Card number filter, 16 digits; blank or all zeros means no card filter; with both filters a card must match both | Must be a 16-digit number if entered: 'Card ID filter, if supplied, must be a 16 digit number. Enter the 16 digits or leave it blank.' |  | CCLDV-REQ-F-022, CCLDV-REQ-F-026 |
 
-### Card (S-CARD-DETAIL)
+### Card details (S-CARD-DETAIL)
 
-Find a card by account and card number, see its embossed name, expiry date and active status, and edit those details with a confirmation before saving. Replaces the separate view and update screens: the same card is found, shown and edited in one place.
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
 
 Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
 

@@ -4,23 +4,30 @@
 
 ## Overview
 
-Before a new transaction is checked further, finds the account and card it belongs to from either the account ID or the card number, using the card cross-reference. When an account ID is given, the card linked to it replaces any typed card number. A transaction must never be saved against an account or card that was not found, or when either field is blank or non-numeric.
+Finds the account and card for a new transaction from either the account ID or the card number, using the card cross-reference. When an account ID is given, the card linked to it replaces any typed card number. The capability must never record a transaction against an account or card that is not in the cross-reference. Each failure has its exact message, for example 'Account ID NOT found...' or 'Card Number must be Numeric...'.
 
-Runs as online. Journeys: J04.
+Runs as online. Journeys: J05.
 
 ## Screens and components
 
+### Transactions (S-TRANSACTION-LIST)
+
+Browse transactions in a sortable, paged table or jump to a transaction ID, and open one with Enter or a click instead of typing S beside it. Tab order: search, table, pager, Add transaction.
+
+Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy screens COTRN0A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Add transaction (S-TRANSACTION-ADD)
 
-Enter a transaction against an account or card, see what to fix at each field, confirm the summary and record it.
+Record a new transaction against an account or card, every field checked before it is added. One field takes the account or the card number; the resolved account and card show at once. Tab order: account or card, transaction details, merchant, Add transaction.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-ADD`. Replaces the legacy screens COTRN2A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| New transaction | form | Fields are checked in screen order; the first field in error gets focus and its message; pre-filled when opened with a selected transaction |  |  |  |
-| Account ID | text | 11 digits; enter this or the card number (the account wins if both are given) and the other is filled in | Account or card required: 'Account or Card Number must be entered...'; digits only: 'Account ID must be Numeric...'; must exist: 'Account ID NOT found...'. |  | OATM-REQ-F-246, OATM-REQ-F-247, OATM-REQ-F-249 |
-| Card number | text | 16 digits | Digits only: 'Card Number must be Numeric...'; must exist: 'Card Number NOT found...'. |  | OATM-REQ-F-250, OATM-REQ-F-251, OATM-REQ-F-252 |
+| Account or card number | **lookup field** | 11-digit account number or 16-digit card number, pre-filled from the account in context; the resolved account and card number show beneath it | Blank: 'Account or Card Number must be entered...'. Not digits: 'Account ID must be Numeric...' / 'Card Number must be Numeric...'. Not in the card cross-reference: 'Account ID NOT found...' / 'Card Number NOT found...' - check the number with the caller. |  | OATM-REQ-F-245, OATM-REQ-F-246, OATM-REQ-F-247, OATM-REQ-F-248, OATM-REQ-F-249, OATM-REQ-F-250, OATM-REQ-F-251, OATM-REQ-F-252, OATM-REQ-N-013, OATM-REQ-N-014 |
 
 
 ## Data models

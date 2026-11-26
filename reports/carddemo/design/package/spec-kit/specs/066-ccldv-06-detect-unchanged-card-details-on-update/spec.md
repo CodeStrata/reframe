@@ -10,7 +10,7 @@
 
 As a card operations user, I want the card update to recognise when I have not changed anything, so that no needless edits are run and I am told nothing changed.
 
-Spots when an operator submits the card update screen without really changing anything (differences in upper or lower case do not count) and tells them nothing changed instead of running the field checks. It must never ask for confirmation or save when nothing has changed.
+When a card operations user submits the card update screen without really changing anything, the update spots it. Case differences do not count as changes. The user is told nothing changed and no field checks run. Once changes are validated or committed, the detailed field checks are not run again. The update must never treat a case-only difference as a change.
 
 **Acceptance scenarios:**
 

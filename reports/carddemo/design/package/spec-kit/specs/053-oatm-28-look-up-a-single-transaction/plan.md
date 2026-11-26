@@ -18,7 +18,7 @@ Runs as online.
 
 ### Transactions (S-TRANSACTION-LIST)
 
-Browse transactions page by page from a chosen ID and open any one with a row action instead of typing S against it.
+Browse transactions in a sortable, paged table or jump to a transaction ID, and open one with Enter or a click instead of typing S beside it. Tab order: search, table, pager, Add transaction.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy screens COTRN0A.
 
@@ -27,13 +27,13 @@ Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy sc
 
 ### Transaction (S-TRANSACTION-VIEW)
 
-Show one transaction's card, type, category, source, amount, dates and merchant together, opened from the list or looked up by ID.
+Show one transaction in full with its merchant, opened from the list or by typing its ID. Tab order: transaction ID, details, merchant, Back to transactions.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-VIEW`. Replaces the legacy screens COTRN1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Transaction ID | search | Pre-filled when opened from the list | Required: 'Tran ID can NOT be empty...'; must exist: 'Transaction ID NOT found...'. |  | OATM-REQ-F-227 |
+| Transaction ID | **lookup field** | Transaction ID, pre-filled when opened from the list | Blank: 'Tran ID can NOT be empty...' - enter a transaction ID. Not found: 'Transaction ID NOT found...' - check the ID or find it in Transactions. |  | OATM-REQ-F-226, OATM-REQ-F-227 |
 
 
 ## Data model

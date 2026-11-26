@@ -18,11 +18,9 @@
   - _After: CCLDV-C03-T1_
 - [ ] 4. CCLDV-C03-T4 [ui-modernization] Build the screen Cards (S-CARD-LIST)
   - To the prototype: ui-reference/index.html#/S-CARD-LIST.
-  - message "Problems with the filters"
-  - button "View": Only one card can be opened at a time, so the legacy errors 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' and 'INVALID ACTION CODE' cannot occur.
-  - button "Edit"
-  - _Requirements: CCLDV-REQ-F-028, CCLDV-REQ-F-029, CCLDV-REQ-F-030, CCLDV-REQ-F-031, CCLDV-REQ-F-032, CCLDV-REQ-F-033_
-  - _Rules: CCLDV-BR-028, CCLDV-BR-029, CCLDV-BR-030, CCLDV-BR-031_
+  - **data table** "Cards found": Each row is its own link and only one opens at a time, so no selection code is typed and 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' and 'INVALID ACTION CODE' cannot occur
+  - _Requirements: CCLDV-REQ-F-028, CCLDV-REQ-F-029, CCLDV-REQ-F-032, CCLDV-REQ-F-033_
+  - _Rules: CCLDV-BR-029, CCLDV-BR-030, CCLDV-BR-031_
   - _After: CCLDV-C03-T2, CCLDV-C03-T3_
 - [ ] 5. CCLDV-C03-T5 [test-generation] Write a test for every acceptance criterion
   - 7 acceptance criteria, each a test named by its ID.

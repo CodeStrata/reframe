@@ -10,7 +10,7 @@
 
 As a cardholder, I want to enter my account, see the balance owed and confirm or decline paying it, so that I only pay when I mean to and there is something to pay.
 
-Lets a signed-on cardholder enter an account, see the balance owed, and then confirm or decline paying it in full. It must never post a payment without an explicit 'Y' or 'y'. It must never accept a payment when the balance is zero or less, and it must never run without a signed-on session.
+Lets a signed-on cardholder enter an account, see the balance owed and then confirm (Y) or decline (N) paying it in full. It must never post a payment without an explicit 'Y'. It must also never post one when the account ID is blank, the account cannot be found, or there is nothing to pay (balance zero or less).
 
 **Acceptance scenarios:**
 

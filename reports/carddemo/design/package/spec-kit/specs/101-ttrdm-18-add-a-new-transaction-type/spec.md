@@ -10,13 +10,13 @@
 
 As an administrator, I want to add a transaction type that is not yet on file, so that new kinds of transactions can be classified.
 
-Lets an administrator add a transaction type whose code is not yet on file, so new kinds of transactions can be classified. After a search finds nothing, F5 opens a new-record entry, and the confirmed save inserts the code and description into the transaction type table. The legacy screen reports a failed insert as committed; the team should review that behaviour rather than copy it unknowingly.
+When a searched transaction type code is not on file, the administrator can press F5 to create it, enter a description, and save it as a new type in the transaction type table. The new row must carry exactly the code that was searched and the validated description. The screen must report the outcome of the save.
 
 **Acceptance scenarios:**
 
 1. **Given** Screen state: not found (X) for code 42; Key pressed: F5, **when** F5 is pressed after the searched code was not found (state 'X'), **then** The screen shows 'Enter new transaction type details.'. (TTRDM-C18-AC-01)
-2. **Given** Transaction type '99' is not in CARDDEMO.TRANSACTION_TYPE, and the operator has entered the new details with description 'Cash Advance', which were validated and are waiting for F5 confirmation, **when** The operator presses F5 and the save finds no row for type '99' (SQLCODE +100), **then** A new row with type code '99' and description 'Cash Advance' is inserted into CARDDEMO.TRANSACTION_TYPE and committed, and the screen shows 'Changes committed to database' (TTRDM-C18-AC-02)
-3. **Given** The details of a new transaction type have been validated and are waiting for F5 confirmation, **when** The operator presses F5 and the insert of the new row into the transaction type table fails, **then** The error 'Error inserting record into: TRANSACTION_TYPE Table. SQLCODE:' is shown, followed by the code and the database error text; the outcome is set to committed ('C') and the screen shows 'Changes committed to database', not 'Changes unsuccessful' (TTRDM-C18-AC-03)
+2. **Given** Transaction type code '15' is not in the transaction type table, the operator has pressed F5 to add it, and has entered the valid description 'Balance Transfer', which awaits confirmation, **when** The operator presses F5 to save, and the save finds no existing row for '15' (SQLCODE +100), **then** A new row with type code '15' and description 'Balance Transfer' is inserted into CARDDEMO.TRANSACTION_TYPE and committed, and the screen shows 'Changes committed to database' (TTRDM-C18-AC-02)
+3. **Given** A new transaction type with a valid description is awaiting confirmation, **when** The operator presses F5 and the insert into the transaction type table fails, **then** The error 'Error inserting record into: TRANSACTION_TYPE Table. SQLCODE:' is shown, followed by the code and the database error text; the outcome is set to committed ('C') and the information message is 'Changes committed to database', not 'Changes unsuccessful' (TTRDM-C18-AC-03)
 
 ## Requirements
 

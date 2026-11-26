@@ -10,12 +10,12 @@
 
 As an operations user, I want to apply a file of transaction type add, update and delete requests in a batch job, so that many reference data changes can be made at once.
 
-Lets operations apply a file of transaction type add, update and delete requests to the transaction type table in one batch run, writing a log of the run. Each line holds one request: an action code ('A', 'U', 'D', or '*' for a comment), a two-digit numeric type code and a description of up to 50 characters. The job must apply each request exactly as the file states and report what it did.
+Operations staff can apply a file of transaction type add, update and delete requests in one batch run instead of keying them in one at a time. Each line of the file carries an action, a two-digit type code and a description, and the run reports its messages in the job output. The run must apply each request exactly as the line states.
 
 **Acceptance scenarios:**
 
 1. **Given** request line: * weekly refresh, **when** maintenance request file runs, **then** the line is treated as a comment (TTRDM-C21-AC-01)
-2. **Given** A maintenance request file (INPFILE) is available, and the database is the CARDDEMO plan on Db2 subsystem 'DAZ1', **when** The transaction type maintenance job runs, **then** The transaction type update program (COBTUPDT) reads the request file as shared input (other readers are not locked out) and writes the run's messages to the job output (TTRDM-C21-AC-02)
+2. **Given** A maintenance request file (INPFILE) is available and the transaction type update program (COBTUPDT) is configured against Db2 subsystem 'DAZ1' with plan 'CARDDEMO', **when** The transaction type maintenance job is run, **then** The program reads the request file as shared input, so other readers are not locked out, applies the requests to the transaction type table, and the run's messages appear in the job output (TTRDM-C21-AC-02)
 
 ## Requirements
 

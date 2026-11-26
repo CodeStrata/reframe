@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Records a validated, confirmed new transaction. It gets the next transaction number (the highest on file plus 1, as 16 zero-padded digits) and is written with the entered details and the card found for the account. The user sees 'Transaction added successfully. Your Tran ID is <number>.'. Numbers must never be duplicated or reused, and a failed write must say so and save nothing.
+Records a validated, confirmed transaction. It gives the transaction the next number after the highest one on file, as 16 zero-padded digits (0000000000000001 when the file is empty), and writes it with the card found for the entered account or card. It must never reuse an existing number or lose the operator's entries on a failed write. On success it shows the new Tran ID.
 
 **User story:** As a staff user, I want a confirmed, valid transaction to be numbered and written to the transaction file with a clear confirmation or error, so that the account's activity is recorded accurately.
 
@@ -53,7 +53,7 @@ Records a validated, confirmed new transaction. It gets the next transaction num
 #### Acceptance criteria
 
 1. When the new transaction is written successfully, the system shall clear every field and show in green 'Transaction added successfully. Your Tran ID is <number>.' (rules OATM-BR-298)
-2. GIVEN a validated Add Transaction form with Confirm 'Y', and the highest transaction number on file is 0000000000000041 WHEN the user presses Enter and the new transaction is written successfully THEN every field on the screen is cleared and the message 'Transaction added successfully. Your Tran ID is 0000000000000042.' is shown in green (OATM-C33-AC-09; OATM-BR-298)
+2. GIVEN a validated transaction with Confirm 'Y' whose new number is 0000000000000301, and the write to the transaction file succeeds WHEN the add completes THEN every field on the Add Transaction screen is cleared and the message 'Transaction added successfully. Your Tran ID is 0000000000000301.' is shown in green (OATM-C33-AC-09; OATM-BR-298)
 
 ### Requirement 7: OATM-REQ-F-283 (error handling)
 

@@ -12,26 +12,16 @@
   - _Rules: OATM-BR-269, OATM-BR-270, OATM-BR-271, OATM-BR-272, OATM-BR-273, OATM-BR-274, OATM-BR-275, OATM-BR-276, OATM-BR-277, OATM-BR-278, OATM-BR-279, OATM-BR-280, OATM-BR-281, OATM-BR-282, OATM-BR-283, OATM-BR-284, OATM-BR-285, OATM-BR-287, OATM-BR-288, OATM-BR-289, OATM-BR-290, OATM-BR-291, OATM-BR-292_
   - _After: OATM-C32-T1_
 - [ ] 3. OATM-C32-T3 [api] Build the services behind the screens
-  - OATM-BR-286: Parse the validated amount text into an exact decimal with two places (never floating point). Echo it back to the user in the canonical form +99999999.99, and store exactly that decimal value as the transaction amount when the transaction is added.
+  - OATM-BR-286: Parse the accepted amount text into an exact signed decimal with two decimal places (no floating point), echo it back formatted as +99999999.99, and use that same parsed value as the stored transaction amount.
   - _Requirements: OATM-REQ-F-270_
   - _Rules: OATM-BR-286_
   - _After: OATM-C32-T1, OATM-C32-T2_
 - [ ] 4. OATM-C32-T4 [ui-modernization] Build the screen Add transaction (S-TRANSACTION-ADD)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-ADD.
-  - form "New transaction"
-  - select "Transaction type": Required: 'Type CD can NOT be empty...'; numeric code: 'Type CD must be Numeric...'.
-  - select "Category": Required: 'Category CD can NOT be empty...'; numeric code: 'Category CD must be Numeric...'.
-  - text "Source": Required: 'Source can NOT be empty...'.
-  - text "Description": Required: 'Description can NOT be empty...'.
-  - money "Amount": Required: 'Amount can NOT be empty...'; format: 'Amount should be in format -99999999.99'.
-  - date "Original date": Required: 'Orig Date can NOT be empty...'; format: 'Orig Date should be in format YYYY-MM-DD'; real date: 'Orig Date - Not a valid date...'.
-  - date "Processed date": Required: 'Proc Date can NOT be empty...'; format: 'Proc Date should be in format YYYY-MM-DD'; real date: 'Proc Date - Not a valid date...'.
-  - text "Merchant ID": Required: 'Merchant ID can NOT be empty...'; 9 digits: 'Merchant ID must be Numeric...'.
-  - text "Merchant name": Required: 'Merchant Name can NOT be empty...'.
-  - text "Merchant city": Required: 'Merchant City can NOT be empty...'.
-  - text "Merchant ZIP": Required: 'Merchant Zip can NOT be empty...'.
-  - _Requirements: OATM-REQ-F-254, OATM-REQ-F-255, OATM-REQ-F-256, OATM-REQ-F-257, OATM-REQ-F-258, OATM-REQ-F-259, OATM-REQ-F-260, OATM-REQ-F-261, OATM-REQ-F-262, OATM-REQ-F-263, OATM-REQ-F-264, OATM-REQ-F-265, OATM-REQ-F-267, OATM-REQ-F-268, OATM-REQ-F-269, OATM-REQ-F-270, OATM-REQ-F-271, OATM-REQ-F-272, OATM-REQ-F-273, OATM-REQ-F-274, OATM-REQ-F-275, OATM-REQ-F-276_
-  - _Rules: OATM-BR-270, OATM-BR-271, OATM-BR-272, OATM-BR-273, OATM-BR-274, OATM-BR-275, OATM-BR-276, OATM-BR-277, OATM-BR-278, OATM-BR-279, OATM-BR-280, OATM-BR-281, OATM-BR-283, OATM-BR-284, OATM-BR-285, OATM-BR-286, OATM-BR-287, OATM-BR-288, OATM-BR-289, OATM-BR-290, OATM-BR-291, OATM-BR-292_
+  - **summary card** "Transaction details": Each is required, in the rule's words: 'Type CD can NOT be empty...', 'Category CD can NOT be empty...', 'Source can NOT be empty...', 'Description can NOT be empty...', 'Amount can NOT be empty...', 'Orig Date can NOT be empty...', 'Proc Date can NOT be empty...'. 'Type CD must be Numeric...', 'Category CD must be Numeric...'. 'Amount should be in format -99999999.99'. 'Orig Date should be in format YYYY-MM-DD', 'Proc Date should be in format YYYY-MM-DD', and 'Orig Date - Not a valid date...' / 'Proc Date - Not a valid date...' for a date not on the calendar. Every failing field shows its message under it.
+  - **summary card** "Merchant": 'Merchant ID can NOT be empty...', 'Merchant Name can NOT be empty...', 'Merchant City can NOT be empty...', 'Merchant Zip can NOT be empty...'; 'Merchant ID must be Numeric...'.
+  - _Requirements: OATM-REQ-F-253, OATM-REQ-F-254, OATM-REQ-F-255, OATM-REQ-F-256, OATM-REQ-F-257, OATM-REQ-F-258, OATM-REQ-F-259, OATM-REQ-F-260, OATM-REQ-F-261, OATM-REQ-F-262, OATM-REQ-F-263, OATM-REQ-F-264, OATM-REQ-F-265, OATM-REQ-F-266, OATM-REQ-F-267, OATM-REQ-F-268, OATM-REQ-F-269, OATM-REQ-F-270, OATM-REQ-F-271, OATM-REQ-F-272, OATM-REQ-F-273, OATM-REQ-F-274, OATM-REQ-F-275, OATM-REQ-F-276_
+  - _Rules: OATM-BR-269, OATM-BR-270, OATM-BR-271, OATM-BR-272, OATM-BR-273, OATM-BR-274, OATM-BR-275, OATM-BR-276, OATM-BR-277, OATM-BR-278, OATM-BR-279, OATM-BR-280, OATM-BR-281, OATM-BR-282, OATM-BR-283, OATM-BR-284, OATM-BR-285, OATM-BR-286, OATM-BR-287, OATM-BR-288, OATM-BR-289, OATM-BR-290, OATM-BR-291, OATM-BR-292_
   - _After: OATM-C32-T2, OATM-C32-T3_
 - [ ] 5. OATM-C32-T5 [test-generation] Write a test for every acceptance criterion
   - 30 acceptance criteria, each a test named by its ID.

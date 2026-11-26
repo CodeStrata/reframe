@@ -10,7 +10,7 @@
 
 As an administrator, I want to enter a transaction type code and see its details, so that I can choose the transaction type I need to maintain.
 
-Lets an administrator enter a transaction type code and see that type's details, or learn that it is not on file and can be added. The code must be supplied, numeric and non-zero, and it is padded to two digits (for example 5 becomes 05) before the lookup. An invalid code must never trigger a lookup, and only the first error found is shown.
+An administrator enters a transaction type code to find the type they want to maintain. The code must be supplied, numeric and non-zero, and is normalised to two digits with a leading zero before the lookup. The screen then shows the type's details or reports that it was not found and offers to add it. An invalid code must never trigger a lookup, and only the first error found is shown.
 
 **Acceptance scenarios:**
 
@@ -22,10 +22,10 @@ Lets an administrator enter a transaction type code and see that type's details,
 6. **Given** Transaction type code: 01; Exists in table: yes, **when** a valid transaction type code is entered on the search screen, **then** The type's description is shown for editing. (TTRDM-C16-AC-06)
 7. **Given** Transaction type code: 42; Exists in table: no, **when** a valid transaction type code is entered on the search screen, **then** The screen shows 'Press F05 to add. F12 to cancel'. (TTRDM-C16-AC-07)
 8. **Given** Screen state: not found (X) for code 42; Key pressed: Enter; Code on screen: 42, **when** the searched code was not found and the operator re-sends the same code without pressing F5, **then** Code 42 is looked up again. (TTRDM-C16-AC-08)
-9. **Given** The Transaction Type Maintenance screen is waiting for a transaction type to search for, **when** The operator leaves the transaction type code blank, or enters '*', and presses Enter, **then** The screen shows 'Tran Type code must be supplied.', no lookup of the transaction type table is made, and the screen keeps waiting for a search code (TTRDM-C16-AC-09)
-10. **Given** The Transaction Type Maintenance screen is waiting for a transaction type to search for, **when** The operator enters the transaction type code 'AB' and presses Enter, **then** The screen shows 'Tran Type code must be numeric.', the search code is marked as invalid, and no lookup of the transaction type table is made (TTRDM-C16-AC-10)
-11. **Given** The Transaction Type Maintenance screen is waiting for a transaction type to search for, **when** The operator enters the transaction type code '00' and presses Enter, **then** The screen shows 'Tran Type code must not be zero.', the search code is marked as invalid, and no lookup of the transaction type table is made (TTRDM-C16-AC-11)
-12. **Given** The Transaction Type Maintenance screen is waiting for a transaction type to search for, **when** The operator submits an entry on which more than one check fails, **then** Exactly one error message is shown, and it is the first error message the checks found; no later error message appears with it (TTRDM-C16-AC-12)
+9. **Given** The empty search screen asking 'Enter transaction type to be maintained', **when** The operator leaves the transaction type code blank, or enters '*', and presses Enter, **then** The screen shows 'Tran Type code must be supplied.', no lookup is made against the transaction type table, and the screen keeps waiting for a search code (TTRDM-C16-AC-09)
+10. **Given** The search screen, **when** The operator enters the transaction type code 'AB' and presses Enter, **then** The screen shows 'Tran Type code must be numeric.', the search code is marked as invalid, and no lookup is made (TTRDM-C16-AC-10)
+11. **Given** The search screen, **when** The operator enters the transaction type code '00' (or '0') and presses Enter, **then** The screen shows 'Tran Type code must not be zero.', the search code is marked as invalid, and no lookup is made (TTRDM-C16-AC-11)
+12. **Given** The search screen, with an entry that fails more than one check, **when** The operator presses Enter, **then** Exactly one error message is shown, the one from the first check that failed, and the messages from later failing checks are not shown (TTRDM-C16-AC-12)
 
 ## Requirements
 

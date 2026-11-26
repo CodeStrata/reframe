@@ -18,26 +18,23 @@ Runs as online.
 
 ### Transaction types (S-TRANTYPE-LIST)
 
-Find transaction types by code or description, correct a description in place, or delete an obsolete type, confirming each change; start adding a new type.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Transaction type (S-TRANTYPE-EDIT)
+### Add or change a transaction type (S-TRANTYPE-EDIT)
 
-Look up a transaction type by code to change its description or delete it, or add a new type when the code is not on file; each save or delete is confirmed and can be cancelled.
+Add a new transaction type or change an existing one's description in one step: enter the code, see its description or start a new one if it is not on file, then save. Replaces the F5 create, Enter check and F5 confirm sequence; delete is the Delete row action on the list.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-EDIT`. Replaces the legacy screens CTRTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Description | text | Description, up to 50 characters; editable once a type is found or being added | Required; letters, digits and spaces only. Messages: 'Enter a description.' (legacy 'Transaction Desc must be supplied.'), 'Description can only contain letters, digits and spaces.' (legacy 'Transaction Desc can have numbers or alphabets only.') |  | TTRDM-REQ-F-117, TTRDM-REQ-F-118, TTRDM-REQ-F-119, TTRDM-REQ-F-120 |
-| No changes | message | Information: 'No changes to save. The description matches the stored value.' | Description must differ from the stored value (ignoring case and surrounding spaces): 'No changes to save.' (legacy 'No change detected with respect to values fetched.') |  | TTRDM-REQ-F-122, TTRDM-REQ-F-129 |
-| Save | button | Checks the description and opens the save confirmation; available only when something changed | Actions not available in the current step are disabled rather than rejected (legacy 'Invalid key pressed'). |  | TTRDM-REQ-F-121 |
-| Save this transaction type? | dialog | Shows code and old/new description (or 'New type'); Save writes it, Cancel shows 'Update was cancelled' and keeps the edits |  |  | TTRDM-REQ-F-123, TTRDM-REQ-F-128 |
-| Result | message | Success: 'Changes saved.' / 'Transaction type 07 added.' / 'Transaction type 07 deleted.', then ready for a new code. Blocked: 'This transaction type is still used by other records and cannot be deleted.' Busy: 'Someone else is changing this record. Try again.' Other: 'The change failed: <reason>. Try again.' |  |  | TTRDM-REQ-F-124, TTRDM-REQ-F-125, TTRDM-REQ-F-126, TTRDM-REQ-F-127 |
+| Description | **summary card** | Description up to 50 characters, editable once the code has been searched | 'Transaction Desc must be supplied. Enter a description.' or 'Transaction Desc can have numbers or alphabets only. Remove other characters.' |  | TTRDM-REQ-F-117, TTRDM-REQ-F-119, TTRDM-REQ-F-120 |
+| Save transaction type | **primary button** | Checks and saves in one step, adding the type if the code is new or changing its description, then returns to the list; enabled only after a code is searched and something changed, which replaces 'Invalid key pressed'. Results: 'Changes committed to database'; 'Could not lock record for update' with 'Changes unsuccessful'. Esc cancels and returns to the list. | Code and description match what is stored (ignoring case and surrounding spaces): 'No change detected with respect to values fetched.' | S-TRANTYPE-LIST | TTRDM-REQ-F-123, TTRDM-REQ-F-124, TTRDM-REQ-F-125 |
 
 
 ## Data model
@@ -67,7 +64,7 @@ Record `ABEND-DATA`:
 
 ## Design notes
 
-- TTRDM-BR-131: Description input needs normalising before validation and comparison. Remove leading and trailing spaces, and treat an empty value or a lone '*' as 'not supplied' (null). Validation then sees a missing description rather than a literal '*' or blanks.
+- TTRDM-BR-131: Input normalisation for the description field: trim leading and trailing spaces, and treat an empty result or a lone '*' as 'not supplied' before any validation or change comparison. Put this in one shared helper so that change detection and description validation see the same value.
 
 ## Decision tables
 

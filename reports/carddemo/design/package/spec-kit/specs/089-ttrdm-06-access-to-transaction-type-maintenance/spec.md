@@ -10,7 +10,7 @@
 
 As a security officer, I want to know how access to transaction type update and delete is controlled, so that only authorised users can change reference data.
 
-Records how the legacy transaction type list controls who can change reference data. Started directly, it assumes the user is an administrator (user type 'A'), and it never checks the user type before allowing an update or delete. The new application must not carry that gap forward unknowingly: whether to keep or close it is a decision for security, and changes to transaction types should be restricted to authorised administrators.
+This records how access to transaction type update and delete works today: when the list is started directly with no sign-on context, the user is treated as an administrator, and update or delete is never checked against the user's type. The new application must not copy this gap silently; who may change transaction type reference data needs an explicit decision and enforcement.
 
 **Acceptance scenarios:**
 

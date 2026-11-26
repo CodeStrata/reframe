@@ -6,7 +6,7 @@ Customer Data Setup · Credit Card List Detail View and Update · runs as online
 
 ## Introduction
 
-Lets card operations staff browse every credit card seven at a time, paging forward and back, so they can find the card they want to view or update. Each row shows the card number, its account and whether it is active. It must never skip or repeat a card between pages, and it must always tell the user correctly when there are no more pages forward or back.
+Card operations users browse the credit cards seven to a page and move forward and back through the list to find the card they want to view or update. Each row shows the card number, account number and active status. The list must never skip or repeat cards between pages, must say when there are no more pages, and must start again from the first card whenever the user comes in from the menu or returns from card detail or card update.
 
 **User story:** As a card operations user, I want to see the credit cards seven at a time and page forward and back through them, so that I can find the card I need to view or update.
 
@@ -129,7 +129,7 @@ Lets card operations staff browse every credit card seven at a time, paging forw
 #### Acceptance criteria
 
 1. When the user presses any key other than PF8, the system shall reset the last-page flag to 'not shown'. (rules CCLDV-BR-018)
-2. GIVEN the card list is on its last page and the last page has already been shown once (last-page flag 'shown') WHEN the user presses any key other than PF8 (for example Enter or PF7) THEN the last-page flag is reset to 'not shown', so a later PF8 on the last page is treated as the first time the last page is shown (CCLDV-C01-AC-28; CCLDV-BR-018)
+2. GIVEN the user has pressed PF8 on the last page, so the list has recorded that the last page has been shown WHEN the user presses any key other than PF8, for example Enter or PF7 THEN the last-page flag is reset to 'not shown' (CCLDV-C01-AC-28; CCLDV-BR-018)
 
 ### Requirement 17: CCLDV-REQ-F-017 (formatting)
 

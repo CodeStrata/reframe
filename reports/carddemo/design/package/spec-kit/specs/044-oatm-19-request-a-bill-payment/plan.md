@@ -18,38 +18,35 @@ Runs as online.
 
 ### Account (S-ACCOUNT-VIEW)
 
-Find an account by number and review its status, dates, balances and limits together with the cardholder's profile, address and contacts, with direct links (new) to update it or pay its balance.
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Pay balance | link | New: opens bill payment with this account pre-selected |  | S-BILL-PAY |  |
 
 ### Pay balance (S-BILL-PAY)
 
-See the balance owed on an account and pay it in full after confirming.
+Pay off the full balance owed on an account, recorded as a payment transaction. The account comes from the account in context or is looked up here; the balance shows before paying and the payment is confirmed in a dialog, not by typing Y or N. Tab order: account, balance, Pay balance.
 
 Prototype: `ui-reference/index.html#/S-BILL-PAY`. Replaces the legacy screens COBIL0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Account ID | text | 11-digit account ID; pre-filled when opened from an account | Required: 'Acct ID can NOT be empty...'; must exist: 'Account ID NOT found...'. |  | OATM-REQ-F-150, OATM-REQ-F-153, OATM-REQ-F-154 |
-| Show balance | button |  |  |  | OATM-REQ-F-152, OATM-REQ-F-156 |
-| Current balance | display | Balance owed | Nothing owed (zero or less): 'You have nothing to pay...' and Pay is not offered. |  | OATM-REQ-F-155 |
-| Pay your balance now? | dialog | The account and the full amount to pay. Pay posts it; Cancel clears the form and pays nothing. Buttons replace typing Y/N, so 'Invalid value. Valid values are (Y/N)...' cannot arise. |  |  | OATM-REQ-F-157, OATM-REQ-F-158, OATM-REQ-F-159 |
-| Clear | button |  |  |  | OATM-REQ-F-152 |
-| Back | link |  |  | S-APP-SHELL | OATM-REQ-F-151, OATM-REQ-N-006 |
+| Account number | **lookup field** | 11-digit account number, pre-filled from the account in context | Blank: 'Acct ID can NOT be empty...' - enter the 11-digit account number. Not found: 'Account ID NOT found...' - check the number with the caller. |  | OATM-REQ-F-149, OATM-REQ-F-150, OATM-REQ-F-152, OATM-REQ-F-153, OATM-REQ-F-154, OATM-REQ-F-156 |
+| Balance to pay | **summary card** | Account number, Current balance (right-aligned, two decimals). The payment is the full current balance | When the balance is zero or less: 'You have nothing to pay...' and Pay balance is unavailable. |  | OATM-REQ-F-155 |
+| Pay balance | **primary button** | Opens a confirmation dialog repeating what will change: 'Pay $<balance> on account <account>? The balance becomes $0.00.' with Pay and Cancel. Success shows the payment transaction ID and the new balance | The dialog offers only Pay or Cancel, so no other value can be entered (legacy: 'Invalid value. Valid values are (Y/N)...'). If the card linked to the account is not found, nothing is paid and the message says so. The payment and the balance change are saved together or not at all. |  | OATM-REQ-F-157, OATM-REQ-F-158, OATM-REQ-F-159, OATM-REQ-N-006 |
 
 ### Application header and navigation (S-APP-SHELL)
 
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
 
 Prototype: `ui-reference/index.html#/S-APP-SHELL`.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| CardDemo | header | Application name and titles (legacy TITLE01/TITLE02), the signed-on user, and today's date and time (legacy CURDATE/CURTIME); a user with no session is sent to sign-on |  |  | OATM-REQ-N-006 |
+| CardDemo | **summary card** | Application name and the current page title as the page heading |  |  | OATM-REQ-N-006 |
+| Pay balance | **primary button** | Opens with the account in context, if any |  | S-BILL-PAY | OATM-REQ-F-150, OATM-REQ-F-151 |
 
 
 ## Data model

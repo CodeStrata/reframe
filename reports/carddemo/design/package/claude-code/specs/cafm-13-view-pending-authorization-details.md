@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-Lets a card operations user open one pending authorization from an account's list and see all of it: card, date and time, approved amount, expiry, transaction and merchant details, and fraud status. It must always show the authorization that was selected for that account, with dates, times and amounts formatted exactly. When the account or selection is invalid, or the data cannot be read, it must show blank fields instead of stale or partial data.
+Lets a card operations user open one pending authorization picked from an account's list and see all of it: card, date and time, amount, expiry, transaction and merchant details, and fraud status. It must always show the authorization that was picked, under the right account, with dates, times and amounts formatted exactly as stated. When the account or selection is missing or a read fails, it must show blank fields rather than another authorization's data.
 
 **User story:** As a card operations user, I want to open a selected pending authorization and see its full details, so that I can review the transaction, merchant and fraud status of the authorization.
 
@@ -26,28 +26,28 @@ Lets a card operations user open one pending authorization from an account's lis
 #### Acceptance criteria
 
 1. When a selected authorization has been read without error, the system shall show the card number, the original authorization date (stored as YYMMDD) as MM/DD/YY and the original time (stored as HHMMSS) as HH:MM:SS. (rules CAFM-BR-124)
-2. GIVEN a selected pending authorization for a numeric account, read without error, with card number 4111111111111111, original authorization date stored as 250315 and original time stored as 143005 WHEN the authorization detail screen is displayed THEN the card number shows as 4111111111111111, the authorization date shows as 03/15/25 and the authorization time shows as 14:30:05 (CAFM-C13-AC-10; CAFM-BR-124)
+2. GIVEN a selected authorization for card 4111111111111111 with original date stored as 240315 and original time stored as 142530, read without error WHEN the authorization detail screen is displayed THEN the card number shows 4111111111111111, the authorization date shows 03/15/24 and the authorization time shows 14:25:30 (CAFM-C13-AC-10; CAFM-BR-124)
 
 ### Requirement 3: CAFM-REQ-F-117 (formatting)
 
 #### Acceptance criteria
 
 1. When a selected authorization has been read without error, the system shall show the approved amount right-aligned with two decimals and a leading '-' when it is negative. (rules CAFM-BR-125)
-2. GIVEN a selected pending authorization read without error with approved amount -125.5, and another with approved amount 1234.5 WHEN each authorization's details are displayed THEN the first amount shows right-aligned as -125.50 with a leading '-', and the second shows right-aligned as 1234.50 with no '-' (CAFM-C13-AC-11; CAFM-BR-125)
+2. GIVEN two selected authorizations read without error, one with an approved amount of 1250.5 and one with an approved amount of -75.25 WHEN each is displayed on the authorization detail screen THEN the first shows the amount right-aligned as 1250.50 with no sign, and the second shows it right-aligned as -75.25 with a leading '-' (CAFM-C13-AC-11; CAFM-BR-125)
 
 ### Requirement 4: CAFM-REQ-F-118 (formatting)
 
 #### Acceptance criteria
 
 1. When a selected authorization has been read without error, the system shall show the card expiry date (stored as four characters) as the first two characters, '/', and the last two characters. (rules CAFM-BR-126)
-2. GIVEN a selected pending authorization read without error whose card expiry date is stored as the four characters 1227 WHEN the authorization details are displayed THEN the expiry date shows as 12/27 (CAFM-C13-AC-12; CAFM-BR-126)
+2. GIVEN a selected authorization read without error whose card expiry is stored as the four characters 0927 WHEN the authorization detail screen is displayed THEN the expiry date shows 09/27 (CAFM-C13-AC-12; CAFM-BR-126)
 
 ### Requirement 5: CAFM-REQ-F-119 (formatting)
 
 #### Acceptance criteria
 
 1. When a selected authorization has been read without error, the system shall show the processing code, POS entry mode, message source, merchant category code, authorization type, transaction ID, match status, and the merchant name, ID, city, state and ZIP as stored. (rules CAFM-BR-127)
-2. GIVEN a selected pending authorization read without error with stored processing code, POS entry mode, message source, merchant category code, authorization type, transaction ID, match status and merchant name, ID, city, state and ZIP WHEN the authorization details are displayed THEN each of those fields shows exactly the stored value, with no reformatting (CAFM-C13-AC-13; CAFM-BR-127)
+2. GIVEN a selected authorization read without error with stored processing code, POS entry mode, message source, merchant category code, authorization type, transaction ID, match status, merchant name, merchant ID, merchant city, merchant state and merchant ZIP WHEN the authorization detail screen is displayed THEN each of those twelve fields shows exactly its stored value, with no reformatting (CAFM-C13-AC-13; CAFM-BR-127)
 
 ### Requirement 6: CAFM-REQ-F-120 (formatting)
 
@@ -91,54 +91,28 @@ Lets a card operations user open one pending authorization from an account's lis
 #### Acceptance criteria
 
 1. If reading the authorization summary returns any status other than success, not found or end of database, then the system shall set the error flag and show ' System error while reading Auth Summary: Code:' followed by the status code. (rules CAFM-BR-133)
-2. GIVEN a numeric account id and a selected authorization key, and reading the account's pending authorization summary returns status 'AJ' (not blank, 'FW', 'GE' or 'GB') WHEN the authorization detail screen reads the selected authorization THEN the error flag is set, the detail is not read, and the message ' System error while reading Auth Summary: Code:' followed by AJ is shown (CAFM-C13-AC-14; CAFM-BR-133)
+2. GIVEN a numeric account id and a selected authorization, and the read of the account's pending authorization summary returns a status other than success, not found ('GE') or end of database ('GB'), for example 'AI' WHEN the detail screen tries to show the authorization THEN the error flag is set, the message ' System error while reading Auth Summary: Code:' followed by AI is shown, and the authorization detail is not read (CAFM-C13-AC-14; CAFM-BR-133)
 
 ### Requirement 12: CAFM-REQ-F-126 (error handling)
 
 #### Acceptance criteria
 
 1. If reading the authorization detail returns any status other than success, not found or end of database, then the system shall set the error flag and show ' System error while reading Auth Details: Code:' followed by the status code. (rules CAFM-BR-134)
-2. GIVEN the account's pending authorization summary is read successfully, and reading the authorization detail with the selected key returns status 'AJ' (not success, 'GE' or 'GB') WHEN the authorization detail screen reads the selected authorization THEN the error flag is set and the message ' System error while reading Auth Details: Code:' followed by AJ is shown (CAFM-C13-AC-15; CAFM-BR-134)
+2. GIVEN the account's pending authorization summary was read successfully, and the read of the selected authorization detail returns a status other than success, not found ('GE') or end of database ('GB'), for example 'AI' WHEN the detail screen tries to show the authorization THEN the error flag is set, the message ' System error while reading Auth Details: Code:' followed by AI is shown, and the detail fields are left blank (CAFM-C13-AC-15; CAFM-BR-134)
 
 ## Screens and components
 
-### Pending authorizations (S-PENDING-AUTHS)
+### Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
 
-Look up an account and see its customer, limits, balances and approved/declined totals together with a paged table of its pending authorizations; open any authorization from its row.
+Look up an account and see everything on one screen: the customer, limits and balances, pending authorization totals, the authorizations in a paged table, and the selected authorization's full details. Fraud can be reported or cleared without leaving the list.
 
-Prototype: `ui-reference/index.html#/S-PENDING-AUTHS`. Replaces the legacy screens COPAU0A.
-
-| Component | Type | Shows | Checks | Goes to | Requirements |
-|---|---|---|---|---|---|
-
-### Authorization details (S-AUTH-DETAIL)
-
-Review one pending authorization — card, amount, response and reason, POS, merchant and fraud status — move to the account's next authorization, and mark or clear fraud on it.
-
-Prototype: `ui-reference/index.html#/S-AUTH-DETAIL`. Replaces the legacy screens COPAU1A.
+Prototype: `ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS`. Replaces the legacy screens COPAU0A, COPAU1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Authorization could not be shown | message | Error or information when the authorization cannot be read; detail fields stay blank | If the account is not numeric or no authorization is selected, details are left blank and the user is sent back to choose an authorization from the list. System errors: ' System error while reading Auth Summary: Code:<code>', ' System error while reading Auth Details: Code:<code>', ' System error while reading next Auth: Code:<code>'. | S-PENDING-AUTHS | CAFM-REQ-F-121, CAFM-REQ-F-122, CAFM-REQ-F-123, CAFM-REQ-F-124, CAFM-REQ-F-125, CAFM-REQ-F-126 |
-| Card number | display | Card number |  |  | CAFM-REQ-F-116 |
-| Date | display | Original authorization date as MM/DD/YY |  |  | CAFM-REQ-F-116 |
-| Time | display | Original authorization time as HH:MM:SS |  |  | CAFM-REQ-F-116 |
-| Amount | display | Approved amount, right-aligned, two decimals, leading '-' when negative |  |  | CAFM-REQ-F-117 |
-| Authorization code | display | Authorization ID code |  |  | CAFM-REQ-F-119 |
-| Card expiry | display | Expiry as MM/YY |  |  | CAFM-REQ-F-118 |
-| Fraud status | display | 'Fraud confirmed' or 'Fraud removed' with the report date when flagged F or R; otherwise 'Not reported' |  |  | CAFM-REQ-F-120 |
-| POS entry mode | display | POS entry mode |  |  | CAFM-REQ-F-119 |
-| Source | display | Message source |  |  | CAFM-REQ-F-119 |
-| Merchant category code | display | MCC |  |  | CAFM-REQ-F-119 |
-| Authorization type | display | Authorization type |  |  | CAFM-REQ-F-119 |
-| Transaction ID | display | Transaction ID |  |  | CAFM-REQ-F-119 |
-| Match status | display | Match status, in words |  |  | CAFM-REQ-F-119 |
-| Merchant name | display | Merchant name |  |  | CAFM-REQ-F-119 |
-| Merchant ID | display | Merchant ID |  |  | CAFM-REQ-F-119 |
-| City | display | Merchant city |  |  | CAFM-REQ-F-119 |
-| State | display | Merchant state |  |  | CAFM-REQ-F-119 |
-| ZIP | display | Merchant ZIP |  |  | CAFM-REQ-F-119 |
-| Refresh | button | Re-reads and redisplays the selected authorization (also done on opening) |  |  | CAFM-REQ-F-115 |
+| Authorization | **summary card** | Card number, date (26 Nov 2026), time (HH:MM:SS), amount right-aligned with two decimals and a leading '-' when negative, decline reason as '<code> - <description>' ('9999 - ERROR' when the code is unknown), authorization code, POS entry mode, source, merchant category code, card expiry (MM/YY), authorization type, transaction ID and match status. Read afresh each time a row opens. With no row selected the panel says 'Select an authorization to see its details.' | Not read: 'System error while reading Auth Summary: Code <code>' or 'System error while reading Auth Details: Code <code>' - reopen the authorization, and report the code if it repeats. The detail fields stay blank when the account ID is not numeric, no authorization is selected, or a read failed. |  | CAFM-REQ-F-115, CAFM-REQ-F-116, CAFM-REQ-F-117, CAFM-REQ-F-118, CAFM-REQ-F-119, CAFM-REQ-F-121, CAFM-REQ-F-122, CAFM-REQ-F-123, CAFM-REQ-F-124, CAFM-REQ-F-125, CAFM-REQ-F-126 |
+| Merchant | **summary card** | Merchant name, merchant ID, city, state, ZIP |  |  | CAFM-REQ-F-119 |
+| Fraud status | **status badge** | Fraud reported (red) with the report date, Fraud removed (grey) with the date, or Not reported (grey), always with the word |  |  | CAFM-REQ-F-120 |
 
 
 ## Data models
@@ -202,7 +176,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-131: Retrieval is a two-step keyed lookup: first fetch the account's pending authorization summary by account id, and only if it exists fetch the authorization detail belonging to that account whose key equals the selected authorization key. A detail must never be returned without its parent summary, and lookup by key alone (ignoring the account) is not allowed. 'Not found' at either step is a normal outcome, not an error.
+- CAFM-BR-131: Retrieval is two keyed lookups, one after the other: first the account's pending authorization summary by account id, then, only if that is found, the authorization detail under that account by the selected authorization key. The new store needs the account to own its authorizations (for example a summary keyed by account id with details keyed by account id plus authorization key), so a detail can never be fetched for an account that has no summary. A missing summary or detail is treated as 'nothing to show', not as an error.
 
 ## Open questions
 

@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-A shared date check used by the report date range and Add Transaction screens. It tests a 10-character date against a 10-character format mask and returns a severity, a message number and a reason such as 'Date is valid', 'Datevalue error' or 'Invalid month'. Callers treat the date as invalid when the severity is not 0000, unless the message number is 2513. Real dates must be accepted and impossible dates rejected.
+A shared date-check service used by the screens that accept dates (transaction add, report date range). It checks a date against its format mask and returns a severity, a message code and a short reason such as 'Date is valid' or 'Datevalue error'. Callers must treat a date as invalid whenever the severity is not '0000' and the message number is not '2513', so impossible dates are never accepted.
 
 **User story:** As a screen that accepts dates (report date range, transaction add), I want a date checked against its format mask with a clear result and reason, so that invalid dates are rejected with a meaningful error.
 
@@ -17,14 +17,14 @@ A shared date check used by the report date range and Add Transaction screens. I
 #### Acceptance criteria
 
 1. The system shall pass the caller's 10-character date and 10-character format mask to the date conversion service (CEEDAYS) and record the returned severity and message number as 4-digit values in its result. (rules OATM-BR-303)
-2. GIVEN a caller supplies the date '2024-02-30' and the format mask 'YYYY-MM-DD' WHEN the date check runs THEN exactly that 10-character date and 10-character mask are what is checked, and the result records the severity and message number as 4-digit values (for a bad date value: severity 0003, message number 2508) (OATM-C35-AC-12; OATM-BR-303)
+2. GIVEN a caller passes the date '2024-02-30' and the mask 'YYYY-MM-DD', each 10 characters WHEN the date-check service runs THEN the date and the mask are submitted to the date conversion together, and the result records the returned severity and message number as 4-digit values (here severity 0003, message 2508) (OATM-C35-AC-12; OATM-BR-303)
 
 ### Requirement 2: OATM-REQ-F-287 (design note)
 
 #### Acceptance criteria
 
 1. The system shall return an 80-character result made of the severity, 'Mesg Code:', the message number, the result text, 'TstDate:' with the tested date and 'Mask used:' with the mask, and shall set the program return code to the severity. (rules OATM-BR-304)
-2. GIVEN a caller supplies the date '2024-02-30' and the format mask 'YYYY-MM-DD' WHEN the date check returns THEN the 80-character result contains, in order, the severity, 'Mesg Code:', the message number, the result text, 'TstDate:' with 2024-02-30 and 'Mask used:' with YYYY-MM-DD, and the return code equals the severity (OATM-C35-AC-13; OATM-BR-304)
+2. GIVEN a caller passes the date '2024-02-30' and the mask 'YYYY-MM-DD', and the conversion reports severity 3, message 2508 WHEN the date-check service returns THEN the 80-character result contains, in order, severity '0003', 'Mesg Code:', message number '2508', the result text 'Datevalue error', 'TstDate:' followed by '2024-02-30', and 'Mask used:' followed by 'YYYY-MM-DD', and the return code is 3 (OATM-C35-AC-13; OATM-BR-304)
 
 ### Requirement 3: OATM-REQ-F-288 (business rule)
 
@@ -45,7 +45,7 @@ A shared date check used by the report date range and Add Transaction screens. I
 #### Acceptance criteria
 
 1. If the date conversion service reports a bad date value (feedback X'000309CC59C3C5C5', severity 3, message 2508), then the system shall set the result text to 'Datevalue error'. (rules OATM-BR-307)
-2. GIVEN a date that the date conversion service reports as a bad date value (feedback X'000309CC59C3C5C5', severity 3, message 2508) WHEN the date check runs THEN the result text is 'Datevalue error' (OATM-C35-AC-14; OATM-BR-307)
+2. GIVEN the date conversion reports feedback X'000309CC59C3C5C5' (severity 3, message 2508) for the date and mask given WHEN the date-check service sets its result text THEN the result text is 'Datevalue error' (OATM-C35-AC-14; OATM-BR-307)
 
 ### Requirement 6: OATM-REQ-F-291 (business rule)
 

@@ -17,26 +17,18 @@
   - _Rules: TTRDM-BR-121, TTRDM-BR-127_
   - _After: TTRDM-C16-T1_
 - [ ] 4. TTRDM-C16-T4 [api] Build the services behind the screens
-  - TTRDM-BR-122: Code validation needs to run before the lookup, as a step in the search action. It applies only when the screen is neither adding a new record nor waiting for confirmation of changes. In those two modes, an Enter press must not re-validate the search code or look it up again.
+  - TTRDM-BR-122: The search request needs server-side validation of the type code (supplied, numeric, non-zero) that runs before any database lookup. It applies only when the screen is in search mode, meaning not while adding a new record and not while awaiting confirmation. The validator stops at the first failure. Only a valid code, normalised to two digits, is used as the key for the single-row lookup by primary key.
   - _Requirements: TTRDM-REQ-F-109_
   - _Rules: TTRDM-BR-122_
   - _After: TTRDM-C16-T1, TTRDM-C16-T2, TTRDM-C16-T3_
-- [ ] 5. TTRDM-C16-T5 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
+- [ ] 5. TTRDM-C16-T5 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - form "Find a transaction type"
-  - text "Type code": Required; a number other than zero. Messages: 'Enter a type code.' (legacy 'Tran Type code must be supplied.'), 'Type code must be a number.' (legacy 'Tran Type code must be numeric.'), 'Type code must not be 00.' (legacy 'Tran Type code must not be zero.'). Only the first problem is shown.
-  - button "Find"
-  - _Requirements: TTRDM-REQ-F-108, TTRDM-REQ-F-109, TTRDM-REQ-F-110, TTRDM-REQ-F-111, TTRDM-REQ-F-112, TTRDM-REQ-F-113, TTRDM-REQ-F-114, TTRDM-REQ-F-115, TTRDM-REQ-F-116_
-  - _Rules: TTRDM-BR-121, TTRDM-BR-122, TTRDM-BR-123, TTRDM-BR-124, TTRDM-BR-125, TTRDM-BR-126, TTRDM-BR-127, TTRDM-BR-128, TTRDM-BR-129_
+  - **lookup field** "Transaction type code": 'Tran Type code must be supplied. Enter a two-digit code.'; 'Tran Type code must be numeric. Enter digits only.'; 'Tran Type code must not be zero. Enter a code from 01 to 99.' Only the first failing check is shown.
+  - _Requirements: TTRDM-REQ-F-110, TTRDM-REQ-F-111, TTRDM-REQ-F-112, TTRDM-REQ-F-113, TTRDM-REQ-F-115_
+  - _Rules: TTRDM-BR-123, TTRDM-BR-124, TTRDM-BR-125, TTRDM-BR-126, TTRDM-BR-128_
   - _After: TTRDM-C16-T2, TTRDM-C16-T3, TTRDM-C16-T4_
-- [ ] 6. TTRDM-C16-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
-  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - link "Maintain a transaction type"
-  - _Requirements: TTRDM-REQ-F-108_
-  - _Rules: TTRDM-BR-121_
-  - _After: TTRDM-C16-T2, TTRDM-C16-T3, TTRDM-C16-T4_
-- [ ] 7. TTRDM-C16-T7 [test-generation] Write a test for every acceptance criterion
+- [ ] 6. TTRDM-C16-T6 [test-generation] Write a test for every acceptance criterion
   - 12 acceptance criteria, each a test named by its ID.
   - _Requirements: TTRDM-REQ-F-108, TTRDM-REQ-F-109, TTRDM-REQ-F-110, TTRDM-REQ-F-111, TTRDM-REQ-F-112, TTRDM-REQ-F-113, TTRDM-REQ-F-114, TTRDM-REQ-F-115, TTRDM-REQ-F-116_
   - _Criteria: TTRDM-C16-AC-01, TTRDM-C16-AC-02, TTRDM-C16-AC-03, TTRDM-C16-AC-04, TTRDM-C16-AC-05, TTRDM-C16-AC-06, TTRDM-C16-AC-07, TTRDM-C16-AC-08, TTRDM-C16-AC-09, TTRDM-C16-AC-10, TTRDM-C16-AC-11, TTRDM-C16-AC-12_
-  - _After: TTRDM-C16-T1, TTRDM-C16-T2, TTRDM-C16-T3, TTRDM-C16-T4, TTRDM-C16-T5, TTRDM-C16-T6_
+  - _After: TTRDM-C16-T1, TTRDM-C16-T2, TTRDM-C16-T3, TTRDM-C16-T4, TTRDM-C16-T5_

@@ -18,24 +18,24 @@ Runs as online.
 
 ### Transaction reports (S-REPORT-REQUEST)
 
-Choose a monthly, yearly or custom period and submit the transaction report for printing after confirming.
+Submit a monthly, yearly or custom-period transaction report for printing. The report type is a single choice, the custom dates appear only for Custom, and submission is confirmed in a dialog. Tab order: report type, start date, end date, Submit report.
 
 Prototype: `ui-reference/index.html#/S-REPORT-REQUEST`. Replaces the legacy screens CORPT0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Submit for printing | button | Checks the request, then opens the confirmation |  |  | OATM-REQ-F-173, OATM-REQ-F-175, OATM-REQ-F-176 |
-| Back | link |  |  | S-APP-SHELL | OATM-REQ-F-174, OATM-REQ-N-007 |
+| Submit report | **primary button** | Opens a confirmation dialog: 'The <Monthly/Yearly/Custom> report for <start> to <end> will be submitted for printing.' with Submit and Cancel; success shows '<report name> report submitted for printing ...' and clears the form | The dialog offers only Submit or Cancel, replacing the typed confirmation and its messages 'Please confirm to print the <report name> report...' and '"<value>" is not a valid value to confirm...'. If the job cannot be queued, the message says the report was not submitted and to try again. |  | OATM-REQ-F-175, OATM-REQ-F-176, OATM-REQ-N-007 |
 
 ### Application header and navigation (S-APP-SHELL)
 
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
 
 Prototype: `ui-reference/index.html#/S-APP-SHELL`.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| CardDemo | header | Application name and titles (legacy TITLE01/TITLE02), the signed-on user, and today's date and time (legacy CURDATE/CURTIME); a user with no session is sent to sign-on |  |  | OATM-REQ-N-007 |
+| CardDemo | **summary card** | Application name and the current page title as the page heading |  |  | OATM-REQ-N-007 |
+| Transaction reports | **primary button** |  |  | S-REPORT-REQUEST | OATM-REQ-F-173, OATM-REQ-F-174 |
 
 
 ## Data model

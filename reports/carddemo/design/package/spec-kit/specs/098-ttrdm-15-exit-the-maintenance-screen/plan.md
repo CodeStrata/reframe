@@ -18,32 +18,31 @@ Runs as online.
 
 ### Transaction types (S-TRANTYPE-LIST)
 
-Find transaction types by code or description, correct a description in place, or delete an obsolete type, confirming each change; start adding a new type.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Transaction type (S-TRANTYPE-EDIT)
+### Add or change a transaction type (S-TRANTYPE-EDIT)
 
-Look up a transaction type by code to change its description or delete it, or add a new type when the code is not on file; each save or delete is confirmed and can be cancelled.
+Add a new transaction type or change an existing one's description in one step: enter the code, see its description or start a new one if it is not on file, then save. Replaces the F5 create, Enter check and F5 confirm sequence; delete is the Delete row action on the list.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-EDIT`. Replaces the legacy screens CTRTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Back to transaction types | link |  |  | S-TRANTYPE-LIST | TTRDM-REQ-F-106, TTRDM-REQ-F-107 |
 
 ### Application header and navigation (S-APP-SHELL)
 
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
 
 Prototype: `ui-reference/index.html#/S-APP-SHELL`.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Maintain a transaction type | link |  |  | S-TRANTYPE-EDIT | TTRDM-REQ-F-107 |
+| Transaction types | **data table** | Navigation entry for the transaction type list, shown only to administrators; the server checks the administrator role on every list, add, update and delete instead of assuming it |  | S-TRANTYPE-LIST | TTRDM-REQ-F-106 |
 
 
 ## Data model
@@ -73,7 +72,7 @@ Record `ABEND-DATA`:
 
 ## Design notes
 
-- TTRDM-BR-119: The exit action has to close any open database transaction with a commit before it navigates. The target is the calling screen recorded in the user's session, or the Admin menu when none is recorded. The new application needs a session-held 'return to' value and a default route to the Admin menu.
+- TTRDM-BR-119: On exit, the new application must commit or close any open database transaction for the session before navigating. It then redirects to the return route stored in the session, falling back to the Admin menu route when none is stored. No unit of work may be left open across the navigation.
 
 ## Decision tables
 

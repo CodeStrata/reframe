@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Lets any signed-on user browse the transaction list ten rows at a time in transaction ID order. They can start from a transaction ID they type and page forward and backward. Paging must never skip or repeat a transaction at a page boundary. A non-numeric filter must be rejected, and the user must be told plainly when they reach the top or bottom of the list.
+Lets any signed-on user browse the transaction list ten rows at a time, starting from the first transaction or from a transaction ID they type, and page forward (PF8) and backward (PF7). It must never skip or repeat a transaction between pages, must reject a non-numeric Tran ID filter, and must say clearly when the user is already at the top or bottom of the list.
 
 **User story:** As a signed-on user, I want to see transactions ten at a time, start from a transaction ID I choose, and page forward and backward, so that I can find the transaction I am looking for.
 
@@ -89,7 +89,8 @@ Lets any signed-on user browse the transaction list ten rows at a time in transa
 #### Acceptance criteria
 
 1. When a transaction record has been retrieved for display on the list page, the system shall convert the transaction amount (TRAN-AMT) to the signed display amount (WS-TRAN-AMT) and derive the display date (WS-TRAN-DATE) as MM/DD/YY from the month, the day and the last two digits of the year of the origination timestamp (TRAN-ORIG-TS). (rules OATM-BR-215)
-2. GIVEN a transaction on file with amount -125.50 and origination timestamp 2022-07-18 14:30:00 WHEN the transaction is placed in a row of the transaction list page THEN the row shows the amount as a signed value (-125.50, not 125.50) and the date as 07/18/22 (month, day, last two digits of the year of the origination timestamp) (OATM-C25-AC-31; OATM-BR-215)
+2. GIVEN a transaction on file with amount -125.50 and origination timestamp 2022-07-18 14:32:05.000000 WHEN the transaction is placed on a row of the transaction list page THEN the row shows the amount as the signed value -00000125.50 and the date as 07/18/22 (month, day, last two digits of the year) (OATM-C25-AC-31; OATM-BR-215)
+3. GIVEN a transaction on file with amount 50.00 and origination timestamp 2023-01-05 09:00:00.000000 WHEN the transaction is placed on a row of the transaction list page THEN the row shows the amount as +00000050.00 and the date as 01/05/23 (OATM-C25-AC-32; OATM-BR-215)
 
 ### Requirement 12: OATM-REQ-F-206 (design note)
 

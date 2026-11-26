@@ -16,15 +16,13 @@
   - _Rules: CAFM-BR-152, CAFM-BR-153, CAFM-BR-154, CAFM-BR-155_
   - _After: CAFM-C15-T1_
 - [ ] 4. CAFM-C15-T4 [api] Build the services behind the screens
-  - CAFM-BR-147: Marking or unmarking fraud calls a separate fraud-recording service, passing the full authorization, account number, customer number and the requested action ('F' or 'R'). The service stamps today's date (MM/DD/YY) as the fraud report date on the authorization it returns and reports success or failure with a message. This call and the save of the authorization record must run in one transaction (or an equivalent saga with compensation) so both commit or both roll back.
+  - CAFM-BR-147: The fraud action is one synchronous call from the detail screen to a fraud-recording service, passing the full authorization, the account number, the customer number and the action ('F' report or 'R' remove). The service stamps today's date (MM/DD/YY) as the fraud report date on the authorization it returns and reports success or failure with a message. Both the fraud register write and the authorization update must run in one transaction (or an equivalent all-or-nothing mechanism), committed only after the authorization update succeeds.
   - _Requirements: CAFM-REQ-F-135_
   - _Rules: CAFM-BR-147_
   - _After: CAFM-C15-T1, CAFM-C15-T2, CAFM-C15-T3_
-- [ ] 5. CAFM-C15-T5 [ui-modernization] Build the screen Authorization details (S-AUTH-DETAIL)
-  - To the prototype: ui-reference/index.html#/S-AUTH-DETAIL.
-  - button "Mark as fraud / Remove fraud mark"
-  - dialog "Confirm fraud action"
-  - message "Fraud action result"
+- [ ] 5. CAFM-C15-T5 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **primary button** "Report fraud / Remove fraud mark": Fraud register update failed: the fraud program's message (for example 'SYSTEM ERROR DB2: CODE <code>') and 'Nothing was changed - try again, and report the code if it repeats.' Authorization save failed: 'System error while FRAUD Tagging, ROLLBACK <code>' and 'Nothing was changed - try again.' Fraud service did not respond: 'The fraud update did not complete. Nothing was changed - try again.'
   - _Requirements: CAFM-REQ-F-133, CAFM-REQ-F-134, CAFM-REQ-F-135, CAFM-REQ-F-136, CAFM-REQ-F-137, CAFM-REQ-F-138, CAFM-REQ-N-003, CAFM-REQ-F-139, CAFM-REQ-F-140, CAFM-REQ-F-141_
   - _Rules: CAFM-BR-143, CAFM-BR-144, CAFM-BR-145, CAFM-BR-146, CAFM-BR-147, CAFM-BR-148, CAFM-BR-149, CAFM-BR-150, CAFM-BR-151, CAFM-BR-152, CAFM-BR-153, CAFM-BR-154, CAFM-BR-155, CAFM-BR-156_
   - _After: CAFM-C15-T2, CAFM-C15-T3, CAFM-C15-T4_

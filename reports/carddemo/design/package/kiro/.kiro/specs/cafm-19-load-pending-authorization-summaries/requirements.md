@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as scheduled job
 
 ## Introduction
 
-Loads each account's pending authorization summary from the summary file into the database for operations. A summary already held for an account must be left unchanged, never overwritten. Any other insert failure must stop the load with return code 16.
+Loads pending authorization summaries from the summary file into the pending authorization database, one per account. It must never overwrite a summary already held for an account: it reports it and moves on. Any other insert failure stops the load with a failure code.
 
 **User story:** As an operations analyst, I want to load pending authorization summaries from the summary file into the pending authorization database, so that each account's pending authorization summary is available without overwriting a summary already held.
 
@@ -38,4 +38,4 @@ Loads each account's pending authorization summary from the summary file into th
 #### Acceptance criteria
 
 1. If a summary insert returns any status other than blank or 'II', then the system shall display 'ROOT INSERT FAILED :' with the status, display 'IMS LOAD ABENDING ...' and stop the load with return code 16. (rules CAFM-BR-183)
-2. GIVEN a record read from the summary file, and inserting it as a pending authorization summary returns status 'AI' (not blank or 'II') WHEN the summary load inserts that record THEN 'ROOT INSERT FAILED :' is displayed with AI, 'IMS LOAD ABENDING ...' is displayed, and the load stops with return code 16 (CAFM-C19-AC-03; CAFM-BR-183)
+2. GIVEN a summary record for account 00000000123 whose insert returns a status other than blank or 'II', for example 'AI' WHEN the summary load inserts it THEN 'ROOT INSERT FAILED :' is displayed with AI, 'IMS LOAD ABENDING ...' is displayed, and the load stops with return code 16 without inserting further records (CAFM-C19-AC-03; CAFM-BR-183)

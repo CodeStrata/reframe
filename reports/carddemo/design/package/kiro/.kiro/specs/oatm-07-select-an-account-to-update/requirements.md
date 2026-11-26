@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Lets the operator enter an 11-digit account number to start an update; until an account is fetched only that number is checked. A valid number triggers the cross-reference, account and customer lookups, and details are shown only when all three are found. A blank, non-numeric or all-zero number must never lead to a lookup.
+Lets the operator choose which account to update by entering its account number. Before any details are fetched, only the account number is checked. It must be an 11-digit non-zero number. It must never look up an account from a missing, non-numeric or all-zero number, and it ignores every other field until an account is shown.
 
 **User story:** As an operator, I want to enter an account number and see the account and customer details, so that I can review and update them.
 
@@ -40,8 +40,8 @@ Lets the operator enter an 11-digit account number to start an update; until an 
 #### Acceptance criteria
 
 1. If no account details have been fetched yet and the account number supplied is not numeric or is all zeros, then the system shall show 'Account Number if supplied must be a 11 digit Non-Zero Number', set the current account number to zeros and read no account. (rules OATM-BR-064)
-2. GIVEN no account details have been fetched yet and the operator enters account number '1234ABC5678' WHEN the screen is submitted THEN the message 'Account Number if supplied must be a 11 digit Non-Zero Number' is shown, the current account number is set to zeros and no account is read (OATM-C07-AC-10; OATM-BR-064)
-3. GIVEN no account details have been fetched yet and the operator enters account number '00000000000' WHEN the screen is submitted THEN the message 'Account Number if supplied must be a 11 digit Non-Zero Number' is shown, the current account number is set to zeros and no account is read (OATM-C07-AC-11; OATM-BR-064)
+2. GIVEN no account details have been fetched yet WHEN the operator enters account number '1234ABC' and submits THEN the screen shows 'Account Number if supplied must be a 11 digit Non-Zero Number', the current account number is set to zeros, and no account is read (OATM-C07-AC-10; OATM-BR-064)
+3. GIVEN no account details have been fetched yet WHEN the operator enters account number '00000000000' and submits THEN the screen shows 'Account Number if supplied must be a 11 digit Non-Zero Number', the current account number is set to zeros, and no account is read (OATM-C07-AC-11; OATM-BR-064)
 
 ### Requirement 5: OATM-REQ-F-066 (business rule)
 

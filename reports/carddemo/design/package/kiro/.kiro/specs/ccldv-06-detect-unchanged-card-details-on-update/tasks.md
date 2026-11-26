@@ -11,9 +11,9 @@
   - _Requirements: CCLDV-REQ-F-059, CCLDV-REQ-F-060_
   - _Rules: CCLDV-BR-060_
   - _After: CCLDV-C06-T1_
-- [ ] 3. CCLDV-C06-T3 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
+- [ ] 3. CCLDV-C06-T3 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
   - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - form "Edit card": Something must change (ignoring upper/lower case): 'No changes to save. The details match the stored values.' (legacy 'No change detected with respect to values fetched.') Errors are reported in the order name, status, expiry month, expiry year.
+  - **primary button** "Save card": Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year.
   - _Requirements: CCLDV-REQ-F-059, CCLDV-REQ-F-060_
   - _Rules: CCLDV-BR-060_
   - _After: CCLDV-C06-T2_

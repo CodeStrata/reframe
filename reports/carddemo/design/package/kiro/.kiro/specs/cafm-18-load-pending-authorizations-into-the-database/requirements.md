@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as scheduled job
 
 ## Introduction
 
-A batch job for operations that fills or rebuilds the pending authorization database from a summary file and a detail file. All summaries are loaded first, then each detail is attached to the summary with the same account ID; details with a non-numeric or unknown account are skipped. An unexpected insert failure must stop the load with return code 16 so a broken load is never reported as done.
+A batch job that loads pending authorization summaries and then their details from files into the pending authorization database, to populate or rebuild it. Each detail must end up under the summary for its account; details with a non-numeric or unknown account are skipped, details already present are left unchanged, and any other insert failure stops the load with a failure code.
 
 **User story:** As a batch operations team member, I want to load pending authorization summaries and their details from files into the database, so that the pending authorization database can be populated or rebuilt.
 
@@ -69,7 +69,7 @@ A batch job for operations that fills or rebuilds the pending authorization data
 #### Acceptance criteria
 
 1. If the detail insert returns any status other than blank or 'II', then the system shall display 'INSERT CALL FAIL FOR CHILD:' with the status and the key feedback area, display 'IMS LOAD ABENDING ...' and stop the load with return code 16. (rules CAFM-BR-179)
-2. GIVEN a detail record with a numeric account ID whose summary exists, and inserting the detail returns status 'AI' (not blank or 'II') WHEN the detail load inserts that record THEN 'INSERT CALL FAIL FOR CHILD:' is displayed with AI and the key feedback area, 'IMS LOAD ABENDING ...' is displayed, and the load stops with return code 16 (CAFM-C18-AC-12; CAFM-BR-179)
+2. GIVEN a detail record with numeric account id 00000000123 whose summary exists, and the insert of the detail returns a status other than blank or 'II', for example 'AI' WHEN the load tries to insert the detail THEN 'INSERT CALL FAIL FOR CHILD:' is displayed with AI and the key feedback area, 'IMS LOAD ABENDING ...' is displayed, and the load stops with return code 16 without reading further detail records (CAFM-C18-AC-12; CAFM-BR-179)
 
 ### Requirement 9: CAFM-REQ-F-164 (error handling)
 

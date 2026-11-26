@@ -4,36 +4,81 @@
 
 ## Overview
 
-Lets any CardDemo user sign on with a User ID and Password. Both are checked against the user security file without regard to case, and the user is then sent to the menu for their user type. It must never send anyone other than a type 'A' user to the administrator menu, and it must give a clear message for a blank field, an unknown user, a wrong password or a lookup failure. As in the legacy system, failed attempts are not limited or recorded.
+Lets every CardDemo user sign on with a User ID and Password and sends them to the menu for their user type: the admin menu for type 'A', the main menu for every other type. User ID and Password are both upper-cased before the check, so sign-on is not case-sensitive. It must never route a non-'A' user to the admin menu, and it must never sign anyone on whose stored password does not match.
 
-Runs as online. Journeys: J16.
+Runs as online. Journeys: J14, J15, J16, J17.
 
 ## Screens and components
 
 ### Sign in (S-SIGN-IN)
 
-Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+Sign in to CardDemo with a user ID and password. Administrators and regular users both land on Home, which shows the functions their role allows.
 
 Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Sign in to CardDemo | page | Blank form with focus on User ID |  |  | USPM-REQ-F-001, USPM-REQ-F-014 |
-| Sign in | form | User ID and password, submitted together; User ID and password are compared without regard to case |  |  | USPM-REQ-F-002, USPM-REQ-F-005, USPM-REQ-F-009 |
-| User ID | text | User ID, up to 8 characters; focused when the page opens | Required: 'Please enter User ID ...'. Unknown ID: 'User not found. Try again ...'. Lookup failure: 'Unable to verify the User ...'. Focus returns to User ID. |  | USPM-REQ-F-003, USPM-REQ-F-006, USPM-REQ-F-007 |
-| Password | password | Password, up to 8 characters, hidden as typed, with a Show password toggle | Required: 'Please enter Password ...'. Mismatch: 'Wrong Password. Try again ...' and focus returns to Password. |  | USPM-REQ-F-004, USPM-REQ-F-008, USPM-REQ-N-001 |
-| Sign in | button | Opens the home page for the user type: administration for type A, account functions for any other type |  | S-HOME | USPM-REQ-F-010, USPM-REQ-F-011 |
-| Sign-in problem | message | Error summary linked to the field to fix, announced to screen readers; unassigned keys are ignored | An unsupported action shows 'Invalid key pressed. Please see below...' |  | USPM-REQ-F-013 |
-| Signed out | message | After sign-out: 'Thank you for using CardDemo application...' |  |  | USPM-REQ-F-012 |
+| You have signed out | **summary card** | Shown only after Sign out: 'Thank you for using CardDemo application...' |  |  | USPM-REQ-F-012 |
+| User ID | **lookup field** | User ID, up to 8 characters, not case-sensitive. Focus starts here on a blank form. | Blank: 'Please enter User ID ...', with focus back on User ID. Not on file: 'User not found. Try again ...' Read failure: 'Unable to verify the User ...' Each message shows under User ID. |  | USPM-REQ-F-001, USPM-REQ-F-003, USPM-REQ-F-005, USPM-REQ-F-006, USPM-REQ-F-007 |
+| Password | **lookup field** | Password, masked, up to 8 characters, not case-sensitive, with a Show password toggle. | Blank: 'Please enter Password ...' Wrong password: 'Wrong Password. Try again ...' Each message shows under Password, with focus on it. Failed attempts are logged; the owner decides the attempt limit and lockout (the legacy allows unlimited attempts). |  | USPM-REQ-F-004, USPM-REQ-F-008, USPM-REQ-N-001 |
+| Sign in | **primary button** | Checks the User ID and Password and opens Home with the signed-in role: Administrator for type A, User for any other type. Only Enter and the button act; other keys do nothing, so the 'Invalid key pressed. Please see below...' message is no longer needed. | Checks User ID first, then Password, and reports the first problem under its field. | S-HOME | USPM-REQ-F-002, USPM-REQ-F-009, USPM-REQ-F-010, USPM-REQ-F-011, USPM-REQ-F-013, USPM-REQ-F-014 |
 
 ### Home (S-HOME)
 
-One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+Landing page after sign-in. It lists every function the signed-in role may use as links, and replaces the numbered Main Menu, the Admin Menu and the typed option number.
 
 Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
+
+### Users (S-USER-LIST)
+
+Find a user and act on them. A searchable, paged table of all users has Edit and Delete actions on each row, plus Add user. It replaces the typed U and D selection codes and the F7 and F8 paging keys.
+
+Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens COUSR0A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
+### Add user (S-USER-ADD)
+
+Create a user profile so a new person can sign in. The form clears after each add, so several users can be added in a row.
+
+Prototype: `ui-reference/index.html#/S-USER-ADD`. Replaces the legacy screens COUSR1A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| User type | **lookup field** | A choice of Admin (A) or User (U), with no default. Only these two values can be saved; the legacy accepted any character, and every type other than A signed in as a regular user. | None chosen: 'User Type can NOT be empty...' |  |  |
+
+### Update user (S-USER-EDIT)
+
+Correct a user's name, password or user type. It opens already filled in from the Users table; you can also type a user ID to look up another user.
+
+Prototype: `ui-reference/index.html#/S-USER-EDIT`. Replaces the legacy screens COUSR2A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
+### Delete user (S-USER-DELETE)
+
+Remove a user who should no longer have access. The screen shows who will be deleted and asks for confirmation; the confirmation is new, because the legacy deleted on PF5 without asking.
+
+Prototype: `ui-reference/index.html#/S-USER-DELETE`. Replaces the legacy screens COUSR3A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
+### CardDemo header and navigation (S-APP-HEADER)
+
+New, shared by every screen: shows the application and page title, the signed-in user, today's date and the time once, with the way back to the main menu. It replaces the transaction, program, date, time and title lines that every 3270 screen repeated.
+
+Prototype: `ui-reference/index.html#/S-APP-HEADER`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Signed in as | **summary card** | Signed-in user ID and role (Administrator or User), set at sign-in. |  |  | USPM-REQ-F-009, USPM-REQ-F-010, USPM-REQ-F-011 |
+| Sign out | **primary button** | Ends the session and returns to Sign in, which shows 'Thank you for using CardDemo application...'. |  | S-SIGN-IN | USPM-REQ-F-012 |
 
 
 ## Data models
@@ -128,8 +173,8 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- USPM-BR-010: After a successful sign-on, create a server-side session that holds the upper-cased user ID, the user type read from the user security record, the origin (sign-on, transaction 'CC00' / program 'COSGN00C') and a first-entry flag (context 0). Every later screen reads this session to identify the user and decide what they may do.
-- USPM-BR-017: Whenever the sign-on page is shown again (first visit, an input error or an unsupported action), keep the user on the sign-on step and carry any existing session data forward to the next request. No separate state is needed beyond the normal web request/response cycle.
+- USPM-BR-010: After a successful sign-on, create a session that holds the upper-cased user ID, the user type read from the user record, where the user came from (sign-on) and a 'first entry' marker. Every later screen reads this session to know who the user is and what role they have.
+- USPM-BR-017: While the sign-on screen is showing (first visit, after an input error or after an invalid key), keep the session alive and wait for the user's next action on that screen. Do not lose session data between round trips.
 
 ## Open questions
 

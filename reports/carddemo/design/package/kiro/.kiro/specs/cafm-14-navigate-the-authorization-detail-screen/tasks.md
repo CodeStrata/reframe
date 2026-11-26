@@ -16,16 +16,14 @@
   - _Rules: CAFM-BR-140_
   - _After: CAFM-C14-T1_
 - [ ] 4. CAFM-C14-T4 [api] Build the services behind the screens
-  - CAFM-BR-135: The detail view can only be reached with an account and a selected authorization supplied by the pending authorization list. If it is opened directly without that context (e.g. a deep link or a fresh session), the application must redirect the user to the pending authorization list instead of showing an empty detail page.
+  - CAFM-BR-135: The detail view can only be reached with an account and a selected authorization from the pending authorization list. If it is opened directly, with no account or selection carried in (a bare URL, an expired session), it must redirect to the account's pending authorization list instead of showing an empty or default detail page.
   - _Requirements: CAFM-REQ-F-127_
   - _Rules: CAFM-BR-135_
   - _After: CAFM-C14-T1, CAFM-C14-T2, CAFM-C14-T3_
-- [ ] 5. CAFM-C14-T5 [ui-modernization] Build the screen Authorization details (S-AUTH-DETAIL)
-  - To the prototype: ui-reference/index.html#/S-AUTH-DETAIL.
-  - message "Authorization could not be shown": If the account is not numeric or no authorization is selected, details are left blank and the user is sent back to choose an authorization from the list. System errors: ' System error while reading Auth Summary: Code:<code>', ' System error while reading Auth Details: Code:<code>', ' System error while reading next Auth: Code:<code>'.
-  - message "Shortcut not available": Unsupported shortcut: 'Invalid key pressed. Please see below...' — use Refresh, Next authorization, Mark/Remove fraud or Back.
-  - button "Next authorization"
-  - link "Back to pending authorizations"
+- [ ] 5. CAFM-C14-T5 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **data table** "Authorizations": Previous page is disabled on the first page, with 'You are already on the first page'. Next page is disabled on the last page, with 'You are already on the last page'. Next authorization on the last one says 'Already at the last authorization' and keeps the current one open. Rows open directly, so no selection code is typed and 'Invalid selection. Valid value is S' cannot arise. There are no unsupported keys to warn about.
+  - **summary card** "Authorization": Not read: 'System error while reading Auth Summary: Code <code>' or 'System error while reading Auth Details: Code <code>' - reopen the authorization, and report the code if it repeats. The detail fields stay blank when the account ID is not numeric, no authorization is selected, or a read failed.
   - _Requirements: CAFM-REQ-F-127, CAFM-REQ-F-128, CAFM-REQ-F-129, CAFM-REQ-F-130, CAFM-REQ-F-131, CAFM-REQ-F-132_
   - _Rules: CAFM-BR-135, CAFM-BR-136, CAFM-BR-137, CAFM-BR-138, CAFM-BR-139, CAFM-BR-140, CAFM-BR-141, CAFM-BR-142_
   - _After: CAFM-C14-T2, CAFM-C14-T3, CAFM-C14-T4_

@@ -10,7 +10,7 @@
 
 As an operations analyst, I want the pending authorization unload jobs to run against the database and handle their output files predictably, so that unload files are opened, closed, kept or removed consistently with how the job ended.
 
-Defines how the pending authorization unload jobs run and what happens to their output files, so operations can rely on the outcome. Files are kept or removed according to how the job ended, and failure to open an output file stops the job with return code 16. A failure to close a file is reported but must not change the job's result.
+Runs the pending authorization unload jobs and handles their output files the same way every time: new extract files are kept only when the job succeeds and removed when it fails, while the standing root and child files are always kept. A file that cannot be opened stops the job with return code 16; a file that will not close is reported but does not fail an otherwise good run.
 
 **Acceptance scenarios:**
 
@@ -22,8 +22,8 @@ Defines how the pending authorization unload jobs run and what happens to their 
 6. **Given** unload step result: abends, **when** Pending Authorization Database Unload runs, **then** AWS.M2.CARDDEMO.PAUTDB.ROOT.FILEO is deleted. (CAFM-C21-AC-06)
 7. **Given** unload step result: ends normally, **when** Pending Authorization Database Unload runs, **then** AWS.M2.CARDDEMO.PAUTDB.CHILD.FILEO is cataloged with 206-byte records. (CAFM-C21-AC-07)
 8. **Given** unload step result: abends, **when** Pending Authorization Database Unload runs, **then** AWS.M2.CARDDEMO.PAUTDB.CHILD.FILEO is deleted. (CAFM-C21-AC-08)
-9. **Given** opening the first unload file returns status '35' (not blank or '00'), **when** the unload starts, **then** 'ERROR IN OPENING OPFILE1:' is displayed with 35, 'IMSUNLOD ABENDING ...' is displayed, and the run ends with return code 16; if instead the second file fails to open, 'ERROR IN OPENING OPFILE2:' is displayed with its status, with the same ending (CAFM-C21-AC-09)
-10. **Given** the unload has reached the end of the database and closing the second unload file returns status '30' (not blank or '00'), **when** the unload closes its files, **then** 'ERROR IN CLOSING 2ND FILE:' is displayed with 30 and the run still ends normally without the return code changing; a failure on the first file shows 'ERROR IN CLOSING 1ST FILE:' in the same way (CAFM-C21-AC-10)
+9. **Given** the second unload file cannot be opened and the open returns status '37', **when** the unload job starts, **then** 'ERROR IN OPENING OPFILE2:' is displayed with 37, 'IMSUNLOD ABENDING ...' is displayed, the job ends with return code 16 and no records are read from the database; the same applies to the first file with 'ERROR IN OPENING OPFILE1:' (CAFM-C21-AC-09)
+10. **Given** the unload has read every summary and detail without error, and closing the first unload file returns status '30', **when** the job closes its files, **then** 'ERROR IN CLOSING 1ST FILE:' is displayed with 30, and the job still ends normally with its return code unchanged; the same applies to the second file with 'ERROR IN CLOSING 2ND FILE:' (CAFM-C21-AC-10)
 
 ## Requirements
 

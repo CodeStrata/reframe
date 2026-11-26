@@ -18,11 +18,9 @@
   - _After: OATM-C31-T1_
 - [ ] 4. OATM-C31-T4 [ui-modernization] Build the screen Add transaction (S-TRANSACTION-ADD)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-ADD.
-  - form "New transaction"
-  - text "Account ID": Account or card required: 'Account or Card Number must be entered...'; digits only: 'Account ID must be Numeric...'; must exist: 'Account ID NOT found...'.
-  - text "Card number": Digits only: 'Card Number must be Numeric...'; must exist: 'Card Number NOT found...'.
-  - _Requirements: OATM-REQ-F-246, OATM-REQ-F-247, OATM-REQ-F-249, OATM-REQ-F-250, OATM-REQ-F-251, OATM-REQ-F-252_
-  - _Rules: OATM-BR-260, OATM-BR-261, OATM-BR-263, OATM-BR-265, OATM-BR-266, OATM-BR-267_
+  - **lookup field** "Account or card number": Blank: 'Account or Card Number must be entered...'. Not digits: 'Account ID must be Numeric...' / 'Card Number must be Numeric...'. Not in the card cross-reference: 'Account ID NOT found...' / 'Card Number NOT found...' - check the number with the caller.
+  - _Requirements: OATM-REQ-F-245, OATM-REQ-F-246, OATM-REQ-F-247, OATM-REQ-F-248, OATM-REQ-F-249, OATM-REQ-N-013, OATM-REQ-F-250, OATM-REQ-F-251, OATM-REQ-F-252, OATM-REQ-N-014_
+  - _Rules: OATM-BR-259, OATM-BR-260, OATM-BR-261, OATM-BR-262, OATM-BR-263, OATM-BR-264, OATM-BR-265, OATM-BR-266, OATM-BR-267, OATM-BR-268_
   - _After: OATM-C31-T2, OATM-C31-T3_
 - [ ] 5. OATM-C31-T5 [test-generation] Write a test for every acceptance criterion
   - 13 acceptance criteria, each a test named by its ID.

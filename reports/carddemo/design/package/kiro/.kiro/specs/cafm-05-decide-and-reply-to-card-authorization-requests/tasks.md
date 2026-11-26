@@ -17,7 +17,7 @@
   - _Rules: CAFM-BR-059_
   - _After: CAFM-C05-T1_
 - [ ] 4. CAFM-C05-T4 [api] Build the services behind the screens
-  - CAFM-BR-060: Send each reply as a one-off, non-persistent message to the reply address named in the request, with the request's correlation id and a short time-to-live (expiry 50, which is 5 seconds in MQ's tenths of a second). This way stale replies expire instead of piling up. If the send fails, log critical error 'M004'.
+  - CAFM-BR-060: Publish each authorization reply once to the reply queue the requester named, carrying the request's correlation id. Send it non-persistent with a short expiry (50, in tenths of a second, so 5 seconds), so stale answers are dropped. If publishing fails, log critical error 'M004'.
   - _Requirements: CAFM-REQ-F-059, CAFM-REQ-F-060_
   - _Rules: CAFM-BR-060_
   - _After: CAFM-C05-T1, CAFM-C05-T2, CAFM-C05-T3_

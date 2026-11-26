@@ -17,39 +17,26 @@
   - _Rules: CCLDV-BR-061, CCLDV-BR-062, CCLDV-BR-063, CCLDV-BR-064, CCLDV-BR-065, CCLDV-BR-066, CCLDV-BR-080, CCLDV-BR-082, CCLDV-BR-083_
   - _After: CCLDV-C07-T1_
 - [ ] 4. CCLDV-C07-T4 [api] Build the services behind the screens
-  - CCLDV-BR-067: The account number input treats '*' or blank as 'not supplied'. Any other value is used both as the account to search on and as the account carried forward with the edit. The new form should keep the two meanings separate in its model, even though one field fills both.
-  - CCLDV-BR-068: The card number input treats '*' or blank as 'not supplied'. Any other value is used both as the lookup key (a keyed lookup of the card by card number) and as the card number carried forward with the edit.
-  - CCLDV-BR-081: When the card is found, the server keeps a snapshot of the original values for the length of the edit: the embossed name in upper case, the expiry year, month and day split from the stored date (YYYY-MM-DD), the active status and the CVV code. This snapshot is the baseline for the 'no change' check and for spotting that someone else changed the card before the save (optimistic concurrency), so it must be held on the server and not trusted from the browser.
+  - CCLDV-BR-067: Normalise the account number input: '*' or blank means 'not supplied' (null). Any other value is used both as the account to search by and as the account number held for the update.
+  - CCLDV-BR-068: Normalise the card number input: '*' or blank means 'not supplied' (null). Any other value is used both as the card number to look up and as the card number held for the update.
+  - CCLDV-BR-081: When the card is loaded, keep a snapshot of the original values in the update session: embossed name in upper case, expiry year, month and day split from the stored expiry date (characters 1-4, 6-7 and 9-10), active status and CVV. Use this snapshot for no-change detection and to check at save time whether someone else has changed the card.
   - _Requirements: CCLDV-REQ-F-065, CCLDV-REQ-F-075_
   - _Rules: CCLDV-BR-067, CCLDV-BR-068, CCLDV-BR-081_
   - _After: CCLDV-C07-T1, CCLDV-C07-T2, CCLDV-C07-T3_
-- [ ] 5. CCLDV-C07-T5 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
+- [ ] 5. CCLDV-C07-T5 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
   - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - form "Find a card"
-  - text "Account number": Required; must be an 11-digit number other than all zeros. Messages: 'Enter the account number.' (blank or zeros; legacy 'Account number not provided'), 'Account number must be an 11-digit number.' (not numeric). When both numbers are missing: 'Enter the account number and card number.' (legacy 'No input received'). Only the search fields are checked until a card is found.
-  - text "Card number": Required; must be a 16-digit number other than all zeros. Messages: 'Enter the card number.' (blank or zeros; legacy 'Card number not provided'), 'Card number must be a 16-digit number.' (not numeric)
-  - button "Find card"
-  - message "Card not found": Card number must exist on the card file: 'No card was found with this card number. Check the numbers and try again.' (legacy 'Did not find cards for this search condition')
-  - display "Name on card"
-  - display "Status"
-  - display "Expiry date"
-  - button "Edit card"
-  - form "Edit card": Something must change (ignoring upper/lower case): 'No changes to save. The details match the stored values.' (legacy 'No change detected with respect to values fetched.') Errors are reported in the order name, status, expiry month, expiry year.
-  - _Requirements: CCLDV-REQ-F-061, CCLDV-REQ-F-062, CCLDV-REQ-F-063, CCLDV-REQ-F-064, CCLDV-REQ-F-065, CCLDV-REQ-F-066, CCLDV-REQ-F-067, CCLDV-REQ-F-068, CCLDV-REQ-F-069, CCLDV-REQ-F-070, CCLDV-REQ-F-071, CCLDV-REQ-F-072, CCLDV-REQ-F-073, CCLDV-REQ-F-074, CCLDV-REQ-F-075, CCLDV-REQ-F-076, CCLDV-REQ-F-077_
-  - _Rules: CCLDV-BR-061, CCLDV-BR-062, CCLDV-BR-063, CCLDV-BR-064, CCLDV-BR-065, CCLDV-BR-066, CCLDV-BR-067, CCLDV-BR-068, CCLDV-BR-069, CCLDV-BR-070, CCLDV-BR-071, CCLDV-BR-072, CCLDV-BR-073, CCLDV-BR-074, CCLDV-BR-075, CCLDV-BR-076, CCLDV-BR-077, CCLDV-BR-078, CCLDV-BR-079, CCLDV-BR-080, CCLDV-BR-081, CCLDV-BR-082, CCLDV-BR-083, CCLDV-BR-084_
+  - **lookup field** "Account number": Required, an 11-digit number other than zeros: 'Account number not provided. Enter the 11-digit account number.' or 'Account filter, if supplied, must be an 11 digit number. Enter digits only.' Both fields empty: 'No input received. Enter the account and card number.' Account is checked before card, and focus moves to the first field in error.
+  - **lookup field** "Card number": Required, a 16-digit number other than zeros: 'Card number not provided. Enter the 16-digit card number.' or 'Card ID filter, if supplied, must be a 16 digit number. Enter digits only.' No card with that number: 'Did not find cards for this search condition. Check the card number.'
+  - **summary card** "Card"
+  - _Requirements: CCLDV-REQ-F-064, CCLDV-REQ-F-073, CCLDV-REQ-F-077_
+  - _Rules: CCLDV-BR-066, CCLDV-BR-077, CCLDV-BR-079, CCLDV-BR-084_
   - _After: CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4_
-- [ ] 6. CCLDV-C07-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
-  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - link "Find a card by number"
-  - _Requirements: CCLDV-REQ-F-061, CCLDV-REQ-F-062_
-  - _Rules: CCLDV-BR-061, CCLDV-BR-062, CCLDV-BR-063_
-  - _After: CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4_
-- [ ] 7. CCLDV-C07-T7 [test-generation] Write a test for every acceptance criterion
+- [ ] 6. CCLDV-C07-T6 [test-generation] Write a test for every acceptance criterion
   - 34 acceptance criteria, each a test named by its ID.
   - _Requirements: CCLDV-REQ-F-061, CCLDV-REQ-F-062, CCLDV-REQ-F-063, CCLDV-REQ-F-064, CCLDV-REQ-F-065, CCLDV-REQ-F-066, CCLDV-REQ-F-067, CCLDV-REQ-F-068, CCLDV-REQ-F-069, CCLDV-REQ-F-070, CCLDV-REQ-F-071, CCLDV-REQ-F-072, CCLDV-REQ-F-073, CCLDV-REQ-F-074, CCLDV-REQ-F-075, CCLDV-REQ-F-076, CCLDV-REQ-F-077_
   - _Criteria: CCLDV-C07-AC-01, CCLDV-C07-AC-02, CCLDV-C07-AC-03, CCLDV-C07-AC-04, CCLDV-C07-AC-05, CCLDV-C07-AC-06, CCLDV-C07-AC-07, CCLDV-C07-AC-08, CCLDV-C07-AC-09, CCLDV-C07-AC-10, CCLDV-C07-AC-11, CCLDV-C07-AC-12, CCLDV-C07-AC-13, CCLDV-C07-AC-14, CCLDV-C07-AC-15, CCLDV-C07-AC-16, CCLDV-C07-AC-17, CCLDV-C07-AC-18, CCLDV-C07-AC-19, CCLDV-C07-AC-20, CCLDV-C07-AC-21, CCLDV-C07-AC-22, CCLDV-C07-AC-23, CCLDV-C07-AC-24, CCLDV-C07-AC-25, CCLDV-C07-AC-26, CCLDV-C07-AC-27, CCLDV-C07-AC-28, CCLDV-C07-AC-29, CCLDV-C07-AC-30, CCLDV-C07-AC-31, CCLDV-C07-AC-32, CCLDV-C07-AC-33, CCLDV-C07-AC-34_
-  - _After: CCLDV-C07-T1, CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4, CCLDV-C07-T5, CCLDV-C07-T6_
-- [ ] 8. CCLDV-C07-T8 [compliance] Review the handling of card data, personal data
+  - _After: CCLDV-C07-T1, CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4, CCLDV-C07-T5_
+- [ ] 7. CCLDV-C07-T7 [compliance] Review the handling of card data, personal data
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: CCLDV-REQ-F-061, CCLDV-REQ-F-062, CCLDV-REQ-F-063, CCLDV-REQ-F-064, CCLDV-REQ-F-065, CCLDV-REQ-F-066, CCLDV-REQ-F-067, CCLDV-REQ-F-068, CCLDV-REQ-F-069, CCLDV-REQ-F-070, CCLDV-REQ-F-071, CCLDV-REQ-F-072, CCLDV-REQ-F-073, CCLDV-REQ-F-074, CCLDV-REQ-F-075, CCLDV-REQ-F-076, CCLDV-REQ-F-077_
-  - _After: CCLDV-C07-T1, CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4, CCLDV-C07-T5, CCLDV-C07-T6_
+  - _After: CCLDV-C07-T1, CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4, CCLDV-C07-T5_

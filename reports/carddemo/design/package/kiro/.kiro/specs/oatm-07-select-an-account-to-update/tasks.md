@@ -12,17 +12,15 @@
   - _Rules: OATM-BR-062, OATM-BR-063, OATM-BR-064, OATM-BR-065, OATM-BR-066_
   - _After: OATM-C07-T1_
 - [ ] 3. OATM-C07-T3 [api] Build the services behind the screens
-  - OATM-BR-061: Input binding for the account number: blank or '*' becomes null (not supplied), otherwise the entered text is kept as the search key for the account-number validation.
+  - OATM-BR-061: Treat a blank or '*' account number as absent (null); otherwise use it as the search key. Validation then decides between 'No input received' and the 11-digit check.
   - _Requirements: OATM-REQ-F-062_
   - _Rules: OATM-BR-061_
   - _After: OATM-C07-T1, OATM-C07-T2_
 - [ ] 4. OATM-C07-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - search "Account number": Required: 'No input received' when blank; 'Account Number if supplied must be a 11 digit Non-Zero Number' when not numeric or all zeros; 'Account:<number> not found in Cross ref file' when the account has no card cross-reference.
-  - button "Fetch account"
-  - button "Discard changes"
-  - _Requirements: OATM-REQ-F-062, OATM-REQ-F-063, OATM-REQ-F-064, OATM-REQ-F-067_
-  - _Rules: OATM-BR-061, OATM-BR-062, OATM-BR-063, OATM-BR-066_
+  - **lookup field** "Account number": Blank: 'No input received' - enter an account number. Not 11 digits or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number'. Not in the card cross-reference: 'Account:<account> not found in Cross ref file.' - check the number with the caller. Only the account number is checked until an account is fetched.
+  - _Requirements: OATM-REQ-F-062, OATM-REQ-F-063, OATM-REQ-F-064, OATM-REQ-F-065, OATM-REQ-F-066, OATM-REQ-F-067_
+  - _Rules: OATM-BR-061, OATM-BR-062, OATM-BR-063, OATM-BR-064, OATM-BR-065, OATM-BR-066_
   - _After: OATM-C07-T2, OATM-C07-T3_
 - [ ] 5. OATM-C07-T5 [test-generation] Write a test for every acceptance criterion
   - 11 acceptance criteria, each a test named by its ID.

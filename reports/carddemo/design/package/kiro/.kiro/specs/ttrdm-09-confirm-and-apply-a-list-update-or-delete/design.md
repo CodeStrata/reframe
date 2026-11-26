@@ -4,23 +4,21 @@
 
 ## Overview
 
-Carries out a pending list update or delete only when the administrator presses F10 and nothing has changed since the confirmation prompt (filters and selected row). It then reports 'HIGHLIGHTED row was updated' or 'HIGHLIGHTED row deleted.Hit Enter to continue'. It must never delete a type that other records still refer to, and must never report success when the database rejected the change.
+After a row is marked and the prompt shown, the administrator presses F10 to delete the transaction type or save its new description. The change goes through only if nothing has changed since the prompt: same filters, same selected row. It must never delete a type that other records still refer to, and must report a missing record, a deadlock or any other database failure without losing the pending request.
 
-Runs as online. Journeys: J11.
+Runs as online. Journeys: J09.
 
 ## Screens and components
 
 ### Transaction types (S-TRANTYPE-LIST)
 
-Find transaction types by code or description, correct a description in place, or delete an obsolete type, confirming each change; start adding a new type.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Update this transaction type? | dialog | Shows the type code with old and new description; Update applies it, Cancel keeps the row as it was. Cancelled automatically if the filters change meanwhile. |  |  | TTRDM-REQ-F-065, TTRDM-REQ-F-066, TTRDM-REQ-F-068, TTRDM-REQ-F-069 |
-| Delete this transaction type? | dialog | Shows the type code and description; Delete removes it, Cancel keeps it. Focus starts on Cancel. |  |  | TTRDM-REQ-F-065, TTRDM-REQ-F-066, TTRDM-REQ-F-067, TTRDM-REQ-F-074 |
-| Change result | message | Success: 'Transaction type 07 updated.' / 'Transaction type 07 deleted.' with the changed row highlighted. Blocked: 'This transaction type is still used by other records and cannot be deleted.' Not found: 'This transaction type no longer exists; it may have been deleted.' Busy: 'Someone else is changing this record. Try again.' Other: 'The change failed: <reason>.' |  |  | TTRDM-REQ-F-070, TTRDM-REQ-F-071, TTRDM-REQ-F-072, TTRDM-REQ-F-073, TTRDM-REQ-F-075, TTRDM-REQ-F-076, TTRDM-REQ-F-077 |
+| Transaction types | **data table** | Type code and description in code order, 20 rows a page. Row actions: Edit description in place (a labelled field; Enter opens a dialog showing old and new description), Open (full edit screen) and Delete (a dialog naming the code and description). Changing a filter cancels an edit in progress. Outcomes: 'Highlighted row was updated', 'Highlighted row deleted', 'Please delete associated child records first'. Empty state: 'No records found for this search condition. Use Add transaction type to create the first one.' | In-place description: 'Transaction Desc must be supplied. Enter a description.' or 'Transaction Desc can have numbers or alphabets only. Remove other characters.'; unchanged: 'No change detected with respect to values fetched.' Row actions replace action codes, so 'Action code selected is invalid' and 'Please select only 1 action' cannot occur. If a filter or the row changes while a dialog is open, the dialog closes and nothing changes. | S-TRANTYPE-EDIT | TTRDM-REQ-F-066, TTRDM-REQ-F-067, TTRDM-REQ-F-068, TTRDM-REQ-F-074, TTRDM-REQ-F-076 |
 
 
 ## Data models

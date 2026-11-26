@@ -75,6 +75,20 @@ Each folder is sent only if the run has it: a run with no Claude results has no 
 
 **Tried and dropped.** A link that opens a report in the browser after the AWS sign-in, so a reader needs no Reframe and no download, was built (S-05 to S-08) and dropped by the owner on 23 November 2026. It needed the organization's IAM Identity Center administrator to add an application by hand, and added CloudFront, a Cognito user pool and an edge function to the account. The reports stay in the bucket, opened as above.
 
+## 5. GitHub Pages, optional (S-16, S-17)
+
+The owner's decision (26 November 2026, [release 1.0](release-1.md), section 3): a person who wants a link to send, with nothing to install, can publish the cleaned copy to GitHub Pages. Like every publish target, it is optional.
+
+```bash
+reframe publish --to pages --repo <owner>/<name>
+```
+
+- Reframe makes the cleaned copy of section 2 and puts it on the repository's `gh-pages` branch, under `<project>/<run>/`, with a front page of every published run, newest first. Publishing the same run again replaces it.
+- It uses the person's own GitHub sign-in through `git` and `gh`. It turns Pages on for the branch if it is off, then prints the address.
+- **A Pages site is public**: anyone with the address can read it, on a public repository and on a private one too (only GitHub Enterprise Cloud can limit who reads a Pages site). So before anything is pushed, Reframe names the repository and the address, says the site is public, and asks the person to type `yes`. With no terminal it refuses.
+
+**The demo (S-17).** This repository's own Pages site, <https://sknampally.github.io/reframe/>, serves `reports/`: the CardDemo and GenApp copies of section 3 and a front page for them. A workflow deploys it on every push to `main` that changes `reports/`. It runs only in `sknampally/reframe`, so a fork publishes nothing unless its owner chooses to.
+
 ## 6. Opening and downloading by project (S-09 to S-11)
 
 The owner's direction (24 November 2026): an engineer runs and publishes; an architect or stakeholder gets the project's name and opens or downloads the report with their own AWS sign-in. Nothing is hosted, and nothing is readable without that sign-in.

@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Checks the account number a user enters on the Account View screen. A valid number is looked up in the card cross-reference, then the account master, then the customer master, so the right account and cardholder can be shown. Nothing may be read for a blank, non-numeric, short or all-zero number, and every failed lookup must give a clear message naming what was not found.
+Checks the 11-digit account number a user enters on the Account View screen. It then finds the account's linked card and customer, the account itself and the customer's profile. It must never show details for an invalid or unknown number, and every lookup that fails must give a clear message naming which record could not be found or read.
 
 **User story:** As a user, I want the account number I enter to be checked and the account and its customer looked up, so that I see the right account or a clear reason why it could not be shown.
 
@@ -53,14 +53,14 @@ Checks the account number a user enters on the Account View screen. A valid numb
 #### Acceptance criteria
 
 1. If the account is not in the card cross-reference, then the system shall stop the lookup, treat it as an input error, show the account number in red and show 'Account:<account number> not found in Cross ref file. Resp:<code> Reas:<code>'. (rules OATM-BR-131)
-2. GIVEN Account number 00000099999 passes validation but has no entry in the card cross-reference WHEN The user submits it on the Account View screen THEN The lookup stops without reading the account or customer master, the request is treated as an input error, the account number is shown in red and the message 'Account:00000099999 not found in Cross ref file. Resp:<code> Reas:<code>' is shown with the response and reason codes from the read (OATM-C16-AC-12; OATM-BR-131)
+2. GIVEN Account number 00000012345 passes validation but has no entry in the card cross-reference by account WHEN The user submits the Account View screen THEN The lookup stops without reading the account or customer, the request is treated as an input error, the account number is shown in red, and the message 'Account:00000012345 not found in Cross ref file. Resp:<code> Reas:<code>' is shown with the response and reason codes from the failed read (OATM-C16-AC-12; OATM-BR-131)
 
 ### Requirement 7: OATM-REQ-F-129 (error handling)
 
 #### Acceptance criteria
 
 1. If reading the card cross-reference fails for any reason other than 'not found', then the system shall stop the lookup, treat it as an input error and show 'File Error: READ on CXACAIX returned RESP <code>,RESP2 <code>'. (rules OATM-BR-132)
-2. GIVEN Account number 00000000001 passes validation and reading the card cross-reference fails for a reason other than 'not found' WHEN The user submits it on the Account View screen THEN The lookup stops, the request is treated as an input error and the message 'File Error: READ on CXACAIX returned RESP <code>,RESP2 <code>' is shown with the codes from the failed read (OATM-C16-AC-13; OATM-BR-132)
+2. GIVEN Account number 00000012345 passes validation and reading the card cross-reference fails for a reason other than not found WHEN The user submits the Account View screen THEN The lookup stops, the request is treated as an input error, and the message 'File Error: READ on CXACAIX returned RESP <code>,RESP2 <code>' is shown with the codes from the failed read (OATM-C16-AC-13; OATM-BR-132)
 
 ### Requirement 8: OATM-REQ-F-130 (design note)
 
@@ -74,7 +74,8 @@ Checks the account number a user enters on the Account View screen. A valid numb
 #### Acceptance criteria
 
 1. If the account is not in the account master, then the system shall treat it as an input error, show the account number in red and show 'Account:<account number> not found in Acct Master file.Resp:<code> Reas:<code>', and for any other read failure show 'File Error: READ on ACCTDAT returned RESP <code>,RESP2 <code>'. (rules OATM-BR-134)
-2. GIVEN Account 00000000001 is in the card cross-reference but not in the account master WHEN The user submits it on the Account View screen THEN The request is treated as an input error, the account number is shown in red and 'Account:00000000001 not found in Acct Master file.Resp:<code> Reas:<code>' is shown; if instead the account master read fails for any other reason, 'File Error: READ on ACCTDAT returned RESP <code>,RESP2 <code>' is shown (OATM-C16-AC-14; OATM-BR-134)
+2. GIVEN Account 00000012345 is found in the card cross-reference but is not in the account master WHEN The user submits the Account View screen THEN The request is treated as an input error, the account number is shown in red and the message 'Account:00000012345 not found in Acct Master file.Resp:<code> Reas:<code>' is shown (OATM-C16-AC-14; OATM-BR-134)
+3. GIVEN Account 00000012345 is found in the card cross-reference and reading the account master fails for a reason other than not found WHEN The user submits the Account View screen THEN The message 'File Error: READ on ACCTDAT returned RESP <code>,RESP2 <code>' is shown with the codes from the failed read (OATM-C16-AC-15; OATM-BR-134)
 
 ### Requirement 10: OATM-REQ-F-132 (error handling)
 
@@ -95,14 +96,15 @@ Checks the account number a user enters on the Account View screen. A valid numb
 #### Acceptance criteria
 
 1. If the customer is not in the customer master, then the system shall treat it as an input error and show 'CustId:<customer number> not found in customer master.Resp: <code> REAS:<code>', unless an earlier message is already set. (rules OATM-BR-137)
-2. GIVEN Account 00000000001 and its account master record are found, no message is set yet, and the customer number 000000123 taken from the cross-reference is not in the customer master WHEN The user submits the account number on the Account View screen THEN The request is treated as an input error and 'CustId:000000123 not found in customer master.Resp: <code> REAS:<code>' is shown; when an earlier message is already set, that earlier message is kept instead (OATM-C16-AC-15; OATM-BR-137)
+2. GIVEN Account 00000012345 is found in the cross-reference and the account master, its cross-reference gives customer number 000000099, no message has been set yet, and that customer is not in the customer master WHEN The user submits the Account View screen THEN The request is treated as an input error and the message 'CustId:000000099 not found in customer master.Resp: <code> REAS:<code>' is shown (OATM-C16-AC-16; OATM-BR-137)
+3. GIVEN An earlier lookup step has already set a message, and the customer is then not found in the customer master WHEN The user submits the Account View screen THEN The earlier message is kept and the customer-not-found message is not shown (OATM-C16-AC-17; OATM-BR-137)
 
 ### Requirement 13: OATM-REQ-F-135 (error handling)
 
 #### Acceptance criteria
 
 1. If reading the customer master fails for any reason other than 'not found', then the system shall treat it as an input error and show 'File Error: READ on CUSTDAT returned RESP <code>,RESP2 <code>', replacing any earlier message. (rules OATM-BR-138)
-2. GIVEN An earlier message is already set for account 00000000001, and reading the customer master fails for a reason other than 'not found' WHEN The account view reads the customer master THEN The request is treated as an input error and 'File Error: READ on CUSTDAT returned RESP <code>,RESP2 <code>' replaces the earlier message (OATM-C16-AC-16; OATM-BR-138)
+2. GIVEN An earlier message is already set, and reading the customer master fails for a reason other than not found WHEN The user submits the Account View screen THEN The request is treated as an input error and the earlier message is replaced by 'File Error: READ on CUSTDAT returned RESP <code>,RESP2 <code>' (OATM-C16-AC-18; OATM-BR-138)
 
 ### Requirement 14: OATM-REQ-F-136 (business rule)
 

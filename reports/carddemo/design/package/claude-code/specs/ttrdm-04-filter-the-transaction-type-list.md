@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Lets administrators narrow the transaction type list by an exact two-digit type code and by text contained in the description. A blank or '00' code filter, or a blank description filter, means no filter. A non-numeric code filter must be rejected with 'TYPE CODE FILTER,IF SUPPLIED MUST BE A 2 DIGIT NUMBER', and changing either filter must restart paging from the first page.
+Administrators narrow the transaction type list by an exact two-digit type code and/or by text the description contains. A blank, zero or '00' type code means no filter; a non-numeric one is rejected with a clear message. Changing a filter must restart paging from page 1 and must never let a pending update or delete go through against a different result set.
 
 **User story:** As an administrator, I want to filter the transaction type list by type code and by description text, so that I can find the types I need quickly.
 
@@ -62,7 +62,7 @@ Lets administrators narrow the transaction type list by an exact two-digit type 
 #### Acceptance criteria
 
 1. When a description filter is entered, the system shall list, page and count only transaction types whose description contains the entered text (trimmed and wrapped in '%' for a contains match). (rules TTRDM-BR-045)
-2. GIVEN transaction types '01' 'Purchase', '02' 'Payment' and '05' 'Refund of Purchase' exist, and the type code filter is blank WHEN the administrator enters ' Purchase ' in the description filter and presses Enter THEN only types '01' and '05' are listed, paged and counted (descriptions containing 'Purchase', with the spaces trimmed off the filter), and type '02' does not appear (TTRDM-C04-AC-12; TTRDM-BR-045)
+2. GIVEN The transaction types include 'Purchase', 'Retail Purchase' and 'Payment', and the type code filter is blank WHEN The user enters ' Purchase ' (with surrounding spaces) in the description filter and submits THEN The list, its paging and its record count include only the types whose description contains 'Purchase' ('Purchase' and 'Retail Purchase'), and 'Payment' is not shown (TTRDM-C04-AC-12; TTRDM-BR-045)
 
 ### Requirement 8: TTRDM-REQ-F-039 (business rule)
 
@@ -82,17 +82,14 @@ Lets administrators narrow the transaction type list by an exact two-digit type 
 
 ### Transaction types (S-TRANTYPE-LIST)
 
-Find transaction types by code or description, correct a description in place, or delete an obsolete type, confirming each change; start adding a new type.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Filter transaction types | form | Type code and description filters, applied together; changing a filter cancels any pending row change and returns to the first page |  |  | TTRDM-REQ-F-035, TTRDM-REQ-F-036, TTRDM-REQ-F-039 |
-| Type code | text | Optional 2-digit type code | If supplied, must be a 2-digit number; blank or 00 means no type filter. Message: 'Type code filter, if supplied, must be a 2-digit number.' |  | TTRDM-REQ-F-032, TTRDM-REQ-F-033, TTRDM-REQ-F-034 |
-| Description contains | search | Optional text; lists types whose description contains it |  |  | TTRDM-REQ-F-037, TTRDM-REQ-F-038 |
-| Clear filters | button |  |  |  | TTRDM-REQ-F-032, TTRDM-REQ-F-037 |
-| No matching transaction types | message | Error under the filters: 'No transaction types match these filters. Change or clear the filters.'; on a database error: 'The transaction types could not be read. Try again.' | Supplied filters must match at least one type: 'No transaction types match these filters.' (legacy 'No Records found for these filter conditions') |  | TTRDM-REQ-F-040 |
+| Type code | **lookup field** | Two-digit type code; blank or 00 lists every code | 'Type code filter, if supplied, must be a 2 digit number. Enter two digits, for example 01, or leave it blank.' No type matches: 'No Records found for these filter conditions. Change or clear the filters.' |  | TTRDM-REQ-F-032, TTRDM-REQ-F-033, TTRDM-REQ-F-034 |
+| Description contains | **lookup field** | Text the description must contain; blank means no description filter | Checked against the data only when a filter holds a value: 'No Records found for these filter conditions. Change or clear the filters.' |  | TTRDM-REQ-F-037, TTRDM-REQ-F-038 |
 
 
 ## Data models
@@ -157,8 +154,8 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- TTRDM-BR-042: Keep the last-used type code filter in session state. When the submitted filter differs from it, save the new value, reset paging to the first page, and set a 'filter changed' flag. With that flag set, a pending F10 confirmation is ignored and handled as a plain refresh.
-- TTRDM-BR-043: When the submitted type code filter equals the saved one, or both are empty, keep the current page position and clear the 'filter changed' flag.
+- TTRDM-BR-042: The view state keeps the type code filter used for the last page shown. When the submitted filter differs, reset paging to page 1, store the new filter and mark it changed; a pending update/delete confirmation must then be treated as a plain refresh, not applied.
+- TTRDM-BR-043: When the submitted type code filter equals the stored one (two empty values count as equal), keep the current page and mark the filter unchanged, so a pending confirmation can still proceed.
 
 ## Open questions
 

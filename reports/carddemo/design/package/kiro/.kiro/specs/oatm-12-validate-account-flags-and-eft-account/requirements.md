@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Checks the account status and primary card holder flags and the EFT account id when the operator changes account details. Both flags must be supplied as Y or N, and the EFT account id must be ten digits and not zero. A missing or malformed flag or funds-transfer account must never be saved, and the cursor goes to the field in error.
+Checks the account status and the primary card holder indicator, each of which must be Y or N. It also checks the electronic funds transfer (EFT) account id, which must be 10 non-zero digits. A blank or '*' entry is not supplied and is rejected. A flag other than Y or N, or a malformed transfer account, must never be saved.
 
 **User story:** As an operator, I want the account status, primary card holder indicator and EFT account id checked, so that only valid flags and a well-formed funds transfer account are saved.
 

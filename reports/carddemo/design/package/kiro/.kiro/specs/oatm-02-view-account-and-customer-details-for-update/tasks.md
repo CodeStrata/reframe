@@ -13,14 +13,12 @@
   - _After: OATM-C02-T1_
 - [ ] 3. OATM-C02-T3 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - search "Account number": Required: 'No input received' when blank; 'Account Number if supplied must be a 11 digit Non-Zero Number' when not numeric or all zeros; 'Account:<number> not found in Cross ref file' when the account has no card cross-reference.
-  - message "Guidance"
-  - form "Account and customer details": If nothing differs from the fetched values (ignoring case): 'No change detected with respect to values fetched.' and nothing is checked or saved.
-  - display "Customer ID"
-  - display "Country"
-  - dialog "Save these changes?"
-  - _Requirements: OATM-REQ-F-018, OATM-REQ-F-019, OATM-REQ-F-022, OATM-REQ-N-002_
-  - _Rules: OATM-BR-018, OATM-BR-019, OATM-BR-022, OATM-BR-025_
+  - **lookup field** "Account number": Blank: 'No input received' - enter an account number. Not 11 digits or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number'. Not in the card cross-reference: 'Account:<account> not found in Cross ref file.' - check the number with the caller. Only the account number is checked until an account is fetched.
+  - **summary card** "Status and group": Status is required: 'Account Status must be supplied.' and must be Active or Inactive ('Account Status must be Y or N.'). The choice offers only those two values.
+  - **summary card** "Fix these before saving"
+  - **primary button** "Save changes": If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved.
+  - _Requirements: OATM-REQ-F-015, OATM-REQ-F-016, OATM-REQ-F-017, OATM-REQ-F-018, OATM-REQ-F-019, OATM-REQ-F-020, OATM-REQ-F-021, OATM-REQ-F-022, OATM-REQ-F-023, OATM-REQ-N-001, OATM-REQ-N-002, OATM-REQ-F-024_
+  - _Rules: OATM-BR-015, OATM-BR-016, OATM-BR-017, OATM-BR-018, OATM-BR-019, OATM-BR-020, OATM-BR-021, OATM-BR-022, OATM-BR-023, OATM-BR-024, OATM-BR-025_
   - _After: OATM-C02-T2_
 - [ ] 4. OATM-C02-T4 [test-generation] Write a test for every acceptance criterion
   - 15 acceptance criteria, each a test named by its ID.

@@ -17,11 +17,9 @@
   - _After: TTRDM-C09-T1_
 - [ ] 4. TTRDM-C09-T4 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
-  - dialog "Update this transaction type?"
-  - dialog "Delete this transaction type?"
-  - message "Change result"
-  - _Requirements: TTRDM-REQ-F-065, TTRDM-REQ-F-066, TTRDM-REQ-F-067, TTRDM-REQ-F-068, TTRDM-REQ-F-069, TTRDM-REQ-F-070, TTRDM-REQ-F-071, TTRDM-REQ-F-072, TTRDM-REQ-F-073, TTRDM-REQ-F-074, TTRDM-REQ-F-075, TTRDM-REQ-F-076, TTRDM-REQ-F-077_
-  - _Rules: TTRDM-BR-074, TTRDM-BR-075, TTRDM-BR-076, TTRDM-BR-077, TTRDM-BR-078, TTRDM-BR-079, TTRDM-BR-080, TTRDM-BR-081, TTRDM-BR-082, TTRDM-BR-083, TTRDM-BR-084, TTRDM-BR-085, TTRDM-BR-086_
+  - **data table** "Transaction types": In-place description: 'Transaction Desc must be supplied. Enter a description.' or 'Transaction Desc can have numbers or alphabets only. Remove other characters.'; unchanged: 'No change detected with respect to values fetched.' Row actions replace action codes, so 'Action code selected is invalid' and 'Please select only 1 action' cannot occur. If a filter or the row changes while a dialog is open, the dialog closes and nothing changes.
+  - _Requirements: TTRDM-REQ-F-066, TTRDM-REQ-F-067, TTRDM-REQ-F-068, TTRDM-REQ-F-074, TTRDM-REQ-F-076_
+  - _Rules: TTRDM-BR-075, TTRDM-BR-076, TTRDM-BR-077, TTRDM-BR-078, TTRDM-BR-085_
   - _After: TTRDM-C09-T2, TTRDM-C09-T3_
 - [ ] 5. TTRDM-C09-T5 [test-generation] Write a test for every acceptance criterion
   - 15 acceptance criteria, each a test named by its ID.

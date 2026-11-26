@@ -10,7 +10,7 @@
 
 As an operations analyst, I want every pending authorization summary and its details unloaded from the pending authorization database to files, so that the full set of pending authorizations is available outside the database with each detail linked to its account.
 
-Unloads every pending authorization summary and every detail to two files for operations, with no filtering by age, expiry, response or match status. Each detail record carries its parent account id so it can be linked back. Only summaries with a numeric account id are written, and any unexpected read failure must end the run with return code 16.
+A batch job that unloads every pending authorization summary and every detail to two files, with no filter on age, expiry, response or match status, and with each detail carrying its parent account id. Summaries with a non-numeric account id are left out along with their details. Any unexpected database read stops the job with return code 16.
 
 **Acceptance scenarios:**
 
@@ -21,9 +21,9 @@ Unloads every pending authorization summary and every detail to two files for op
 5. **Given** Account id (PA-ACCT-ID): corrupted, not a valid packed number; Details under summary: 2, **when** a summary is read successfully but its account id is not a valid number, **then** Nothing is written for this summary or its 2 details, no message is shown, and the job continues with the next summary (CAFM-C20-AC-05)
 6. **Given** Database status after summary read: 'GB', **when** reading the next summary reports end of database ('GB'), **then** Summary processing stops, 'CLOSING THE FILE' is displayed, and both files are closed (CAFM-C20-AC-06)
 7. **Given** Parent account: 12345; Detail amount: 125.50, **when** a detail under the current summary is read successfully (get-next-within-parent on 'PAUTDTL1'), **then** OUTFIL2 gets one record: account 12345 (packed) followed by the detail image (CAFM-C20-AC-07)
-8. **Given** the unload files are open and reading the next summary returns status 'AI' (not blank or 'GB'), **when** the unload reads summaries, **then** 'AUTH SUM GN FAILED :' is displayed with AI and the key feedback area, 'IMSUNLOD ABENDING ...' is displayed, and the run ends with return code 16 without closing the files (CAFM-C20-AC-08)
-9. **Given** a summary with a numeric account id whose details have all been written, **when** reading the next detail under that summary returns 'GE', **then** detail reading stops for that summary, 'CHILD SEG FLAG GE : ' is displayed with the end flag, and the next summary is read (CAFM-C20-AC-09)
-10. **Given** a summary with a numeric account id is being unloaded and reading its next detail returns status 'AI' (not blank or 'GE'), **when** the unload reads that summary's details, **then** 'GNP CALL FAILED :' is displayed with AI, 'KFB AREA IN CHILD:' is displayed with the key feedback, 'IMSUNLOD ABENDING ...' is displayed, and the run ends with return code 16 without closing the files (CAFM-C20-AC-10)
+8. **Given** the unload has written some summaries and the next summary read returns a status other than blank or 'GB', for example 'AI', **when** the unload continues, **then** 'AUTH SUM GN FAILED :' is displayed with AI and the key feedback area, 'IMSUNLOD ABENDING ...' is displayed, and the job ends with return code 16 without closing the unload files (CAFM-C20-AC-08)
+9. **Given** a summary with two details has had both details written, **when** the next detail read under that summary returns 'GE', **then** no further details are read for that summary, 'CHILD SEG FLAG GE : ' is displayed with the end flag, and the next summary is read (CAFM-C20-AC-09)
+10. **Given** a summary is being unloaded and a detail read returns a status other than blank or 'GE', for example 'AI', **when** the unload continues, **then** 'GNP CALL FAILED :' is displayed with AI, 'KFB AREA IN CHILD:' is displayed with the key feedback, 'IMSUNLOD ABENDING ...' is displayed, and the job ends with return code 16 without closing the unload files (CAFM-C20-AC-10)
 
 ## Requirements
 

@@ -6,7 +6,7 @@ User Access Control · User Security Profile Management · runs as online · ris
 
 ## Introduction
 
-Lets an administrator look up an existing user by User ID on the update screen and save changes to it. A blank User ID must be refused before any lookup, and an unknown User ID must be reported. As in the legacy system, a save against an unknown User ID ends with 'Unable to Update User...'.
+Lets an administrator look up a user by User ID so they can then change it. A blank User ID is refused before any lookup. It must never look up or save against a blank User ID, and it must show the failure when the User ID does not exist.
 
 **User story:** As an administrator, I want to look up an existing user by User ID and save changes to it, so that the user's profile stays correct.
 
@@ -38,7 +38,7 @@ Lets an administrator look up an existing user by User ID on the update screen a
 
 ### Sign in (S-SIGN-IN)
 
-Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+Sign in to CardDemo with a user ID and password. Administrators and regular users both land on Home, which shows the functions their role allows.
 
 Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
 
@@ -47,7 +47,7 @@ Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COS
 
 ### Home (S-HOME)
 
-One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+Landing page after sign-in. It lists every function the signed-in role may use as links, and replaces the numbered Main Menu, the Admin Menu and the typed option number.
 
 Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
 
@@ -56,7 +56,7 @@ Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1
 
 ### Users (S-USER-LIST)
 
-Find users and act on them: search by User ID, page through a table of users, and edit or delete a user from its row; add a new user from here.
+Find a user and act on them. A searchable, paged table of all users has Edit and Delete actions on each row, plus Add user. It replaces the typed U and D selection codes and the F7 and F8 paging keys.
 
 Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens COUSR0A.
 
@@ -65,14 +65,14 @@ Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens C
 
 ### Update user (S-USER-EDIT)
 
-Change a user's name, password or user type. Opens with the user already loaded when chosen from the list; another user can be looked up by User ID.
+Correct a user's name, password or user type. It opens already filled in from the Users table; you can also type a user ID to look up another user.
 
 Prototype: `ui-reference/index.html#/S-USER-EDIT`. Replaces the legacy screens COUSR2A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| User ID | search | User ID to look up, up to 8 characters | Required: 'User ID can NOT be empty...'. Unknown: 'User ID NOT found...' and the details stay empty |  | USPM-REQ-F-051, USPM-REQ-F-053 |
-| Find | button |  |  |  | USPM-REQ-F-052 |
+| User ID | **lookup field** | The user ID. Opened from Users, it is filled in and the user is looked up straight away. Opened from the navigation, it is blank and has focus. Enter or Find loads the user into the form. | Blank: 'User ID can NOT be empty...' Not on file: 'User ID NOT found...', and the details stay blank. Read failure: 'Unable to lookup User...'. |  | USPM-REQ-F-051, USPM-REQ-F-052 |
+| Save changes | **primary button** | Saves only the changed fields and shows 'User <user ID> has been updated ...'. You stay on the screen, with a link back to Users. Leaving with unsaved changes asks 'Discard your changes to <user ID>?'. This button replaces the legacy prompt 'Press PF5 key to save your updates ...'. | Checks User ID, First name, Last name, Password and User type in that order. Every blank field is listed in an error summary, each linked to its field, and nothing is saved; leaving the screen never hides these messages. Nothing changed: 'Please modify to update ...' User no longer on file: 'User ID NOT found...', and no save is tried. Any other failure: 'Unable to Update User...'. |  | USPM-REQ-F-053 |
 
 
 ## Data models
@@ -132,7 +132,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- USPM-BR-059: Clear the displayed name, password and type, then read the user by its User ID key. Hold the record for update, with optimistic concurrency (a version check) or a short row lock, so that a later save applies to the record that was read.
+- USPM-BR-059: For a non-blank User ID, clear the detail fields, then fetch that user by its key from the user store. Read it so that a later save in the same flow can update that record safely, for example with optimistic concurrency (a version or the read values).
 
 ## Open questions
 

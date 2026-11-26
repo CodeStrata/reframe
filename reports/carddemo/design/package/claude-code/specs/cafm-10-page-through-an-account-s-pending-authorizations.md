@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-Lets customer service operators page forward (PF8) and back (PF7) through an account's pending authorizations five at a time. Each row shows 'A' for approved (response '00') or 'D' for declined, with amount, date, time, transaction id, type and match status. Paging must never skip or repeat authorizations, and the operator sees the stated message at the top or bottom of the list.
+Lets a customer service operator page forward and back through an account's pending authorizations, five at a time, newest first. Each row shows 'A' (approved) or 'D' (declined) with its amount, date, time, transaction id, type and match status. Paging must never skip or repeat an authorization. At either end the operator is told so and the list stays as it is.
 
 **User story:** As a customer service operator, I want to page forward and back through an account's pending authorizations five at a time, with each shown as approved or declined, so that I can review every authorization on the account.
 
@@ -71,28 +71,19 @@ Lets customer service operators page forward (PF8) and back (PF7) through an acc
 #### Acceptance criteria
 
 1. When an authorization is listed, the system shall show its approved amount with a sign and two decimals, its original date held as YYMMDD as MM/DD/YY, and its original time held as HHMMSS as HH:MM:SS, along with transaction id, authorization type and match status. (rules CAFM-BR-113, CAFM-BR-114)
-2. GIVEN A pending authorization with approved amount 150.00, original date '240315' (YYMMDD) and original time '143005' (HHMMSS) WHEN It is listed on the Pending authorizations screen THEN Its row shows the approved amount as 150.00 with a sign and two decimals, the date as '03/15/24' and the time as '14:30:05', along with its transaction id, authorization type and match status (CAFM-C10-AC-13; CAFM-BR-113, CAFM-BR-114)
+2. GIVEN A pending authorization with approved amount 125.50, original date held as '261126', original time held as '143005', and its transaction id, authorization type and match status 'P' WHEN It is listed on the account's authorizations page THEN The row shows the amount as signed with two decimals (125.50), the date as '11/26/26', the time as '14:30:05', and the transaction id, authorization type and match status 'P'. (CAFM-C10-AC-13; CAFM-BR-113, CAFM-BR-114)
 
 ## Screens and components
 
-### Pending authorizations (S-PENDING-AUTHS)
+### Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
 
-Look up an account and see its customer, limits, balances and approved/declined totals together with a paged table of its pending authorizations; open any authorization from its row.
+Look up an account and see everything on one screen: the customer, limits and balances, pending authorization totals, the authorizations in a paged table, and the selected authorization's full details. Fraud can be reported or cleared without leaving the list.
 
-Prototype: `ui-reference/index.html#/S-PENDING-AUTHS`. Replaces the legacy screens COPAU0A.
-
-| Component | Type | Shows | Checks | Goes to | Requirements |
-|---|---|---|---|---|---|
-| Pending authorizations | table | Columns: transaction ID, date (MM/DD/YY), time (HH:MM:SS), type, Approved/Declined (A when response '00', otherwise D, shown in words), status, amount (signed, two decimals). Row action 'View details' opens the authorization. Paged with Previous/Next; empty state 'No pending authorizations' when the account has none. | Only a row's 'View details' action opens an authorization, so 'Invalid selection. Valid value is S' cannot arise; it is shown if a row without an authorization is opened. Previous is disabled on the first page and announces 'You are already at the top of the page...'; Next is disabled on the last page and announces 'You are already at the bottom of the page...'. | S-AUTH-DETAIL | CAFM-REQ-F-101, CAFM-REQ-F-102, CAFM-REQ-F-103, CAFM-REQ-F-104, CAFM-REQ-F-105, CAFM-REQ-F-106, CAFM-REQ-F-107, CAFM-REQ-F-108 |
-
-### Authorization details (S-AUTH-DETAIL)
-
-Review one pending authorization — card, amount, response and reason, POS, merchant and fraud status — move to the account's next authorization, and mark or clear fraud on it.
-
-Prototype: `ui-reference/index.html#/S-AUTH-DETAIL`. Replaces the legacy screens COPAU1A.
+Prototype: `ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS`. Replaces the legacy screens COPAU0A, COPAU1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
+| Authorizations | **data table** | Columns: transaction ID, date (26 Nov 2026), time (HH:MM:SS), type, an Approved/Declined badge (Approved when the response code is 00), status, fraud status, and amount right-aligned with sign and two decimals. Sortable, newest first, 20 rows a page with Previous page and Next page controls. Click a row or press Enter on it to open its details beside the table. Empty state: 'No pending authorizations for this account. They appear here once the card is used.' | Previous page is disabled on the first page, with 'You are already on the first page'. Next page is disabled on the last page, with 'You are already on the last page'. Next authorization on the last one says 'Already at the last authorization' and keeps the current one open. Rows open directly, so no selection code is typed and 'Invalid selection. Valid value is S' cannot arise. There are no unsupported keys to warn about. |  | CAFM-REQ-F-101, CAFM-REQ-F-102, CAFM-REQ-F-103, CAFM-REQ-F-104, CAFM-REQ-F-105, CAFM-REQ-F-106, CAFM-REQ-F-107, CAFM-REQ-F-108 |
 
 
 ## Data models
@@ -207,8 +198,8 @@ None.
 
 ## Design notes
 
-- CAFM-BR-106: Use keyset (cursor) pagination over the account's authorizations in newest-first order. For a forward page, start after the last authorization key shown, or from the beginning when there is none. Keep the cursor in session state, not as a page offset.
-- CAFM-BR-108: For the next page, fetch up to 5 authorizations after the cursor and replace the list rows entirely, so rows from the previous page never remain. Fetch one more to work out whether a further page exists, and keep each page's first key so backward paging works.
+- CAFM-BR-106: Use keyset paging: a forward page request carries the key of the last authorization shown and returns the next rows after it, or starts from the beginning when there is no key. Re-check that the account's summary still exists before reading the page.
+- CAFM-BR-108: A forward page replaces all five list rows with the next set of up to 5 authorizations. Fetch one row more than the page size to tell whether a further page exists. Keep the first key of each page visited so backward paging can go back to it.
 
 ## Open questions
 

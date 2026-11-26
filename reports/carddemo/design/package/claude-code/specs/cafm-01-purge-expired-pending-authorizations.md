@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as scheduled job
 
 ## Introduction
 
-A scheduled job for the card operations team that works through every account's pending authorization summary, deletes each authorization detail that has reached the expiry age, and reduces the account's approved or declined counts and totals for each deleted detail. It deletes a summary once its adjusted approved count is zero or below. It must never delete an authorization younger than the expiry days, and it must stop the run if a deletion fails instead of carrying on with the store half purged.
+A scheduled batch job for the card operations team. It works through every account's pending authorizations, removes each one that has reached the expiry age, and removes an account's summary once it has no approved authorizations left. It must never delete an authorization younger than the expiry days. If a deletion fails it must stop at once with return code 16, so the store is never left half-purged without anyone knowing.
 
 **User story:** As a card operations team, I want pending authorizations that have reached their expiry age removed from the authorization database by a batch job, so that the pending authorization store holds only current authorizations.
 
@@ -92,7 +92,7 @@ A scheduled job for the card operations team that works through every account's 
 #### Acceptance criteria
 
 1. When an authorization detail qualifies for purge and its response code is anything other than '00', the system shall subtract 1 from the account summary's declined count and subtract the detail's transaction amount from the summary's declined total. (rules CAFM-BR-010)
-2. GIVEN An account summary in the purge job's working copy has declined count 3 and declined total 200.00, and one of its authorization details has response code '05' and transaction amount 40.00 and has qualified for purge WHEN The purge processes that detail THEN The working copy shows declined count 2 and declined total 160.00, the approved count and approved total are unchanged, and the stored summary record is not rewritten (CAFM-C01-AC-18; CAFM-BR-010)
+2. GIVEN An account summary with a declined count of 3 and a declined total of 150.00, and under it an authorization detail with response code '05' and a transaction amount of 40.00 whose age is at least the expiry days WHEN The purge checks that detail and it qualifies for purge THEN In the purge's working copy of the summary, the declined count is 2 and the declined total is 110.00. The approved count and approved total are unchanged, and the stored summary record is not rewritten. (CAFM-C01-AC-18; CAFM-BR-010)
 
 ### Requirement 12: CAFM-REQ-F-011 (business rule)
 
@@ -262,9 +262,9 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-001: The job needs a parameter setup step at start-up: record today's date as the run date, take expiry days from the job parameters when numeric or else use 5, and set the checkpoint frequency to 5 when it is missing, blank or 0. Expose these as validated job configuration, not as positional text.
-- CAFM-BR-002: Run the purge as a scheduled batch job with write access to the pending authorization store (summaries and their details). The legacy IMS batch program, PSB and DBD library setup becomes the job's scheduler entry and its database credentials and permissions.
-- CAFM-BR-004: The job needs a full pass over all pending authorization summaries, one account at a time, with each summary's child details checked and expired ones deleted before it moves to the next summary. Commit progress at the configured checkpoint frequency so the job can restart after a failure without starting over.
+- CAFM-BR-001: At start-up the job takes the run date from the system clock and reads two run parameters. Expiry days is used when numeric and defaults to 5 otherwise. Checkpoint frequency defaults to 5 when it is blank, zero or missing. Check both values before any data is touched.
+- CAFM-BR-002: Run the purge as a scheduled batch job that has update access to the pending authorization store, both summaries and details. It runs alongside the online authorization service, so it must commit in small batches (see the checkpoint frequency) rather than locking the whole store.
+- CAFM-BR-004: Read every account summary in turn and, for each one, all of its authorization details. Delete the details that qualify, then decide whether the summary goes too, before moving to the next account. A parent-child query or keyset cursor over summaries with their details is enough. Commit every checkpoint-frequency summaries so a restart can resume from the last committed account.
 
 ## Open questions
 

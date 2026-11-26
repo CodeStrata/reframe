@@ -10,7 +10,7 @@
 
 As a card operations user, I want to filter the card list by account number and card number, so that I only see the cards I am looking for.
 
-Lets card operations staff narrow the card list to one account, one card number, or both. A filter left blank or all zeros is not applied. The list must show only cards that match every filter supplied, and must reject a non-numeric filter with its exact message instead of showing an unfiltered list.
+Card operations users can narrow the card list to one account number, one card number, or both. A filter left blank or all zeros is ignored. A non-numeric filter is rejected with its exact message, and while a filter is in error the list must not be re-read or offer row selection. When both filters are given, only cards that match both may be listed.
 
 **Acceptance scenarios:**
 

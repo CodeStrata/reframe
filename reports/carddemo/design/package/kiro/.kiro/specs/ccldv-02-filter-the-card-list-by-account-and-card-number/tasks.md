@@ -18,12 +18,10 @@
   - _After: CCLDV-C02-T1_
 - [ ] 4. CCLDV-C02-T4 [ui-modernization] Build the screen Cards (S-CARD-LIST)
   - To the prototype: ui-reference/index.html#/S-CARD-LIST.
-  - form "Filter cards"
-  - text "Account number": If supplied, must be an 11-digit number; blank or all zeros means no account filter. Message: 'Account filter, if supplied, must be an 11-digit number.'
-  - text "Card number": If supplied, must be a 16-digit number; blank or all zeros means no card filter. Message: 'Card number filter, if supplied, must be a 16-digit number.'
-  - message "Problems with the filters"
-  - _Requirements: CCLDV-REQ-F-021, CCLDV-REQ-F-022, CCLDV-REQ-F-023, CCLDV-REQ-F-024, CCLDV-REQ-F-025, CCLDV-REQ-F-026, CCLDV-REQ-F-027_
-  - _Rules: CCLDV-BR-021, CCLDV-BR-023, CCLDV-BR-024, CCLDV-BR-025, CCLDV-BR-026, CCLDV-BR-027, CCLDV-BR-028_
+  - **lookup field** "Account number": Must be an 11-digit number if entered: 'Account filter, if supplied, must be an 11 digit number. Enter the 11 digits or leave it blank.'
+  - **lookup field** "Card number": Must be a 16-digit number if entered: 'Card ID filter, if supplied, must be a 16 digit number. Enter the 16 digits or leave it blank.'
+  - _Requirements: CCLDV-REQ-F-021, CCLDV-REQ-F-022, CCLDV-REQ-F-023, CCLDV-REQ-F-025, CCLDV-REQ-F-026_
+  - _Rules: CCLDV-BR-023, CCLDV-BR-024, CCLDV-BR-025, CCLDV-BR-026, CCLDV-BR-027_
   - _After: CCLDV-C02-T2, CCLDV-C02-T3_
 - [ ] 5. CCLDV-C02-T5 [test-generation] Write a test for every acceptance criterion
   - 10 acceptance criteria, each a test named by its ID.

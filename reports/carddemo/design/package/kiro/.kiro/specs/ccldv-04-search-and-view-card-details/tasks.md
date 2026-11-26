@@ -16,20 +16,14 @@
   - _Requirements: CCLDV-REQ-F-047, CCLDV-REQ-F-045, CCLDV-REQ-F-048, CCLDV-REQ-F-049, CCLDV-REQ-F-050, CCLDV-REQ-F-051, CCLDV-REQ-F-052, CCLDV-REQ-F-053_
   - _Rules: CCLDV-BR-044, CCLDV-BR-046, CCLDV-BR-047, CCLDV-BR-048, CCLDV-BR-049, CCLDV-BR-050, CCLDV-BR-051, CCLDV-BR-052_
   - _After: CCLDV-C04-T1_
-- [ ] 4. CCLDV-C04-T4 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
+- [ ] 4. CCLDV-C04-T4 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
   - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - form "Find a card"
-  - text "Account number": Required; must be an 11-digit number other than all zeros. Messages: 'Enter the account number.' (blank or zeros; legacy 'Account number not provided'), 'Account number must be an 11-digit number.' (not numeric). When both numbers are missing: 'Enter the account number and card number.' (legacy 'No input received'). Only the search fields are checked until a card is found.
-  - text "Card number": Required; must be a 16-digit number other than all zeros. Messages: 'Enter the card number.' (blank or zeros; legacy 'Card number not provided'), 'Card number must be a 16-digit number.' (not numeric)
-  - button "Find card"
-  - message "Card not found": Card number must exist on the card file: 'No card was found with this card number. Check the numbers and try again.' (legacy 'Did not find cards for this search condition')
-  - display "Account number"
-  - display "Card number"
-  - display "Name on card"
-  - display "Status"
-  - display "Expiry date"
-  - _Requirements: CCLDV-REQ-F-034, CCLDV-REQ-F-035, CCLDV-REQ-F-036, CCLDV-REQ-F-037, CCLDV-REQ-F-038, CCLDV-REQ-F-039, CCLDV-REQ-F-040, CCLDV-REQ-F-041, CCLDV-REQ-F-042, CCLDV-REQ-F-043, CCLDV-REQ-F-044, CCLDV-REQ-F-045, CCLDV-REQ-F-046, CCLDV-REQ-F-047, CCLDV-REQ-F-048, CCLDV-REQ-F-049, CCLDV-REQ-F-050, CCLDV-REQ-F-051, CCLDV-REQ-F-052, CCLDV-REQ-F-053_
-  - _Rules: CCLDV-BR-032, CCLDV-BR-033, CCLDV-BR-034, CCLDV-BR-035, CCLDV-BR-036, CCLDV-BR-037, CCLDV-BR-038, CCLDV-BR-039, CCLDV-BR-040, CCLDV-BR-041, CCLDV-BR-042, CCLDV-BR-043, CCLDV-BR-044, CCLDV-BR-045, CCLDV-BR-046, CCLDV-BR-047, CCLDV-BR-048, CCLDV-BR-049, CCLDV-BR-050, CCLDV-BR-051, CCLDV-BR-052_
+  - **lookup field** "Account number": Required, an 11-digit number other than zeros: 'Account number not provided. Enter the 11-digit account number.' or 'Account filter, if supplied, must be an 11 digit number. Enter digits only.' Both fields empty: 'No input received. Enter the account and card number.' Account is checked before card, and focus moves to the first field in error.
+  - **lookup field** "Card number": Required, a 16-digit number other than zeros: 'Card number not provided. Enter the 16-digit card number.' or 'Card ID filter, if supplied, must be a 16 digit number. Enter digits only.' No card with that number: 'Did not find cards for this search condition. Check the card number.'
+  - **summary card** "Card"
+  - **status badge** "Current status"
+  - _Requirements: CCLDV-REQ-F-044, CCLDV-REQ-F-045, CCLDV-REQ-F-046, CCLDV-REQ-F-047, CCLDV-REQ-F-051, CCLDV-REQ-F-053_
+  - _Rules: CCLDV-BR-043, CCLDV-BR-044, CCLDV-BR-045, CCLDV-BR-046, CCLDV-BR-050, CCLDV-BR-052_
   - _After: CCLDV-C04-T2, CCLDV-C04-T3_
 - [ ] 5. CCLDV-C04-T5 [test-generation] Write a test for every acceptance criterion
   - 33 acceptance criteria, each a test named by its ID.

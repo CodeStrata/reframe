@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-The Authorization details screen for fraud analysts. It shows a selected authorization with its response ('A' in green for '00', otherwise 'D' in red) and its reason as code and description. With PF5 the analyst reports the authorization as fraud or withdraws a fraud report. A toggle must always act on a freshly re-read record: 'F' becomes 'R' (remove fraud) and anything else becomes 'F' (report fraud), and the record goes to fraud processing with its account and customer number.
+Shows a fraud analyst one authorization in full: approved 'A' in green or declined 'D' in red, with the decline reason as '<code>-<description>'. One key toggles its fraud mark, reporting the authorization as fraud ('F') or withdrawing the report ('R'), and passes it on to fraud processing. The toggle must always work from the freshly read record. An unknown reason code must show as '9999-ERROR', never blank.
 
 **User story:** As a fraud analyst, I want to see an authorization's details with its decline reason and toggle its fraud mark, so that suspected fraud can be reported or withdrawn.
 
@@ -17,7 +17,7 @@ The Authorization details screen for fraud analysts. It shows a selected authori
 #### Acceptance criteria
 
 1. When authorization details are being populated, the system shall show the reason as '<code>-<description>' from the decline reason table, or as '9999-ERROR' when the code is not in the table. (rules CAFM-BR-118)
-2. GIVEN One selected authorization with reason code '3100', which is in the decline reason table as 'INVALID CARD', and another with reason code '7777', which is not in the table WHEN Each is shown on the Authorization details screen THEN The first shows reason '3100-INVALID CARD' and the second shows reason '9999-ERROR' (CAFM-C12-AC-06; CAFM-BR-118)
+2. GIVEN One authorization with reason code '4100', which is in the decline reason table, and another with reason code '7777', which is not WHEN Each authorization's details are shown THEN The first shows its reason as '4100-' followed by that code's description from the decline reason table. The second shows '9999-ERROR'. (CAFM-C12-AC-06; CAFM-BR-118)
 
 ### Requirement 2: CAFM-REQ-F-113 (formatting)
 

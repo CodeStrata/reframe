@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Lets an administrator enter a transaction type code and see that type's details, or learn that it is not on file and can be added. The code must be supplied, numeric and non-zero, and it is padded to two digits (for example 5 becomes 05) before the lookup. An invalid code must never trigger a lookup, and only the first error found is shown.
+An administrator enters a transaction type code to find the type they want to maintain. The code must be supplied, numeric and non-zero, and is normalised to two digits with a leading zero before the lookup. The screen then shows the type's details or reports that it was not found and offers to add it. An invalid code must never trigger a lookup, and only the first error found is shown.
 
 **User story:** As an administrator, I want to enter a transaction type code and see its details, so that I can choose the transaction type I need to maintain.
 
@@ -32,21 +32,21 @@ Lets an administrator enter a transaction type code and see that type's details,
 #### Acceptance criteria
 
 1. If the transaction type code is left blank or entered as '*', then the system shall show 'Tran Type code must be supplied.' and keep waiting for a search code without looking anything up. (rules TTRDM-BR-123)
-2. GIVEN The Transaction Type Maintenance screen is waiting for a transaction type to search for WHEN The operator leaves the transaction type code blank, or enters '*', and presses Enter THEN The screen shows 'Tran Type code must be supplied.', no lookup of the transaction type table is made, and the screen keeps waiting for a search code (TTRDM-C16-AC-09; TTRDM-BR-123)
+2. GIVEN The empty search screen asking 'Enter transaction type to be maintained' WHEN The operator leaves the transaction type code blank, or enters '*', and presses Enter THEN The screen shows 'Tran Type code must be supplied.', no lookup is made against the transaction type table, and the screen keeps waiting for a search code (TTRDM-C16-AC-09; TTRDM-BR-123)
 
 ### Requirement 4: TTRDM-REQ-F-111 (business rule)
 
 #### Acceptance criteria
 
 1. If the transaction type code is supplied but is not a number, then the system shall show 'Tran Type code must be numeric.', mark the search code as invalid and not look anything up. (rules TTRDM-BR-124)
-2. GIVEN The Transaction Type Maintenance screen is waiting for a transaction type to search for WHEN The operator enters the transaction type code 'AB' and presses Enter THEN The screen shows 'Tran Type code must be numeric.', the search code is marked as invalid, and no lookup of the transaction type table is made (TTRDM-C16-AC-10; TTRDM-BR-124)
+2. GIVEN The search screen WHEN The operator enters the transaction type code 'AB' and presses Enter THEN The screen shows 'Tran Type code must be numeric.', the search code is marked as invalid, and no lookup is made (TTRDM-C16-AC-10; TTRDM-BR-124)
 
 ### Requirement 5: TTRDM-REQ-F-112 (business rule)
 
 #### Acceptance criteria
 
 1. If the transaction type code is a number equal to zero, then the system shall show 'Tran Type code must not be zero.', mark the search code as invalid and not look anything up. (rules TTRDM-BR-125)
-2. GIVEN The Transaction Type Maintenance screen is waiting for a transaction type to search for WHEN The operator enters the transaction type code '00' and presses Enter THEN The screen shows 'Tran Type code must not be zero.', the search code is marked as invalid, and no lookup of the transaction type table is made (TTRDM-C16-AC-11; TTRDM-BR-125)
+2. GIVEN The search screen WHEN The operator enters the transaction type code '00' (or '0') and presses Enter THEN The screen shows 'Tran Type code must not be zero.', the search code is marked as invalid, and no lookup is made (TTRDM-C16-AC-11; TTRDM-BR-125)
 
 ### Requirement 6: TTRDM-REQ-F-113 (business rule)
 
@@ -61,7 +61,7 @@ Lets an administrator enter a transaction type code and see that type's details,
 #### Acceptance criteria
 
 1. If more than one check fails on the same entry, then the system shall show only the first error message found. (rules TTRDM-BR-127)
-2. GIVEN The Transaction Type Maintenance screen is waiting for a transaction type to search for WHEN The operator submits an entry on which more than one check fails THEN Exactly one error message is shown, and it is the first error message the checks found; no later error message appears with it (TTRDM-C16-AC-12; TTRDM-BR-127)
+2. GIVEN The search screen, with an entry that fails more than one check WHEN The operator presses Enter THEN Exactly one error message is shown, the one from the first check that failed, and the messages from later failing checks are not shown (TTRDM-C16-AC-12; TTRDM-BR-127)
 
 ### Requirement 8: TTRDM-REQ-F-115 (business rule)
 
@@ -82,34 +82,22 @@ Lets an administrator enter a transaction type code and see that type's details,
 
 ### Transaction types (S-TRANTYPE-LIST)
 
-Find transaction types by code or description, correct a description in place, or delete an obsolete type, confirming each change; start adding a new type.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Transaction type (S-TRANTYPE-EDIT)
+### Add or change a transaction type (S-TRANTYPE-EDIT)
 
-Look up a transaction type by code to change its description or delete it, or add a new type when the code is not on file; each save or delete is confirmed and can be cancelled.
+Add a new transaction type or change an existing one's description in one step: enter the code, see its description or start a new one if it is not on file, then save. Replaces the F5 create, Enter check and F5 confirm sequence; delete is the Delete row action on the list.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-EDIT`. Replaces the legacy screens CTRTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Find a transaction type | form | Type code; empty on a fresh start. From Add transaction type, an unknown code goes straight to adding. |  |  | TTRDM-REQ-F-108, TTRDM-REQ-F-109, TTRDM-REQ-F-115 |
-| Type code | text | 2-digit transaction type code, shown with a leading zero (e.g. 07) | Required; a number other than zero. Messages: 'Enter a type code.' (legacy 'Tran Type code must be supplied.'), 'Type code must be a number.' (legacy 'Tran Type code must be numeric.'), 'Type code must not be 00.' (legacy 'Tran Type code must not be zero.'). Only the first problem is shown. |  | TTRDM-REQ-F-110, TTRDM-REQ-F-111, TTRDM-REQ-F-112, TTRDM-REQ-F-113, TTRDM-REQ-F-114 |
-| Find | button | Looks the code up; not available while a delete is being confirmed |  |  | TTRDM-REQ-F-116 |
-
-### Application header and navigation (S-APP-SHELL)
-
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
-
-Prototype: `ui-reference/index.html#/S-APP-SHELL`.
-
-| Component | Type | Shows | Checks | Goes to | Requirements |
-|---|---|---|---|---|---|
-| Maintain a transaction type | link |  |  | S-TRANTYPE-EDIT | TTRDM-REQ-F-108 |
+| Transaction type code | **lookup field** | Two-digit code, stored with a leading zero (1 becomes 01). Search shows the existing description, or 'No record found for this key in database. Enter a description to add it.' and the form switches to adding. Read-only when opened from a list row. | 'Tran Type code must be supplied. Enter a two-digit code.'; 'Tran Type code must be numeric. Enter digits only.'; 'Tran Type code must not be zero. Enter a code from 01 to 99.' Only the first failing check is shown. |  | TTRDM-REQ-F-110, TTRDM-REQ-F-111, TTRDM-REQ-F-112, TTRDM-REQ-F-113, TTRDM-REQ-F-115 |
 
 
 ## Data models
@@ -178,7 +166,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- TTRDM-BR-122: Code validation needs to run before the lookup, as a step in the search action. It applies only when the screen is neither adding a new record nor waiting for confirmation of changes. In those two modes, an Enter press must not re-validate the search code or look it up again.
+- TTRDM-BR-122: The search request needs server-side validation of the type code (supplied, numeric, non-zero) that runs before any database lookup. It applies only when the screen is in search mode, meaning not while adding a new record and not while awaiting confirmation. The validator stops at the first failure. Only a valid code, normalised to two digits, is used as the key for the single-row lookup by primary key.
 
 ## Open questions
 

@@ -6,7 +6,7 @@ Customer Data Setup · Credit Card List Detail View and Update · runs as online
 
 ## Introduction
 
-Writes the confirmed embossed name, active status and expiry date to the card record, keeping its card number and account, and tells the operator whether the save worked. It must never change the card number or account, and must never report success when the write failed.
+After the card operations user confirms, the card record is saved with the new embossed name, active status and expiry date, and the user is told whether the save worked. The card number and account must never change in the save. It must only write when the stored record still matches what was originally shown.
 
 **User story:** As a card operations user, I want my changes to a card's embossed name, active status and expiry date saved to the card record, so that the card holds the updated details and I know whether the save worked.
 
@@ -17,7 +17,7 @@ Writes the confirmed embossed name, active status and expiry date to the card re
 #### Acceptance criteria
 
 1. When the locked card record is unchanged since it was fetched, the system shall rewrite the card with the entered embossed name, active status and expiry date built as year-month-day, keeping the card number and account, and show 'Changes committed to database'. (rules CCLDV-BR-121)
-2. GIVEN card 4111111111111111 on account 00000000001 was fetched with name 'JOHN SMITH', status 'Y' and expiry 2025-03-31; the operator entered name 'JANE SMITH', status 'N', expiry month 12 and year 2027; and the locked card record still matches the fetched values WHEN the operator presses PF5 to save THEN the card record is rewritten with embossed name 'JANE SMITH', active status 'N' and expiry date '2027-12-31', card number 4111111111111111 and account 00000000001 are kept, and the message 'Changes committed to database' is shown (CCLDV-C11-AC-02; CCLDV-BR-121)
+2. GIVEN card 4111111111111111 on account 00000000001 was fetched and validated changes await confirmation with name 'JANE SMITH', status 'N', expiry year '2028', expiry month '06' and the returned expiry day '15', and the locked card record still matches the values originally fetched WHEN the operator presses PF5 and the card is rewritten THEN the card record holds embossed name 'JANE SMITH', active status 'N' and an expiry date built as year-month-day from 2028, 06 and 15, still with card number 4111111111111111 and account 00000000001, and the screen shows 'Changes committed to database' (CCLDV-C11-AC-02; CCLDV-BR-121)
 
 ### Requirement 2: CCLDV-REQ-F-105 (error handling)
 
@@ -30,23 +30,22 @@ Writes the confirmed embossed name, active status and expiry date to the card re
 
 ### Cards (S-CARD-LIST)
 
-Browse and filter credit cards by account and card number, and open a card to view or edit it from its row.
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Card (S-CARD-DETAIL)
+### Card details (S-CARD-DETAIL)
 
-Find a card by account and card number, see its embossed name, expiry date and active status, and edit those details with a confirmation before saving. Replaces the separate view and update screens: the same card is found, shown and edited in one place.
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
 
 Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Save changes to this card? | dialog | Lists each changed value as old and new; Save writes the card, Go back returns to the form with the edits kept. Focus moves into the dialog and returns to Save changes on close. |  |  | CCLDV-REQ-F-104 |
-| Save result | message | Success: 'Changes saved.' with the card shown read-only. Conflict: 'This card was changed by someone else since you opened it. The latest details are shown; make your changes again.' Failure: 'The changes could not be saved. Try again.' |  |  | CCLDV-REQ-F-105 |
+| Save card | **primary button** | Checks name, status, expiry month and expiry year, shows each failing field's message beside it with a summary at the top, and saves when all pass; enabled once a card is found. Results: 'Changes committed to database'; 'Record changed by some one else. Please review' with the stored values reloaded; 'Could not lock record for update' or 'Update of record failed' with 'Changes unsuccessful. Please try again'. Esc discards unsaved edits. | Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year. |  | CCLDV-REQ-F-104 |
 
 
 ## Data models

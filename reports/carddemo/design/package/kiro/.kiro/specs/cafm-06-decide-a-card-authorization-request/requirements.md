@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-The rules that decide each card authorization for the card issuer: look up the card, then its account, customer and pending summary, and approve or decline with a clear reason code. Only known cards may be approved. A card, account or customer that is not found always declines with reason '3100', which takes precedence over insufficient funds ('4100'). Every request gets a reply, even when the card is unknown.
+Decides each card authorization against the card, account and customer records for the card issuer, so only transactions for known cards can be approved. Every request gets a reply. A card not in the cross-reference is declined with reason '3100' and nothing is recorded for it. Reason '3100' (not found) takes precedence over '4100' (insufficient funds), and an approval always carries '0000'.
 
 **User story:** As a card issuer, I want each incoming card authorization request approved or declined against the card, account and customer records, so that only transactions for known cards are approved and every request gets a reply with a clear reason.
 

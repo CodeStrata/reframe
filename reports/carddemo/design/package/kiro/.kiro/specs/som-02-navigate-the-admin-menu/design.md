@@ -4,15 +4,15 @@
 
 ## Overview
 
-The Admin Menu lets administrators pick a numbered option, 1 to 6, to reach the user-security screens (list, add, update and delete users) and the transaction-type maintenance screens. It must check every entry, reject keys and option numbers it does not support with the exact messages, and pass the session on to the chosen screen. Today the menu does not check that the user is an administrator, so the new application must decide on purpose where that admin-only check sits.
+Gives administrators a numbered menu of the user-security and transaction-type maintenance functions and opens the one they choose. It must reject option numbers outside 1–6 and unsupported keys with the exact legacy messages. If a chosen function is missing it must say 'This option is not installed ...' and not fail. Note that the legacy menu does not re-check that the user is an administrator: it relies on sign-on for that.
 
-Runs as online. Journeys: J18, J19, J20.
+Runs as online. Journeys: J15, J16, J17.
 
 ## Screens and components
 
 ### Sign in (S-SIGN-IN)
 
-Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+Sign in to CardDemo with a user ID and password. Administrators and regular users both land on Home, which shows the functions their role allows.
 
 Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
 
@@ -21,19 +21,18 @@ Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COS
 
 ### Home (S-HOME)
 
-One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+Landing page after sign-in. It lists every function the signed-in role may use as links, and replaces the numbered Main Menu, the Admin Menu and the typed option number.
 
 Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Home | page | Requires a signed-in session; otherwise opens Sign in |  |  | SOM-REQ-F-004 |
-| Functions | list | The functions the signed-in user may use, as links in menu order with their names; only functions for the user type are shown, so admin-only functions are never offered to regular users and administration is open only to administrators. Functions not yet available are shown disabled with their status. | Only listed functions can be opened, so no option number can be wrong; a request for a function that does not exist shows 'Please enter a valid option number...'; a regular user requesting an admin-only function gets 'No access - Admin Only option... ' |  | SOM-REQ-F-005, SOM-REQ-F-006, SOM-REQ-F-008, SOM-REQ-F-009, SOM-REQ-F-011, SOM-REQ-N-001 |
-| Home messages | message | Status for a function that cannot open: 'This option is not installed ...' or 'This option <name> is coming soon ...'; unassigned keys are ignored. Sign out is in the header user menu. | An unsupported action shows 'Invalid key pressed. Please see below...' |  | SOM-REQ-F-007, SOM-REQ-F-010 |
+| Functions | **data table** | One row per function, in the legacy order. Regular users see Account view, Account update, Credit card list, Credit card view, Credit card update, Transaction list, Transaction view, Transaction add, Transaction reports, Bill payment and Pending authorization view. Administrators see Users, Add user, Update user, Delete user, Transaction type list and Transaction type maintenance. Each row shows the name, a one-line description and its availability, and opens the function on Enter or click. | Only the functions the role may use are listed, so the 'Please enter a valid option number...' error cannot happen. If a regular user still reaches an administrator function, the server refuses it with 'No access - Admin Only option... '. A coming-soon row opens nothing and says 'This option <name> is coming soon ...'. A function that is not installed opens nothing and says 'This option <name> is not installed...'. Only Enter and click act on a row, so the 'Invalid key pressed. Please see below...' message is no longer needed. | S-USER-LIST | SOM-REQ-F-004, SOM-REQ-F-005, SOM-REQ-F-006, SOM-REQ-F-007, SOM-REQ-F-008, SOM-REQ-F-009 |
+| Availability | **status badge** | One badge per function: Active means available, Inactive means 'Coming soon' and Blocked means 'Not installed'. The word is always shown, never colour alone. |  |  | SOM-REQ-F-010, SOM-REQ-F-011 |
 
 ### Users (S-USER-LIST)
 
-Find users and act on them: search by User ID, page through a table of users, and edit or delete a user from its row; add a new user from here.
+Find a user and act on them. A searchable, paged table of all users has Edit and Delete actions on each row, plus Add user. It replaces the typed U and D selection codes and the F7 and F8 paging keys.
 
 Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens COUSR0A.
 
@@ -42,7 +41,7 @@ Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens C
 
 ### Add user (S-USER-ADD)
 
-Create a user with name, User ID, password and user type so the person can sign in.
+Create a user profile so a new person can sign in. The form clears after each add, so several users can be added in a row.
 
 Prototype: `ui-reference/index.html#/S-USER-ADD`. Replaces the legacy screens COUSR1A.
 
@@ -51,7 +50,7 @@ Prototype: `ui-reference/index.html#/S-USER-ADD`. Replaces the legacy screens CO
 
 ### Update user (S-USER-EDIT)
 
-Change a user's name, password or user type. Opens with the user already loaded when chosen from the list; another user can be looked up by User ID.
+Correct a user's name, password or user type. It opens already filled in from the Users table; you can also type a user ID to look up another user.
 
 Prototype: `ui-reference/index.html#/S-USER-EDIT`. Replaces the legacy screens COUSR2A.
 
@@ -60,12 +59,22 @@ Prototype: `ui-reference/index.html#/S-USER-EDIT`. Replaces the legacy screens C
 
 ### Delete user (S-USER-DELETE)
 
-Check a user's name and type and delete them so they can no longer sign in; deletion is confirmed in a dialog (new).
+Remove a user who should no longer have access. The screen shows who will be deleted and asks for confirmation; the confirmation is new, because the legacy deleted on PF5 without asking.
 
 Prototype: `ui-reference/index.html#/S-USER-DELETE`. Replaces the legacy screens COUSR3A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
+
+### CardDemo header and navigation (S-APP-HEADER)
+
+New, shared by every screen: shows the application and page title, the signed-in user, today's date and the time once, with the way back to the main menu. It replaces the transaction, program, date, time and title lines that every 3270 screen repeated.
+
+Prototype: `ui-reference/index.html#/S-APP-HEADER`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Navigation | **data table** | The functions the signed-in role may use, as one list of links grouped Account, Card, Transaction, Bill payment and Reports. Administrators also get User administration (Users, Add user) and Transaction types. The current screen is marked. Esc goes back one screen, to the screen that opened this one or to Home. | Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home. | S-HOME | SOM-REQ-N-001 |
 
 
 ## Data models
@@ -134,7 +143,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- SOM-BR-006: Before validating, normalise the option field to a two-digit number: trim trailing spaces, right-align the value and left-pad it with zeros, so ' 3' or '3' becomes '03'. Show the normalised value back in the option field. In a modern form, parsing the trimmed input as an integer and showing it padded to two digits gives the same result; text that is not a number must still fail the option-number check.
+- SOM-BR-006: Normalise the option input before validating it: trim trailing blanks, then left-pad it to two digits with zeros (for example '1' or ' 1' becomes '01'), and echo the normalised value back in the option field. In a modern form, accept up to two digits and parse them as an integer. The echoed value must be the two-digit form.
 
 ## Open questions
 

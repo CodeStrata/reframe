@@ -24,10 +24,10 @@ None found in the source.
 
 ## Design notes
 
-- TTRDM-BR-159: The new application needs versioned backup storage for the transaction type reference data, such as dated snapshots or object versions. It must keep at most 5 versions and remove the oldest automatically when a sixth is written. The retention policy has to exist before any backup is written.
-- TTRDM-BR-160: This is a setup step that runs only after the retention policy step succeeds. It copies the current transaction type extract (60-character records) into the first backup version and records it so later jobs can find it.
-- TTRDM-BR-161: This setup step runs only if every earlier step succeeded. It snapshots the current transaction category extract (60-character records) as the first backup version of the category data.
-- TTRDM-BR-162: This setup step runs only if every earlier step succeeded. It snapshots the current disclosure group extract (50-character records) as the first backup version of the disclosure group data.
+- TTRDM-BR-159: A versioned backup location for transaction type snapshots, such as a versioned object-store prefix or a backup table keyed by snapshot date. It needs a retention policy that keeps the five newest versions and removes the oldest when a sixth is written. It must exist before the first snapshot is taken.
+- TTRDM-BR-160: A job step that runs only when the backup location was set up successfully. It writes a first snapshot of the current transaction type reference data, unchanged and in its 60-character record layout, as a new recorded version in that location.
+- TTRDM-BR-161: A job step that runs only when every earlier step succeeded. It writes a first snapshot of the current transaction category reference data, unchanged and in its 60-character record layout, as a new recorded version in the category backup location.
+- TTRDM-BR-162: A job step that runs only when every earlier step succeeded. It writes a first snapshot of the current disclosure group reference data, unchanged and in its 50-character record layout, as a new recorded version in the disclosure group backup location.
 
 ## Decision tables
 

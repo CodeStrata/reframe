@@ -10,10 +10,5 @@ Each task names the role that does it; the role files are in .claude/agents/.
 - [ ] TTRDM-C14-T2 [business-rules] Implement the business rules. Requirements: TTRDM-REQ-F-103, TTRDM-REQ-F-104, TTRDM-REQ-F-105. Rules: TTRDM-BR-116, TTRDM-BR-117, TTRDM-BR-118. After: TTRDM-C14-T1.
   - Keep each business rule exactly as specified.
   - Ask the owner before carrying the historical artifacts: TTRDM-BR-118.
-- [ ] TTRDM-C14-T3 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT). Requirements: TTRDM-REQ-F-103, TTRDM-REQ-F-104, TTRDM-REQ-F-105. Rules: TTRDM-BR-116, TTRDM-BR-117, TTRDM-BR-118. After: TTRDM-C14-T2.
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - button "Cancel"
-  - dialog "Save this transaction type?"
-  - dialog "Delete this transaction type?"
-- [ ] TTRDM-C14-T4 [test-generation] Write a test for every acceptance criterion. Requirements: TTRDM-REQ-F-103, TTRDM-REQ-F-104, TTRDM-REQ-F-105. Criteria: TTRDM-C14-AC-01, TTRDM-C14-AC-02, TTRDM-C14-AC-03. After: TTRDM-C14-T1, TTRDM-C14-T2, TTRDM-C14-T3.
+- [ ] TTRDM-C14-T3 [test-generation] Write a test for every acceptance criterion. Requirements: TTRDM-REQ-F-103, TTRDM-REQ-F-104, TTRDM-REQ-F-105. Criteria: TTRDM-C14-AC-01, TTRDM-C14-AC-02, TTRDM-C14-AC-03. After: TTRDM-C14-T1, TTRDM-C14-T2.
   - 3 acceptance criteria, each a test named by its ID.

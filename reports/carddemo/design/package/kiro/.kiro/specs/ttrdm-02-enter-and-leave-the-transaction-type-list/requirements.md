@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Controls how administrators get into and out of the transaction type list. Each arrival from the admin menu or from the transaction type add/update screen starts a clean list on page 1 with no filters or selections, and leaving returns the user to where they came from, or to the admin menu. The list must never carry stale filters, selections or a pending action over from an earlier visit.
+Administrators reach the transaction type list from the admin menu (option 5) or come back to it from the add/change screen. Each time they arrive from elsewhere the list must start clean: no leftover filters, row selections or paging, showing page 1. Leaving the list must take them back to where they came from, or to the admin menu when there is no other caller.
 
 **User story:** As an administrator, I want the transaction type list to start fresh when I arrive and return me to where I came from when I leave, so that I always begin from a clean, predictable view.
 

@@ -18,13 +18,13 @@ Runs as online.
 
 ### Transaction reports (S-REPORT-REQUEST)
 
-Choose a monthly, yearly or custom period and submit the transaction report for printing after confirming.
+Submit a monthly, yearly or custom-period transaction report for printing. The report type is a single choice, the custom dates appear only for Custom, and submission is confirmed in a dialog. Tab order: report type, start date, end date, Submit report.
 
 Prototype: `ui-reference/index.html#/S-REPORT-REQUEST`. Replaces the legacy screens CORPT0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Report period | radio | Monthly (this month), Yearly (this year) or Custom; one choice only | Required: 'Select a report type to print report...'. |  | OATM-REQ-F-171, OATM-REQ-F-172 |
+| Report type | **summary card** | One choice of Monthly (current month), Yearly (current year) or Custom (dates below); the derived period is shown beside Monthly and Yearly, e.g. 01 Nov 2026 to 30 Nov 2026 | None chosen: 'Select a report type to print report...' - choose Monthly, Yearly or Custom. |  | OATM-REQ-F-171, OATM-REQ-F-172 |
 
 
 ## Data model

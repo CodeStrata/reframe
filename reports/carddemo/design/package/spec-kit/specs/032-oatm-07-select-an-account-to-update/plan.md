@@ -16,17 +16,24 @@ Runs as online.
 
 ## Screens
 
+### Account (S-ACCOUNT-VIEW)
+
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
+
+Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Update account (S-ACCOUNT-EDIT)
 
-Fetch an account, change its account and customer details in one form, see every error at its field, and save both records together only after reviewing the changes.
+Change an account's and its customer's details after confirming the caller. Each field is checked as it is left and again on save; every failing field shows its own message and a summary lists them all. Save asks for confirmation, listing each change from old to new value. Tab order: account and status, dates, amounts, customer identity, name and address, contact, then Save changes.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-EDIT`. Replaces the legacy screens CACTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Account number | search | 11-digit account number; the only editable field until an account is fetched | Required: 'No input received' when blank; 'Account Number if supplied must be a 11 digit Non-Zero Number' when not numeric or all zeros; 'Account:<number> not found in Cross ref file' when the account has no card cross-reference. |  | OATM-REQ-F-062, OATM-REQ-F-063, OATM-REQ-F-064 |
-| Fetch account | button |  |  |  | OATM-REQ-F-067 |
-| Discard changes | button | Re-fetches the stored values; available once an account is fetched |  |  | OATM-REQ-F-067 |
+| Account number | **lookup field** | Pre-filled from the account in context; editable to fetch another account. Account number and customer ID are shown read-only once fetched | Blank: 'No input received' - enter an account number. Not 11 digits or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number'. Not in the card cross-reference: 'Account:<account> not found in Cross ref file.' - check the number with the caller. Only the account number is checked until an account is fetched. |  | OATM-REQ-F-062, OATM-REQ-F-063, OATM-REQ-F-064, OATM-REQ-F-065, OATM-REQ-F-066, OATM-REQ-F-067 |
 
 
 ## Data model
@@ -121,7 +128,7 @@ Record `CUSTOMER-RECORD`:
 
 ## Design notes
 
-- OATM-BR-061: Input binding for the account number: blank or '*' becomes null (not supplied), otherwise the entered text is kept as the search key for the account-number validation.
+- OATM-BR-061: Treat a blank or '*' account number as absent (null); otherwise use it as the search key. Validation then decides between 'No input received' and the 11-digit check.
 
 ## Decision tables
 

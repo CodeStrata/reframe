@@ -27,11 +27,11 @@ No screens: it runs as scheduled job.
 
 ## Design notes
 
-- CAFM-BR-185: The export reads summaries one after another in storage order until there are none left, and finishes each summary (including its details) before moving to the next. A streaming or paged ordered scan is fine; loading everything into memory is not required.
-- CAFM-BR-187: Each summary goes to the summary export file as its full 100-byte record image, unchanged, so the file can be reloaded as it is. If the new store changes the summary layout, an explicit fixed 100-byte export format must be defined to keep compatibility.
-- CAFM-BR-189: End of summaries is the normal finish: close both export files and end the job successfully.
-- CAFM-BR-191: Each detail goes to the detail export file as a 206-byte record: the parent account id (6-byte packed decimal) followed by the 200-byte detail image. The account prefix is what links each detail back to its summary on reload, so it must always be present.
-- CAFM-BR-192: Running out of details for the current summary is normal: log 'CHILD SEG FLAG GE : ' with the end flag and continue with the next summary, without treating it as an error.
+- CAFM-BR-185: The job walks all summaries one by one in a stable order (by account id), finishing each summary and its details before moving to the next; stream the results rather than loading them all into memory.
+- CAFM-BR-187: The summary file holds one fixed 100-byte record per summary, the summary exactly as stored. The new application needs a defined summary export layout of the same fields, byte-compatible with the legacy layout for as long as anything still reads these files.
+- CAFM-BR-189: When there are no more summaries, the job closes both output files and ends normally (return code 0); reaching the end of the data is not an error.
+- CAFM-BR-191: The detail file holds one fixed 206-byte record per detail: the parent account id (6 bytes, packed decimal in the legacy layout) followed by the 200-byte detail as stored. The account id prefix is what lets a reload attach each detail to its summary, so the new export must always carry it; keep packed decimal only while legacy consumers need it.
+- CAFM-BR-192: Running out of details for a summary is a normal step: log 'CHILD SEG FLAG GE : ' with the end flag and continue with the next summary.
 
 ## Decision tables
 

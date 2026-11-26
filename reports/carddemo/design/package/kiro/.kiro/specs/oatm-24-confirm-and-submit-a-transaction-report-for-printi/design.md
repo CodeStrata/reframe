@@ -4,7 +4,7 @@
 
 ## Overview
 
-Asks the user to confirm a validated transaction report request. On 'Y' or 'y' it submits the report job to the batch queue with the start and end dates as its parameters, and tells the user in green that the report was submitted. It must never submit without an explicit 'Y' or 'y', and it must report a failure to queue the job instead of claiming success.
+Asks the user to confirm a validated report request. Only on 'Y' or 'y' is the transaction report job sent to the batch queue with the chosen start and end dates. The user is then told in green that the report was submitted for printing. A job must never be submitted without explicit confirmation or with any dates other than the ones requested.
 
 Runs as online. Journeys: J06.
 
@@ -12,14 +12,13 @@ Runs as online. Journeys: J06.
 
 ### Transaction reports (S-REPORT-REQUEST)
 
-Choose a monthly, yearly or custom period and submit the transaction report for printing after confirming.
+Submit a monthly, yearly or custom-period transaction report for printing. The report type is a single choice, the custom dates appear only for Custom, and submission is confirmed in a dialog. Tab order: report type, start date, end date, Submit report.
 
 Prototype: `ui-reference/index.html#/S-REPORT-REQUEST`. Replaces the legacy screens CORPT0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Print this report? | dialog | 'Please confirm to print the <report name> report...' with its period. Print submits the job; Cancel clears the form and submits nothing. Buttons replace typing Y/N, so the 'is not a valid value to confirm...' error cannot arise. |  |  | OATM-REQ-F-187, OATM-REQ-F-188, OATM-REQ-F-190 |
-| Submission result | message | Success in green: '<report name> report submitted for printing ...' and the form clears; failure: 'Unable to Write TDQ (JOBS)...' |  |  | OATM-REQ-F-193, OATM-REQ-F-194 |
+| Submit report | **primary button** | Opens a confirmation dialog: 'The <Monthly/Yearly/Custom> report for <start> to <end> will be submitted for printing.' with Submit and Cancel; success shows '<report name> report submitted for printing ...' and clears the form | The dialog offers only Submit or Cancel, replacing the typed confirmation and its messages 'Please confirm to print the <report name> report...' and '"<value>" is not a valid value to confirm...'. If the job cannot be queued, the message says the report was not submitted and to try again. |  | OATM-REQ-F-187, OATM-REQ-F-188, OATM-REQ-F-189, OATM-REQ-F-190, OATM-REQ-F-191, OATM-REQ-F-192, OATM-REQ-F-193, OATM-REQ-F-194 |
 
 
 ## Data models
@@ -67,7 +66,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- OATM-BR-200: The report job needs the start and end dates as YYYY-MM-DD parameters, plus a combined 'YYYY-MM-DD YYYY-MM-DD' date value. The new application should pass these as named parameters on the job submission request (for example, a message to the batch scheduler or a job-run API). It should not edit a job script text.
+- OATM-BR-200: The report job takes its period as two parameters, a start date and an end date, each in YYYY-MM-DD form. In the legacy job these are also passed together as the single string 'YYYY-MM-DD YYYY-MM-DD'. The new application should send these as typed parameters on the request it submits to the scheduled or queued transaction-report job, so that the batch run filters transactions to exactly that inclusive range.
 
 ## Open questions
 

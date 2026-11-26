@@ -12,9 +12,9 @@
   - _After: TTRDM-C06-T1_
 - [ ] 3. TTRDM-C06-T3 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - link "Transaction types"
-  - _Requirements: TTRDM-REQ-N-003_
-  - _Rules: TTRDM-BR-060_
+  - **data table** "Transaction types"
+  - _Requirements: TTRDM-REQ-N-002, TTRDM-REQ-N-003_
+  - _Rules: TTRDM-BR-059, TTRDM-BR-060_
   - _After: TTRDM-C06-T2_
 - [ ] 4. TTRDM-C06-T4 [test-generation] Write a test for every acceptance criterion
   - 2 acceptance criteria, each a test named by its ID.

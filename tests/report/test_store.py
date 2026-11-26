@@ -243,6 +243,10 @@ class StoreTest(unittest.TestCase):
                                  "demo/old111/manifest.json": json.dumps({"project": "demo", "run": "old111", "published_at": "2026-11-20"}).encode()})
         self.assertEqual([r["path"] for r in self.store.reports()], ["demo/old111"])
         self.assertEqual(self.store.download("demo/old111").read_text(), "<h1>old</h1>")
+        # published again in the new layout: listed once, opened from reports/
+        self.store.upload(self.copy("old111", published="2026-11-26"), "demo", "old111")
+        self.assertEqual([(r["path"], r["published_at"]) for r in self.store.reports()], [("demo/old111", "2026-11-26")])
+        self.assertEqual(self.store.download("demo/old111", Path(self.tmp.name) / "again").read_text(), "<h1>demo old111</h1>")
 
 
 if __name__ == "__main__":

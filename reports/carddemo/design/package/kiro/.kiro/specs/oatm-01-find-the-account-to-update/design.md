@@ -4,22 +4,30 @@
 
 ## Overview
 
-Lets an operator enter an account id and fetches the linked card cross-reference, account and customer records so the details can be reviewed and updated. It records what was fetched as the original snapshot that later change detection and the concurrency check compare against. It must never present or update details for an account or customer that was not actually found, and must stop at the first missing record with the right message.
+Lets an operator enter an account number and brings up that account with its linked card and customer, so they can review and update the right records. The account is found through the card cross-reference, which gives the customer and card for the session. After that the account and customer records are read. It must never show or update a customer who is not linked to the account entered. When a lookup fails, it must stop and say which record was missing or could not be read.
 
 Runs as online. Journeys: J02.
 
 ## Screens and components
 
+### Account (S-ACCOUNT-VIEW)
+
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
+
+Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Update account (S-ACCOUNT-EDIT)
 
-Fetch an account, change its account and customer details in one form, see every error at its field, and save both records together only after reviewing the changes.
+Change an account's and its customer's details after confirming the caller. Each field is checked as it is left and again on save; every failing field shows its own message and a summary lists them all. Save asks for confirmation, listing each change from old to new value. Tab order: account and status, dates, amounts, customer identity, name and address, contact, then Save changes.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-EDIT`. Replaces the legacy screens CACTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Account number | search | 11-digit account number; the only editable field until an account is fetched | Required: 'No input received' when blank; 'Account Number if supplied must be a 11 digit Non-Zero Number' when not numeric or all zeros; 'Account:<number> not found in Cross ref file' when the account has no card cross-reference. |  |  |
-| Guidance | message | 'Enter or update id of account to update' before an account is fetched; then 'Update account details presented above.' and, once checked, a prompt to review and save |  |  | OATM-REQ-F-001, OATM-REQ-F-002, OATM-REQ-F-003 |
+| Account number | **lookup field** | Pre-filled from the account in context; editable to fetch another account. Account number and customer ID are shown read-only once fetched | Blank: 'No input received' - enter an account number. Not 11 digits or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number'. Not in the card cross-reference: 'Account:<account> not found in Cross ref file.' - check the number with the caller. Only the account number is checked until an account is fetched. |  | OATM-REQ-F-001, OATM-REQ-F-002, OATM-REQ-F-003, OATM-REQ-F-004, OATM-REQ-F-005, OATM-REQ-F-006, OATM-REQ-F-007, OATM-REQ-F-008, OATM-REQ-F-009, OATM-REQ-F-010, OATM-REQ-F-011, OATM-REQ-F-012, OATM-REQ-F-013 |
 
 
 ## Data models
@@ -172,11 +180,11 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- OATM-BR-004: Needs a keyed lookup from account id to its card link (customer id and card number), via an index on account id over the card-account-customer cross-reference; the customer id it returns drives the customer read, and the card number is kept in the session.
-- OATM-BR-007: Needs a read of the account record by its account id primary key; a successful read sets an 'account found' state that the screen uses to decide whether account fields can be shown.
-- OATM-BR-010: Needs a read of the customer record by the customer id taken from the cross-reference; a successful read sets a 'customer found' state used for showing customer fields.
-- OATM-BR-013: Keep account id, customer id, customer names, account status and card number in the operator's server-side session (or a signed request token) so they carry over between screen submissions and to the next screen.
-- OATM-BR-014: Store an immutable snapshot of the fetched account and customer values for the session, with open, expiry, reissue and birth dates held as year, month and day parts; it is the baseline for change detection and for the optimistic check that nobody else changed the record before save (a version or timestamp column can serve the same purpose).
+- OATM-BR-004: Look up the card-to-account cross-reference by account ID (a secondary index on account ID, not the card number). The result gives the customer ID and card number, and the following account and customer reads use them. Keep them in the operator's update session.
+- OATM-BR-007: Read the account record by its primary key, the 11-digit account ID, and mark the account as found when it exists. Keep 'not found' separate from other read failures: each has its own message.
+- OATM-BR-010: Read the customer record by its primary key, using the customer ID taken from the cross-reference, and mark the customer as found when it exists. Keep 'not found' separate from other read failures.
+- OATM-BR-013: Keep the account ID, customer ID, customer names, account status and card number in the operator's update session (server-side state or a signed token). This context must survive across requests until the update is saved or cancelled.
+- OATM-BR-014: Keep a snapshot of the account and customer values as fetched. Change detection and the 'changed by someone else' check on save both compare against it. Hold dates as real dates; the screen may still show and edit the open, expiry, reissue and birth dates as separate year, month and day parts. A version number or timestamp on each record can replace the field-by-field snapshot comparison.
 
 ## Open questions
 
@@ -186,4 +194,4 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Testing
 
-Every acceptance criterion in requirements.md is a test named by its ID (15 in all).
+Every acceptance criterion in requirements.md is a test named by its ID (14 in all).

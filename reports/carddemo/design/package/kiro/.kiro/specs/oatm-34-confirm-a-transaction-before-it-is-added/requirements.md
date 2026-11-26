@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Makes the operator explicitly confirm a validated transaction before it is added. 'N', 'n' or blank asks 'Confirm to add this transaction...'. Any value other than Y/y, N/n or blank gets 'Invalid value. Valid values are (Y/N)...'. No transaction may ever be added without an explicit 'Y' or 'y'.
+Makes the operator explicitly confirm a valid transaction before it is added. 'Y' or 'y' adds it. 'N', 'n' or blank asks 'Confirm to add this transaction...', and any other value gets 'Invalid value. Valid values are (Y/N)...'. No transaction may ever be added without an explicit 'Y'.
 
 **User story:** As an operator entering a transaction, I want the system to ask me to confirm before adding it and to reject an invalid confirmation, so that no transaction is added without my explicit confirmation.
 

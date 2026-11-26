@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-A shared date check used by the report date range and Add Transaction screens. It tests a 10-character date against a 10-character format mask and returns a severity, a message number and a reason such as 'Date is valid', 'Datevalue error' or 'Invalid month'. Callers treat the date as invalid when the severity is not 0000, unless the message number is 2513. Real dates must be accepted and impossible dates rejected.
+A shared date-check service used by the screens that accept dates (transaction add, report date range). It checks a date against its format mask and returns a severity, a message code and a short reason such as 'Date is valid' or 'Datevalue error'. Callers must treat a date as invalid whenever the severity is not '0000' and the message number is not '2513', so impossible dates are never accepted.
 
 **User story:** As a screen that accepts dates (report date range, transaction add), I want a date checked against its format mask with a clear result and reason, so that invalid dates are rejected with a meaningful error.
 
@@ -17,14 +17,14 @@ A shared date check used by the report date range and Add Transaction screens. I
 #### Acceptance criteria
 
 1. The system shall pass the caller's 10-character date and 10-character format mask to the date conversion service (CEEDAYS) and record the returned severity and message number as 4-digit values in its result. (rules OATM-BR-303)
-2. GIVEN a caller supplies the date '2024-02-30' and the format mask 'YYYY-MM-DD' WHEN the date check runs THEN exactly that 10-character date and 10-character mask are what is checked, and the result records the severity and message number as 4-digit values (for a bad date value: severity 0003, message number 2508) (OATM-C35-AC-12; OATM-BR-303)
+2. GIVEN a caller passes the date '2024-02-30' and the mask 'YYYY-MM-DD', each 10 characters WHEN the date-check service runs THEN the date and the mask are submitted to the date conversion together, and the result records the returned severity and message number as 4-digit values (here severity 0003, message 2508) (OATM-C35-AC-12; OATM-BR-303)
 
 ### Requirement 2: OATM-REQ-F-287 (design note)
 
 #### Acceptance criteria
 
 1. The system shall return an 80-character result made of the severity, 'Mesg Code:', the message number, the result text, 'TstDate:' with the tested date and 'Mask used:' with the mask, and shall set the program return code to the severity. (rules OATM-BR-304)
-2. GIVEN a caller supplies the date '2024-02-30' and the format mask 'YYYY-MM-DD' WHEN the date check returns THEN the 80-character result contains, in order, the severity, 'Mesg Code:', the message number, the result text, 'TstDate:' with 2024-02-30 and 'Mask used:' with YYYY-MM-DD, and the return code equals the severity (OATM-C35-AC-13; OATM-BR-304)
+2. GIVEN a caller passes the date '2024-02-30' and the mask 'YYYY-MM-DD', and the conversion reports severity 3, message 2508 WHEN the date-check service returns THEN the 80-character result contains, in order, severity '0003', 'Mesg Code:', message number '2508', the result text 'Datevalue error', 'TstDate:' followed by '2024-02-30', and 'Mask used:' followed by 'YYYY-MM-DD', and the return code is 3 (OATM-C35-AC-13; OATM-BR-304)
 
 ### Requirement 3: OATM-REQ-F-288 (business rule)
 
@@ -45,7 +45,7 @@ A shared date check used by the report date range and Add Transaction screens. I
 #### Acceptance criteria
 
 1. If the date conversion service reports a bad date value (feedback X'000309CC59C3C5C5', severity 3, message 2508), then the system shall set the result text to 'Datevalue error'. (rules OATM-BR-307)
-2. GIVEN a date that the date conversion service reports as a bad date value (feedback X'000309CC59C3C5C5', severity 3, message 2508) WHEN the date check runs THEN the result text is 'Datevalue error' (OATM-C35-AC-14; OATM-BR-307)
+2. GIVEN the date conversion reports feedback X'000309CC59C3C5C5' (severity 3, message 2508) for the date and mask given WHEN the date-check service sets its result text THEN the result text is 'Datevalue error' (OATM-C35-AC-14; OATM-BR-307)
 
 ### Requirement 6: OATM-REQ-F-291 (business rule)
 
@@ -106,20 +106,29 @@ A shared date check used by the report date range and Add Transaction screens. I
 
 ## Screens and components
 
-### Add transaction (S-TRANSACTION-ADD)
+### Transaction reports (S-REPORT-REQUEST)
 
-Enter a transaction against an account or card, see what to fix at each field, confirm the summary and record it.
+Submit a monthly, yearly or custom-period transaction report for printing. The report type is a single choice, the custom dates appear only for Custom, and submission is confirmed in a dialog. Tab order: report type, start date, end date, Submit report.
 
-Prototype: `ui-reference/index.html#/S-TRANSACTION-ADD`. Replaces the legacy screens COTRN2A.
+Prototype: `ui-reference/index.html#/S-REPORT-REQUEST`. Replaces the legacy screens CORPT0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Transaction reports (S-REPORT-REQUEST)
+### Transactions (S-TRANSACTION-LIST)
 
-Choose a monthly, yearly or custom period and submit the transaction report for printing after confirming.
+Browse transactions in a sortable, paged table or jump to a transaction ID, and open one with Enter or a click instead of typing S beside it. Tab order: search, table, pager, Add transaction.
 
-Prototype: `ui-reference/index.html#/S-REPORT-REQUEST`. Replaces the legacy screens CORPT0A.
+Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy screens COTRN0A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
+### Add transaction (S-TRANSACTION-ADD)
+
+Record a new transaction against an account or card, every field checked before it is added. One field takes the account or the card number; the resolved account and card show at once. Tab order: account or card, transaction details, merchant, Add transaction.
+
+Prototype: `ui-reference/index.html#/S-TRANSACTION-ADD`. Replaces the legacy screens COTRN2A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
@@ -185,8 +194,8 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- OATM-BR-303: Provide a reusable date-validation function that takes a date string and a format pattern and returns a structured result: a 4-digit severity, a 4-digit message number and a reason. Implement it with the platform's standard strict date parsing, which rejects impossible dates. Map outcomes to the legacy message numbers (2507, 2508, 2509, 2513, 2517, 2518, 2521) where callers depend on them, for example the 2513 exception.
-- OATM-BR-304: Return the result as a structured value (severity, message number, result text, tested date, mask used) with severity as the outcome code. Keep a formatter that renders the legacy 80-character text ('Mesg Code:', 'TstDate:', 'Mask used:') only if a consumer still needs that exact layout.
+- OATM-BR-303: Expose date validation as one shared function or service that takes a date string and a format mask and returns a structured result (severity, message code, reason). Implement it with the platform's standard date-parsing library instead of the mainframe date service, and keep the legacy severity/message codes (0000, 2508, 2513 and so on) only as far as callers need them to tell valid from invalid.
+- OATM-BR-304: Callers need a result they can test: a severity/status, a message code, the reason text, and the tested date and mask for diagnostics. A typed result object replaces the fixed 80-character string and the program return code. Keep the layout only if a remaining legacy consumer still reads it.
 
 ## Open questions
 

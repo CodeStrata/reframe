@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Makes the maintenance screen show the right values and guidance message for each step, such as 'Enter transaction type to be maintained' or 'Update transaction type details shown.'. In states where the stored record is being reviewed or has just been deleted, it must show the values on file; in states where the administrator is editing, it must show what they entered. It must never show typed values as if they were the values on file.
+The add/change transaction type screen shows the right values and guidance message for each step: asking for a code, editing a found type, confirming a save, or after a delete. Where the record was just read, deleted or a change cancelled, it must show the values stored on file, not stale typed values; while the user is entering changes, it must keep what they typed.
 
 **User story:** As an administrator, I want the maintenance screen to show the right values and guidance message for where I am in the process, so that I know what to do next.
 
@@ -54,7 +54,7 @@ Makes the maintenance screen show the right values and guidance message for each
 #### Acceptance criteria
 
 1. When the screen is redisplayed after the first entry and the state is record shown ('S'), awaiting delete confirmation ('9'), delete failed ('6'), delete done ('7'), update cancelled ('B') or any state without its own display rule, the system shall show the code and description as stored on the table, discarding typed values and clearing description error marks. (rules TTRDM-BR-107)
-2. GIVEN type '01' is stored with description 'Purchase', the screen is past its first entry, and the administrator has typed 'Purch@se' in the description, which was marked in error WHEN the screen is redisplayed in state record shown ('S'), awaiting delete confirmation ('9'), delete failed ('6'), delete done ('7') or update cancelled ('B') THEN the screen shows code '01' and description 'Purchase' as stored, the typed 'Purch@se' is discarded and the description error mark is cleared (TTRDM-C12-AC-12; TTRDM-BR-107)
+2. GIVEN Transaction type '01' is stored with description 'Purchase', the user has typed 'Retail Purchase' in the description, which was marked in error, and the screen is in the update-cancelled state ('B') WHEN The maintenance screen is redisplayed THEN The screen shows code '01' and description 'Purchase' as stored, the typed 'Retail Purchase' is discarded and the description error mark is cleared; the same holds in the record-shown ('S'), awaiting-delete-confirmation ('9'), delete-failed ('6') and delete-done ('7') states (TTRDM-C12-AC-12; TTRDM-BR-107)
 
 ### Requirement 7: TTRDM-REQ-F-097 (formatting)
 

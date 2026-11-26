@@ -6,7 +6,7 @@ User Access Control · System Operations and Maintenance · runs as online · ri
 
 ## Introduction
 
-The Main Menu is the home screen for signed-on users. It lists 11 numbered options and takes the user to the chosen function, and PF3 returns them to sign-on. It must never show a menu without an active session, never let a regular user into an admin-only option, and never route an invalid choice anywhere. Its messages must be exact, including the 'not installed' message for the Pending Authorization View when that view is not available.
+Is the home menu for every signed-on user. It lists the 11 card, account, transaction, report, bill-payment and authorization functions and opens the one chosen. It must never open without a signed-on session: such visitors go back to sign-on. It must never let a regular user open an admin-only option, and it must reject invalid options and keys with the exact legacy messages.
 
 **User story:** As a signed-on user, I want to pick a numbered option from the Main Menu, so that I reach the functions I am allowed to use and am kept out of admin-only ones.
 
@@ -43,7 +43,7 @@ The Main Menu is the home screen for signed-on users. It lists 11 numbered optio
 #### Acceptance criteria
 
 1. The system shall show one Main Menu line per menu option (11 options), each made of the option number, '. ' and the option name, in the screen slot for that option's position. (rules SOM-BR-018)
-2. GIVEN a signed-on user and the menu option table with 11 options WHEN the Main Menu is displayed THEN 11 option lines are shown, each in the slot for its position, each written as the option number followed by '. ' and the option name (for example '11. Pending Authorization View' in slot 11) (SOM-C03-AC-22; SOM-BR-018)
+2. GIVEN The menu option table holds 11 options, option 1 named 'Account View' and option 11 named 'Pending Authorization View' WHEN The Main Menu is displayed THEN Eleven option lines are shown, each in the slot for its position, the first reading '1. Account View' and the eleventh reading '11. Pending Authorization View', each formed as the option number, '. ' and the option name (SOM-C03-AC-22; SOM-BR-018)
 
 ### Requirement 5: SOM-REQ-F-016 (business rule)
 
@@ -118,7 +118,7 @@ The Main Menu is the home screen for signed-on users. It lists 11 numbered optio
 #### Acceptance criteria
 
 1. If a valid option whose program is COPAUS0C is selected and CICS does not report that program as defined, then the system shall redisplay the menu with the red message 'This option <option name> is not installed...'. (rules SOM-BR-028)
-2. GIVEN a signed-on user is on the Main Menu and the Pending Authorization View program COPAUS0C is not deployed or registered WHEN the user enters option 11 and presses Enter THEN the Main Menu is shown again with the red message 'This option Pending Authorization View is not installed...', and the user stays on the menu (SOM-C03-AC-23; SOM-BR-028)
+2. GIVEN A signed-on user is on the Main Menu and the Pending Authorization View program (COPAUS0C) is not installed WHEN The user enters option 11 and presses Enter THEN The Main Menu is redisplayed with the message 'This option Pending Authorization View is not installed...' in red, and the user stays on the menu (SOM-C03-AC-23; SOM-BR-028)
 
 ### Requirement 14: SOM-REQ-F-025 (design note)
 
@@ -131,7 +131,7 @@ The Main Menu is the home screen for signed-on users. It lists 11 numbered optio
 
 ### Sign in (S-SIGN-IN)
 
-Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+Sign in to CardDemo with a user ID and password. Administrators and regular users both land on Home, which shows the functions their role allows.
 
 Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
 
@@ -140,16 +140,25 @@ Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COS
 
 ### Home (S-HOME)
 
-One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+Landing page after sign-in. It lists every function the signed-in role may use as links, and replaces the numbered Main Menu, the Admin Menu and the typed option number.
 
 Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Home | page | Requires a signed-in session; otherwise opens Sign in |  |  | SOM-REQ-F-012, SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-025 |
-| Functions | list | The functions the signed-in user may use, as links in menu order with their names; only functions for the user type are shown, so admin-only functions are never offered to regular users and administration is open only to administrators. Functions not yet available are shown disabled with their status. | Only listed functions can be opened, so no option number can be wrong; a request for a function that does not exist shows 'Please enter a valid option number...'; a regular user requesting an admin-only function gets 'No access - Admin Only option... ' |  | SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022 |
-| Pending Authorization View | link | Disabled with a status note while the authorization function is not installed |  | S-PENDING-AUTHS | SOM-REQ-F-023, SOM-REQ-F-024 |
-| Home messages | message | Status for a function that cannot open: 'This option is not installed ...' or 'This option <name> is coming soon ...'; unassigned keys are ignored. Sign out is in the header user menu. | An unsupported action shows 'Invalid key pressed. Please see below...' |  | SOM-REQ-F-017, SOM-REQ-F-018 |
+| Functions | **data table** | One row per function, in the legacy order. Regular users see Account view, Account update, Credit card list, Credit card view, Credit card update, Transaction list, Transaction view, Transaction add, Transaction reports, Bill payment and Pending authorization view. Administrators see Users, Add user, Update user, Delete user, Transaction type list and Transaction type maintenance. Each row shows the name, a one-line description and its availability, and opens the function on Enter or click. | Only the functions the role may use are listed, so the 'Please enter a valid option number...' error cannot happen. If a regular user still reaches an administrator function, the server refuses it with 'No access - Admin Only option... '. A coming-soon row opens nothing and says 'This option <name> is coming soon ...'. A function that is not installed opens nothing and says 'This option <name> is not installed...'. Only Enter and click act on a row, so the 'Invalid key pressed. Please see below...' message is no longer needed. | S-USER-LIST | SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-025 |
+| Availability | **status badge** | One badge per function: Active means available, Inactive means 'Coming soon' and Blocked means 'Not installed'. The word is always shown, never colour alone. |  |  | SOM-REQ-F-021, SOM-REQ-F-024 |
+
+### CardDemo header and navigation (S-APP-HEADER)
+
+New, shared by every screen: shows the application and page title, the signed-in user, today's date and the time once, with the way back to the main menu. It replaces the transaction, program, date, time and title lines that every 3270 screen repeated.
+
+Prototype: `ui-reference/index.html#/S-APP-HEADER`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Navigation | **data table** | The functions the signed-in role may use, as one list of links grouped Account, Card, Transaction, Bill payment and Reports. Administrators also get User administration (Users, Add user) and Transaction types. The current screen is marked. Esc goes back one screen, to the screen that opened this one or to Home. | Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home. | S-HOME | SOM-REQ-F-012, SOM-REQ-F-015 |
+| Sign out | **primary button** | Ends the session and returns to Sign in, which shows 'Thank you for using CardDemo application...'. |  | S-SIGN-IN | SOM-REQ-F-017, SOM-REQ-F-012 |
 
 
 ## Data models
@@ -235,11 +244,11 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- SOM-BR-015: The menu needs a 'first display' state and a 'handle input' state held in the user's session. The first request after sign-on, or after returning from a function, shows the menu. Later submits from the menu are read and acted on. A web app does this naturally with GET to show the menu and POST to submit it, inside an authenticated session.
-- SOM-BR-016: When the menu is reached by navigation, not by submitting the menu form, render a clean menu with no message and no input processing. Then record in the session that the next request from this screen is a submit, which replaces the legacy re-enter flag (context = 1).
-- SOM-BR-017: On submit, act on the action taken. Enter (the submit action) processes the chosen option. PF3 (a Back or Sign out action) returns to sign-on. Any other action shows the menu again with 'Invalid key pressed. Please see below...'. In a modern UI, map function keys to explicit buttons and reject any unknown action value sent to the server.
-- SOM-BR-019: Normalise the typed option before validating: trim trailing spaces, right-align it into two digits and pad it with leading zeros (for example '7' becomes '07'). Show the normalised number back in the field. Text that is not a number must still fail the option check.
-- SOM-BR-029: The menu keeps no server-side process waiting between interactions. After each response, the session (user, user type, origin screen) must persist so that the next submit arrives back at the Main Menu (legacy transaction CM00) with the same session data. Use a stateless request handler with session storage.
+- SOM-BR-015: Distinguish the first display of the menu from a submission: arriving at the menu (a GET or navigation) renders it, and only a submission (POST or action) reads the input and handles the key. Track this through the request type or a per-session screen state. Do not use a shared flag.
+- SOM-BR-016: When the menu is entered fresh, for example after sign-on or on return from a function screen, set the session's menu state to 're-enter' and render a clean menu with no option value and no message. Do not process any input on this request.
+- SOM-BR-017: On a submission, dispatch on the action: 'Enter' or submit processes the chosen option, 'PF3' (a Back or Exit action) returns to the sign-on screen, and any other action re-renders the menu with 'Invalid key pressed. Please see below...'. Map the legacy function keys to explicit actions or keyboard shortcuts in the new UI.
+- SOM-BR-019: Normalise the typed option before validating it: trim trailing blanks, left-pad it to two digits with zeros, and echo the two-digit value back in the option field. A numeric input limited to two digits is enough in the new UI, provided the echo and the validation behave the same.
+- SOM-BR-029: After any interaction that stays on the menu, keep the user's session, including user identity, type and navigation origin, so the next submission returns to the Main Menu. In a web application this is ordinary server-side or token session state between requests. Nothing needs to stay running while the application waits for the user.
 
 ## Open questions
 

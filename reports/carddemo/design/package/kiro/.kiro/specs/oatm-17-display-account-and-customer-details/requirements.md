@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Shows an account's financial details and its cardholder's profile together on one screen for users reviewing an account. Each part is shown only when its record was actually found. As agreed, the customer's full Social Security number is shown unmasked as NNN-NN-NNNN, so that screen needs proper access control. The cursor always returns to the account number field.
+Shows a user an account's financial details (status, balances, limits, cycle totals, dates and group) next to the linked customer's profile on one screen. It must show only what was actually found: account details only when the account was found, customer details only when the customer was found. The current error must always be visible. Under the current rules the full SSN is shown unmasked as NNN-NN-NNNN, so access to this screen needs care.
 
 **User story:** As a user, I want to see an account's financial details and its customer's profile on one screen, so that I can review the account and the cardholder.
 

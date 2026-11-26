@@ -10,7 +10,7 @@
 
 As an operator, I want to confirm validated changes and have them saved only if nobody else has changed the record meanwhile, so that I do not overwrite another user's update.
 
-Lets the operator confirm validated changes and saves them to the account and customer records, but only if nobody else has changed those records since they were fetched. Only the keys allowed at each stage take effect; anything else is treated as Enter. It must never overwrite another user's update, and the legacy save places the account group into the stored ZIP position, which the new design must deliberately decide whether to keep.
+Lets the operator confirm validated changes and saves them to the account and customer records. The save goes through only if nobody else has changed those records since they were shown. It must never overwrite another user's update. Every confirmed value, including the account group, must be saved to its own field and never into another field.
 
 **Acceptance scenarios:**
 
@@ -20,7 +20,7 @@ Lets the operator confirm validated changes and saves them to the account and cu
 4. **Given** credit limit when details were shown: 5000.00; credit limit in file at save (PF5): 7000.00, **when** any stored account or customer value differs from the value fetched when the details were shown, **then** Save stops, nothing is rewritten, the details are shown again with 'Record changed by some one else. Please review' (OATM-C06-AC-04)
 5. **Given** customer last name when shown: SMITH; customer last name in file at save: smith, **when** any stored account or customer value differs from the value fetched when the details were shown, **then** Treated as unchanged (case is ignored) and the save continues (OATM-C06-AC-05)
 6. **Given** all account and customer values: same as when shown, **when** any stored account or customer value differs from the value fetched when the details were shown, **then** Save continues to rewrite the account and customer records (OATM-C06-AC-06)
-7. **Given** a fetched account whose changes are validated and confirmed, with the account group entered as 'GOLD', **when** the account record is rewritten on save, **then** the value 'GOLD' is stored in the account record's ZIP position (offsets 103-112), and the stored group-ID position holds whatever the unset filler area contained rather than 'GOLD' (OATM-C06-AC-07)
+7. **Given** account 00000000099 has stored ZIP and account group values, and the operator has changed the account group to 'GOLDGROUP1' and confirmed the update, **when** the update is saved, **then** legacy behaviour to reconcile against: the stored ZIP position (offsets 103-112) holds 'GOLDGROUP1', and the stored group-ID position holds the content of the unset filler area instead of the entered group (OATM-C06-AC-07)
 
 ## Requirements
 

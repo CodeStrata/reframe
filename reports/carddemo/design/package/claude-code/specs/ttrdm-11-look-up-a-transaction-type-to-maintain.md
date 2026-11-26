@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-On the transaction type maintenance screen, the administrator enters a type code and it is looked up so the type can be maintained, or added when it is not on file. The code must be supplied, numeric and not zero, and is stored as two digits. When no type has that code the screen says 'No record found for this key in database' and offers 'Press F05 to add. F12 to cancel'; it must never treat a missing type as found.
+On the add/change transaction type screen, the administrator enters a two-digit type code, which is checked (supplied, numeric, not zero) and then looked up. If it exists, its current description is shown for maintenance; if not, the user is offered to add it with F5. The screen must never look up or act on an invalid code, and must keep the stored values to tell whether the user changed anything.
 
 **User story:** As an administrator, I want to enter a transaction type code on the maintenance screen and have it looked up, so that I can maintain an existing type or add one that is not on file.
 
@@ -17,21 +17,21 @@ On the transaction type maintenance screen, the administrator enters a type code
 #### Acceptance criteria
 
 1. While the state is neither new-record entry ('R') nor awaiting save confirmation ('N'), when the transaction type code is blank, the system shall show 'Tran Type code must be supplied.', mark the code field '*' in red, return to asking for a code and skip all other checks. (rules TTRDM-BR-089)
-2. GIVEN the maintenance screen is not in new-record entry ('R') or awaiting save confirmation ('N') WHEN the administrator leaves the transaction type code blank and presses Enter THEN the screen shows 'Tran Type code must be supplied.', the code field shows '*' in red, the screen asks for a code again and no other field is checked (TTRDM-C11-AC-08; TTRDM-BR-089)
+2. GIVEN The maintenance screen is waiting for a transaction type code (not in new-record entry or awaiting save confirmation) WHEN The user leaves the type code blank and presses Enter THEN The message 'Tran Type code must be supplied.' is shown, the code field shows '*' in red, the screen asks for a code again and no lookup or other check is done (TTRDM-C11-AC-08; TTRDM-BR-089)
 
 ### Requirement 2: TTRDM-REQ-F-081 (business rule)
 
 #### Acceptance criteria
 
 1. While the state is neither 'R' nor 'N', when the transaction type code is not numeric, the system shall show 'Tran Type code must be numeric.', highlight the code in red, return to asking for a code and skip all other checks. (rules TTRDM-BR-090)
-2. GIVEN the maintenance screen is not in state 'R' or 'N' WHEN the administrator enters 'AB' as the transaction type code and presses Enter THEN the screen shows 'Tran Type code must be numeric.', the code is highlighted in red, the screen asks for a code again and no other field is checked (TTRDM-C11-AC-09; TTRDM-BR-090)
+2. GIVEN The maintenance screen is waiting for a transaction type code (not in new-record entry or awaiting save confirmation) WHEN The user enters 'AB' as the type code and presses Enter THEN The message 'Tran Type code must be numeric.' is shown, the code is highlighted in red, the screen asks for a code again and no lookup or other check is done (TTRDM-C11-AC-09; TTRDM-BR-090)
 
 ### Requirement 3: TTRDM-REQ-F-082 (business rule)
 
 #### Acceptance criteria
 
 1. While the state is neither 'R' nor 'N', when the transaction type code is zero, the system shall show 'Tran Type code must not be zero.', highlight the code in red, return to asking for a code and skip all other checks. (rules TTRDM-BR-091)
-2. GIVEN the maintenance screen is not in state 'R' or 'N' WHEN the administrator enters '00' as the transaction type code and presses Enter THEN the screen shows 'Tran Type code must not be zero.', the code is highlighted in red, the screen asks for a code again and no other field is checked (TTRDM-C11-AC-10; TTRDM-BR-091)
+2. GIVEN The maintenance screen is waiting for a transaction type code (not in new-record entry or awaiting save confirmation) WHEN The user enters '00' as the type code and presses Enter THEN The message 'Tran Type code must not be zero.' is shown, the code is highlighted in red, the screen asks for a code again and no lookup or other check is done (TTRDM-C11-AC-10; TTRDM-BR-091)
 
 ### Requirement 4: TTRDM-REQ-F-083 (formatting)
 
@@ -52,7 +52,7 @@ On the transaction type maintenance screen, the administrator enters a type code
 #### Acceptance criteria
 
 1. When the maintenance screen looks up a transaction type code, the system shall first clear the previously held original details and the information message. (rules TTRDM-BR-095)
-2. GIVEN the screen holds original details for type '01' ('Purchase') and an information message from the previous step WHEN the administrator enters a new code '07' and the screen looks it up THEN the held original details for '01' and the earlier information message are cleared before the lookup result for '07' is applied (TTRDM-C11-AC-11; TTRDM-BR-095)
+2. GIVEN The maintenance screen holds type '01' with description 'Purchase' as the original values and an information message from that lookup WHEN The user enters type code '02' and it is looked up THEN Before the lookup, the original values for '01' and the earlier information message are cleared, so nothing from '01' is shown or compared against '02' (TTRDM-C11-AC-11; TTRDM-BR-095)
 
 ### Requirement 7: TTRDM-REQ-F-086 (design note)
 
@@ -94,26 +94,22 @@ On the transaction type maintenance screen, the administrator enters a type code
 
 ### Transaction types (S-TRANTYPE-LIST)
 
-Find transaction types by code or description, correct a description in place, or delete an obsolete type, confirming each change; start adding a new type.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Transaction type (S-TRANTYPE-EDIT)
+### Add or change a transaction type (S-TRANTYPE-EDIT)
 
-Look up a transaction type by code to change its description or delete it, or add a new type when the code is not on file; each save or delete is confirmed and can be cancelled.
+Add a new transaction type or change an existing one's description in one step: enter the code, see its description or start a new one if it is not on file, then save. Replaces the F5 create, Enter check and F5 confirm sequence; delete is the Delete row action on the list.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-EDIT`. Replaces the legacy screens CTRTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Find a transaction type | form | Type code; empty on a fresh start. From Add transaction type, an unknown code goes straight to adding. |  |  | TTRDM-REQ-F-085 |
-| Type code | text | 2-digit transaction type code, shown with a leading zero (e.g. 07) | Required; a number other than zero. Messages: 'Enter a type code.' (legacy 'Tran Type code must be supplied.'), 'Type code must be a number.' (legacy 'Tran Type code must be numeric.'), 'Type code must not be 00.' (legacy 'Tran Type code must not be zero.'). Only the first problem is shown. |  | TTRDM-REQ-F-080, TTRDM-REQ-F-081, TTRDM-REQ-F-082, TTRDM-REQ-F-083, TTRDM-REQ-F-084 |
-| Find | button | Looks the code up; not available while a delete is being confirmed |  |  | TTRDM-REQ-F-089 |
-| Type not on file | message | Information: 'Type 07 is not on file. Add it as a new transaction type?' next to the Add as new type button | Code must exist to change or delete: 'No transaction type with this code.' (legacy 'No record found for this key in database') |  | TTRDM-REQ-F-086, TTRDM-REQ-F-087, TTRDM-REQ-F-088 |
-| Add as new type | button | Starts a new transaction type with the code entered; focus moves to Description |  |  | TTRDM-REQ-F-090 |
+| Transaction type code | **lookup field** | Two-digit code, stored with a leading zero (1 becomes 01). Search shows the existing description, or 'No record found for this key in database. Enter a description to add it.' and the form switches to adding. Read-only when opened from a list row. | 'Tran Type code must be supplied. Enter a two-digit code.'; 'Tran Type code must be numeric. Enter digits only.'; 'Tran Type code must not be zero. Enter a code from 01 to 99.' Only the first failing check is shown. |  | TTRDM-REQ-F-080, TTRDM-REQ-F-081, TTRDM-REQ-F-082, TTRDM-REQ-F-088 |
 
 
 ## Data models
@@ -187,10 +183,10 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- TTRDM-BR-095: Before each lookup by type code, clear the saved 'original' transaction type and the info message in the screen's session state, so that a failed lookup cannot leave the previous type's values behind.
-- TTRDM-BR-096: Look up the transaction type by its primary key (the two-digit type code). On a hit, set a 'found' flag and keep the code and description as the values on file, used for display and change detection.
-- TTRDM-BR-097: On a successful lookup, save the stored code and description, at its full stored length, as the 'original' snapshot in session state; later edits are compared against it. When the lookup finds nothing or fails, save no snapshot.
-- TTRDM-BR-100: In the not-found state, if the same code is submitted again without F5, keep the code and description already in session state and ignore the posted form values, including any typed description, before the code is looked up again.
+- TTRDM-BR-095: Each lookup starts by clearing the 'original' snapshot and the information message held in the screen's state, so a failed lookup can never leave the previous type's values behind.
+- TTRDM-BR-096: A keyed read of the transaction type table by its two-digit code. On a hit, return a 'found' result with code and description; the description is used both for display and as the baseline for change detection.
+- TTRDM-BR-097: Hold the fetched code and description, at their stored length, as an 'original' snapshot in the edit session (or as a version/ETag) to compare against the user's later edits. On not-found or a read error, leave the snapshot empty.
+- TTRDM-BR-100: In the not-found state, if the same code is submitted again without choosing Add, keep the code and description already held in the edit session and ignore the submitted form values, including any description typed.
 
 ## Open questions
 

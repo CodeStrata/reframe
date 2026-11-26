@@ -16,13 +16,12 @@
   - _Requirements: TTRDM-REQ-F-132_
   - _Rules: TTRDM-BR-140_
   - _After: TTRDM-C18-T1_
-- [ ] 4. TTRDM-C18-T4 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
+- [ ] 4. TTRDM-C18-T4 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - button "Add as new type"
-  - dialog "Save this transaction type?"
-  - message "Result"
-  - _Requirements: TTRDM-REQ-F-130, TTRDM-REQ-F-131, TTRDM-REQ-F-132_
-  - _Rules: TTRDM-BR-140, TTRDM-BR-143, TTRDM-BR-144_
+  - **lookup field** "Transaction type code": 'Tran Type code must be supplied. Enter a two-digit code.'; 'Tran Type code must be numeric. Enter digits only.'; 'Tran Type code must not be zero. Enter a code from 01 to 99.' Only the first failing check is shown.
+  - **primary button** "Save transaction type": Code and description match what is stored (ignoring case and surrounding spaces): 'No change detected with respect to values fetched.'
+  - _Requirements: TTRDM-REQ-F-130, TTRDM-REQ-F-131_
+  - _Rules: TTRDM-BR-143, TTRDM-BR-144_
   - _After: TTRDM-C18-T2, TTRDM-C18-T3_
 - [ ] 5. TTRDM-C18-T5 [test-generation] Write a test for every acceptance criterion
   - 3 acceptance criteria, each a test named by its ID.

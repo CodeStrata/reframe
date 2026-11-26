@@ -10,7 +10,7 @@
 
 As a customer service operator, I want to page forward and back through an account's pending authorizations five at a time, with each shown as approved or declined, so that I can review every authorization on the account.
 
-Lets customer service operators page forward (PF8) and back (PF7) through an account's pending authorizations five at a time. Each row shows 'A' for approved (response '00') or 'D' for declined, with amount, date, time, transaction id, type and match status. Paging must never skip or repeat authorizations, and the operator sees the stated message at the top or bottom of the list.
+Lets a customer service operator page forward and back through an account's pending authorizations, five at a time, newest first. Each row shows 'A' (approved) or 'D' (declined) with its amount, date, time, transaction id, type and match status. Paging must never skip or repeat an authorization. At either end the operator is told so and the list stays as it is.
 
 **Acceptance scenarios:**
 
@@ -26,7 +26,7 @@ Lets customer service operators page forward (PF8) and back (PF7) through an acc
 10. **Given** Current page number: 1; Key: PF7, **when** the operator presses PF7 and the current page number is 1 or less, **then** Message 'You are already at the top of the page...' and the same list stays on screen (CAFM-C10-AC-10)
 11. **Given** response code: '00', **when** an authorization is placed in the summary list, **then** Approval status shows 'A' (CAFM-C10-AC-11)
 12. **Given** response code: '05', **when** an authorization is placed in the summary list, **then** Approval status shows 'D' (CAFM-C10-AC-12)
-13. **Given** A pending authorization with approved amount 150.00, original date '240315' (YYMMDD) and original time '143005' (HHMMSS), **when** It is listed on the Pending authorizations screen, **then** Its row shows the approved amount as 150.00 with a sign and two decimals, the date as '03/15/24' and the time as '14:30:05', along with its transaction id, authorization type and match status (CAFM-C10-AC-13)
+13. **Given** A pending authorization with approved amount 125.50, original date held as '261126', original time held as '143005', and its transaction id, authorization type and match status 'P', **when** It is listed on the account's authorizations page, **then** The row shows the amount as signed with two decimals (125.50), the date as '11/26/26', the time as '14:30:05', and the transaction id, authorization type and match status 'P'. (CAFM-C10-AC-13)
 
 ## Requirements
 

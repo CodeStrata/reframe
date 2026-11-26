@@ -7,8 +7,8 @@
   - _Requirements: OATM-REQ-F-288, OATM-REQ-F-289, OATM-REQ-F-290, OATM-REQ-F-291, OATM-REQ-F-292, OATM-REQ-F-293, OATM-REQ-F-294, OATM-REQ-F-295, OATM-REQ-F-296, OATM-REQ-F-297, OATM-REQ-F-298_
   - _Rules: OATM-BR-305, OATM-BR-306, OATM-BR-307, OATM-BR-308, OATM-BR-309, OATM-BR-310, OATM-BR-311, OATM-BR-312, OATM-BR-313, OATM-BR-314, OATM-BR-315_
 - [ ] 2. OATM-C35-T2 [api] Build the service
-  - OATM-BR-303: Provide a reusable date-validation function that takes a date string and a format pattern and returns a structured result: a 4-digit severity, a 4-digit message number and a reason. Implement it with the platform's standard strict date parsing, which rejects impossible dates. Map outcomes to the legacy message numbers (2507, 2508, 2509, 2513, 2517, 2518, 2521) where callers depend on them, for example the 2513 exception.
-  - OATM-BR-304: Return the result as a structured value (severity, message number, result text, tested date, mask used) with severity as the outcome code. Keep a formatter that renders the legacy 80-character text ('Mesg Code:', 'TstDate:', 'Mask used:') only if a consumer still needs that exact layout.
+  - OATM-BR-303: Expose date validation as one shared function or service that takes a date string and a format mask and returns a structured result (severity, message code, reason). Implement it with the platform's standard date-parsing library instead of the mainframe date service, and keep the legacy severity/message codes (0000, 2508, 2513 and so on) only as far as callers need them to tell valid from invalid.
+  - OATM-BR-304: Callers need a result they can test: a severity/status, a message code, the reason text, and the tested date and mask for diagnostics. A typed result object replaces the fixed 80-character string and the program return code. Keep the layout only if a remaining legacy consumer still reads it.
   - _Requirements: OATM-REQ-F-286, OATM-REQ-F-287_
   - _Rules: OATM-BR-303, OATM-BR-304_
   - _After: OATM-C35-T1_

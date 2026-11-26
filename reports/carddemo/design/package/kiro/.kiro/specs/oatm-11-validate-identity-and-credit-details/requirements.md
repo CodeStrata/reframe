@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Checks the customer's Social Security Number, date of birth and FICO score when the operator changes details. The SSN must be in three supplied, numeric, non-zero parts with an allowed first group, the birth date must be before today, and the FICO score must be between 300 and 850. Implausible identity or credit data must never be saved.
+Checks the customer's Social Security Number, date of birth and FICO credit score when the operator changes customer details. The SSN must have valid, non-zero parts and must not start with 000, 666 or 900-999. The date of birth must be in the past. The FICO score must be three digits between 300 and 850. Implausible identity or credit data must never be saved.
 
 **User story:** As an operator, I want the SSN, date of birth and FICO score checked when I change customer details, so that only plausible identity and credit data is saved.
 
@@ -17,8 +17,7 @@ Checks the customer's Social Security Number, date of birth and FICO score when 
 #### Acceptance criteria
 
 1. When the operator enters a Social Security Number part as '*' or leaves it blank, the system shall treat that part as not supplied, and otherwise take the entered part as the proposed value. (rules OATM-BR-098)
-2. GIVEN a changed account where the operator enters '*' as the first three SSN characters WHEN the SSN is validated THEN the first part is treated as not supplied and rejected with 'SSN: First 3 chars must be supplied.' (OATM-C11-AC-06; OATM-BR-098)
-3. GIVEN a changed account where the operator enters SSN parts '123', '45' and '6789' WHEN the changes are captured THEN '123', '45' and '6789' are taken as the proposed SSN parts (OATM-C11-AC-07; OATM-BR-098)
+2. GIVEN an account is shown for update with the stored SSN 123-45-6789 WHEN the operator enters '*' in the first SSN part, leaves the 4th-5th part blank, enters '6789' as the last part, and submits THEN the first and 4th-5th parts are treated as not supplied and the last part '6789' is taken as the proposed value (OATM-C11-AC-06; OATM-BR-098)
 
 ### Requirement 2: OATM-REQ-F-096 (business rule)
 
@@ -40,9 +39,9 @@ Checks the customer's Social Security Number, date of birth and FICO score when 
 #### Acceptance criteria
 
 1. When the first three SSN characters are numeric and non-zero, the system shall require the 4th-5th characters and the last 4 characters each to be supplied, all numeric and non-zero, giving 'SSN 4th & 5th chars …' or 'SSN Last 4 chars …' with 'must be supplied.', 'must be all numeric.' or 'must not be zero.'. (rules OATM-BR-102)
-2. GIVEN a changed account where the SSN is '123', blank, '6789' WHEN the SSN is validated THEN the input is rejected with 'SSN 4th & 5th chars must be supplied.' (OATM-C11-AC-08; OATM-BR-102)
-3. GIVEN a changed account where the SSN is '123', '4A', '6789' WHEN the SSN is validated THEN the input is rejected with 'SSN 4th & 5th chars must be all numeric.' (OATM-C11-AC-09; OATM-BR-102)
-4. GIVEN a changed account where the SSN is '123', '45', '0000' WHEN the SSN is validated THEN the input is rejected with 'SSN Last 4 chars must not be zero.' (OATM-C11-AC-10; OATM-BR-102)
+2. GIVEN an account is shown for update with changes and the first three SSN characters are '123' WHEN the operator leaves the SSN 4th and 5th characters blank and submits THEN the input is rejected with a message that starts 'SSN 4th & 5th chars' and ends 'must be supplied.' (OATM-C11-AC-07; OATM-BR-102)
+3. GIVEN an account is shown for update with changes and the first three SSN characters are '123' WHEN the operator enters '45' as the 4th-5th characters and '12A4' as the last 4 characters, and submits THEN the input is rejected with a message that starts 'SSN Last 4 chars' and ends 'must be all numeric.' (OATM-C11-AC-08; OATM-BR-102)
+4. GIVEN an account is shown for update with changes and the first three SSN characters are '123' WHEN the operator enters '00' as the 4th-5th characters and submits THEN the input is rejected with a message that starts 'SSN 4th & 5th chars' and ends 'must not be zero.' (OATM-C11-AC-09; OATM-BR-102)
 
 ### Requirement 5: OATM-REQ-F-099 (business rule)
 
@@ -57,15 +56,15 @@ Checks the customer's Social Security Number, date of birth and FICO score when 
 #### Acceptance criteria
 
 1. If the FICO score is entered as blank or '*', then the system shall treat it as not supplied and reject it with 'FICO Score must be supplied.'. (rules OATM-BR-104)
-2. GIVEN a changed account where the FICO score is left blank or entered as '*' WHEN the FICO score is validated THEN it is treated as not supplied and rejected with 'FICO Score must be supplied.' (OATM-C11-AC-11; OATM-BR-104)
+2. GIVEN an account is shown for update with changes WHEN the operator clears the FICO score (or enters '*') and submits THEN the FICO score is treated as not supplied and the input is rejected with 'FICO Score must be supplied.' (OATM-C11-AC-10; OATM-BR-104)
 
 ### Requirement 7: OATM-REQ-F-101 (business rule)
 
 #### Acceptance criteria
 
 1. If the FICO score is not all three digits, then the system shall reject it with 'FICO Score must be all numeric.', and if it is zero, the system shall reject it with 'FICO Score must not be zero.'. (rules OATM-BR-105)
-2. GIVEN a changed account where the FICO score is entered as '7A0' WHEN the FICO score is validated THEN it is rejected with 'FICO Score must be all numeric.' (OATM-C11-AC-12; OATM-BR-105)
-3. GIVEN a changed account where the FICO score is entered as '000' WHEN the FICO score is validated THEN it is rejected with 'FICO Score must not be zero.' (OATM-C11-AC-13; OATM-BR-105)
+2. GIVEN an account is shown for update with changes WHEN the operator enters FICO score '7A0' and submits THEN the input is rejected with 'FICO Score must be all numeric.' (OATM-C11-AC-11; OATM-BR-105)
+3. GIVEN an account is shown for update with changes WHEN the operator enters FICO score '000' and submits THEN the input is rejected with 'FICO Score must not be zero.' (OATM-C11-AC-12; OATM-BR-105)
 
 ### Requirement 8: OATM-REQ-F-102 (business rule)
 

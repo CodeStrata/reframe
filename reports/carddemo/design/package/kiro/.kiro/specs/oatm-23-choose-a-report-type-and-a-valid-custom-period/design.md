@@ -4,7 +4,7 @@
 
 ## Overview
 
-Lets a user pick a Monthly, Yearly or Custom transaction report. If more than one is marked, the first in that order wins. For Custom, every start and end date part is checked as present, numeric, in range and a real calendar date. It must never submit a report with no type selected or with an invalid custom date, and it always points the user to the first field in error.
+Lets a user choose a Monthly, Yearly or Custom transaction report. If several are marked, the first in that order wins. For Custom, every part of the start and end dates is checked, and the first missing or invalid part is reported with the cursor placed on it. A custom report must never be submitted with a missing, non-numeric or impossible calendar date.
 
 Runs as online. Journeys: J06.
 
@@ -12,15 +12,14 @@ Runs as online. Journeys: J06.
 
 ### Transaction reports (S-REPORT-REQUEST)
 
-Choose a monthly, yearly or custom period and submit the transaction report for printing after confirming.
+Submit a monthly, yearly or custom-period transaction report for printing. The report type is a single choice, the custom dates appear only for Custom, and submission is confirmed in a dialog. Tab order: report type, start date, end date, Submit report.
 
 Prototype: `ui-reference/index.html#/S-REPORT-REQUEST`. Replaces the legacy screens CORPT0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Report period | radio | Monthly (this month), Yearly (this year) or Custom; one choice only | Required: 'Select a report type to print report...'. |  | OATM-REQ-F-178 |
-| Start date | date | Shown and required only for Custom | Month, day and year required: 'Start Date - Month can NOT be empty...', 'Start Date - Day can NOT be empty...', 'Start Date - Year can NOT be empty...'; 'Start Date - Not a valid Month...'; 'Start Date - Not a valid Day...'; 'Start Date - Not a valid Year...'; must be a real date: 'Start Date - Not a valid date...'. |  | OATM-REQ-F-179, OATM-REQ-F-181, OATM-REQ-F-184 |
-| End date | date | Shown and required only for Custom | Month, day and year required: 'End Date - Month can NOT be empty...', 'End Date - Day can NOT be empty...', 'End Date - Year can NOT be empty...'; 'End Date - Not a valid Month...'; 'End Date - Not a valid Day...'; 'End Date - Not a valid Year...'; must be a real date: 'End Date - Not a valid date...'. |  | OATM-REQ-F-185, OATM-REQ-F-186 |
+| Report type | **summary card** | One choice of Monthly (current month), Yearly (current year) or Custom (dates below); the derived period is shown beside Monthly and Yearly, e.g. 01 Nov 2026 to 30 Nov 2026 | None chosen: 'Select a report type to print report...' - choose Monthly, Yearly or Custom. |  | OATM-REQ-F-177, OATM-REQ-F-178 |
+| Custom period | **summary card** | Start date and End date, each as labelled Month, Day and Year inputs; shown when Custom is chosen | Every part is required, checked start month, day, year then end month, day, year ('Start Date - Month can NOT be empty...' and so on). 'Start Date - Not a valid Month...' / 'End Date - Not a valid Month...' (1 to 12); 'Start Date - Not a valid Day...' / 'End Date - Not a valid Day...' (1 to 31); 'Start Date - Not a valid Year...' / 'End Date - Not a valid Year...'; 'Start Date - Not a valid date...' / 'End Date - Not a valid date...' for a date not on the calendar. The message sits under the part to fix. |  | OATM-REQ-F-179, OATM-REQ-F-180, OATM-REQ-F-181, OATM-REQ-F-182, OATM-REQ-F-183, OATM-REQ-F-184, OATM-REQ-F-185, OATM-REQ-F-186 |
 
 
 ## Data models
@@ -94,7 +93,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- OATM-BR-189: Before validating, turn the entered month and day into two-digit numbers and the year into a four-digit number (for example, '3' becomes '03'). This makes the range checks and the YYYY-MM-DD calendar check work on a consistent form. A standard date-parsing library can then do the calendar check.
+- OATM-BR-189: Before validating, normalise the custom date inputs: pad month and day to two digits (for example '3' becomes '03') and year to four digits, so that the range checks and the calendar-date check see a consistent YYYY-MM-DD value. A typed date input or a date-parsing library in the new application can do this step.
 
 ## Open questions
 

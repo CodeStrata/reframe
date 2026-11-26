@@ -6,7 +6,7 @@ User Access Control · System Operations and Maintenance · runs as scheduled jo
 
 ## Introduction
 
-Registers the sign-on program and the admin menu program with the online system so that users can start them: sign-on under transaction code CC00, and the admin menu under CCAD and CCDM. This is set up by operations and is not something users see. It must never leave an entry point unregistered or attached to the wrong program, because then users cannot sign on or administrators cannot reach their menu.
+Sets up the entry points users and administrators start from: the sign-on screen and the Admin Menu, each reachable by its own short code. This is set up once per environment by operations staff, not by end users. It must never leave the sign-on or Admin Menu unregistered or linked to the wrong code, because then nobody can sign on or reach administration.
 
 **User story:** As a system administrator, I want the CardDemo sign-on and admin menu programs and their transactions registered in the online system, so that users can start them by transaction code.
 

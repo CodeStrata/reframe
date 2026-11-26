@@ -6,7 +6,7 @@ User Access Control · User Security Profile Management · runs as online · ris
 
 ## Introduction
 
-Lets an administrator add a user with first name, last name, User ID, password and user type, so the person can sign on. It must require all five fields and report the first blank one, refuse a User ID that already exists, and never overwrite an existing user. As in the legacy system, the password is stored as typed (up to 8 characters) and any non-blank user type is accepted.
+Lets an administrator add a CardDemo user with first name, last name, User ID, password and user type. Every field is required and checked in a fixed order, and User IDs must be unique. It must never add a user with a blank field, and it must never overwrite an existing user who has the same User ID.
 
 **User story:** As an administrator, I want to add a user with first name, last name, User ID, password and user type, so that the person can sign on to CardDemo.
 
@@ -66,21 +66,21 @@ Lets an administrator add a user with first name, last name, User ID, password a
 #### Acceptance criteria
 
 1. When all five fields are filled, the system shall build the user security record from the entered User ID, first name, last name, password and user type and attempt to add it to the user security file (USRSEC). (rules USPM-BR-051)
-2. GIVEN no user with User ID 'NEWUSR01' exists in the user security file WHEN the administrator enters First Name 'Jane', Last Name 'Doe', User ID 'NEWUSR01', Password 'SECRET1' and User Type 'U' and presses Enter THEN a user security record is built with User ID 'NEWUSR01', first name 'Jane', last name 'Doe', password 'SECRET1' and user type 'U', and an attempt is made to add it to the user security file (USPM-C04-AC-11; USPM-BR-051)
+2. GIVEN no user with User ID 'USER0099' exists WHEN the administrator enters First Name 'Jane', Last Name 'Doe', User ID 'USER0099', Password 'SECRET1' and User Type 'U' and presses Enter THEN a user security record is built with User ID 'USER0099', first name 'Jane', last name 'Doe', password 'SECRET1' and user type 'U', and an attempt is made to add it to the user security file (USPM-C04-AC-11; USPM-BR-051)
 
 ### Requirement 9: USPM-REQ-N-002 (business rule)
 
 #### Acceptance criteria
 
 1. When an administrator adds a new user, the system shall store the password in the user security file exactly as typed, with no encryption or hashing, in an 8-character field (SEC-USR-PWD). (rules USPM-BR-052)
-2. GIVEN an administrator adds user 'NEWUSR02' with Password 'Abc12345' WHEN the new record is added to the user security file THEN the stored password field holds exactly 'Abc12345', not encrypted or hashed, in an 8-character field (USPM-C04-AC-12; USPM-BR-052)
+2. GIVEN the administrator adds user 'USER0099' with Password 'Secret1' WHEN the new user record is stored THEN the password field of the stored record holds exactly 'Secret1' as typed, not encrypted or hashed, in a field of at most 8 characters (USPM-C04-AC-12; USPM-BR-052)
 
 ### Requirement 10: USPM-REQ-F-047 (business rule)
 
 #### Acceptance criteria
 
 1. When the new user record is added successfully, the system shall clear all entry fields and show 'User <id> has been added ...' in green. (rules USPM-BR-053)
-2. GIVEN all five fields are filled for User ID 'NEWUSR01' and no such user exists WHEN the administrator presses Enter and the record is added successfully THEN all entry fields are cleared and the message 'User NEWUSR01 has been added ...' is shown in green (USPM-C04-AC-13; USPM-BR-053)
+2. GIVEN all five fields are filled and no user 'USER0099' exists WHEN the administrator presses Enter and the record is added successfully THEN all entry fields are cleared and the message 'User USER0099 has been added ...' is shown in green (USPM-C04-AC-13; USPM-BR-053)
 
 ### Requirement 11: USPM-REQ-F-048 (business rule)
 

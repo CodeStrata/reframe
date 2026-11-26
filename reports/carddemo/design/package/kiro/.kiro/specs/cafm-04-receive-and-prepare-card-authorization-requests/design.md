@@ -4,7 +4,7 @@
 
 ## Overview
 
-The intake step for card authorization requests from the payment network. It takes each request message, parses it, and looks up the card's account, customer and pending authorization summary so a decision can be made. It must never send a reply based on a failed read of the account, customer or summary data, and it must convert the amount text exactly into the transaction amount.
+The intake side of real-time card authorization for the card payment network. It takes authorization requests off the queue, splits them into fields, and gathers the card's account, customer and pending-authorization summary so the request can be decided. A missing account or customer must not stop the request, which goes on to be declined. A real read failure must end the task before any reply is sent for that request.
 
 Runs as online.
 
@@ -265,13 +265,13 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-042: Each consumer run handles at most 501 messages (the limit of 500 is tested as 'more than'), committing after each message. Leave the remaining messages on the queue for the next start-up so one run cannot hold the queue indefinitely.
-- CAFM-BR-043: Read the request queue with a 5-second wait, and end the run when no message arrives in that time.
-- CAFM-BR-044: Provide a parser that splits the comma-delimited request into named fields and converts the amount text to an exact decimal (not floating point) transaction amount.
-- CAFM-BR-045: Look up the account record by the account id taken from the card cross-reference, and return found or not found as a flag for the decision step.
-- CAFM-BR-048: Look up the customer record by the customer id taken from the card cross-reference, and return found or not found as a flag for the decision step.
-- CAFM-BR-051: Look up the account's pending authorization summary by account id, with three outcomes: found, not found, or error. Only an error ends the task (critical 'I002'). The legacy IMS statuses blank/'FW' mean found and 'GE' means not found.
-- CAFM-BR-053: Authorization details must be read newest first. The legacy store did this with an inverted key: date = 99999 minus the YYDDD value, time = 999999999 minus (time x 1000 + milliseconds). The new store can use a descending index on the authorization timestamp, but any shared or migrated keys must keep this formula, because the purge works out an authorization's age from the inverted date.
+- CAFM-BR-042: Consume authorization requests from the request queue one at a time, committing after each. Stop after 501 messages in one activation (the limit is 500, checked as 'more than') and leave the rest for the next activation. Make the limit a configuration value.
+- CAFM-BR-043: Wait up to 5 seconds for each next request, and end the consumer cleanly when none arrives.
+- CAFM-BR-044: Read the request as comma-separated text in this field order: auth date, auth time, card number, auth type, card expiry, message type, message source, processing code, amount, merchant category code, acquirer country code, POS entry mode, merchant id, merchant name, merchant city, merchant state, merchant zip, transaction id. Convert the amount text to a decimal number.
+- CAFM-BR-045: Once the card is found, look up the account by the account id from the card cross-reference (a keyed lookup by account id) and record whether it was found.
+- CAFM-BR-048: Once the card is found, look up the customer by the customer id from the card cross-reference (a keyed lookup by customer id) and record whether it was found.
+- CAFM-BR-051: Look up the pending-authorization summary by the card's account id. Keep three outcomes apart: found, not found (a valid state, after which a new summary is created) and read failure (critical error 'I002').
+- CAFM-BR-053: Authorization details must list newest first under their account. The legacy key does this with an inverted date (99999 minus YYDDD) and an inverted time (999999999 minus time×1000+milliseconds). A modern store can order by a full timestamp descending instead, but the purge's age calculation and the paging keys must use the same date.
 
 ## Open questions
 

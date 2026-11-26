@@ -50,6 +50,16 @@ SCHEMA = {"type": "object", "required": ["capabilities"], "properties": {"capabi
             "text": {"type": "string"}, "rules": {"type": "array", "items": {"type": "string"}}}}},
         "questions": {"type": "array", "items": {"type": "string"}}}}}}}
 
+ONE_TOOL = (("as AWS Transform named it", "as Reframe named it from Claude's assessment"),
+            ("rules Reframe reconciled from two assessments of the same source and checked against the code",
+             "rules from Claude's assessment of the source, each checked against the code"))
+LABEL_ONE = "recommended by Reframe from Claude's assessment, checked against the code"
+
+
+def label(folder: RunFolder) -> str:
+    return LABEL_ONE if folder.state.get("tools") == "claude" else LABEL
+
+
 PROMPT = """Read {input}. It holds one business function of a legacy system, as AWS Transform named it, with its recommended business rules: rules Reframe reconciled from two assessments of the same source and checked against the code. Each rule has an id (R1, R2, ...). It may also hold open items (U1, U2, ...): parts of the function the code could not settle, each with the question a subject-matter expert must answer.
 
 Write this function's capabilities and requirements:
@@ -118,9 +128,18 @@ def open_units(found: list[dict[str, Any]], kept: dict[str, Any]) -> list[dict[s
 # ---- the frame --------------------------------------------------------------------------------------------------------
 
 def frame(folder: RunFolder) -> dict[str, Any]:
-    """AWS Transform's domains and functions, and which functions each program sits in."""
-    from reframe.report.build import collect
+    """AWS Transform's domains and functions, and which functions each program sits in. On a Claude-only run, Claude's
+    domains and the functions Reframe wrote in C6, a program sitting in the functions its rules are in (most first)."""
+    from reframe.report.build import collect, collect_claude
     from reframe.report.compare import _programs_aws
+    if folder.state.get("tools") == "claude":
+        claude = collect_claude(folder)
+        counts: dict[str, Counter] = defaultdict(Counter)
+        for r in claude["rules"]:
+            if r.get("program") and r.get("function"):
+                counts[str(r["program"]).upper()][r["function"]] += 1
+        return {"domains": claude["domains"], "functions": {f["id"]: f for f in claude["functions"]}, "tool": "claude",
+                "by_program": {p: [f for f, _ in c.most_common()] for p, c in sorted(counts.items())}}
     aws = collect(folder)
     by_program: dict[str, list[str]] = defaultdict(list)
     for fid, programs in sorted(_programs_aws(aws).items()):
@@ -133,7 +152,8 @@ def place(covers: list[str], unit_rules: list[str], program: str, rules: dict[st
     """The AWS function a recommended rule (or open unit) belongs in: that of the AWS rules it covers, else that of the
     AWS rules in its unit, else the function whose programs hold its program; "" for Unassigned programs."""
     for keys in (covers, unit_rules):
-        functions = Counter(rules[k]["function"] for k in keys if k in rules and rules[k]["tool"] == "aws" and rules[k].get("function") in framed["functions"])
+        functions = Counter(rules[k]["function"] for k in keys if k in rules and rules[k]["tool"] == framed.get("tool", "aws")
+                            and rules[k].get("function") in framed["functions"])
         if functions:
             return functions.most_common(1)[0][0]
     return (framed["by_program"].get(str(program).upper()) or [""])[0]
@@ -277,7 +297,9 @@ def write_function(folder: RunFolder, claude, places: dict[str, Any], fid: str, 
         path = folder_in / f"req-{safe}-{n}.json"
         path.write_text(json.dumps(data, indent=1))
         name = f"req-{safe}-{n}"
-        step = claude.run(name, PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}"), timeout=3600, schema=SCHEMA)
+        from reframe.reconcile.units import one_tool
+        step = claude.run(name, one_tool(folder, PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}"), ONE_TOOL),
+                          timeout=3600, schema=SCHEMA)
         log.append({"step": name, **{k: v for k, v in step.as_json().items() if k in ("ok", "seconds", "tokens", "cost_usd", "problem")}})
         if not step.ok:
             return None, step
@@ -317,7 +339,7 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
 
     before = {r["key"]: r["text"] for r in (folder.load("outputs/reconcile/rules.json") or {}).get("rules") or []}
     now = {r["key"]: r["text"] for r in made}
-    folder.save("outputs/reconcile/rules.json", {"label": LABEL, "generated_at": iso(), "rules": made, "open": waiting})
+    folder.save("outputs/reconcile/rules.json", {"label": label(folder), "generated_at": iso(), "rules": made, "open": waiting})
     agreed_marks = (gathered.get("context") or {}).get("agreed") or {}
     previous_doc = folder.load("outputs/reconcile/requirements.json") or {}
     saved = previous_doc.get("functions") or {}
@@ -356,7 +378,7 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
                 return
             written[fid] = {"hash": digest, "dropped": value["dropped"], "raw": value["capabilities"],
                             "reviewed": [{k: m[k] for k in ("key", "mark", "comment")} for m in marked]}
-            folder.save("outputs/reconcile/requirements.json", {"label": LABEL, "complete": False, "functions": {**saved, **written}})
+            folder.save("outputs/reconcile/requirements.json", {"label": label(folder), "complete": False, "functions": {**saved, **written}})
 
     with ThreadPoolExecutor(max_workers=PARALLEL) as pool:
         list(pool.map(one, todo))
@@ -396,7 +418,7 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
         top = min((RISKS.index(c["risk"]) for c in caps), default=RISKS.index("low"))
         functions[fid] = {**written[fid], "capabilities": caps, "risk": RISKS[top]}
     cited = {k for f in functions.values() for c in f["capabilities"] for q in c["requirements"] for k in q["rules"]}
-    value = {"label": LABEL, "complete": True, "generated_at": iso(), "functions": functions,
+    value = {"label": label(folder), "complete": True, "generated_at": iso(), "functions": functions,
              "domains": [{"key": d["key"], "name": d["name"], "description": d.get("description", ""), "kind": d["kind"],
                           "functions": [f for f in d["functions"] if f in functions]} for d in framed["domains"]]
                         + ([{**UNASSIGNED, "functions": [""]}] if "" in functions else []),

@@ -10,7 +10,7 @@
 
 As a staff user, I want a confirmed, valid transaction to be numbered and written to the transaction file with a clear confirmation or error, so that the account's activity is recorded accurately.
 
-Records a validated, confirmed new transaction. It gets the next transaction number (the highest on file plus 1, as 16 zero-padded digits) and is written with the entered details and the card found for the account. The user sees 'Transaction added successfully. Your Tran ID is <number>.'. Numbers must never be duplicated or reused, and a failed write must say so and save nothing.
+Records a validated, confirmed transaction. It gives the transaction the next number after the highest one on file, as 16 zero-padded digits (0000000000000001 when the file is empty), and writes it with the card found for the entered account or card. It must never reuse an existing number or lose the operator's entries on a failed write. On success it shows the new Tran ID.
 
 **Acceptance scenarios:**
 
@@ -22,7 +22,7 @@ Records a validated, confirmed new transaction. It gets the next transaction num
 6. **Given** Account ID: 00000000001; Card on file for account: 4111111111111111, **when** a confirmed transaction has been given its new number, **then** The record is written with card number 4111111111111111 (OATM-C33-AC-06)
 7. **Given** Write result: duplicate key, **when** writing the new transaction fails because the number already exists, **then** The screen shows 'Tran ID already exist...' and nothing is added (OATM-C33-AC-07)
 8. **Given** Write result: file not open, **when** writing the new transaction fails for any other reason, **then** The screen shows 'Unable to Add Transaction...' (OATM-C33-AC-08)
-9. **Given** a validated Add Transaction form with Confirm 'Y', and the highest transaction number on file is 0000000000000041, **when** the user presses Enter and the new transaction is written successfully, **then** every field on the screen is cleared and the message 'Transaction added successfully. Your Tran ID is 0000000000000042.' is shown in green (OATM-C33-AC-09)
+9. **Given** a validated transaction with Confirm 'Y' whose new number is 0000000000000301, and the write to the transaction file succeeds, **when** the add completes, **then** every field on the Add Transaction screen is cleared and the message 'Transaction added successfully. Your Tran ID is 0000000000000301.' is shown in green (OATM-C33-AC-09)
 
 ## Requirements
 

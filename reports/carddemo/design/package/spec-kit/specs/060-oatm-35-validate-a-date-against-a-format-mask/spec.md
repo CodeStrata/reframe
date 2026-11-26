@@ -10,7 +10,7 @@
 
 As a screen that accepts dates (report date range, transaction add), I want a date checked against its format mask with a clear result and reason, so that invalid dates are rejected with a meaningful error.
 
-A shared date check used by the report date range and Add Transaction screens. It tests a 10-character date against a 10-character format mask and returns a severity, a message number and a reason such as 'Date is valid', 'Datevalue error' or 'Invalid month'. Callers treat the date as invalid when the severity is not 0000, unless the message number is 2513. Real dates must be accepted and impossible dates rejected.
+A shared date-check service used by the screens that accept dates (transaction add, report date range). It checks a date against its format mask and returns a severity, a message code and a short reason such as 'Date is valid' or 'Datevalue error'. Callers must treat a date as invalid whenever the severity is not '0000' and the message number is not '2513', so impossible dates are never accepted.
 
 **Acceptance scenarios:**
 
@@ -25,9 +25,9 @@ A shared date check used by the report date range and Add Transaction screens. I
 9. **Given** feedback: any other non-zero token, **when** the date conversion feedback matches none of the recognised tokens, **then** Result text 'Date is invalid' (OATM-C35-AC-09)
 10. **Given** start date: 2023-02-30; severity: 0003; message number: 2508, **when** the returned severity is not '0000' and the message number is not '2513', **then** Report screen shows 'Start Date - Not a valid date...' (OATM-C35-AC-10)
 11. **Given** original transaction date: 2023-02-28; severity: 0000, **when** the returned severity is not '0000' and the message number is not '2513', **then** Date accepted; validation continues (OATM-C35-AC-11)
-12. **Given** a caller supplies the date '2024-02-30' and the format mask 'YYYY-MM-DD', **when** the date check runs, **then** exactly that 10-character date and 10-character mask are what is checked, and the result records the severity and message number as 4-digit values (for a bad date value: severity 0003, message number 2508) (OATM-C35-AC-12)
-13. **Given** a caller supplies the date '2024-02-30' and the format mask 'YYYY-MM-DD', **when** the date check returns, **then** the 80-character result contains, in order, the severity, 'Mesg Code:', the message number, the result text, 'TstDate:' with 2024-02-30 and 'Mask used:' with YYYY-MM-DD, and the return code equals the severity (OATM-C35-AC-13)
-14. **Given** a date that the date conversion service reports as a bad date value (feedback X'000309CC59C3C5C5', severity 3, message 2508), **when** the date check runs, **then** the result text is 'Datevalue error' (OATM-C35-AC-14)
+12. **Given** a caller passes the date '2024-02-30' and the mask 'YYYY-MM-DD', each 10 characters, **when** the date-check service runs, **then** the date and the mask are submitted to the date conversion together, and the result records the returned severity and message number as 4-digit values (here severity 0003, message 2508) (OATM-C35-AC-12)
+13. **Given** a caller passes the date '2024-02-30' and the mask 'YYYY-MM-DD', and the conversion reports severity 3, message 2508, **when** the date-check service returns, **then** the 80-character result contains, in order, severity '0003', 'Mesg Code:', message number '2508', the result text 'Datevalue error', 'TstDate:' followed by '2024-02-30', and 'Mask used:' followed by 'YYYY-MM-DD', and the return code is 3 (OATM-C35-AC-13)
+14. **Given** the date conversion reports feedback X'000309CC59C3C5C5' (severity 3, message 2508) for the date and mask given, **when** the date-check service sets its result text, **then** the result text is 'Datevalue error' (OATM-C35-AC-14)
 
 ## Requirements
 

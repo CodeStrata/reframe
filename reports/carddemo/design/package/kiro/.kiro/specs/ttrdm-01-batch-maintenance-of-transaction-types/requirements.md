@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as sc
 
 ## Introduction
 
-A scheduled batch job lets reference data administrators add, update and delete transaction types from an input file, one action per record ('A', 'U', 'D', or '*' for a comment). It must never let one bad record stop the run or go unnoticed: each rejected record leaves the table unchanged, is reported with its message, and makes the job end with return code 4 instead of 0. It must never delete a transaction type that still has categories referring to it.
+A scheduled batch job lets reference data administrators add, update and delete transaction types from an input file. Each line holds a one-character action (A, U, D, or * for a comment), a two-character type code and a 50-character description. The job must never stop because one line is rejected: it reports each rejected line, keeps going, and ends with return code 4 if any line failed and 0 if none did.
 
 **User story:** As a reference data administrator, I want to add, update and delete transaction types from a batch input file, so that the transaction type table used to classify credit card transactions stays current.
 
@@ -40,21 +40,21 @@ A scheduled batch job lets reference data administrators add, update and delete 
 #### Acceptance criteria
 
 1. When an input record has action 'A', the system shall add a transaction type with the record's two-character code and its description, and show 'RECORD INSERTED SUCCESSFULLY' when the database accepts it. (rules TTRDM-BR-004)
-2. GIVEN the transaction type table has no type with code '99' WHEN the batch reads the input record 'A99' followed by the description 'TEST PURCHASE' padded to 50 characters, and the database accepts the add THEN a transaction type with code '99' and description 'TEST PURCHASE' exists and the job shows 'RECORD INSERTED SUCCESSFULLY' (TTRDM-C01-AC-11; TTRDM-BR-004)
+2. GIVEN Transaction type code '99' does not exist in the transaction type table WHEN The batch processes the input record 'A99NEW TEST TYPE' (action 'A', code '99', description 'NEW TEST TYPE') THEN A transaction type with code '99' and description 'NEW TEST TYPE' exists in the table and the job shows 'RECORD INSERTED SUCCESSFULLY' (TTRDM-C01-AC-11; TTRDM-BR-004)
 
 ### Requirement 5: TTRDM-REQ-F-005 (error handling)
 
 #### Acceptance criteria
 
 1. If the database rejects an add (for example because the type code already exists, DB2 code -803), then the system shall show 'Error accessing: TRANSACTION_TYPE table. SQLCODE:' with the database code, set the job return code to 4 and continue with the next record. (rules TTRDM-BR-005)
-2. GIVEN the transaction type table already holds type code '01', and the input file holds 'A01' with a description followed by a valid 'U' record WHEN the batch processes the file and the database rejects the add with code -803 THEN the job shows 'Error accessing: TRANSACTION_TYPE table. SQLCODE:' with -803, type '01' keeps its existing description, the following 'U' record is still processed, and the job ends with return code 4 (TTRDM-C01-AC-12; TTRDM-BR-005)
+2. GIVEN Transaction type code '01' already exists in the transaction type table and another valid record follows in the input file WHEN The batch processes an input record with action 'A' and code '01' THEN The database rejects the add (duplicate key, DB2 code -803), the job shows 'Error accessing: TRANSACTION_TYPE table. SQLCODE:' followed by the database code, the existing type '01' is unchanged, the following record is still processed and the job ends with return code 4 (TTRDM-C01-AC-12; TTRDM-BR-005)
 
 ### Requirement 6: TTRDM-REQ-F-006 (business rule)
 
 #### Acceptance criteria
 
 1. When an input record has action 'U' and the transaction type code exists, the system shall replace that type's description with the record's description and show 'RECORD UPDATED SUCCESSFULLY'. (rules TTRDM-BR-006)
-2. GIVEN type code '01' exists with description 'Purchase' WHEN the batch reads the record 'U01' with the description 'Retail Purchase' THEN type '01' has the description 'Retail Purchase' and the job shows 'RECORD UPDATED SUCCESSFULLY' (TTRDM-C01-AC-13; TTRDM-BR-006)
+2. GIVEN Transaction type code '01' exists with description 'Purchase' WHEN The batch processes an input record with action 'U', code '01' and description 'Retail Purchase' THEN The description of type '01' is 'Retail Purchase' and the job shows 'RECORD UPDATED SUCCESSFULLY' (TTRDM-C01-AC-13; TTRDM-BR-006)
 
 ### Requirement 7: TTRDM-REQ-F-007 (error handling)
 
@@ -69,7 +69,7 @@ A scheduled batch job lets reference data administrators add, update and delete 
 #### Acceptance criteria
 
 1. If the database returns an error on an update, then the system shall show 'Error accessing: TRANSACTION_TYPE table. SQLCODE:' with the database code, set the job return code to 4 and continue with the next record. (rules TTRDM-BR-009)
-2. GIVEN type code '01' exists and the input file holds 'U01' with a new description followed by another record WHEN the database returns an error on the update THEN the job shows 'Error accessing: TRANSACTION_TYPE table. SQLCODE:' with the database code, the next record is still processed, and the job ends with return code 4 (TTRDM-C01-AC-14; TTRDM-BR-009)
+2. GIVEN Transaction type code '01' exists, the database returns an error when it is updated, and another record follows in the input file WHEN The batch processes an input record with action 'U' and code '01' THEN The job shows 'Error accessing: TRANSACTION_TYPE table. SQLCODE:' followed by the database code, processes the following record and ends with return code 4 (TTRDM-C01-AC-14; TTRDM-BR-009)
 
 ### Requirement 9: TTRDM-REQ-F-009 (business rule)
 
@@ -83,7 +83,7 @@ A scheduled batch job lets reference data administrators add, update and delete 
 #### Acceptance criteria
 
 1. If a delete names a transaction type that still has transaction type categories, then the system shall refuse the delete, show 'Error accessing: TRANSACTION_TYPE table. SQLCODE:' with the database code, set the job return code to 4 and continue. (rules TTRDM-BR-011)
-2. GIVEN type code '01' exists and at least one transaction type category refers to it WHEN the batch reads the record 'D01' THEN type '01' is still in the table, the job shows 'Error accessing: TRANSACTION_TYPE table. SQLCODE:' with the database code, processing continues with the next record, and the job ends with return code 4 (TTRDM-C01-AC-15; TTRDM-BR-011)
+2. GIVEN Transaction type code '01' exists and at least one transaction type category refers to it WHEN The batch processes an input record with action 'D' and code '01' THEN The database refuses the delete, type '01' still exists, the job shows 'Error accessing: TRANSACTION_TYPE table. SQLCODE:' followed by the database code, continues with the next record and ends with return code 4 (TTRDM-C01-AC-15; TTRDM-BR-011)
 
 ### Requirement 11: TTRDM-REQ-F-011 (error handling)
 
@@ -98,4 +98,4 @@ A scheduled batch job lets reference data administrators add, update and delete 
 #### Acceptance criteria
 
 1. The system shall show 'PROCESSING' followed by the input record for each record it reads, and 'OPEN FILE OK' or 'OPEN FILE NOT OK' when it opens the input file. (rules TTRDM-BR-013)
-2. GIVEN an input file holding the two records 'A99…' and '*comment' WHEN the batch opens the file and processes it THEN the job shows 'OPEN FILE OK', then 'PROCESSING' followed by the first record and 'PROCESSING' followed by the second record; if the file cannot be opened the job shows 'OPEN FILE NOT OK' instead (TTRDM-C01-AC-16; TTRDM-BR-013)
+2. GIVEN An input file that can be opened and holds the two records 'A99NEW TEST TYPE' and '*COMMENT' WHEN The batch job runs THEN The job shows 'OPEN FILE OK', then 'PROCESSING' followed by 'A99NEW TEST TYPE', then 'PROCESSING' followed by '*COMMENT'; and when the input file cannot be opened the job shows 'OPEN FILE NOT OK' (TTRDM-C01-AC-16; TTRDM-BR-013)

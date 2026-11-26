@@ -4,7 +4,7 @@
 
 ## Overview
 
-Loads each account's pending authorization summary from the summary file into the database for operations. A summary already held for an account must be left unchanged, never overwritten. Any other insert failure must stop the load with return code 16.
+Loads pending authorization summaries from the summary file into the pending authorization database, one per account. It must never overwrite a summary already held for an account: it reports it and moves on. Any other insert failure stops the load with a failure code.
 
 Runs as scheduled job.
 

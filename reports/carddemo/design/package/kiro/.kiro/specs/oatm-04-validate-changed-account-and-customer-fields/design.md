@@ -4,40 +4,35 @@
 
 ## Overview
 
-Checks every account and customer field once the operator has changed a fetched account, and only moves the update to awaiting confirmation when all checks pass. Amounts must be present and valid currency numbers but may be negative or zero. It must never let an invalid field through to confirmation, and shows only the first error found.
+Checks every changed account and customer field before the operator may confirm the update: flags, dates, amounts, SSN, FICO score, names and address. Changes may be confirmed only when every check passes. Invalid details must never be saved, and only the first error found is shown.
 
 Runs as online. Journeys: J02.
 
 ## Screens and components
 
+### Account (S-ACCOUNT-VIEW)
+
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
+
+Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Update account (S-ACCOUNT-EDIT)
 
-Fetch an account, change its account and customer details in one form, see every error at its field, and save both records together only after reviewing the changes.
+Change an account's and its customer's details after confirming the caller. Each field is checked as it is left and again on save; every failing field shows its own message and a summary lists them all. Save asks for confirmation, listing each change from old to new value. Tab order: account and status, dates, amounts, customer identity, name and address, contact, then Save changes.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-EDIT`. Replaces the legacy screens CACTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Fix these fields | message | A summary listing every field in error, each linking to its field, in screen order; focus moves to the summary. Each field also shows its own message (the 3270 screen showed only the first message). |  |  | OATM-REQ-F-033 |
-| Account status | radio | Active (Y) / Inactive (N) | Required: 'Account Status must be supplied.'; only Active or Inactive: 'Account Status must be Y or N.' |  | OATM-REQ-F-034 |
-| Open date | date |  | Year, month and day must all be supplied: 'Open Date : Year must be supplied.', 'Open Date : Month must be supplied.', 'Open Date : Day must be supplied.'. The year must be 4 digits: 'Open Date must be 4 digit number.', starting 19 or 20: 'Open Date : Century is not valid.'. 'Open Date: Month must be a number between 1 and 12.'; 'Open Date:day must be a number between 1 and 31.'; 'Open Date:Cannot have 31 days in this month.'; 'Open Date:Cannot have 30 days in this month.'; 'Open Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Open Date validation error ...'. |  | OATM-REQ-F-035 |
-| Expiry date | date |  | Year, month and day must all be supplied: 'Expiry Date : Year must be supplied.', 'Expiry Date : Month must be supplied.', 'Expiry Date : Day must be supplied.'. The year must be 4 digits: 'Expiry Date must be 4 digit number.', starting 19 or 20: 'Expiry Date : Century is not valid.'. 'Expiry Date: Month must be a number between 1 and 12.'; 'Expiry Date:day must be a number between 1 and 31.'; 'Expiry Date:Cannot have 31 days in this month.'; 'Expiry Date:Cannot have 30 days in this month.'; 'Expiry Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Expiry Date validation error ...'. |  | OATM-REQ-F-035 |
-| Reissue date | date |  | Year, month and day must all be supplied: 'Reissue Date : Year must be supplied.', 'Reissue Date : Month must be supplied.', 'Reissue Date : Day must be supplied.'. The year must be 4 digits: 'Reissue Date must be 4 digit number.', starting 19 or 20: 'Reissue Date : Century is not valid.'. 'Reissue Date: Month must be a number between 1 and 12.'; 'Reissue Date:day must be a number between 1 and 31.'; 'Reissue Date:Cannot have 31 days in this month.'; 'Reissue Date:Cannot have 30 days in this month.'; 'Reissue Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Reissue Date validation error ...'. |  | OATM-REQ-F-035 |
-| Credit limit | money |  | Required: 'Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Credit Limit is not valid'; negative and zero amounts are accepted. |  | OATM-REQ-F-036 |
-| Cash credit limit | money |  | Required: 'Cash Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Cash Credit Limit is not valid'; negative and zero amounts are accepted. |  | OATM-REQ-F-036 |
-| Current balance | money |  | Required: 'Current Balance must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Balance is not valid'; negative and zero amounts are accepted. |  | OATM-REQ-F-036 |
-| Current cycle credit | money |  | Required: 'Current Cycle Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Cycle Credit Limit is not valid'; negative and zero amounts are accepted. |  | OATM-REQ-F-036 |
-| Current cycle debit | money |  | Required: 'Current Cycle Debit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Cycle Debit Limit is not valid'; negative and zero amounts are accepted. |  | OATM-REQ-F-036 |
-| First name | text |  | Required: 'First Name must be supplied.'; letters and spaces only: 'First Name can have alphabets only.'. |  | OATM-REQ-F-042 |
-| Middle name (optional) | text |  | Optional; letters and spaces only: 'Middle Name can have alphabets only.'. |  | OATM-REQ-F-042 |
-| Last name | text |  | Required: 'Last Name must be supplied.'; letters and spaces only: 'Last Name can have alphabets only.'. |  | OATM-REQ-F-042 |
-| Social Security number | text | One field, formatted NNN-NN-NNNN as typed | First 3 digits must be supplied, numeric and not zero: 'SSN: First 3 chars must be supplied.' / 'SSN: First 3 chars must be all numeric.' / 'SSN: First 3 chars must not be zero.'; and not 666 or 900-999: 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'. The 4th-5th digits and the last 4 digits must each be supplied, numeric and not zero (messages 'SSN 4th & 5th chars ...' and 'SSN Last 4 chars ...'). |  | OATM-REQ-F-040 |
-| Date of birth | date |  | Year, month and day must all be supplied: 'Date of Birth : Year must be supplied.', 'Date of Birth : Month must be supplied.', 'Date of Birth : Day must be supplied.'. The year must be 4 digits: 'Date of Birth must be 4 digit number.', starting 19 or 20: 'Date of Birth : Century is not valid.'. 'Date of Birth: Month must be a number between 1 and 12.'; 'Date of Birth:day must be a number between 1 and 31.'; 'Date of Birth:Cannot have 31 days in this month.'; 'Date of Birth:Cannot have 30 days in this month.'; 'Date of Birth:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Date of Birth validation error ...'. Must be before today: 'Date of Birth:cannot be in the future '. |  | OATM-REQ-F-035 |
-| FICO score | number |  | Required: 'FICO Score must be supplied.'; 3 digits: 'FICO Score must be all numeric.'; not zero: 'FICO Score must not be zero.'; 300 to 850 inclusive: 'FICO Score: should be between 300 and 850'. |  | OATM-REQ-F-041 |
-| Primary card holder | radio | Yes (Y) / No (N) | Required: 'Primary Card Holder must be supplied.'; only Yes or No: 'Primary Card Holder must be Y or N.' |  | OATM-REQ-F-034 |
-| City | text |  | Required: 'City must be supplied.'; letters and spaces only: 'City can have alphabets only.'. |  | OATM-REQ-F-042 |
-| State | select | US state codes | Required: 'State must be supplied.'; letters and spaces only: 'State can have alphabets only.'. Must be a US state code: 'State: is not a valid state code'; must match the ZIP code: 'Invalid zip code for state'. |  | OATM-REQ-F-043 |
-| Check changes | button | Checks every changed field; when all pass, opens the save confirmation |  |  | OATM-REQ-F-044 |
+| Status and group | **summary card** | Account status as a choice of Active or Inactive (stored Y/N); Account group (optional, up to 10 characters) | Status is required: 'Account Status must be supplied.' and must be Active or Inactive ('Account Status must be Y or N.'). The choice offers only those two values. |  | OATM-REQ-F-034 |
+| Account dates | **summary card** | Opened, Expiry and Reissue dates, each as labelled Day, Month and Year inputs | For each date, in the rule's words: '<date> : Year must be supplied.', '<date> must be 4 digit number.', '<date> : Century is not valid.' (year must start 19 or 20), '<date> : Month must be supplied.', '<date>: Month must be a number between 1 and 12.', '<date> : Day must be supplied.', '<date>:day must be a number between 1 and 31.', '<date>:Cannot have 31 days in this month.', '<date>:Cannot have 30 days in this month.', '<date>:Not a leap year.Cannot have 29 days in this month.', and a final calendar check '<date> validation error'. The message sits under the part to fix. |  | OATM-REQ-F-035 |
+| Limits and balances | **summary card** | Credit limit, Cash credit limit, Current balance, Current cycle credit, Current cycle debit; money inputs, right-aligned, two decimals, $ and commas accepted | Each amount is required: '<field> must be supplied.' (e.g. 'Credit Limit must be supplied.'), and must be a currency number: '<field> is not valid' - enter an amount such as 1,250.00. Negative values and zero are accepted. |  | OATM-REQ-F-036, OATM-REQ-F-037, OATM-REQ-F-038, OATM-REQ-F-039 |
+| Customer identity | **summary card** | Customer ID (read-only); SSN as three labelled parts (3-2-4); Date of birth as Day, Month, Year; FICO score; Government-issued ID (optional) | SSN: 'SSN: First 3 chars must be supplied.', 'SSN: First 3 chars must be all numeric.', 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'; the 4th & 5th and last 4 characters must each be supplied, all numeric and non-zero. Date of birth: the date checks above, and 'Date of Birth:cannot be in the future '. FICO: 'FICO Score must be supplied.', 'FICO Score must be all numeric.', 'FICO Score must not be zero.', 'FICO Score: should be between 300 and 850'. |  | OATM-REQ-F-040, OATM-REQ-F-041 |
+| Name and address | **summary card** | First name, Middle name (optional), Last name; Address line 1, Address line 2 (optional); City; State (a choice of US state codes); ZIP; Country | '<field> must be supplied.' for First Name, Last Name, City, State, Country and Address Line 1; '<field> can have alphabets only.' for names, city, state and country; 'Middle Name can have alphabets only.'; 'State: is not a valid state code'; ZIP: 'ZIP must be supplied.', must be all numeric, 5 digits and not zero; 'Invalid zip code for state' - check the state and ZIP together. |  | OATM-REQ-F-042, OATM-REQ-F-043 |
+| Fix these before saving | **summary card** | Shown after a save attempt with errors: each field in error with its message, each a link that moves focus to the field; focus moves to this summary. Replaces the legacy single message line, which showed only the first error; every invalid field is still flagged |  |  | OATM-REQ-F-033, OATM-REQ-F-044, OATM-REQ-N-003 |
 
 
 ## Data models

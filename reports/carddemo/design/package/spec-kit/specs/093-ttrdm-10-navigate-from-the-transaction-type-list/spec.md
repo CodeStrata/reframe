@@ -10,7 +10,7 @@
 
 As an administrator, I want to leave the list or go to the add screen with a function key, so that I can return to the admin menu or add a new transaction type.
 
-Gives administrators two ways off the transaction type list: F3 saves any work and returns to the admin menu, and F2 opens the screen for adding a transaction type. Both must keep the user's signed-on session context.
+From the transaction type list, the administrator presses F3 to go back to the admin menu or F2 to open the add/change transaction type screen. Leaving by F3 must commit any finished work first.
 
 **Acceptance scenarios:**
 

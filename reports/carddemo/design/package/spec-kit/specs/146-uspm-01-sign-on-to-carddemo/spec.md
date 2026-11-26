@@ -10,7 +10,7 @@
 
 As a CardDemo user, I want to sign on with my User ID and Password, so that I reach the menu that matches my user type.
 
-Lets any CardDemo user sign on with a User ID and Password. Both are checked against the user security file without regard to case, and the user is then sent to the menu for their user type. It must never send anyone other than a type 'A' user to the administrator menu, and it must give a clear message for a blank field, an unknown user, a wrong password or a lookup failure. As in the legacy system, failed attempts are not limited or recorded.
+Lets every CardDemo user sign on with a User ID and Password and sends them to the menu for their user type: the admin menu for type 'A', the main menu for every other type. User ID and Password are both upper-cased before the check, so sign-on is not case-sensitive. It must never route a non-'A' user to the admin menu, and it must never sign anyone on whose stored password does not match.
 
 **Acceptance scenarios:**
 
@@ -32,7 +32,7 @@ Lets any CardDemo user sign on with a User ID and Password. Both are checked aga
 16. **Given** Key: PF3, **when** the user presses PF3 on the sign-on screen, **then** The screen shows 'Thank you for using CardDemo application...' and the session leaves CardDemo (USPM-C01-AC-16)
 17. **Given** Key: PF5, **when** the user presses any key other than Enter or PF3 on the sign-on screen, **then** The sign-on screen is shown again with 'Invalid key pressed. Please see below...' (USPM-C01-AC-17)
 18. **Given** Key: PF7, **when** the sign-on screen is shown (first entry, an input error or an invalid key), **then** The screen is redisplayed and the next key pressed starts CC00 again (USPM-C01-AC-18)
-19. **Given** the user security file holds user 'ADMIN001' with stored password 'PASSWORD', **when** the user enters User ID 'admin001' and Password 'password' on the sign-on screen and presses Enter, **then** both values are converted to upper case, 'ADMIN001' is kept as the session's User ID, and the user security file is looked up by the key 'ADMIN001'. The password comparison uses 'PASSWORD'. (USPM-C01-AC-19)
+19. **Given** a user security record exists for User ID 'USER0001' with password 'PASSWORD', **when** the user types User ID 'user0001' and Password 'password' on the sign-on screen and presses Enter, **then** both values are converted to upper case, 'USER0001' is kept as the session's User ID, the user is looked up in the user security file by 'USER0001', and the upper-cased password 'PASSWORD' is the one compared with the stored password (USPM-C01-AC-19)
 
 ## Requirements
 

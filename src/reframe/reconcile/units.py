@@ -29,6 +29,15 @@ RECONCILED = "rec/"   # the keys of recommended rules on the reconciliation page
 METHOD = "part-2"
 
 
+def one_tool(folder, prompt: str, swaps: tuple[tuple[str, str], ...]) -> str:
+    """A prompt in the words of a Claude-only run (docs/release-1.md, section 2); a run with both tools gets it unchanged."""
+    if folder.state.get("tools") != "claude":
+        return prompt
+    for old, new in swaps:
+        prompt = prompt.replace(old, new)
+    return prompt
+
+
 def reconciled_key(unit: str, n: int) -> str:
     return f"{RECONCILED}{unit}/{n}"
 

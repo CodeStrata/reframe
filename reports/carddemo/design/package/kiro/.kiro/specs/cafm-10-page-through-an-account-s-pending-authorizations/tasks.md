@@ -17,14 +17,14 @@
   - _Rules: CAFM-BR-113, CAFM-BR-114_
   - _After: CAFM-C10-T1_
 - [ ] 4. CAFM-C10-T4 [api] Build the services behind the screens
-  - CAFM-BR-106: Use keyset (cursor) pagination over the account's authorizations in newest-first order. For a forward page, start after the last authorization key shown, or from the beginning when there is none. Keep the cursor in session state, not as a page offset.
-  - CAFM-BR-108: For the next page, fetch up to 5 authorizations after the cursor and replace the list rows entirely, so rows from the previous page never remain. Fetch one more to work out whether a further page exists, and keep each page's first key so backward paging works.
+  - CAFM-BR-106: Use keyset paging: a forward page request carries the key of the last authorization shown and returns the next rows after it, or starts from the beginning when there is no key. Re-check that the account's summary still exists before reading the page.
+  - CAFM-BR-108: A forward page replaces all five list rows with the next set of up to 5 authorizations. Fetch one row more than the page size to tell whether a further page exists. Keep the first key of each page visited so backward paging can go back to it.
   - _Requirements: CAFM-REQ-F-102_
   - _Rules: CAFM-BR-106_
   - _After: CAFM-C10-T1, CAFM-C10-T2, CAFM-C10-T3_
-- [ ] 5. CAFM-C10-T5 [ui-modernization] Build the screen Pending authorizations (S-PENDING-AUTHS)
-  - To the prototype: ui-reference/index.html#/S-PENDING-AUTHS.
-  - table "Pending authorizations": Only a row's 'View details' action opens an authorization, so 'Invalid selection. Valid value is S' cannot arise; it is shown if a row without an authorization is opened. Previous is disabled on the first page and announces 'You are already at the top of the page...'; Next is disabled on the last page and announces 'You are already at the bottom of the page...'.
+- [ ] 5. CAFM-C10-T5 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **data table** "Authorizations": Previous page is disabled on the first page, with 'You are already on the first page'. Next page is disabled on the last page, with 'You are already on the last page'. Next authorization on the last one says 'Already at the last authorization' and keeps the current one open. Rows open directly, so no selection code is typed and 'Invalid selection. Valid value is S' cannot arise. There are no unsupported keys to warn about.
   - _Requirements: CAFM-REQ-F-101, CAFM-REQ-F-102, CAFM-REQ-F-103, CAFM-REQ-F-104, CAFM-REQ-F-105, CAFM-REQ-F-106, CAFM-REQ-F-107, CAFM-REQ-F-108_
   - _Rules: CAFM-BR-105, CAFM-BR-106, CAFM-BR-107, CAFM-BR-108, CAFM-BR-109, CAFM-BR-110, CAFM-BR-111, CAFM-BR-112, CAFM-BR-113, CAFM-BR-114_
   - _After: CAFM-C10-T2, CAFM-C10-T3, CAFM-C10-T4_

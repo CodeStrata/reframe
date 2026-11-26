@@ -4,7 +4,7 @@
 
 ## Overview
 
-A scheduled batch job lets reference data administrators add, update and delete transaction types from an input file, one action per record ('A', 'U', 'D', or '*' for a comment). It must never let one bad record stop the run or go unnoticed: each rejected record leaves the table unchanged, is reported with its message, and makes the job end with return code 4 instead of 0. It must never delete a transaction type that still has categories referring to it.
+A scheduled batch job lets reference data administrators add, update and delete transaction types from an input file. Each line holds a one-character action (A, U, D, or * for a comment), a two-character type code and a 50-character description. The job must never stop because one line is rejected: it reports each rejected line, keeps going, and ends with return code 4 if any line failed and 0 if none did.
 
 Runs as scheduled job.
 

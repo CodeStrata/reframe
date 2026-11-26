@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-The intake step for card authorization requests from the payment network. It takes each request message, parses it, and looks up the card's account, customer and pending authorization summary so a decision can be made. It must never send a reply based on a failed read of the account, customer or summary data, and it must convert the amount text exactly into the transaction amount.
+The intake side of real-time card authorization for the card payment network. It takes authorization requests off the queue, splits them into fields, and gathers the card's account, customer and pending-authorization summary so the request can be decided. A missing account or customer must not stop the request, which goes on to be declined. A real read failure must end the task before any reply is sent for that request.
 
 **User story:** As a card payment network, I want authorization request messages taken from the queue, parsed and matched to the card's account, customer and pending authorization summary, so that each request can be decided and answered.
 
@@ -32,7 +32,7 @@ The intake step for card authorization requests from the payment network. It tak
 #### Acceptance criteria
 
 1. When a request message is received, the system shall split the comma-delimited request into its fields and convert the amount text into the numeric transaction amount. (rules CAFM-BR-044)
-2. GIVEN A comma-delimited authorization request message whose amount field holds the text '125.50' WHEN The request is received and parsed THEN Each comma-separated value is assigned to its request field in order, and the transaction amount holds the numeric value 125.50 (CAFM-C04-AC-15; CAFM-BR-044)
+2. GIVEN A comma-delimited authorization request message whose amount field holds the text '125.50' WHEN The request message is received THEN Each comma-separated value goes into its own request field, and the transaction amount is the number 125.50, ready for the credit check. (CAFM-C04-AC-15; CAFM-BR-044)
 
 ### Requirement 4: CAFM-REQ-F-043 (design note)
 

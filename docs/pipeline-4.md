@@ -315,6 +315,35 @@ On CardDemo run fa1f61, from the CLI only, with no AWS resources:
 - a second round, adding a design system, one persona and a prototype download with a *Needs change*, redoes only what those touch and writes what changed;
 - the README and `docs/cli.md` describe pipeline 4 from the tested commands.
 
+### Results (P4-10, 26 November 2026)
+
+All on CardDemo run fa1f61, from the CLI (`reframe design --plan`, `reframe design`, `--package`, `--check`), with no AWS resources.
+
+**Round 1** ran over the design built story by story, with no context. It had no Claude step and redid nothing: 4 journey parts, 4 screen parts and 16 specification parts were all kept, and the package stayed v1.
+
+**Round 2** added an example context in the run's `inputs/design/`:
+- a persona, the card services agent;
+- a design system, `components.md` and `tokens.json`;
+- a prototype download with one *Needs change*: on the account screen, search by card number as well as account number.
+
+`--plan` said beforehand what the round would redo, and the round matched it:
+
+| Stage | Redone | Kept | Why |
+|---|---|---|---|
+| Journeys | 4 domains | 0 | the persona goes to every domain's journeys |
+| Modern screens | 4 domains | 0 | the design system goes to every domain's screens |
+| Specifications | 10 parts | 6 | the 10 parts whose screens changed; the 6 kept are the batch-only functions, with no screen |
+
+What came out:
+- The account screen's search is now *Account or card number*.
+- The journeys' role is the card services agent.
+- The prototype uses the design system's colours and font.
+- There are 22 modern screens with all 683 legacy fields mapped, and 154 specifications. Every stage has 0 problems.
+- The package is v2 with its `CHANGES.md`. `--package` copies it as 1,113 files, and `--check` lists 85 placeholders to fill in and 102 draft capabilities to confirm.
+- The round cost $61.61 at API prices on the subscription: journeys $7.89, screens $36.01, specifications $17.71.
+
+**Found and fixed: rounds could not say why.** `changes-2.md` gave every reason as "an input changed (the earlier round did not record which)". CardDemo's parts were made before P4-09 recorded what each was made from, and round 1 kept them without recording it. A kept part with no record now gets one, so the next round names the reason, for example `personas.md`.
+
 ## 9. The owner's decisions (25 November 2026)
 
 | Decision | Choice |

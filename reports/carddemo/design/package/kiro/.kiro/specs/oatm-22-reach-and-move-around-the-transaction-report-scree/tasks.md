@@ -17,16 +17,16 @@
   - _After: OATM-C22-T1_
 - [ ] 4. OATM-C22-T4 [ui-modernization] Build the screen Transaction reports (S-REPORT-REQUEST)
   - To the prototype: ui-reference/index.html#/S-REPORT-REQUEST.
-  - button "Submit for printing"
-  - link "Back"
-  - _Requirements: OATM-REQ-N-007, OATM-REQ-F-173, OATM-REQ-F-174, OATM-REQ-F-175, OATM-REQ-F-176_
-  - _Rules: OATM-BR-181, OATM-BR-182, OATM-BR-183, OATM-BR-184, OATM-BR-185_
+  - **primary button** "Submit report": The dialog offers only Submit or Cancel, replacing the typed confirmation and its messages 'Please confirm to print the <report name> report...' and '"<value>" is not a valid value to confirm...'. If the job cannot be queued, the message says the report was not submitted and to try again.
+  - _Requirements: OATM-REQ-N-007, OATM-REQ-F-175, OATM-REQ-F-176_
+  - _Rules: OATM-BR-181, OATM-BR-184, OATM-BR-185_
   - _After: OATM-C22-T2, OATM-C22-T3_
 - [ ] 5. OATM-C22-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - header "CardDemo"
-  - _Requirements: OATM-REQ-N-007_
-  - _Rules: OATM-BR-181_
+  - **summary card** "CardDemo"
+  - **primary button** "Transaction reports"
+  - _Requirements: OATM-REQ-N-007, OATM-REQ-F-173, OATM-REQ-F-174_
+  - _Rules: OATM-BR-181, OATM-BR-182, OATM-BR-183_
   - _After: OATM-C22-T2, OATM-C22-T3_
 - [ ] 6. OATM-C22-T6 [test-generation] Write a test for every acceptance criterion
   - 5 acceptance criteria, each a test named by its ID.

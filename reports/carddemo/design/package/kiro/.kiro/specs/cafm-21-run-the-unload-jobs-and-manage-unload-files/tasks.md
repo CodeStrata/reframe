@@ -11,11 +11,11 @@
   - _Rules: CAFM-BR-199, CAFM-BR-200_
   - _After: CAFM-C21-T1_
 - [ ] 3. CAFM-C21-T3 [api] Build the scheduled job
-  - CAFM-BR-194: Needs a scheduled batch job running the summary-and-detail unload (DBUNLDGS in the legacy) with read-only, shared access to the pending authorization data and its index, so online use is not blocked while it runs.
-  - CAFM-BR-195: This job writes to two existing output files, the summary file (AWS.M2.CARDDEMO.PAUTDB.ROOT.GSAM) and the detail file (AWS.M2.CARDDEMO.PAUTDB.CHILD.GSAM). No other process may write to them during the run, and they are kept whether the job succeeds or fails, so downstream steps must check the job status before using them.
-  - CAFM-BR-196: Needs a second scheduled export job (PAUDBUNL in the legacy) that reads the pending authorization data and its index with shared, read-only access and writes summaries to the first output file and details to the second.
-  - CAFM-BR-197: The job creates a new summary export file (AWS.M2.CARDDEMO.PAUTDB.ROOT.FILEO) of fixed 100-byte records. It is published or registered only when the job succeeds and is deleted when the job fails, for example by writing to a temporary location and renaming it on success.
-  - CAFM-BR-198: The job creates a new detail export file (AWS.M2.CARDDEMO.PAUTDB.CHILD.FILEO) of fixed 206-byte records. It is published only when the job succeeds and deleted when the job fails, the same way as the summary file.
+  - CAFM-BR-194: A scheduled batch job (legacy DBUNLDGS) that reads the whole pending authorization store, summaries with their details, with read-only shared access so online users are not locked out.
+  - CAFM-BR-195: This job writes to two standing output files, root (summary) and child (detail), that already exist. Only this job may write to them while it runs, and both are kept whether the job succeeds or fails, so downstream users must check the job's outcome before trusting their contents.
+  - CAFM-BR-196: A second scheduled batch job (legacy PAUDBUNL) that reads the pending authorization store with shared read-only access and writes summaries to the first output file and details to the second.
+  - CAFM-BR-197: The root unload file, of fixed 100-byte records, is created new on each run and published only when the job succeeds; on failure it is deleted (write under a temporary name and rename on success).
+  - CAFM-BR-198: The child unload file, of fixed 206-byte records, is created new on each run and published only when the job succeeds; on failure it is deleted, the same as the root file.
   - _Requirements: CAFM-REQ-N-004, CAFM-REQ-N-005, CAFM-REQ-N-006, CAFM-REQ-F-180, CAFM-REQ-F-181_
   - _Rules: CAFM-BR-194, CAFM-BR-195, CAFM-BR-196, CAFM-BR-197, CAFM-BR-198_
   - _After: CAFM-C21-T1, CAFM-C21-T2_

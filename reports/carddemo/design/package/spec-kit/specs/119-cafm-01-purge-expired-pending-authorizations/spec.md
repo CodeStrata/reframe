@@ -10,7 +10,7 @@
 
 As a card operations team, I want pending authorizations that have reached their expiry age removed from the authorization database by a batch job, so that the pending authorization store holds only current authorizations.
 
-A scheduled job for the card operations team that works through every account's pending authorization summary, deletes each authorization detail that has reached the expiry age, and reduces the account's approved or declined counts and totals for each deleted detail. It deletes a summary once its adjusted approved count is zero or below. It must never delete an authorization younger than the expiry days, and it must stop the run if a deletion fails instead of carrying on with the store half purged.
+A scheduled batch job for the card operations team. It works through every account's pending authorizations, removes each one that has reached the expiry age, and removes an account's summary once it has no approved authorizations left. It must never delete an authorization younger than the expiry days. If a deletion fails it must stop at once with return code 16, so the store is never left half-purged without anyone knowing.
 
 **Acceptance scenarios:**
 
@@ -31,7 +31,7 @@ A scheduled job for the card operations team that works through every account's 
 15. **Given** PA-APPROVED-AUTH-CNT: 0; DIBSTAT: spaces, **when** the approved authorization count (`PA-APPROVED-AUTH-CNT`) of the processed summary is zero or below, **then** The summary segment is deleted and '# SUMMARY REC DELETED :' at end of run counts it. (CAFM-C01-AC-15)
 16. **Given** PA-APPROVED-AUTH-CNT: 2, **when** the approved authorization count (`PA-APPROVED-AUTH-CNT`) of the processed summary is zero or below, **then** The summary is kept. (CAFM-C01-AC-16)
 17. **Given** PA-APPROVED-AUTH-CNT: 0; DIBSTAT: GE, **when** the approved authorization count (`PA-APPROVED-AUTH-CNT`) of the processed summary is zero or below, **then** 'AUTH SUMMARY DELETE FAILED :' is displayed with the account id, then 'CBPAUP0C ABENDING ...' and the run ends with return code 16. (CAFM-C01-AC-17)
-18. **Given** An account summary in the purge job's working copy has declined count 3 and declined total 200.00, and one of its authorization details has response code '05' and transaction amount 40.00 and has qualified for purge, **when** The purge processes that detail, **then** The working copy shows declined count 2 and declined total 160.00, the approved count and approved total are unchanged, and the stored summary record is not rewritten (CAFM-C01-AC-18)
+18. **Given** An account summary with a declined count of 3 and a declined total of 150.00, and under it an authorization detail with response code '05' and a transaction amount of 40.00 whose age is at least the expiry days, **when** The purge checks that detail and it qualifies for purge, **then** In the purge's working copy of the summary, the declined count is 2 and the declined total is 110.00. The approved count and approved total are unchanged, and the stored summary record is not rewritten. (CAFM-C01-AC-18)
 
 ## Requirements
 

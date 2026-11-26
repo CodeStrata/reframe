@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Gives administrators two ways off the transaction type list: F3 saves any work and returns to the admin menu, and F2 opens the screen for adding a transaction type. Both must keep the user's signed-on session context.
+From the transaction type list, the administrator presses F3 to go back to the admin menu or F2 to open the add/change transaction type screen. Leaving by F3 must commit any finished work first.
 
 **User story:** As an administrator, I want to leave the list or go to the add screen with a function key, so that I can return to the admin menu or add a new transaction type.
 
@@ -30,33 +30,32 @@ Gives administrators two ways off the transaction type list: F3 saves any work a
 
 ### Transaction types (S-TRANTYPE-LIST)
 
-Find transaction types by code or description, correct a description in place, or delete an obsolete type, confirming each change; start adding a new type.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Add transaction type | button |  |  | S-TRANTYPE-EDIT | TTRDM-REQ-F-079 |
+| Add transaction type | **primary button** | Opens the add screen for a new code and description |  | S-TRANTYPE-EDIT | TTRDM-REQ-F-079 |
 
-### Transaction type (S-TRANTYPE-EDIT)
+### Add or change a transaction type (S-TRANTYPE-EDIT)
 
-Look up a transaction type by code to change its description or delete it, or add a new type when the code is not on file; each save or delete is confirmed and can be cancelled.
+Add a new transaction type or change an existing one's description in one step: enter the code, see its description or start a new one if it is not on file, then save. Replaces the F5 create, Enter check and F5 confirm sequence; delete is the Delete row action on the list.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-EDIT`. Replaces the legacy screens CTRTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Back to transaction types | link |  |  | S-TRANTYPE-LIST | TTRDM-REQ-F-078 |
 
 ### Application header and navigation (S-APP-SHELL)
 
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
 
 Prototype: `ui-reference/index.html#/S-APP-SHELL`.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Main navigation | nav | Cards and Administration groups; the current screen is marked; links follow the header in tab order |  |  |  |
+| Transaction types | **data table** | Navigation entry for the transaction type list, shown only to administrators; the server checks the administrator role on every list, add, update and delete instead of assuming it |  | S-TRANTYPE-LIST | TTRDM-REQ-F-078 |
 
 
 ## Data models

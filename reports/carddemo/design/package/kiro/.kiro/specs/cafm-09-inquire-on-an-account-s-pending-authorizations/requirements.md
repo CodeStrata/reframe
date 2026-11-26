@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-The Pending authorizations screen for customer service operators. The operator enters a numeric Account ID and sees the customer's name, address, phone, credit and cash limits and pending authorization totals, with the first page of authorizations. The screen must reject blank or non-numeric Account IDs with the stated messages. It must show zero totals and no authorizations when the account has no pending summary, and it must say clearly which record (XREF, ACCT, CUST or AUTH Summary) was not found or failed to read.
+Lets a customer service operator enter an account number and see the customer's name, address and phone, the account's credit and cash limits, and the pending-authorization totals, followed by the first page of authorizations. The account number must be entered and must be numeric. When there is no pending-authorization summary, the totals show zero and no authorizations are listed. Every failed lookup must say which record was missing or failed, word for word.
 
 **User story:** As a customer service operator, I want to enter an account and see its customer, limits and pending-authorization totals, so that I can review the account's authorization activity.
 
@@ -76,14 +76,14 @@ The Pending authorizations screen for customer service operators. The operator e
 #### Acceptance criteria
 
 1. The system shall show the customer name as the first word of the first name, a space, the middle initial, a space, and the last name. (rules CAFM-BR-093)
-2. GIVEN The account's customer has first name 'JOHN PAUL', middle initial 'Q' and last name 'SMITH' WHEN The account is loaded on the Pending authorizations screen THEN The customer name shows 'JOHN Q SMITH' (CAFM-C09-AC-19; CAFM-BR-093)
+2. GIVEN A customer with first name 'MARY ANN', middle initial 'J' and last name 'SMITH' WHEN The operator views the account's pending authorizations THEN The customer name shows as 'MARY J SMITH': the first word of the first name, a space, the middle initial, a space and the last name. (CAFM-C09-AC-19; CAFM-BR-093)
 
 ### Requirement 10: CAFM-REQ-F-091 (formatting)
 
 #### Acceptance criteria
 
 1. The system shall show address line 1 as address lines 1 and 2 joined by a comma, and address line 2 as address line 3, the state code and the first 5 digits of the ZIP code joined by commas, cutting each address line at its first double space. (rules CAFM-BR-094)
-2. GIVEN The customer's address line 1 is '12 MAIN ST UNIT', line 2 is 'APT 4', line 3 is 'SPRINGFIELD', state 'IL' and ZIP '627011234' WHEN The account is loaded on the Pending authorizations screen THEN Address line 1 shows '12 MAIN ST,APT 4' (line 1 cut at its first double space) and address line 2 shows 'SPRINGFIELD,IL,62701' (CAFM-C09-AC-20; CAFM-BR-094)
+2. GIVEN A customer with address line 1 '12 MAIN ST', line 2 'APT 4', line 3 'SPRINGFIELD', state 'IL' and ZIP '627011234' WHEN The operator views the account's pending authorizations THEN Address line 1 shows '12 MAIN ST,APT 4' and address line 2 shows 'SPRINGFIELD,IL,62701'. Each address line is cut at its first double space. (CAFM-C09-AC-20; CAFM-BR-094)
 
 ### Requirement 11: CAFM-REQ-F-092 (formatting)
 
@@ -115,28 +115,28 @@ The Pending authorizations screen for customer service operators. The operator e
 #### Acceptance criteria
 
 1. If reading the pending authorization summary fails for any reason other than not found, then the system shall flag an error, show ' System error while reading AUTH Summary: Code:' followed by the database status code, put the cursor on Account ID and show the totals as zero. (rules CAFM-BR-099)
-2. GIVEN An operator enters numeric Account ID 00000000001, and reading its pending authorization summary fails with database status 'AI' (a failure other than not found) WHEN The operator presses Enter THEN An error is flagged, the message ' System error while reading AUTH Summary: Code:AI' is shown, the cursor is on Account ID, and the approved and declined counts and amounts and the credit and cash balances show zero (CAFM-C09-AC-21; CAFM-BR-099)
+2. GIVEN Reading the account's pending authorization summary fails with a database status other than not found, for example 'AI' WHEN The operator presses Enter with a numeric Account ID THEN An error is flagged, the message ' System error while reading AUTH Summary: Code:' followed by 'AI' is shown, the cursor is on Account ID, and the approved and declined counts and amounts and the credit and cash balances all show zero. (CAFM-C09-AC-21; CAFM-BR-099)
 
 ### Requirement 15: CAFM-REQ-F-096 (error handling)
 
 #### Acceptance criteria
 
 1. If no card cross-reference exists for the account, then the system shall show 'Account:<account> not found in XREF file. Resp:<code> Reas:<code>', and on any other read failure of file CXACAIX shall flag an error and show 'Account:<account> System error while reading XREF file. Resp:<code> Reas:<code>'. (rules CAFM-BR-100)
-2. GIVEN An operator enters numeric Account ID 00000000099, which has no card cross-reference WHEN The operator presses Enter THEN The message 'Account:00000000099 not found in XREF file. Resp:<code> Reas:<code>' is shown with the returned response and reason codes. If the cross-reference read fails for any other reason, an error is flagged and 'Account:00000000099 System error while reading XREF file. Resp:<code> Reas:<code>' is shown instead (CAFM-C09-AC-22; CAFM-BR-100)
+2. GIVEN Account 00000000099 has no card cross-reference, and on a second attempt the cross-reference read fails for another reason WHEN The operator enters 00000000099 and presses Enter THEN For the missing cross-reference, 'Account:00000000099 not found in XREF file. Resp:<code> Reas:<code>' is shown with the returned codes. For the other failure, an error is flagged and 'Account:00000000099 System error while reading XREF file. Resp:<code> Reas:<code>' is shown. (CAFM-C09-AC-22; CAFM-BR-100)
 
 ### Requirement 16: CAFM-REQ-F-097 (error handling)
 
 #### Acceptance criteria
 
 1. If the account record is not on the account file, then the system shall show 'Account:<account> not found in ACCT file. Resp:<code> Reas:<code>', and on any other read failure of file ACCTDAT shall flag an error and show 'Account:<account> System error while reading ACCT file. Resp:<code> Reas:<code>'. (rules CAFM-BR-101)
-2. GIVEN An operator enters numeric Account ID 00000000099, which has a card cross-reference but no account record WHEN The operator presses Enter THEN The message 'Account:00000000099 not found in ACCT file. Resp:<code> Reas:<code>' is shown with the returned response and reason codes. If the account read fails for any other reason, an error is flagged and 'Account:00000000099 System error while reading ACCT file. Resp:<code> Reas:<code>' is shown instead (CAFM-C09-AC-23; CAFM-BR-101)
+2. GIVEN Account 00000000099 has a card cross-reference but no account record, and on a second attempt the account read fails for another reason WHEN The operator enters 00000000099 and presses Enter THEN For the missing record, 'Account:00000000099 not found in ACCT file. Resp:<code> Reas:<code>' is shown. For the other failure, an error is flagged and 'Account:00000000099 System error while reading ACCT file. Resp:<code> Reas:<code>' is shown. (CAFM-C09-AC-23; CAFM-BR-101)
 
 ### Requirement 17: CAFM-REQ-F-098 (error handling)
 
 #### Acceptance criteria
 
 1. If the customer record is not on the customer file, then the system shall show 'Customer:<customer> not found in CUST file. Resp:<code> Reas:<code>', and on any other read failure of file CUSTDAT shall flag an error and show 'Customer:<customer> System error while reading CUST file. Resp:<code> Reas:<code>'. (rules CAFM-BR-102)
-2. GIVEN An operator enters an Account ID whose cross-reference names customer 000000123, and that customer is not on the customer file WHEN The operator presses Enter THEN The message 'Customer:000000123 not found in CUST file. Resp:<code> Reas:<code>' is shown with the returned response and reason codes. If the customer read fails for any other reason, an error is flagged and 'Customer:000000123 System error while reading CUST file. Resp:<code> Reas:<code>' is shown instead (CAFM-C09-AC-24; CAFM-BR-102)
+2. GIVEN The account's cross-reference names customer 000000123, who is not on the customer file, and on a second attempt the customer read fails for another reason WHEN The operator enters the account number and presses Enter THEN For the missing customer, 'Customer:000000123 not found in CUST file. Resp:<code> Reas:<code>' is shown. For the other failure, an error is flagged and 'Customer:000000123 System error while reading CUST file. Resp:<code> Reas:<code>' is shown. (CAFM-C09-AC-24; CAFM-BR-102)
 
 ### Requirement 18: CAFM-REQ-F-099 (business rule)
 

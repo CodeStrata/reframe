@@ -6,7 +6,7 @@ User Access Control · User Security Profile Management · runs as online · ris
 
 ## Introduction
 
-Lets an administrator save changes to a user's first name, last name, password and user type, either staying on the screen or saving and leaving. It must require every field and report only the first blank one. It must write the record only when at least one field actually changed, and say plainly whether the save happened.
+Lets an administrator save changes to a user's first name, last name, password and user type. They can save and stay (PF5) or save and leave (PF3). It must require every field, write only when at least one value actually changed, and confirm a successful save.
 
 **User story:** As an administrator, I want to save changes to a user's name, password and user type, so that the user's security profile stays correct.
 
@@ -95,4 +95,4 @@ Lets an administrator save changes to a user's first name, last name, password a
 #### Acceptance criteria
 
 1. When the changed user record is saved successfully, the system shall show 'User <user ID> has been updated ...' in green. (rules USPM-BR-083)
-2. GIVEN user 'USER0001' is stored with Last Name 'Smith' and the administrator has changed Last Name to 'Jones' with all other fields filled WHEN the administrator presses PF5 and the changed record is saved successfully THEN the message 'User USER0001 has been updated ...' is shown in green (USPM-C07-AC-13; USPM-BR-083)
+2. GIVEN user 'USER0001' is stored with Last Name 'Smith' and the administrator has changed Last Name to 'Jones', with all other fields filled WHEN the administrator presses PF5 and the changed record is saved successfully THEN the message 'User USER0001 has been updated ...' is shown in green (USPM-C07-AC-13; USPM-BR-083)

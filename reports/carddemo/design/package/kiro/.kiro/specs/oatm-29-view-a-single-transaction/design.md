@@ -4,37 +4,44 @@
 
 ## Overview
 
-Lets cardholders and staff look up one transaction by its Transaction ID and see its full details: card, type, category, source, signed amount, description, timestamps and merchant. It must show the exact stored record and amount sign. A missing ID gets 'Transaction ID NOT found...', and a lookup failure gets 'Unable to lookup Transaction...'. PF3, PF4 and PF5 return, clear or go to the list.
+Shows the full details of one transaction found by its Transaction ID: card, type, category, source, signed amount, description, timestamps and merchant. Cardholders and staff use it to review a charge. It must show the amount with its sign exactly as stored, and say 'Transaction ID NOT found...' or 'Unable to lookup Transaction...' rather than show stale details. PF3 goes back, PF4 clears the screen and PF5 opens the transaction list.
 
-Runs as online. Journeys: J03.
+Runs as online. Journeys: J04.
 
 ## Screens and components
 
 ### Transactions (S-TRANSACTION-LIST)
 
-Browse transactions page by page from a chosen ID and open any one with a row action instead of typing S against it.
+Browse transactions in a sortable, paged table or jump to a transaction ID, and open one with Enter or a click instead of typing S beside it. Tab order: search, table, pager, Add transaction.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy screens COTRN0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
+| Transactions | **data table** | Columns Transaction ID, Date (26 Nov 2026), Description, Amount (right-aligned, two decimals), sortable; 20 rows a page with page number and next/previous; the row opens the transaction | Rows open on Enter or click, so there is no selection code to mistype (legacy: 'Invalid selection. Valid value is S'). At the first or last page the previous or next control is disabled and says 'You are already at the top of the page...' / 'You have reached the bottom of the page...'. Empty state: 'No transactions yet. Use Add transaction to record the first one.' | S-TRANSACTION-VIEW | OATM-REQ-N-011 |
 
 ### Transaction (S-TRANSACTION-VIEW)
 
-Show one transaction's card, type, category, source, amount, dates and merchant together, opened from the list or looked up by ID.
+Show one transaction in full with its merchant, opened from the list or by typing its ID. Tab order: transaction ID, details, merchant, Back to transactions.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-VIEW`. Replaces the legacy screens COTRN1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Transaction ID | search | Pre-filled when opened from the list | Required: 'Tran ID can NOT be empty...'; must exist: 'Transaction ID NOT found...'. |  | OATM-REQ-F-229, OATM-REQ-F-233 |
-| Look up | button |  |  |  | OATM-REQ-F-228 |
-| Clear | button |  |  |  | OATM-REQ-F-235 |
-| Lookup error | message | 'Unable to lookup Transaction...' when the file cannot be read |  |  | OATM-REQ-F-237 |
-| Transaction ID | display |  |  |  | OATM-REQ-F-231 |
-| Amount | display | Signed amount, +99999999.99 |  |  | OATM-REQ-F-232 |
-| Back to transactions | link |  |  | S-TRANSACTION-LIST | OATM-REQ-F-236 |
-| Back | link |  |  | S-APP-SHELL | OATM-REQ-F-234 |
+| Transaction ID | **lookup field** | Transaction ID, pre-filled when opened from the list | Blank: 'Tran ID can NOT be empty...' - enter a transaction ID. Not found: 'Transaction ID NOT found...' - check the ID or find it in Transactions. |  | OATM-REQ-F-228, OATM-REQ-F-229, OATM-REQ-F-230, OATM-REQ-F-233, OATM-REQ-F-235 |
+| Transaction | **summary card** | Transaction ID, Card number, Type code, Category code, Source, Description, Amount (signed, right-aligned, two decimals), Original date and Processed date (26 Nov 2026) |  |  | OATM-REQ-F-231, OATM-REQ-F-232 |
+| Merchant | **summary card** | Merchant ID, Name, City, ZIP |  |  | OATM-REQ-F-231 |
+| Back to transactions | **primary button** |  |  | S-TRANSACTION-LIST | OATM-REQ-F-234, OATM-REQ-F-236, OATM-REQ-F-237 |
+
+### Application header and navigation (S-APP-SHELL)
+
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
+
+Prototype: `ui-reference/index.html#/S-APP-SHELL`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Transactions | **primary button** |  |  | S-TRANSACTION-LIST | OATM-REQ-F-234 |
 
 
 ## Data models

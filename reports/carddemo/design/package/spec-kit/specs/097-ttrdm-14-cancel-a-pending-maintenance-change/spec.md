@@ -10,7 +10,7 @@
 
 As an administrator, I want to cancel a pending update or delete with F12, so that nothing is changed when I decide not to go ahead.
 
-Lets an administrator back out of a pending update or delete of a transaction type with F12, so nothing is written to the reference data. Cancelling an update shows the stored values again for editing. Cancelling a delete returns to the search. A cancel must never save or delete anything, and anything typed on the screen at the time is ignored.
+An administrator can cancel a pending update or delete with F12. Nothing is written to the transaction type table: a cancelled update shows the stored values again for editing, and a cancelled delete goes back to the search. Cancelling must never apply any change, and it must ignore whatever was typed on the screen at the time.
 
 **Acceptance scenarios:**
 

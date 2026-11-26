@@ -10,7 +10,7 @@
 
 As a requesting system, I want to send a date request message and receive the system date and time on a reply queue, so that I can obtain the host system's current date and time.
 
-A message service that answers date requests from other systems with the host's current system date (mm-dd-yyyy) and time on the date reply queue. Each reply carries the request's message and correlation ids. It must never lose or double-answer a request, and it must report every queue failure to the error queue, or to the console if the error queue itself is unavailable.
+A message-driven service that tells calling systems the host's current date and time. Each request gets one reply reading 'SYSTEM DATE : <mm-dd-yyyy>SYSTEM TIME : <time>' on the date reply queue, carrying the request's message and correlation identifiers. Every queue failure must be reported on the error queue, or on the console if the error queue itself is unavailable.
 
 **Acceptance scenarios:**
 

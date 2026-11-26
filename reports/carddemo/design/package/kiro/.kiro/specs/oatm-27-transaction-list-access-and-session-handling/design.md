@@ -4,27 +4,25 @@
 
 ## Overview
 
-Governs access to the transaction list. Only signed-on users reach it: anyone without a session goes to sign-on. PF3 returns to the main menu, and unsupported keys get 'Invalid key pressed. Please see below...'. Any signed-on user, regular or admin, sees transactions from every account and card. That is current behaviour and the team must confirm it deliberately rather than change it by accident.
+Keeps the transaction list inside a signed-on session: a user without a session is sent to sign-on, PF3 returns to the main menu, and unsupported keys get 'Invalid key pressed. Please see below...'. Any signed-on user, regular or admin, sees transactions for every account and card in transaction-ID order. That access scope is the legacy behaviour and needs a deliberate decision, not an accidental change.
 
-Runs as online. Journeys: J03.
+Runs as online. Journeys: J04.
 
 ## Screens and components
 
 ### Transactions (S-TRANSACTION-LIST)
 
-Browse transactions page by page from a chosen ID and open any one with a row action instead of typing S against it.
+Browse transactions in a sortable, paged table or jump to a transaction ID, and open one with Enter or a click instead of typing S beside it. Tab order: search, table, pager, Add transaction.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy screens COTRN0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Transactions | table | Transaction ID, date (MM/DD/YY), description and signed amount; ten rows a page in ID order, all accounts; page number; Previous and Next page controls; row action View opens the transaction | Previous on the first page: 'You are already at the top of the page...'; Next on the last page: 'You are already at the bottom of the page...'. |  | OATM-REQ-N-009 |
-| List error | message | 'Unable to lookup transaction...' when the file cannot be read; focus returns to the search |  |  | OATM-REQ-F-225 |
-| Back | link |  |  | S-APP-SHELL | OATM-REQ-F-224, OATM-REQ-N-008 |
+| Transactions | **data table** | Columns Transaction ID, Date (26 Nov 2026), Description, Amount (right-aligned, two decimals), sortable; 20 rows a page with page number and next/previous; the row opens the transaction | Rows open on Enter or click, so there is no selection code to mistype (legacy: 'Invalid selection. Valid value is S'). At the first or last page the previous or next control is disabled and says 'You are already at the top of the page...' / 'You have reached the bottom of the page...'. Empty state: 'No transactions yet. Use Add transaction to record the first one.' | S-TRANSACTION-VIEW | OATM-REQ-F-225, OATM-REQ-N-008, OATM-REQ-N-009, OATM-REQ-N-010 |
 
 ### Transaction (S-TRANSACTION-VIEW)
 
-Show one transaction's card, type, category, source, amount, dates and merchant together, opened from the list or looked up by ID.
+Show one transaction in full with its merchant, opened from the list or by typing its ID. Tab order: transaction ID, details, merchant, Back to transactions.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-VIEW`. Replaces the legacy screens COTRN1A.
 
@@ -33,13 +31,14 @@ Prototype: `ui-reference/index.html#/S-TRANSACTION-VIEW`. Replaces the legacy sc
 
 ### Application header and navigation (S-APP-SHELL)
 
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
 
 Prototype: `ui-reference/index.html#/S-APP-SHELL`.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| CardDemo | header | Application name and titles (legacy TITLE01/TITLE02), the signed-on user, and today's date and time (legacy CURDATE/CURTIME); a user with no session is sent to sign-on |  |  | OATM-REQ-N-008 |
+| CardDemo | **summary card** | Application name and the current page title as the page heading |  |  | OATM-REQ-N-008 |
+| Transactions | **primary button** |  |  | S-TRANSACTION-LIST | OATM-REQ-F-224 |
 
 
 ## Data models
@@ -107,7 +106,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- OATM-BR-238: The list is a stateful interaction. Between requests the application must keep the user's session state: signed-on user, current page number, first and last transaction IDs of the page, next-page flag and any selection. This can be a server-side session keyed by an authenticated session token, or signed state round-tripped with the client. Each response then waits for the user's next action.
+- OATM-BR-238: The list needs server-side session state (or a signed cursor carried with each request) that holds the page position (first/last IDs, page number), the current selection and the signed-on user between requests and across the hand-off to the detail screen. No other transaction routing is needed.
 
 ## Open questions
 

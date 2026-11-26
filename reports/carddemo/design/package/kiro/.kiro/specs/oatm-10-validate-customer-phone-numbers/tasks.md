@@ -17,18 +17,15 @@
   - _Rules: OATM-BR-073_
   - _After: OATM-C10-T1_
 - [ ] 4. OATM-C10-T4 [api] Build the services behind the screens
-  - OATM-BR-085: Input binding for the area code, prefix and line number of each phone: blank or '*' becomes null per part before the phone validator runs, so a phone with all three parts null counts as omitted.
+  - OATM-BR-085: Capture phone numbers 1 and 2 as three optional parts each (area code, prefix, line number). Blank or '*' parts are absent before validation, so a phone with all parts absent counts as omitted. Area-code validation needs a reference list of the North American general-purpose area codes.
   - _Requirements: OATM-REQ-F-082_
   - _Rules: OATM-BR-085_
   - _After: OATM-C10-T1, OATM-C10-T2, OATM-C10-T3_
 - [ ] 5. OATM-C10-T5 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - message "Fix these fields"
-  - radio "Primary card holder": Required: 'Primary Card Holder must be supplied.'; only Yes or No: 'Primary Card Holder must be Y or N.'
-  - text "Phone 1 (optional)": Optional; leave all of it blank to omit. If any part is entered: the area code must be supplied ('Phone Number 1: Area code must be supplied.'), 3 digits ('Phone Number 1: Area code must be A 3 digit number.'), not 000 ('Phone Number 1: Area code cannot be zero') and a general-purpose North American area code ('Phone Number 1: Not valid North America general purpose area code'); the prefix must be supplied, 3 digits and not 000 ('Phone Number 1: Prefix code must be supplied.' / 'Phone Number 1: Prefix code must be A 3 digit number.' / 'Phone Number 1: Prefix code cannot be zero'); the line number must be supplied, 4 digits and not 0000 ('Phone Number 1: Line number code must be supplied.' / 'Phone Number 1: Line number code must be A 4 digit number.' / 'Phone Number 1: Line number code cannot be zero').
-  - text "Phone 2 (optional)": Optional; leave all of it blank to omit. If any part is entered: the area code must be supplied ('Phone Number 2: Area code must be supplied.'), 3 digits ('Phone Number 2: Area code must be A 3 digit number.'), not 000 ('Phone Number 2: Area code cannot be zero') and a general-purpose North American area code ('Phone Number 2: Not valid North America general purpose area code'); the prefix must be supplied, 3 digits and not 000 ('Phone Number 2: Prefix code must be supplied.' / 'Phone Number 2: Prefix code must be A 3 digit number.' / 'Phone Number 2: Prefix code cannot be zero'); the line number must be supplied, 4 digits and not 0000 ('Phone Number 2: Line number code must be supplied.' / 'Phone Number 2: Line number code must be A 4 digit number.' / 'Phone Number 2: Line number code cannot be zero').
-  - _Requirements: OATM-REQ-F-082, OATM-REQ-F-083, OATM-REQ-F-087, OATM-REQ-F-094_
-  - _Rules: OATM-BR-073, OATM-BR-085, OATM-BR-086, OATM-BR-087, OATM-BR-091_
+  - **summary card** "Phone and payments": A phone may be left wholly blank; otherwise '<Phone Number 1 or 2>: Area code must be supplied.', ': Area code must be A 3 digit number.', ': Area code cannot be zero', ': Not valid North America general purpose area code' (from the list of general-purpose codes), ': Prefix code must be supplied.', ': Prefix code must be A 3 digit number.', ': Prefix code cannot be zero', ': Line number code must be supplied.', ': Line number code must be A 4 digit number.', ': Line number code cannot be zero'. EFT account ID: 'EFT Account Id must be supplied.', all numeric, 10 digits, not zero. Primary card holder: 'Primary Card Holder must be supplied.' and must be Yes or No ('must be Y or N.').
+  - _Requirements: OATM-REQ-F-082, OATM-REQ-F-083, OATM-REQ-F-084, OATM-REQ-F-085, OATM-REQ-F-086, OATM-REQ-F-087, OATM-REQ-F-088, OATM-REQ-F-089, OATM-REQ-F-090, OATM-REQ-F-091, OATM-REQ-F-092, OATM-REQ-F-093, OATM-REQ-F-094_
+  - _Rules: OATM-BR-073, OATM-BR-085, OATM-BR-086, OATM-BR-087, OATM-BR-088, OATM-BR-089, OATM-BR-090, OATM-BR-091, OATM-BR-092, OATM-BR-093, OATM-BR-094, OATM-BR-095, OATM-BR-096, OATM-BR-097_
   - _After: OATM-C10-T2, OATM-C10-T3, OATM-C10-T4_
 - [ ] 6. OATM-C10-T6 [test-generation] Write a test for every acceptance criterion
   - 13 acceptance criteria, each a test named by its ID.

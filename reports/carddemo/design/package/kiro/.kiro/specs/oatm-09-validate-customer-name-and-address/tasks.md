@@ -12,21 +12,15 @@
   - _Rules: OATM-BR-076, OATM-BR-077, OATM-BR-078, OATM-BR-079, OATM-BR-080, OATM-BR-081, OATM-BR-082, OATM-BR-083, OATM-BR-084_
   - _After: OATM-C09-T1_
 - [ ] 3. OATM-C09-T3 [api] Build the services behind the screens
-  - OATM-BR-074: Input binding for first, middle and last name, address lines 1 and 2, city and EFT account id: blank or '*' becomes null; otherwise the value is the proposed new value. The city maps to the customer's third address line in the stored record.
-  - OATM-BR-075: Input binding for state and ZIP: blank or '*' becomes null (empty); otherwise the entered value goes to the state and ZIP validators.
+  - OATM-BR-074: Treat blank or '*' entries for first, middle and last name, address lines 1 and 2, city and EFT account id as absent (null); otherwise they are the proposed values. The city goes into the customer's third address line, so map the City field to that address field.
+  - OATM-BR-075: Treat blank or '*' state and ZIP entries as absent (empty); otherwise keep the entered value for the state-code, ZIP and state/ZIP-prefix checks. Those checks need reference tables of valid US state codes and of valid state plus two-digit ZIP prefix combinations.
   - _Requirements: OATM-REQ-F-073_
   - _Rules: OATM-BR-074, OATM-BR-075_
   - _After: OATM-C09-T1, OATM-C09-T2_
 - [ ] 4. OATM-C09-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - text "First name": Required: 'First Name must be supplied.'; letters and spaces only: 'First Name can have alphabets only.'.
-  - text "Middle name (optional)": Optional; letters and spaces only: 'Middle Name can have alphabets only.'.
-  - text "Last name": Required: 'Last Name must be supplied.'; letters and spaces only: 'Last Name can have alphabets only.'.
-  - text "Address line 1": Required: 'Address Line 1 must be supplied.'
-  - text "City": Required: 'City must be supplied.'; letters and spaces only: 'City can have alphabets only.'.
-  - select "State": Required: 'State must be supplied.'; letters and spaces only: 'State can have alphabets only.'. Must be a US state code: 'State: is not a valid state code'; must match the ZIP code: 'Invalid zip code for state'.
-  - text "ZIP code": Required: 'Zip must be supplied.'; 5 digits: 'Zip must be all numeric.'; not zero: 'Zip must not be zero.'; its first two digits must belong to the chosen state: 'Invalid zip code for state'.
-  - text "EFT account ID": Required: 'EFT Account Id must be supplied.'; 10 digits: 'EFT Account Id must be all numeric.'; not zero: 'EFT Account Id must not be zero.'
+  - **summary card** "Name and address": '<field> must be supplied.' for First Name, Last Name, City, State, Country and Address Line 1; '<field> can have alphabets only.' for names, city, state and country; 'Middle Name can have alphabets only.'; 'State: is not a valid state code'; ZIP: 'ZIP must be supplied.', must be all numeric, 5 digits and not zero; 'Invalid zip code for state' - check the state and ZIP together.
+  - **summary card** "Phone and payments": A phone may be left wholly blank; otherwise '<Phone Number 1 or 2>: Area code must be supplied.', ': Area code must be A 3 digit number.', ': Area code cannot be zero', ': Not valid North America general purpose area code' (from the list of general-purpose codes), ': Prefix code must be supplied.', ': Prefix code must be A 3 digit number.', ': Prefix code cannot be zero', ': Line number code must be supplied.', ': Line number code must be A 4 digit number.', ': Line number code cannot be zero'. EFT account ID: 'EFT Account Id must be supplied.', all numeric, 10 digits, not zero. Primary card holder: 'Primary Card Holder must be supplied.' and must be Yes or No ('must be Y or N.').
   - _Requirements: OATM-REQ-F-073, OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081_
   - _Rules: OATM-BR-074, OATM-BR-075, OATM-BR-076, OATM-BR-077, OATM-BR-078, OATM-BR-079, OATM-BR-080, OATM-BR-081, OATM-BR-082, OATM-BR-083, OATM-BR-084_
   - _After: OATM-C09-T2, OATM-C09-T3_

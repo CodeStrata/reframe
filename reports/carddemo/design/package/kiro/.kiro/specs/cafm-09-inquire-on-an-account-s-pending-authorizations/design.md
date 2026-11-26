@@ -4,47 +4,35 @@
 
 ## Overview
 
-The Pending authorizations screen for customer service operators. The operator enters a numeric Account ID and sees the customer's name, address, phone, credit and cash limits and pending authorization totals, with the first page of authorizations. The screen must reject blank or non-numeric Account IDs with the stated messages. It must show zero totals and no authorizations when the account has no pending summary, and it must say clearly which record (XREF, ACCT, CUST or AUTH Summary) was not found or failed to read.
+Lets a customer service operator enter an account number and see the customer's name, address and phone, the account's credit and cash limits, and the pending-authorization totals, followed by the first page of authorizations. The account number must be entered and must be numeric. When there is no pending-authorization summary, the totals show zero and no authorizations are listed. Every failed lookup must say which record was missing or failed, word for word.
 
-Runs as online. Journeys: J14.
+Runs as online. Journeys: J12, J13.
 
 ## Screens and components
 
-### Pending authorizations (S-PENDING-AUTHS)
+### Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
 
-Look up an account and see its customer, limits, balances and approved/declined totals together with a paged table of its pending authorizations; open any authorization from its row.
+Look up an account and see everything on one screen: the customer, limits and balances, pending authorization totals, the authorizations in a paged table, and the selected authorization's full details. Fraud can be reported or cleared without leaving the list.
 
-Prototype: `ui-reference/index.html#/S-PENDING-AUTHS`. Replaces the legacy screens COPAU0A.
-
-| Component | Type | Shows | Checks | Goes to | Requirements |
-|---|---|---|---|---|---|
-| Account ID | search | Account ID to look up (digits only, up to 11); pre-filled when opened from another function with a numeric account; shows the accepted account after a lookup, cleared when rejected | Required: 'Please enter Acct Id...'. Digits only: 'Acct Id must be Numeric ...'. On error focus returns to Account ID and no account details or authorizations are loaded. |  | CAFM-REQ-F-082, CAFM-REQ-F-083, CAFM-REQ-F-084, CAFM-REQ-F-085, CAFM-REQ-F-087 |
-| Look up | button | Loads the account, customer, pending-authorization totals and the first page of authorizations |  |  | CAFM-REQ-F-086, CAFM-REQ-F-088, CAFM-REQ-F-089 |
-| Account lookup problem | message | Error tied to Account ID saying what to fix: account not found in cross-reference, account or customer file, or a system error reading the authorization summary | 'Account:<account> not found in XREF file...', 'Account:<account> not found in ACCT file...', 'Customer:<customer> not found in CUST file...', ' System error while reading AUTH Summary: Code:<code>' |  | CAFM-REQ-F-095, CAFM-REQ-F-096, CAFM-REQ-F-097, CAFM-REQ-F-098 |
-| Customer name | display | First word of first name, middle initial, last name |  |  | CAFM-REQ-F-090 |
-| Customer ID | display | Customer ID |  |  | CAFM-REQ-F-092 |
-| Address | display | Line 1: address lines 1 and 2; line 2: address line 3, state, 5-digit ZIP |  |  | CAFM-REQ-F-091 |
-| Phone | display | First phone number |  |  | CAFM-REQ-F-092 |
-| Credit limit | display | Credit limit, signed, two decimals |  |  | CAFM-REQ-F-092 |
-| Cash credit limit | display | Cash credit limit, signed, two decimals |  |  | CAFM-REQ-F-092 |
-| Credit balance | display | Credit balance from the pending-authorization summary, zero when none |  |  | CAFM-REQ-F-093, CAFM-REQ-F-094 |
-| Cash balance | display | Cash balance from the pending-authorization summary, zero when none |  |  | CAFM-REQ-F-093, CAFM-REQ-F-094 |
-| Approved authorizations | display | Approved count, zero when no summary |  |  | CAFM-REQ-F-093, CAFM-REQ-F-094 |
-| Approved amount | display | Approved amount, zero when no summary |  |  | CAFM-REQ-F-093, CAFM-REQ-F-094 |
-| Declined authorizations | display | Declined count, zero when no summary |  |  | CAFM-REQ-F-093, CAFM-REQ-F-094 |
-| Declined amount | display | Declined amount, zero when no summary |  |  | CAFM-REQ-F-093, CAFM-REQ-F-094 |
-| Pending authorizations | table | Columns: transaction ID, date (MM/DD/YY), time (HH:MM:SS), type, Approved/Declined (A when response '00', otherwise D, shown in words), status, amount (signed, two decimals). Row action 'View details' opens the authorization. Paged with Previous/Next; empty state 'No pending authorizations' when the account has none. | Only a row's 'View details' action opens an authorization, so 'Invalid selection. Valid value is S' cannot arise; it is shown if a row without an authorization is opened. Previous is disabled on the first page and announces 'You are already at the top of the page...'; Next is disabled on the last page and announces 'You are already at the bottom of the page...'. | S-AUTH-DETAIL | CAFM-REQ-F-094 |
-| Shortcut not available | message | Warning when a keyboard shortcut not offered on this screen is used; focus returns to Account ID | Unsupported shortcut: 'Invalid key pressed. Please see below...' — use Look up, the table's paging or Main menu. |  | CAFM-REQ-F-100 |
-| Main menu | nav | Returns to the main menu keeping the session |  |  | CAFM-REQ-F-099 |
-
-### Authorization details (S-AUTH-DETAIL)
-
-Review one pending authorization — card, amount, response and reason, POS, merchant and fraud status — move to the account's next authorization, and mark or clear fraud on it.
-
-Prototype: `ui-reference/index.html#/S-AUTH-DETAIL`. Replaces the legacy screens COPAU1A.
+Prototype: `ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS`. Replaces the legacy screens COPAU0A, COPAU1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
+| Account ID | **lookup field** | Account ID, up to 11 digits. When the agent arrives with an account from another screen, it is filled in and searched straight away; otherwise the field is empty and has focus. | Blank: 'Please enter Acct Id' - type the account ID, then press Enter. Not all digits: 'Acct Id must be Numeric' - remove letters, spaces and symbols and use digits only. No card on file: 'Account <account> not found in XREF file' - check the account ID. No account record: 'Account <account> not found in ACCT file' - check the account ID. No customer record: 'Customer <customer> not found in CUST file' - report it to support. Any other read failure: 'System error while reading' with the file and code - try again, or report the code. On any error nothing is loaded, the field keeps the entry so it can be corrected, and focus returns to it. |  | CAFM-REQ-F-082, CAFM-REQ-F-083, CAFM-REQ-F-084, CAFM-REQ-F-085, CAFM-REQ-F-086, CAFM-REQ-F-087, CAFM-REQ-F-088, CAFM-REQ-F-089, CAFM-REQ-F-096, CAFM-REQ-F-097, CAFM-REQ-F-098 |
+| Customer | **summary card** | Customer name (first name, middle initial, last name), customer ID, address (lines 1 and 2; line 3, state, ZIP), phone |  |  | CAFM-REQ-F-090, CAFM-REQ-F-091, CAFM-REQ-F-092 |
+| Limits and balances | **summary card** | Credit limit, credit balance, cash limit and cash balance, right-aligned with two decimals and a sign when negative. Balances show 0.00 when the account has no pending authorizations. |  |  | CAFM-REQ-F-092, CAFM-REQ-F-093, CAFM-REQ-F-094 |
+| Pending authorizations | **summary card** | Approved count and amount, declined count and amount; zero when there are none | Summary unreadable: 'System error while reading AUTH Summary: Code <code>' - try again, and report the code if it repeats. The totals and the table stay empty. |  | CAFM-REQ-F-093, CAFM-REQ-F-094, CAFM-REQ-F-095 |
+| Authorizations | **data table** | Columns: transaction ID, date (26 Nov 2026), time (HH:MM:SS), type, an Approved/Declined badge (Approved when the response code is 00), status, fraud status, and amount right-aligned with sign and two decimals. Sortable, newest first, 20 rows a page with Previous page and Next page controls. Click a row or press Enter on it to open its details beside the table. Empty state: 'No pending authorizations for this account. They appear here once the card is used.' | Previous page is disabled on the first page, with 'You are already on the first page'. Next page is disabled on the last page, with 'You are already on the last page'. Next authorization on the last one says 'Already at the last authorization' and keeps the current one open. Rows open directly, so no selection code is typed and 'Invalid selection. Valid value is S' cannot arise. There are no unsupported keys to warn about. |  | CAFM-REQ-F-100 |
+
+### CardDemo header and navigation (S-APP-HEADER)
+
+New, shared by every screen: shows the application and page title, the signed-in user, today's date and the time once, with the way back to the main menu. It replaces the transaction, program, date, time and title lines that every 3270 screen repeated.
+
+Prototype: `ui-reference/index.html#/S-APP-HEADER`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Main menu | **primary button** | Returns to the main menu and keeps the session |  |  | CAFM-REQ-F-099 |
 
 
 ## Data models
@@ -190,8 +178,8 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-091: The screen's load endpoint does keyed lookups in order: card cross-reference by account id (an alternate index on account), account by account id, customer by the customer id from the cross-reference, then pending authorization summary by account id. It fetches the first page of authorizations only when a summary exists.
-- CAFM-BR-092: Keep the customer id and card number from the cross-reference in the operator's session state, so the detail and fraud screens can use them without looking them up again.
+- CAFM-BR-091: For a valid account number, the screen's backend runs four keyed lookups: the card cross-reference by account id, the account, the customer (by the customer id from the cross-reference) and the pending-authorization summary. It returns them as one view, and fetches the first page of authorization details only when a summary exists.
+- CAFM-BR-092: Keep the customer ID and card number from the cross-reference in the operator's session (or pass them in the navigation state), so the detail and fraud screens can use them without another lookup.
 
 ## Open questions
 

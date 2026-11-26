@@ -16,4 +16,10 @@ Do not open a public issue containing an exploit, secret, or private data. Use t
 
 Stop further publication, notify the owner privately, and revoke or rotate exposed credentials immediately. Assess scope and access; coordinate any history cleanup with the owner. Deleting a file in a later commit does not remove it from Git history, forks, caches, or downloads. Do not republish the sensitive value in the cleanup report.
 
-For future integrations, use least privilege, explicit tool scopes, bounded budgets, auditable human decisions, and external secret storage. These are design requirements, not implemented controls in this release.
+## What Reframe does to protect you
+
+- **Recorded changes.** Every change Reframe makes in AWS or GitHub has an intent and a receipt in the run folder.
+- **Consent first.** Teardown deletes only what those records say Reframe created, after you type `yes`. Publishing to GitHub Pages, which is public, also waits for a typed `yes`.
+- **Cleaned copies.** `reframe publish` removes account IDs, ARNs, S3 locations, resource names, profile names, e-mail addresses and local paths, and refuses to write if any are left.
+- **No keys kept.** Reframe stores no credentials. It signs in with your AWS CLI profile, Claude Code's own sign-in and your `gh` sign-in.
+- **A private bucket.** `reframe publish --to aws` uploads the run's own `source/` and `results/` uncleaned, so give read access to the bucket only to people who may see the code.

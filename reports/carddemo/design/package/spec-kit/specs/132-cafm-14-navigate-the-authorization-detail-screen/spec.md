@@ -10,7 +10,7 @@
 
 As a card operations user, I want to use function keys on the authorization detail screen to move to the next authorization or return to the list, so that I can work through an account's pending authorizations.
 
-Lets a card operations user move around the authorization detail screen: step to the next pending authorization of the same account, go back to the pending authorization list, or refresh the current one. It must stay within the same account when stepping forward and keep the current selection when there is nothing further. It must never show details from a failed read.
+Lets a card operations user move through an account's pending authorizations one at a time from the detail screen: step to the next one, go back to the list, or refresh the current one. It must stay inside the same account, never lose the current selection when there is no next authorization, and never show part-filled details when the next read fails.
 
 **Acceptance scenarios:**
 
@@ -21,7 +21,7 @@ Lets a card operations user move around the authorization detail screen: step to
 5. **Given** selected authorization: K2 (last); key: PF8, **when** the user presses PF8 and there is no further authorization for the account, **then** 'Already at the last Authorization...' is shown and K2 stays selected. (CAFM-C14-AC-05)
 6. **Given** key pressed: PF7; selected authorization key: K1, **when** the user presses a key other than Enter, PF3, PF5 or PF8, **then** Authorization K1 is shown again with 'Invalid key pressed. Please see below...'. (CAFM-C14-AC-06)
 7. **Given** key: PF7, **when** the user presses any key other than Enter, PF3, PF5 or PF8, **then** Details are redisplayed with 'Invalid key pressed. Please see below...'. (CAFM-C14-AC-07)
-8. **Given** an authorization is selected on the detail screen and reading the next authorization of the account returns database status 'AJ' (not success, not found or end of data), **when** the user presses PF8, **then** an error is flagged, the message ' System error while reading next Auth: Code:' followed by AJ is shown, and the authorization detail fields are not filled in (CAFM-C14-AC-08)
+8. **Given** the detail screen shows a selected authorization for an account, and reading the next authorization under that account returns a database status other than success, not found or end of data, for example 'AI', **when** the user presses PF8, **then** an error is flagged, the message ' System error while reading next Auth: Code:' followed by AI is shown, and the authorization detail fields are not filled in (CAFM-C14-AC-08)
 
 ## Requirements
 

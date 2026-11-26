@@ -21,6 +21,8 @@ KEY = "reframe/claude-graph/{run}.nq"
 def should_load(ctx: Context) -> tuple[bool, str]:
     from reframe.claude.pipeline import state
     settings = state(ctx)
+    if ctx.state.get("tools") == "claude":
+        return False, "a Claude-only run has no Neptune graph; Claude's graph is kept as a file, outputs/claude/graph.nq"
     kind = (ctx.state.get("graph") or {}).get("kind", "new")
     choice = settings.get("graph_load")
     if kind == "new":
@@ -65,14 +67,16 @@ def graph(ctx: Context, model: dict[str, Any], generated: dict[str, Any]) -> dic
         return done
     yes, reason = should_load(ctx)
     ctx.folder.decide("claude-graph-load", "load" if yes else "skip", reason, step="claude graph")
-    if not yes:
-        return update(ctx, graph={"skipped": iso(), "reason": reason})["graph"]
     run = ctx.folder.root.name
+    if not yes and ctx.state.get("tools") != "claude":
+        return update(ctx, graph={"skipped": iso(), "reason": reason})["graph"]
     sha = state(ctx).get("sha256") or (ctx.folder.load("snapshot.json") or {}).get("sha256", "")
     quads = rdf.build(run, sha, model, generated, {"version": plugin.VERSION, "commit": plugin.COMMIT})
     path = ctx.folder.path("outputs/claude/graph.nq")
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     path.write_text(quads.text())
+    if not yes:
+        return update(ctx, graph={"skipped": iso(), "reason": reason, "file": "outputs/claude/graph.nq"})["graph"]
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     fn = loader(ctx, create=True)
     outputs = ctx.changes.receipt("terraform-project-apply-graph-loader")["outputs"]

@@ -17,8 +17,8 @@
   - _Rules: CAFM-BR-076, CAFM-BR-077, CAFM-BR-081_
   - _After: CAFM-C07-T1_
 - [ ] 4. CAFM-C07-T4 [api] Build the services behind the screens
-  - CAFM-BR-072: Save the pending authorization summary as an upsert keyed by account id: update it when it was found during lookup, or insert a new one when it did not exist. Report a failure as critical error 'I003' 'IMS UPDATE SUMRY FAILED'.
-  - CAFM-BR-078: Insert one authorization detail row as a child of the account's summary, built from the request and reply fields listed in the rule, and keyed so details are read newest first. Report a failure as critical error 'I004' 'IMS INSERT DETL FAILED'.
+  - CAFM-BR-072: Save the account's summary as an upsert keyed by account id: update it if one was found, insert it if not. Do the save in the same transaction as the detail insert, so the summary and its details cannot drift apart.
+  - CAFM-BR-078: Insert the authorization detail as a child of the account's summary (a foreign key to the account summary). It holds the request fields and the reply's authorization id, response code, reason and approved amount, and is keyed newest first for paging and purge.
   - _Requirements: CAFM-REQ-F-076_
   - _Rules: CAFM-BR-078_
   - _After: CAFM-C07-T1, CAFM-C07-T2, CAFM-C07-T3_

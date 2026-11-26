@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-The decision and reply step for card authorizations. It approves or declines each request against available credit (credit limit minus balance, taken from the pending summary when there is one, or else from the account) and sends the reply to the payment network in real time. It must never approve an amount strictly greater than the available credit, and a decline always carries response '05' with approved amount 0.
+Approves or declines each card authorization request in real time against the account's available credit, and sends the answer back to the card payment network. Available credit is the credit limit minus the credit balance, taken from the pending-authorization summary when there is one and from the account otherwise. A request is declined only when the amount is strictly greater than that. A decline must always reply '05' with approved amount 0, and an approval '00' with the full amount.
 
 **User story:** As a card payment network, I want each authorization request approved or declined against the account's available credit and answered on my reply queue, so that the merchant transaction can proceed or be refused in real time.
 
@@ -62,7 +62,7 @@ The decision and reply step for card authorizations. It approves or declines eac
 #### Acceptance criteria
 
 1. The system shall format the authorization reply as comma-delimited text of card number, transaction id, authorization id, response code, reason code and approved amount (signed, two decimals), each followed by a comma. (rules CAFM-BR-059)
-2. GIVEN An authorization decided for card number 4111111111111111, transaction id TXN0001 and authorization id 143005, with response code '00', reason code '0000' and approved amount 125.50 WHEN The authorization reply is formatted THEN The reply text is the card number, transaction id, authorization id, response code '00', reason code '0000' and the approved amount 125.50 written signed with two decimals, in that order, each followed by a comma (the message ends with a comma) (CAFM-C05-AC-09; CAFM-BR-059)
+2. GIVEN An authorization for card 4111111111111111, transaction id TXN0001 and authorization id 123456, approved with response code '00', reason '0000' and approved amount 125.50 WHEN The authorization reply is built THEN The reply text is the card number, transaction id, authorization id, '00', '0000' and the approved amount with two decimals (125.50, signed), in that order, with a comma after each value, including the last. (CAFM-C05-AC-09; CAFM-BR-059)
 
 ### Requirement 8: CAFM-REQ-F-059 (design note)
 
@@ -324,7 +324,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-060: Send each reply as a one-off, non-persistent message to the reply address named in the request, with the request's correlation id and a short time-to-live (expiry 50, which is 5 seconds in MQ's tenths of a second). This way stale replies expire instead of piling up. If the send fails, log critical error 'M004'.
+- CAFM-BR-060: Publish each authorization reply once to the reply queue the requester named, carrying the request's correlation id. Send it non-persistent with a short expiry (50, in tenths of a second, so 5 seconds), so stale answers are dropped. If publishing fails, log critical error 'M004'.
 
 ## Open questions
 

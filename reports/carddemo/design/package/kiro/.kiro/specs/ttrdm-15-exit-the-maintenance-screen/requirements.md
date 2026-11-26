@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Lets an administrator leave transaction type maintenance with F3. Any completed database work is committed, and the administrator returns to the Admin menu. When the screen was opened from the Admin menu or the Transaction Type list, F3 must always go back to the Admin menu, never to the list.
+F3 takes the administrator out of transaction type maintenance. Any open database work is completed first, then the administrator goes back to the caller recorded for the session, or to the Admin menu when none is recorded. When the screen was entered from the Admin menu or the transaction type list, F3 must always return to the Admin menu and never to the list.
 
 **User story:** As an administrator, I want F3 to save my work and return me to the admin menu, so that I can leave transaction type maintenance safely.
 

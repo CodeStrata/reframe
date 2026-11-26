@@ -4,7 +4,7 @@
 
 ## Overview
 
-A message service that answers account inquiry requests from other systems with the account's status, balances, limits and dates, so they never read the account file directly. Each request is answered on the account reply queue and matched to the request by its message and correlation ids. It must never answer a malformed or unknown-account request with account data, and it must never alter the stored values it reports.
+A message-driven service for other systems. It answers an account inquiry request with the account's status, balances, limits and dates on the account reply queue, without the caller needing direct access to the account file. Each reply must carry the request's message and correlation identifiers and must show the stored values exactly as held. A bad request gets an 'INVALID REQUEST PARAMETERS' reply, never another account's data.
 
 Runs as online.
 
@@ -97,10 +97,10 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-013: Run the service as a consumer started when messages arrive on the account inquiry request queue. Take the request queue from the start-up event or configuration, and send replies to the fixed queue 'CARD.DEMO.REPLY.ACCT' and error records to 'CARD.DEMO.ERROR'.
-- CAFM-BR-015: Treat consuming one request and publishing its reply as one transaction, committed before the next request is taken. A failure then never loses a request or sends a reply twice, and the last request's transaction is committed when the consumer stops.
-- CAFM-BR-016: Parse each request as fixed-position text: characters 1-4 are the function code and the next 11 digits are the account number. Keep the message id and correlation id so the reply can be matched to the request.
-- CAFM-BR-018: Publish each reply to 'CARD.DEMO.REPLY.ACCT' with the request's message id and correlation id, so the requester can match it. If the publish fails, record 'MQPUT ERR', send the error to the error queue and stop the consumer.
+- CAFM-BR-013: Run the account inquiry as a consumer on the account inquiry request queue, started when messages arrive. It replies on the fixed account reply queue ('CARD.DEMO.REPLY.ACCT') and reports failures to a shared error queue ('CARD.DEMO.ERROR'). Queue names come from configuration, and the request queue is whichever one triggered the consumer.
+- CAFM-BR-015: Take a request and send its reply in one transaction, so that a request counts as consumed only when its reply is sent. Commit before taking the next request, and commit the final request's transaction when the consumer stops.
+- CAFM-BR-016: Keep each request's message id and correlation id for its reply. Read the request body as fixed positions: characters 1–4 are the function code and the next 11 digits are the account number. Validate the account number as numeric before looking it up.
+- CAFM-BR-018: Publish the reply to the account reply queue with the request's message and correlation identifiers, so the caller can match it to its request. If publishing fails, send an 'MQPUT ERR' record to the error queue and stop the consumer.
 
 ## Open questions
 
