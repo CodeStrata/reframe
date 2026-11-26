@@ -35,7 +35,7 @@ Model steps write structured results that cite requirements, rules, screens and 
 | `reframe design --context <folder>` | Adds design context (section 5). The folder is remembered for later rounds |
 | `reframe design --max-batches <n>` | Goes ahead with a larger estimate |
 | `reframe design --open` | Opens the design page, with the prototype |
-| `reframe design --package <folder> [--form kiro\|claude-code\|both]` | Copies the latest package into a folder, cleaned as `reframe publish` cleans its copy (default: both forms) |
+| `reframe design --package <folder> [--form kiro\|claude-code\|spec-kit\|all]` | Copies the latest package into a folder, cleaned as `reframe publish` cleans its copy (default: all three forms) |
 | `reframe status`, `reframe resume`, `reframe review`, `reframe publish`, `reframe export` | As today, with the design added: its stage and round, resuming after Claude's usage limit, reading prototype review downloads, including the design page and prototype in a published copy, and S-13's backlog files taking the final specifications when they exist |
 
 **The target stack** is the engineer's input. It is never guessed: the guided command asks, offering common stacks as numbered choices and *something else* typed in, and `reframe design` without a terminal stops and names `--stack`. It is recorded in the run with who gave it and when. A `target-architecture.md` in the context folder adds the detail (versions, services, integration, non-functional requirements); the stack line still comes from the engineer. Changing the stack starts a new round that redoes only what depends on it: the data contracts' types, the screen specifications' component notes, and the package (section 4, stage D9).
@@ -206,6 +206,16 @@ Written by Reframe from D6, in `outputs/design/package/v<round>/`, in three form
   Each task names the role that does it.
 
 Every requirement, rule, acceptance criterion and task keeps its ID, so the forward build stays traceable to the legacy source. Draft capabilities are marked draft. `CHANGES.md` says what changed since the last version. **Checked:** by loading the Claude Code form into Claude Code in a scratch folder and building one journey (*Sign in* on CardDemo) on the target stack, recording whether it builds and which acceptance criteria pass.
+
+**Command:** `python -m reframe.design.package [--run <run>] [--context <folder>] [--out <folder> [--form kiro|claude-code|spec-kit|all]]` writes `outputs/design/package/v<n>/` with the three forms, `CHANGES.md` and `manifest.json`, with no model.
+- **IDs:** each function gets a short code from its name (Online Account and Transaction Management is `OATM`). Requirements are `OATM-REQ-F-123`, rules `OATM-BR-004`, capabilities `OATM-C16`, criteria `OATM-C16-AC-03` and tasks `OATM-C16-T2`. The codes and rule numbers are kept in `design/package-ids.json`, so an ID never changes between versions; a new rule gets the next number. Every form has `traceability.md`, which takes each ID back to the run's keys and the source lines, and `data-contracts.md`.
+- **Tasks**, per capability, each for a role and citing what it implements: model the data (*data*), the business rules (*business rules*), the errors and messages (*business rules*), the services or scheduled job with the design notes (*API*), one per screen to the prototype (*UI modernization*), a test per acceptance criterion (*test generation*), and a review where the capability touches money, card data, personal data, security or audit (*compliance*). Every requirement is in an implementing task.
+- **Versions:** a new version only when a file changes. `CHANGES.md` names, by ID, the capabilities added, removed or now final, and the requirements, rules and criteria added, removed or changed, and a changed stack.
+- **Context:** `target-architecture.md` joins the stack in `tech.md` and `CLAUDE.md`; `personas.md` and `decisions.md` join `product.md`.
+- **`--out`:** copies the latest version cleaned as `reframe publish` cleans its copy; if anything is left, nothing is written.
+- **Checked by Reframe:** every requirement, rule, criterion and task ID of every specification is in each form's own files (not only in `traceability.md`); every task cites a requirement; every requirement is in an implementing task; every draft is marked.
+
+**On CardDemo** (26 November 2026), in 2 seconds: 1,100 files, 13 MB with the prototype. The 154 capabilities (52 final) have 820 tasks: 222 business rules, 118 data, 114 API, 99 UI modernization, 154 test generation and 113 compliance. No check failed. A cleaned copy left nothing behind. The build check (*Sign in* from the Claude Code form) waits for the engineer's target stack.
 
 ### D8 Design page (P4-07, P4-10)
 
