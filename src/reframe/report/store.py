@@ -171,9 +171,13 @@ class Store:
         bucket = self.reading_bucket()
         keys = self.aws.read("s3api", "list-objects-v2", "--bucket", bucket, "--query", "Contents[?ends_with(Key, 'manifest.json')].[Key,LastModified]")
         found = []
-        for key, modified in keys or []:
-            if not REPORT_MANIFEST.match(key):  # the tools' results hold manifests of their own
+        # a run published in both layouts is listed once, from reports/ (S-15), which download reads first
+        keys = sorted(keys or [], key=lambda k: "/reports/" not in k[0])
+        seen = set()
+        for key, modified in keys:
+            if not REPORT_MANIFEST.match(key) or "/".join(key.split("/")[:2]) in seen:  # the tools' results hold manifests of their own
                 continue
+            seen.add("/".join(key.split("/")[:2]))
             with tempfile.TemporaryDirectory() as scratch:
                 target = Path(scratch) / "manifest.json"
                 self.aws.read("s3api", "get-object", "--bucket", bucket, "--key", key, str(target))
