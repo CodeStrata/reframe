@@ -4,12 +4,37 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reframe"
-version = "0.4.0"
-description = "Run an AWS Transform mainframe assessment end to end from one command, and bring back its requirements"
+version = "1.0.0"
+description = "From mainframe source to reviewed requirements, business rules and a design to build from, with Claude, or Claude and AWS Transform"
+readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
+authors = [{ name = "Satish Kumar Nampally" }]
+keywords = ["mainframe", "cobol", "modernization", "legacy", "reverse-engineering", "requirements", "claude", "aws-transform", "ai-dlc"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Documentation",
+]
 dependencies = ["mcp>=2,<3", "PyYAML>=6,<7", "rich>=13,<15"]
+
+[project.urls]
+Homepage = "https://github.com/sknampally/reframe"
+Documentation = "https://github.com/sknampally/reframe/blob/main/docs/how-to-run.md"
+Examples = "https://sknampally.github.io/reframe/"
+Changelog = "https://github.com/sknampally/reframe/blob/main/CHANGELOG.md"
+Issues = "https://github.com/sknampally/reframe/issues"
 
 [project.scripts]
 reframe = "reframe.core.cli:main"
