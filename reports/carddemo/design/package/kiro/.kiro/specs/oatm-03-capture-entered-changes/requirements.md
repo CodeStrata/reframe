@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Captures what the operator typed on the Update account screen as proposed new values, treating any field left blank or entered as '*' as not supplied. Amounts entered in currency form are converted to numbers with two decimals. It must never mistake a blank or '*' for a real value to compare or save.
+Takes what the operator typed on the update screen and turns it into proposed new values for the account and customer. A blank or '*' entry means 'not supplied', never a value to save. Amounts typed as currency (with '$', commas, sign or decimals) are converted to numbers with two decimal places. It must never confuse 'left blank' with a real value, and must never lose or round an entered amount wrongly.
 
 **User story:** As an operator, I want the values I type to be captured as proposed changes, with blank or '*' entries treated as not supplied, so that the system knows exactly what I intend to change.
 

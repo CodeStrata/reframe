@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as sc
 
 ## Introduction
 
-Reloads the keyed transaction type and category lookup stores from their latest flat files, so online screens and batch programs read current reference data. Each store is emptied and rebuilt in full. Every record in the file must be loaded, with none lost and none left over from the previous load.
+A scheduled job for operations that rebuilds the keyed transaction type and transaction category stores from their flat extract files, so that online screens and batch programs read current reference data. Each store is emptied and reloaded with every record from its file. No record may be lost or left over from the previous load.
 
 **User story:** As an operations user, I want to reload the keyed transaction type and category files from their flat files, so that online and batch programs read current reference data.
 

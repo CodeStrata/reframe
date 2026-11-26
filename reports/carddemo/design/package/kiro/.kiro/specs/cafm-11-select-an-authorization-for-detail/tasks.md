@@ -11,9 +11,9 @@
   - _Requirements: CAFM-REQ-F-109, CAFM-REQ-F-110, CAFM-REQ-F-111_
   - _Rules: CAFM-BR-115, CAFM-BR-116, CAFM-BR-117_
   - _After: CAFM-C11-T1_
-- [ ] 3. CAFM-C11-T3 [ui-modernization] Build the screen Pending authorizations (S-PENDING-AUTHS)
-  - To the prototype: ui-reference/index.html#/S-PENDING-AUTHS.
-  - table "Pending authorizations": Only a row's 'View details' action opens an authorization, so 'Invalid selection. Valid value is S' cannot arise; it is shown if a row without an authorization is opened. Previous is disabled on the first page and announces 'You are already at the top of the page...'; Next is disabled on the last page and announces 'You are already at the bottom of the page...'.
+- [ ] 3. CAFM-C11-T3 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **data table** "Authorizations": Previous page is disabled on the first page, with 'You are already on the first page'. Next page is disabled on the last page, with 'You are already on the last page'. Next authorization on the last one says 'Already at the last authorization' and keeps the current one open. Rows open directly, so no selection code is typed and 'Invalid selection. Valid value is S' cannot arise. There are no unsupported keys to warn about.
   - _Requirements: CAFM-REQ-F-109, CAFM-REQ-F-110, CAFM-REQ-F-111_
   - _Rules: CAFM-BR-115, CAFM-BR-116, CAFM-BR-117_
   - _After: CAFM-C11-T2_

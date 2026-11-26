@@ -566,7 +566,7 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: DTPR-C15-T1, DTPR-C15-T2_
 - [ ] DTPR-C15-T4 [ui-modernization] Build the screen Transaction reports (S-REPORT-REQUEST)
   - To the prototype: ui-reference/index.html#/S-REPORT-REQUEST.
-  - date "End date": Month, day and year required: 'End Date - Month can NOT be empty...', 'End Date - Day can NOT be empty...', 'End Date - Year can NOT be empty...'; 'End Date - Not a valid Month...'; 'End Date - Not a valid Day...'; 'End Date - Not a valid Year...'; must be a real date: 'End Date - Not a valid date...'.
+  - **primary button** "Submit report": The dialog offers only Submit or Cancel, replacing the typed confirmation and its messages 'Please confirm to print the <report name> report...' and '"<value>" is not a valid value to confirm...'. If the job cannot be queued, the message says the report was not submitted and to try again.
   - _Requirements: DTPR-REQ-F-077_
   - _Rules: DTPR-BR-086_
   - _After: DTPR-C15-T1, DTPR-C15-T2, DTPR-C15-T3_
@@ -595,15 +595,21 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: DTPR-REQ-F-080_
   - _Rules: DTPR-BR-090_
   - _After: DTPR-C16-T1, DTPR-C16-T2_
-- [ ] DTPR-C16-T4 [test-generation] Write a test for every acceptance criterion
+- [ ] DTPR-C16-T4 [ui-modernization] Build the screen Transaction reports (S-REPORT-REQUEST)
+  - To the prototype: ui-reference/index.html#/S-REPORT-REQUEST.
+  - **primary button** "Submit report": The dialog offers only Submit or Cancel, replacing the typed confirmation and its messages 'Please confirm to print the <report name> report...' and '"<value>" is not a valid value to confirm...'. If the job cannot be queued, the message says the report was not submitted and to try again.
+  - _Requirements: DTPR-REQ-F-081_
+  - _Rules: DTPR-BR-091_
+  - _After: DTPR-C16-T1, DTPR-C16-T2, DTPR-C16-T3_
+- [ ] DTPR-C16-T5 [test-generation] Write a test for every acceptance criterion
   - 3 acceptance criteria, each a test named by its ID.
   - _Requirements: DTPR-REQ-F-080, DTPR-REQ-F-081, DTPR-REQ-N-012_
   - _Criteria: DTPR-C16-AC-01, DTPR-C16-AC-02, DTPR-C16-AC-03_
-  - _After: DTPR-C16-T1, DTPR-C16-T2, DTPR-C16-T3_
-- [ ] DTPR-C16-T5 [compliance] Review the handling of card data, money
+  - _After: DTPR-C16-T1, DTPR-C16-T2, DTPR-C16-T3, DTPR-C16-T4_
+- [ ] DTPR-C16-T6 [compliance] Review the handling of card data, money
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: DTPR-REQ-F-080, DTPR-REQ-F-081, DTPR-REQ-N-012_
-  - _After: DTPR-C16-T1, DTPR-C16-T2, DTPR-C16-T3_
+  - _After: DTPR-C16-T1, DTPR-C16-T2, DTPR-C16-T3, DTPR-C16-T4_
 
 ## DTPR-C17 Print the daily transaction report with totals (final)
 
@@ -654,25 +660,24 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-001, OATM-BR-002, OATM-BR-006, OATM-BR-008, OATM-BR-009, OATM-BR-011, OATM-BR-012_
   - _After: OATM-C01-T1_
 - [ ] OATM-C01-T4 [api] Build the services behind the screens
-  - OATM-BR-004: Needs a keyed lookup from account id to its card link (customer id and card number), via an index on account id over the card-account-customer cross-reference; the customer id it returns drives the customer read, and the card number is kept in the session.
-  - OATM-BR-007: Needs a read of the account record by its account id primary key; a successful read sets an 'account found' state that the screen uses to decide whether account fields can be shown.
-  - OATM-BR-010: Needs a read of the customer record by the customer id taken from the cross-reference; a successful read sets a 'customer found' state used for showing customer fields.
-  - OATM-BR-013: Keep account id, customer id, customer names, account status and card number in the operator's server-side session (or a signed request token) so they carry over between screen submissions and to the next screen.
-  - OATM-BR-014: Store an immutable snapshot of the fetched account and customer values for the session, with open, expiry, reissue and birth dates held as year, month and day parts; it is the baseline for change detection and for the optimistic check that nobody else changed the record before save (a version or timestamp column can serve the same purpose).
+  - OATM-BR-004: Look up the card-to-account cross-reference by account ID (a secondary index on account ID, not the card number). The result gives the customer ID and card number, and the following account and customer reads use them. Keep them in the operator's update session.
+  - OATM-BR-007: Read the account record by its primary key, the 11-digit account ID, and mark the account as found when it exists. Keep 'not found' separate from other read failures: each has its own message.
+  - OATM-BR-010: Read the customer record by its primary key, using the customer ID taken from the cross-reference, and mark the customer as found when it exists. Keep 'not found' separate from other read failures.
+  - OATM-BR-013: Keep the account ID, customer ID, customer names, account status and card number in the operator's update session (server-side state or a signed token). This context must survive across requests until the update is saved or cancelled.
+  - OATM-BR-014: Keep a snapshot of the account and customer values as fetched. Change detection and the 'changed by someone else' check on save both compare against it. Hold dates as real dates; the screen may still show and edit the open, expiry, reissue and birth dates as separate year, month and day parts. A version number or timestamp on each record can replace the field-by-field snapshot comparison.
   - _Requirements: OATM-REQ-F-004, OATM-REQ-F-007, OATM-REQ-F-010, OATM-REQ-F-013, OATM-REQ-F-014_
   - _Rules: OATM-BR-004, OATM-BR-007, OATM-BR-010, OATM-BR-013, OATM-BR-014_
   - _After: OATM-C01-T1, OATM-C01-T2, OATM-C01-T3_
 - [ ] OATM-C01-T5 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - search "Account number": Required: 'No input received' when blank; 'Account Number if supplied must be a 11 digit Non-Zero Number' when not numeric or all zeros; 'Account:<number> not found in Cross ref file' when the account has no card cross-reference.
-  - message "Guidance"
-  - _Requirements: OATM-REQ-F-001, OATM-REQ-F-002, OATM-REQ-F-003_
-  - _Rules: OATM-BR-001, OATM-BR-002, OATM-BR-003_
+  - **lookup field** "Account number": Blank: 'No input received' - enter an account number. Not 11 digits or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number'. Not in the card cross-reference: 'Account:<account> not found in Cross ref file.' - check the number with the caller. Only the account number is checked until an account is fetched.
+  - _Requirements: OATM-REQ-F-001, OATM-REQ-F-002, OATM-REQ-F-003, OATM-REQ-F-004, OATM-REQ-F-005, OATM-REQ-F-006, OATM-REQ-F-007, OATM-REQ-F-008, OATM-REQ-F-009, OATM-REQ-F-010, OATM-REQ-F-011, OATM-REQ-F-012, OATM-REQ-F-013_
+  - _Rules: OATM-BR-001, OATM-BR-002, OATM-BR-003, OATM-BR-004, OATM-BR-005, OATM-BR-006, OATM-BR-007, OATM-BR-008, OATM-BR-009, OATM-BR-010, OATM-BR-011, OATM-BR-012, OATM-BR-013_
   - _After: OATM-C01-T2, OATM-C01-T3, OATM-C01-T4_
 - [ ] OATM-C01-T6 [test-generation] Write a test for every acceptance criterion
-  - 15 acceptance criteria, each a test named by its ID.
+  - 14 acceptance criteria, each a test named by its ID.
   - _Requirements: OATM-REQ-F-001, OATM-REQ-F-002, OATM-REQ-F-003, OATM-REQ-F-004, OATM-REQ-F-005, OATM-REQ-F-006, OATM-REQ-F-007, OATM-REQ-F-008, OATM-REQ-F-009, OATM-REQ-F-010, OATM-REQ-F-011, OATM-REQ-F-012, OATM-REQ-F-013, OATM-REQ-F-014_
-  - _Criteria: OATM-C01-AC-01, OATM-C01-AC-02, OATM-C01-AC-03, OATM-C01-AC-04, OATM-C01-AC-05, OATM-C01-AC-06, OATM-C01-AC-07, OATM-C01-AC-08, OATM-C01-AC-09, OATM-C01-AC-10, OATM-C01-AC-11, OATM-C01-AC-12, OATM-C01-AC-13, OATM-C01-AC-14, OATM-C01-AC-15_
+  - _Criteria: OATM-C01-AC-01, OATM-C01-AC-02, OATM-C01-AC-03, OATM-C01-AC-04, OATM-C01-AC-05, OATM-C01-AC-06, OATM-C01-AC-07, OATM-C01-AC-08, OATM-C01-AC-09, OATM-C01-AC-10, OATM-C01-AC-11, OATM-C01-AC-12, OATM-C01-AC-13, OATM-C01-AC-14_
   - _After: OATM-C01-T1, OATM-C01-T2, OATM-C01-T3, OATM-C01-T4, OATM-C01-T5_
 - [ ] OATM-C01-T7 [compliance] Review the handling of card data, personal data
   - Check storage, logs, screens and audit against the rules.
@@ -692,14 +697,12 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C02-T1_
 - [ ] OATM-C02-T3 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - search "Account number": Required: 'No input received' when blank; 'Account Number if supplied must be a 11 digit Non-Zero Number' when not numeric or all zeros; 'Account:<number> not found in Cross ref file' when the account has no card cross-reference.
-  - message "Guidance"
-  - form "Account and customer details": If nothing differs from the fetched values (ignoring case): 'No change detected with respect to values fetched.' and nothing is checked or saved.
-  - display "Customer ID"
-  - display "Country"
-  - dialog "Save these changes?"
-  - _Requirements: OATM-REQ-F-018, OATM-REQ-F-019, OATM-REQ-F-022, OATM-REQ-N-002_
-  - _Rules: OATM-BR-018, OATM-BR-019, OATM-BR-022, OATM-BR-025_
+  - **lookup field** "Account number": Blank: 'No input received' - enter an account number. Not 11 digits or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number'. Not in the card cross-reference: 'Account:<account> not found in Cross ref file.' - check the number with the caller. Only the account number is checked until an account is fetched.
+  - **summary card** "Status and group": Status is required: 'Account Status must be supplied.' and must be Active or Inactive ('Account Status must be Y or N.'). The choice offers only those two values.
+  - **summary card** "Fix these before saving"
+  - **primary button** "Save changes": If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved.
+  - _Requirements: OATM-REQ-F-015, OATM-REQ-F-016, OATM-REQ-F-017, OATM-REQ-F-018, OATM-REQ-F-019, OATM-REQ-F-020, OATM-REQ-F-021, OATM-REQ-F-022, OATM-REQ-F-023, OATM-REQ-N-001, OATM-REQ-N-002, OATM-REQ-F-024_
+  - _Rules: OATM-BR-015, OATM-BR-016, OATM-BR-017, OATM-BR-018, OATM-BR-019, OATM-BR-020, OATM-BR-021, OATM-BR-022, OATM-BR-023, OATM-BR-024, OATM-BR-025_
   - _After: OATM-C02-T2_
 - [ ] OATM-C02-T4 [test-generation] Write a test for every acceptance criterion
   - 15 acceptance criteria, each a test named by its ID.
@@ -718,31 +721,26 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSLKPCDY, CSMSG01Y, CSSETATY, CSSTRPFY, CSUSR01Y, CSUTLDPY, CSUTLDWY, CVCRD01Y.
   - _Requirements: OATM-REQ-F-025, OATM-REQ-F-026, OATM-REQ-F-027, OATM-REQ-F-028, OATM-REQ-F-029, OATM-REQ-F-030, OATM-REQ-F-031, OATM-REQ-F-032_
 - [ ] OATM-C03-T2 [api] Build the services behind the screens
-  - OATM-BR-026: Input binding for account group: map blank or '*' to an explicit 'not supplied' value (null), otherwise keep the entered text as the proposed group.
-  - OATM-BR-027: Input binding for country code: map blank or '*' to null (not supplied), otherwise keep the entered value as the proposed country code.
-  - OATM-BR-028: Input binding for customer number once details are shown: blank or '*' becomes null; any other value is carried as the proposed value, compared with the snapshot and written to the customer record on save.
-  - OATM-BR-029: Input binding for government-issued ID once details are shown: blank or '*' becomes null; otherwise the entered value is the proposed ID, compared with the snapshot and written to the customer record on save.
-  - OATM-BR-030: Input binding for the five amounts (credit limit, cash credit limit, current balance, current cycle credit, current cycle debit): blank or '*' becomes null (not supplied) so validation can report it as missing.
-  - OATM-BR-031: A currency parser that accepts an optional '$', thousands commas, a sign and decimals, and yields a decimal amount at scale 2 (use a decimal type, not floating point); unparseable text stays as entered for validation to reject.
-  - OATM-BR-032: Input binding for open, expiry and reissue dates as separate year, month and day parts: each part that is blank or '*' becomes null, any other entry is kept exactly as typed for the date checks.
-  - OATM-BR-033: Input binding for date of birth parts (year, month, day): blank or '*' becomes null, otherwise the part is kept as the proposed value.
+  - OATM-BR-026: Model the proposed account group as an optional value: blank or '*' input becomes 'absent' (null), not an empty string. Any other input becomes the proposed group.
+  - OATM-BR-027: Treat blank or '*' country code input as absent (null). Otherwise take the entered value as the proposed country code.
+  - OATM-BR-028: Treat a blank or '*' customer number as absent (null); otherwise it is the proposed value. Change detection compares it with the stored customer number, and it is written to the customer record on save.
+  - OATM-BR-029: Treat a blank or '*' government-issued ID as absent (null); otherwise it is the proposed value. Change detection compares it with the stored ID, and it is written to the customer record on save.
+  - OATM-BR-030: Hold each of the five amounts as an optional input: credit limit, cash credit limit, current balance, current cycle credit and current cycle debit. Blank or '*' means absent, which validation then reports as 'must be supplied.'.
+  - OATM-BR-031: Parse entered amounts with a currency parser that accepts an optional '$', thousands commas, a sign and decimals. Convert to an exact decimal with two places (a decimal type, never floating point). Input that does not parse stays as entered text so validation can report it as not valid.
+  - OATM-BR-032: Capture the open, expiry and reissue dates as three separate optional parts (year, month, day). A blank or '*' part is absent; any other part is kept exactly as typed so date validation can check it.
+  - OATM-BR-033: Capture the date of birth as three separate optional parts (year, month, day). A blank or '*' part is absent; any other part is kept as typed for validation.
   - _Requirements: OATM-REQ-F-025, OATM-REQ-F-026, OATM-REQ-F-027, OATM-REQ-F-028, OATM-REQ-F-029, OATM-REQ-F-030, OATM-REQ-F-031, OATM-REQ-F-032_
   - _Rules: OATM-BR-026, OATM-BR-027, OATM-BR-028, OATM-BR-029, OATM-BR-030, OATM-BR-031, OATM-BR-032, OATM-BR-033_
   - _After: OATM-C03-T1_
 - [ ] OATM-C03-T3 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - text "Account group (optional)"
-  - money "Credit limit": Required: 'Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Credit Limit is not valid'; negative and zero amounts are accepted.
-  - money "Cash credit limit": Required: 'Cash Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Cash Credit Limit is not valid'; negative and zero amounts are accepted.
-  - money "Current balance": Required: 'Current Balance must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Balance is not valid'; negative and zero amounts are accepted.
-  - money "Current cycle credit": Required: 'Current Cycle Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Cycle Credit Limit is not valid'; negative and zero amounts are accepted.
-  - money "Current cycle debit": Required: 'Current Cycle Debit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Cycle Debit Limit is not valid'; negative and zero amounts are accepted.
-  - display "Customer ID"
-  - date "Date of birth": Year, month and day must all be supplied: 'Date of Birth : Year must be supplied.', 'Date of Birth : Month must be supplied.', 'Date of Birth : Day must be supplied.'. The year must be 4 digits: 'Date of Birth must be 4 digit number.', starting 19 or 20: 'Date of Birth : Century is not valid.'. 'Date of Birth: Month must be a number between 1 and 12.'; 'Date of Birth:day must be a number between 1 and 31.'; 'Date of Birth:Cannot have 31 days in this month.'; 'Date of Birth:Cannot have 30 days in this month.'; 'Date of Birth:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Date of Birth validation error ...'. Must be before today: 'Date of Birth:cannot be in the future '.
-  - display "Country"
-  - text "Government-issued ID reference"
-  - _Requirements: OATM-REQ-F-025, OATM-REQ-F-026, OATM-REQ-F-027, OATM-REQ-F-028, OATM-REQ-F-029, OATM-REQ-F-030, OATM-REQ-F-032_
-  - _Rules: OATM-BR-026, OATM-BR-027, OATM-BR-028, OATM-BR-029, OATM-BR-030, OATM-BR-031, OATM-BR-033_
+  - **summary card** "Status and group": Status is required: 'Account Status must be supplied.' and must be Active or Inactive ('Account Status must be Y or N.'). The choice offers only those two values.
+  - **summary card** "Account dates": For each date, in the rule's words: '<date> : Year must be supplied.', '<date> must be 4 digit number.', '<date> : Century is not valid.' (year must start 19 or 20), '<date> : Month must be supplied.', '<date>: Month must be a number between 1 and 12.', '<date> : Day must be supplied.', '<date>:day must be a number between 1 and 31.', '<date>:Cannot have 31 days in this month.', '<date>:Cannot have 30 days in this month.', '<date>:Not a leap year.Cannot have 29 days in this month.', and a final calendar check '<date> validation error'. The message sits under the part to fix.
+  - **summary card** "Limits and balances": Each amount is required: '<field> must be supplied.' (e.g. 'Credit Limit must be supplied.'), and must be a currency number: '<field> is not valid' - enter an amount such as 1,250.00. Negative values and zero are accepted.
+  - **summary card** "Customer identity": SSN: 'SSN: First 3 chars must be supplied.', 'SSN: First 3 chars must be all numeric.', 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'; the 4th & 5th and last 4 characters must each be supplied, all numeric and non-zero. Date of birth: the date checks above, and 'Date of Birth:cannot be in the future '. FICO: 'FICO Score must be supplied.', 'FICO Score must be all numeric.', 'FICO Score must not be zero.', 'FICO Score: should be between 300 and 850'.
+  - **summary card** "Name and address": '<field> must be supplied.' for First Name, Last Name, City, State, Country and Address Line 1; '<field> can have alphabets only.' for names, city, state and country; 'Middle Name can have alphabets only.'; 'State: is not a valid state code'; ZIP: 'ZIP must be supplied.', must be all numeric, 5 digits and not zero; 'Invalid zip code for state' - check the state and ZIP together.
+  - _Requirements: OATM-REQ-F-025, OATM-REQ-F-026, OATM-REQ-F-027, OATM-REQ-F-028, OATM-REQ-F-029, OATM-REQ-F-030, OATM-REQ-F-031, OATM-REQ-F-032_
+  - _Rules: OATM-BR-026, OATM-BR-027, OATM-BR-028, OATM-BR-029, OATM-BR-030, OATM-BR-031, OATM-BR-032, OATM-BR-033_
   - _After: OATM-C03-T2_
 - [ ] OATM-C03-T4 [test-generation] Write a test for every acceptance criterion
   - 15 acceptance criteria, each a test named by its ID.
@@ -767,28 +765,14 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C04-T1_
 - [ ] OATM-C04-T3 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - message "Fix these fields"
-  - radio "Account status": Required: 'Account Status must be supplied.'; only Active or Inactive: 'Account Status must be Y or N.'
-  - date "Open date": Year, month and day must all be supplied: 'Open Date : Year must be supplied.', 'Open Date : Month must be supplied.', 'Open Date : Day must be supplied.'. The year must be 4 digits: 'Open Date must be 4 digit number.', starting 19 or 20: 'Open Date : Century is not valid.'. 'Open Date: Month must be a number between 1 and 12.'; 'Open Date:day must be a number between 1 and 31.'; 'Open Date:Cannot have 31 days in this month.'; 'Open Date:Cannot have 30 days in this month.'; 'Open Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Open Date validation error ...'.
-  - date "Expiry date": Year, month and day must all be supplied: 'Expiry Date : Year must be supplied.', 'Expiry Date : Month must be supplied.', 'Expiry Date : Day must be supplied.'. The year must be 4 digits: 'Expiry Date must be 4 digit number.', starting 19 or 20: 'Expiry Date : Century is not valid.'. 'Expiry Date: Month must be a number between 1 and 12.'; 'Expiry Date:day must be a number between 1 and 31.'; 'Expiry Date:Cannot have 31 days in this month.'; 'Expiry Date:Cannot have 30 days in this month.'; 'Expiry Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Expiry Date validation error ...'.
-  - date "Reissue date": Year, month and day must all be supplied: 'Reissue Date : Year must be supplied.', 'Reissue Date : Month must be supplied.', 'Reissue Date : Day must be supplied.'. The year must be 4 digits: 'Reissue Date must be 4 digit number.', starting 19 or 20: 'Reissue Date : Century is not valid.'. 'Reissue Date: Month must be a number between 1 and 12.'; 'Reissue Date:day must be a number between 1 and 31.'; 'Reissue Date:Cannot have 31 days in this month.'; 'Reissue Date:Cannot have 30 days in this month.'; 'Reissue Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Reissue Date validation error ...'.
-  - money "Credit limit": Required: 'Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Credit Limit is not valid'; negative and zero amounts are accepted.
-  - money "Cash credit limit": Required: 'Cash Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Cash Credit Limit is not valid'; negative and zero amounts are accepted.
-  - money "Current balance": Required: 'Current Balance must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Balance is not valid'; negative and zero amounts are accepted.
-  - money "Current cycle credit": Required: 'Current Cycle Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Cycle Credit Limit is not valid'; negative and zero amounts are accepted.
-  - money "Current cycle debit": Required: 'Current Cycle Debit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Cycle Debit Limit is not valid'; negative and zero amounts are accepted.
-  - text "First name": Required: 'First Name must be supplied.'; letters and spaces only: 'First Name can have alphabets only.'.
-  - text "Middle name (optional)": Optional; letters and spaces only: 'Middle Name can have alphabets only.'.
-  - text "Last name": Required: 'Last Name must be supplied.'; letters and spaces only: 'Last Name can have alphabets only.'.
-  - text "Social Security number": First 3 digits must be supplied, numeric and not zero: 'SSN: First 3 chars must be supplied.' / 'SSN: First 3 chars must be all numeric.' / 'SSN: First 3 chars must not be zero.'; and not 666 or 900-999: 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'. The 4th-5th digits and the last 4 digits must each be supplied, numeric and not zero (messages 'SSN 4th & 5th chars ...' and 'SSN Last 4 chars ...').
-  - date "Date of birth": Year, month and day must all be supplied: 'Date of Birth : Year must be supplied.', 'Date of Birth : Month must be supplied.', 'Date of Birth : Day must be supplied.'. The year must be 4 digits: 'Date of Birth must be 4 digit number.', starting 19 or 20: 'Date of Birth : Century is not valid.'. 'Date of Birth: Month must be a number between 1 and 12.'; 'Date of Birth:day must be a number between 1 and 31.'; 'Date of Birth:Cannot have 31 days in this month.'; 'Date of Birth:Cannot have 30 days in this month.'; 'Date of Birth:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Date of Birth validation error ...'. Must be before today: 'Date of Birth:cannot be in the future '.
-  - number "FICO score": Required: 'FICO Score must be supplied.'; 3 digits: 'FICO Score must be all numeric.'; not zero: 'FICO Score must not be zero.'; 300 to 850 inclusive: 'FICO Score: should be between 300 and 850'.
-  - radio "Primary card holder": Required: 'Primary Card Holder must be supplied.'; only Yes or No: 'Primary Card Holder must be Y or N.'
-  - text "City": Required: 'City must be supplied.'; letters and spaces only: 'City can have alphabets only.'.
-  - select "State": Required: 'State must be supplied.'; letters and spaces only: 'State can have alphabets only.'. Must be a US state code: 'State: is not a valid state code'; must match the ZIP code: 'Invalid zip code for state'.
-  - button "Check changes"
-  - _Requirements: OATM-REQ-F-033, OATM-REQ-F-034, OATM-REQ-F-035, OATM-REQ-F-036, OATM-REQ-F-040, OATM-REQ-F-041, OATM-REQ-F-042, OATM-REQ-F-043, OATM-REQ-F-044_
-  - _Rules: OATM-BR-034, OATM-BR-035, OATM-BR-036, OATM-BR-040, OATM-BR-041, OATM-BR-042, OATM-BR-043_
+  - **summary card** "Status and group": Status is required: 'Account Status must be supplied.' and must be Active or Inactive ('Account Status must be Y or N.'). The choice offers only those two values.
+  - **summary card** "Account dates": For each date, in the rule's words: '<date> : Year must be supplied.', '<date> must be 4 digit number.', '<date> : Century is not valid.' (year must start 19 or 20), '<date> : Month must be supplied.', '<date>: Month must be a number between 1 and 12.', '<date> : Day must be supplied.', '<date>:day must be a number between 1 and 31.', '<date>:Cannot have 31 days in this month.', '<date>:Cannot have 30 days in this month.', '<date>:Not a leap year.Cannot have 29 days in this month.', and a final calendar check '<date> validation error'. The message sits under the part to fix.
+  - **summary card** "Limits and balances": Each amount is required: '<field> must be supplied.' (e.g. 'Credit Limit must be supplied.'), and must be a currency number: '<field> is not valid' - enter an amount such as 1,250.00. Negative values and zero are accepted.
+  - **summary card** "Customer identity": SSN: 'SSN: First 3 chars must be supplied.', 'SSN: First 3 chars must be all numeric.', 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'; the 4th & 5th and last 4 characters must each be supplied, all numeric and non-zero. Date of birth: the date checks above, and 'Date of Birth:cannot be in the future '. FICO: 'FICO Score must be supplied.', 'FICO Score must be all numeric.', 'FICO Score must not be zero.', 'FICO Score: should be between 300 and 850'.
+  - **summary card** "Name and address": '<field> must be supplied.' for First Name, Last Name, City, State, Country and Address Line 1; '<field> can have alphabets only.' for names, city, state and country; 'Middle Name can have alphabets only.'; 'State: is not a valid state code'; ZIP: 'ZIP must be supplied.', must be all numeric, 5 digits and not zero; 'Invalid zip code for state' - check the state and ZIP together.
+  - **summary card** "Fix these before saving"
+  - _Requirements: OATM-REQ-F-033, OATM-REQ-F-034, OATM-REQ-F-035, OATM-REQ-F-036, OATM-REQ-F-037, OATM-REQ-F-038, OATM-REQ-F-039, OATM-REQ-F-040, OATM-REQ-F-041, OATM-REQ-F-042, OATM-REQ-F-043, OATM-REQ-N-003, OATM-REQ-F-044_
+  - _Rules: OATM-BR-034, OATM-BR-035, OATM-BR-036, OATM-BR-037, OATM-BR-038, OATM-BR-039, OATM-BR-040, OATM-BR-041, OATM-BR-042, OATM-BR-043_
   - _After: OATM-C04-T2_
 - [ ] OATM-C04-T4 [test-generation] Write a test for every acceptance criterion
   - 18 acceptance criteria, each a test named by its ID.
@@ -818,17 +802,15 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C05-T1_
 - [ ] OATM-C05-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - date "Open date": Year, month and day must all be supplied: 'Open Date : Year must be supplied.', 'Open Date : Month must be supplied.', 'Open Date : Day must be supplied.'. The year must be 4 digits: 'Open Date must be 4 digit number.', starting 19 or 20: 'Open Date : Century is not valid.'. 'Open Date: Month must be a number between 1 and 12.'; 'Open Date:day must be a number between 1 and 31.'; 'Open Date:Cannot have 31 days in this month.'; 'Open Date:Cannot have 30 days in this month.'; 'Open Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Open Date validation error ...'.
-  - date "Expiry date": Year, month and day must all be supplied: 'Expiry Date : Year must be supplied.', 'Expiry Date : Month must be supplied.', 'Expiry Date : Day must be supplied.'. The year must be 4 digits: 'Expiry Date must be 4 digit number.', starting 19 or 20: 'Expiry Date : Century is not valid.'. 'Expiry Date: Month must be a number between 1 and 12.'; 'Expiry Date:day must be a number between 1 and 31.'; 'Expiry Date:Cannot have 31 days in this month.'; 'Expiry Date:Cannot have 30 days in this month.'; 'Expiry Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Expiry Date validation error ...'.
-  - date "Reissue date": Year, month and day must all be supplied: 'Reissue Date : Year must be supplied.', 'Reissue Date : Month must be supplied.', 'Reissue Date : Day must be supplied.'. The year must be 4 digits: 'Reissue Date must be 4 digit number.', starting 19 or 20: 'Reissue Date : Century is not valid.'. 'Reissue Date: Month must be a number between 1 and 12.'; 'Reissue Date:day must be a number between 1 and 31.'; 'Reissue Date:Cannot have 31 days in this month.'; 'Reissue Date:Cannot have 30 days in this month.'; 'Reissue Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Reissue Date validation error ...'.
-  - date "Date of birth": Year, month and day must all be supplied: 'Date of Birth : Year must be supplied.', 'Date of Birth : Month must be supplied.', 'Date of Birth : Day must be supplied.'. The year must be 4 digits: 'Date of Birth must be 4 digit number.', starting 19 or 20: 'Date of Birth : Century is not valid.'. 'Date of Birth: Month must be a number between 1 and 12.'; 'Date of Birth:day must be a number between 1 and 31.'; 'Date of Birth:Cannot have 31 days in this month.'; 'Date of Birth:Cannot have 30 days in this month.'; 'Date of Birth:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Date of Birth validation error ...'. Must be before today: 'Date of Birth:cannot be in the future '.
-  - _Requirements: OATM-REQ-F-045, OATM-REQ-F-046_
-  - _Rules: OATM-BR-044, OATM-BR-045_
+  - **summary card** "Account dates": For each date, in the rule's words: '<date> : Year must be supplied.', '<date> must be 4 digit number.', '<date> : Century is not valid.' (year must start 19 or 20), '<date> : Month must be supplied.', '<date>: Month must be a number between 1 and 12.', '<date> : Day must be supplied.', '<date>:day must be a number between 1 and 31.', '<date>:Cannot have 31 days in this month.', '<date>:Cannot have 30 days in this month.', '<date>:Not a leap year.Cannot have 29 days in this month.', and a final calendar check '<date> validation error'. The message sits under the part to fix.
+  - **summary card** "Customer identity": SSN: 'SSN: First 3 chars must be supplied.', 'SSN: First 3 chars must be all numeric.', 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'; the 4th & 5th and last 4 characters must each be supplied, all numeric and non-zero. Date of birth: the date checks above, and 'Date of Birth:cannot be in the future '. FICO: 'FICO Score must be supplied.', 'FICO Score must be all numeric.', 'FICO Score must not be zero.', 'FICO Score: should be between 300 and 850'.
+  - _Requirements: OATM-REQ-F-045, OATM-REQ-F-046, OATM-REQ-F-047, OATM-REQ-F-048, OATM-REQ-F-049, OATM-REQ-F-050, OATM-REQ-F-051, OATM-REQ-F-052, OATM-REQ-F-053, OATM-REQ-F-054, OATM-REQ-F-055, OATM-REQ-F-056, OATM-REQ-F-057, OATM-REQ-F-058_
+  - _Rules: OATM-BR-044, OATM-BR-045, OATM-BR-046, OATM-BR-047, OATM-BR-048, OATM-BR-049, OATM-BR-050, OATM-BR-051, OATM-BR-052, OATM-BR-053, OATM-BR-054, OATM-BR-055, OATM-BR-056, OATM-BR-057_
   - _After: OATM-C05-T2, OATM-C05-T3_
 - [ ] OATM-C05-T5 [test-generation] Write a test for every acceptance criterion
-  - 18 acceptance criteria, each a test named by its ID.
+  - 15 acceptance criteria, each a test named by its ID.
   - _Requirements: OATM-REQ-F-045, OATM-REQ-F-046, OATM-REQ-F-047, OATM-REQ-F-048, OATM-REQ-F-049, OATM-REQ-F-050, OATM-REQ-F-051, OATM-REQ-F-052, OATM-REQ-F-053, OATM-REQ-F-054, OATM-REQ-F-055, OATM-REQ-F-056, OATM-REQ-F-057, OATM-REQ-F-058_
-  - _Criteria: OATM-C05-AC-01, OATM-C05-AC-02, OATM-C05-AC-03, OATM-C05-AC-04, OATM-C05-AC-05, OATM-C05-AC-06, OATM-C05-AC-07, OATM-C05-AC-08, OATM-C05-AC-09, OATM-C05-AC-10, OATM-C05-AC-11, OATM-C05-AC-12, OATM-C05-AC-13, OATM-C05-AC-14, OATM-C05-AC-15, OATM-C05-AC-16, OATM-C05-AC-17, OATM-C05-AC-18_
+  - _Criteria: OATM-C05-AC-01, OATM-C05-AC-02, OATM-C05-AC-03, OATM-C05-AC-04, OATM-C05-AC-05, OATM-C05-AC-06, OATM-C05-AC-07, OATM-C05-AC-08, OATM-C05-AC-09, OATM-C05-AC-10, OATM-C05-AC-11, OATM-C05-AC-12, OATM-C05-AC-13, OATM-C05-AC-14, OATM-C05-AC-15_
   - _After: OATM-C05-T1, OATM-C05-T2, OATM-C05-T3, OATM-C05-T4_
 - [ ] OATM-C05-T6 [compliance] Review the handling of personal data
   - Check storage, logs, screens and audit against the rules.
@@ -852,16 +834,15 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-059_
   - _After: OATM-C06-T1_
 - [ ] OATM-C06-T4 [api] Build the services behind the screens
-  - OATM-BR-060: The legacy save writes the account from a layout without a ZIP field, so the entered group lands in the stored ZIP position (offsets 103-112) and the group field gets unset filler. The new account store should have distinct group and ZIP columns; whether to reproduce this shift for data compatibility (e.g. while the legacy file is still read by other jobs) or correct it is a decision to record, and any migration must account for existing records with the group in the ZIP position.
+  - OATM-BR-060: This is a layout defect in the legacy program: it writes the account through a layout that has no ZIP field, so the account group lands in the ZIP position and the group field gets filler. The new account record must keep ZIP and account group as separate named fields and save each confirmed value to its own field. The acceptance criterion above only records the legacy result for reconciliation. The business owner must decide whether to keep it before anyone treats it as required. Data migration should expect ZIP values on rewritten accounts that are really group IDs.
   - _Requirements: OATM-REQ-F-061_
   - _Rules: OATM-BR-060_
   - _After: OATM-C06-T1, OATM-C06-T2, OATM-C06-T3_
 - [ ] OATM-C06-T5 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - dialog "Save these changes?"
-  - button "Save changes": If the stored record changed since it was fetched: 'Record changed by some one else. Please review' and nothing is saved.
-  - _Requirements: OATM-REQ-F-059, OATM-REQ-F-060_
-  - _Rules: OATM-BR-058, OATM-BR-059_
+  - **primary button** "Save changes": If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved.
+  - _Requirements: OATM-REQ-F-059, OATM-REQ-F-060, OATM-REQ-F-061_
+  - _Rules: OATM-BR-058, OATM-BR-059, OATM-BR-060_
   - _After: OATM-C06-T2, OATM-C06-T3, OATM-C06-T4_
 - [ ] OATM-C06-T6 [test-generation] Write a test for every acceptance criterion
   - 7 acceptance criteria, each a test named by its ID.
@@ -885,17 +866,15 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-062, OATM-BR-063, OATM-BR-064, OATM-BR-065, OATM-BR-066_
   - _After: OATM-C07-T1_
 - [ ] OATM-C07-T3 [api] Build the services behind the screens
-  - OATM-BR-061: Input binding for the account number: blank or '*' becomes null (not supplied), otherwise the entered text is kept as the search key for the account-number validation.
+  - OATM-BR-061: Treat a blank or '*' account number as absent (null); otherwise use it as the search key. Validation then decides between 'No input received' and the 11-digit check.
   - _Requirements: OATM-REQ-F-062_
   - _Rules: OATM-BR-061_
   - _After: OATM-C07-T1, OATM-C07-T2_
 - [ ] OATM-C07-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - search "Account number": Required: 'No input received' when blank; 'Account Number if supplied must be a 11 digit Non-Zero Number' when not numeric or all zeros; 'Account:<number> not found in Cross ref file' when the account has no card cross-reference.
-  - button "Fetch account"
-  - button "Discard changes"
-  - _Requirements: OATM-REQ-F-062, OATM-REQ-F-063, OATM-REQ-F-064, OATM-REQ-F-067_
-  - _Rules: OATM-BR-061, OATM-BR-062, OATM-BR-063, OATM-BR-066_
+  - **lookup field** "Account number": Blank: 'No input received' - enter an account number. Not 11 digits or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number'. Not in the card cross-reference: 'Account:<account> not found in Cross ref file.' - check the number with the caller. Only the account number is checked until an account is fetched.
+  - _Requirements: OATM-REQ-F-062, OATM-REQ-F-063, OATM-REQ-F-064, OATM-REQ-F-065, OATM-REQ-F-066, OATM-REQ-F-067_
+  - _Rules: OATM-BR-061, OATM-BR-062, OATM-BR-063, OATM-BR-064, OATM-BR-065, OATM-BR-066_
   - _After: OATM-C07-T2, OATM-C07-T3_
 - [ ] OATM-C07-T5 [test-generation] Write a test for every acceptance criterion
   - 11 acceptance criteria, each a test named by its ID.
@@ -919,16 +898,18 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-067, OATM-BR-068, OATM-BR-069, OATM-BR-070, OATM-BR-071, OATM-BR-073_
   - _After: OATM-C08-T1_
 - [ ] OATM-C08-T3 [api] Build the services behind the screens
-  - OATM-BR-072: Validation is a step gated by update state: when no change is detected or the update is awaiting confirmation or completed, reset all per-field error flags and skip the validators entirely, including date checks.
+  - OATM-BR-072: Before validating, decide from the update stage and the change-detection result: if nothing changed, or the update is awaiting confirmation or already completed, clear all field-error flags and skip every field and date check. Validation is a step the server runs only when a change is detected while editing.
   - _Requirements: OATM-REQ-F-071_
   - _Rules: OATM-BR-072_
   - _After: OATM-C08-T1, OATM-C08-T2_
 - [ ] OATM-C08-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - message "Fix these fields"
-  - form "Account and customer details": If nothing differs from the fetched values (ignoring case): 'No change detected with respect to values fetched.' and nothing is checked or saved.
-  - _Requirements: OATM-REQ-F-072_
-  - _Rules: OATM-BR-070, OATM-BR-071, OATM-BR-073_
+  - **summary card** "Status and group": Status is required: 'Account Status must be supplied.' and must be Active or Inactive ('Account Status must be Y or N.'). The choice offers only those two values.
+  - **summary card** "Phone and payments": A phone may be left wholly blank; otherwise '<Phone Number 1 or 2>: Area code must be supplied.', ': Area code must be A 3 digit number.', ': Area code cannot be zero', ': Not valid North America general purpose area code' (from the list of general-purpose codes), ': Prefix code must be supplied.', ': Prefix code must be A 3 digit number.', ': Prefix code cannot be zero', ': Line number code must be supplied.', ': Line number code must be A 4 digit number.', ': Line number code cannot be zero'. EFT account ID: 'EFT Account Id must be supplied.', all numeric, 10 digits, not zero. Primary card holder: 'Primary Card Holder must be supplied.' and must be Yes or No ('must be Y or N.').
+  - **summary card** "Fix these before saving"
+  - **primary button** "Save changes": If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved.
+  - _Requirements: OATM-REQ-F-068, OATM-REQ-F-069, OATM-REQ-F-070, OATM-REQ-F-071, OATM-REQ-F-072_
+  - _Rules: OATM-BR-067, OATM-BR-068, OATM-BR-069, OATM-BR-070, OATM-BR-071, OATM-BR-072, OATM-BR-073_
   - _After: OATM-C08-T2, OATM-C08-T3_
 - [ ] OATM-C08-T5 [test-generation] Write a test for every acceptance criterion
   - 8 acceptance criteria, each a test named by its ID.
@@ -952,21 +933,15 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-076, OATM-BR-077, OATM-BR-078, OATM-BR-079, OATM-BR-080, OATM-BR-081, OATM-BR-082, OATM-BR-083, OATM-BR-084_
   - _After: OATM-C09-T1_
 - [ ] OATM-C09-T3 [api] Build the services behind the screens
-  - OATM-BR-074: Input binding for first, middle and last name, address lines 1 and 2, city and EFT account id: blank or '*' becomes null; otherwise the value is the proposed new value. The city maps to the customer's third address line in the stored record.
-  - OATM-BR-075: Input binding for state and ZIP: blank or '*' becomes null (empty); otherwise the entered value goes to the state and ZIP validators.
+  - OATM-BR-074: Treat blank or '*' entries for first, middle and last name, address lines 1 and 2, city and EFT account id as absent (null); otherwise they are the proposed values. The city goes into the customer's third address line, so map the City field to that address field.
+  - OATM-BR-075: Treat blank or '*' state and ZIP entries as absent (empty); otherwise keep the entered value for the state-code, ZIP and state/ZIP-prefix checks. Those checks need reference tables of valid US state codes and of valid state plus two-digit ZIP prefix combinations.
   - _Requirements: OATM-REQ-F-073_
   - _Rules: OATM-BR-074, OATM-BR-075_
   - _After: OATM-C09-T1, OATM-C09-T2_
 - [ ] OATM-C09-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - text "First name": Required: 'First Name must be supplied.'; letters and spaces only: 'First Name can have alphabets only.'.
-  - text "Middle name (optional)": Optional; letters and spaces only: 'Middle Name can have alphabets only.'.
-  - text "Last name": Required: 'Last Name must be supplied.'; letters and spaces only: 'Last Name can have alphabets only.'.
-  - text "Address line 1": Required: 'Address Line 1 must be supplied.'
-  - text "City": Required: 'City must be supplied.'; letters and spaces only: 'City can have alphabets only.'.
-  - select "State": Required: 'State must be supplied.'; letters and spaces only: 'State can have alphabets only.'. Must be a US state code: 'State: is not a valid state code'; must match the ZIP code: 'Invalid zip code for state'.
-  - text "ZIP code": Required: 'Zip must be supplied.'; 5 digits: 'Zip must be all numeric.'; not zero: 'Zip must not be zero.'; its first two digits must belong to the chosen state: 'Invalid zip code for state'.
-  - text "EFT account ID": Required: 'EFT Account Id must be supplied.'; 10 digits: 'EFT Account Id must be all numeric.'; not zero: 'EFT Account Id must not be zero.'
+  - **summary card** "Name and address": '<field> must be supplied.' for First Name, Last Name, City, State, Country and Address Line 1; '<field> can have alphabets only.' for names, city, state and country; 'Middle Name can have alphabets only.'; 'State: is not a valid state code'; ZIP: 'ZIP must be supplied.', must be all numeric, 5 digits and not zero; 'Invalid zip code for state' - check the state and ZIP together.
+  - **summary card** "Phone and payments": A phone may be left wholly blank; otherwise '<Phone Number 1 or 2>: Area code must be supplied.', ': Area code must be A 3 digit number.', ': Area code cannot be zero', ': Not valid North America general purpose area code' (from the list of general-purpose codes), ': Prefix code must be supplied.', ': Prefix code must be A 3 digit number.', ': Prefix code cannot be zero', ': Line number code must be supplied.', ': Line number code must be A 4 digit number.', ': Line number code cannot be zero'. EFT account ID: 'EFT Account Id must be supplied.', all numeric, 10 digits, not zero. Primary card holder: 'Primary Card Holder must be supplied.' and must be Yes or No ('must be Y or N.').
   - _Requirements: OATM-REQ-F-073, OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081_
   - _Rules: OATM-BR-074, OATM-BR-075, OATM-BR-076, OATM-BR-077, OATM-BR-078, OATM-BR-079, OATM-BR-080, OATM-BR-081, OATM-BR-082, OATM-BR-083, OATM-BR-084_
   - _After: OATM-C09-T2, OATM-C09-T3_
@@ -997,18 +972,15 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-073_
   - _After: OATM-C10-T1_
 - [ ] OATM-C10-T4 [api] Build the services behind the screens
-  - OATM-BR-085: Input binding for the area code, prefix and line number of each phone: blank or '*' becomes null per part before the phone validator runs, so a phone with all three parts null counts as omitted.
+  - OATM-BR-085: Capture phone numbers 1 and 2 as three optional parts each (area code, prefix, line number). Blank or '*' parts are absent before validation, so a phone with all parts absent counts as omitted. Area-code validation needs a reference list of the North American general-purpose area codes.
   - _Requirements: OATM-REQ-F-082_
   - _Rules: OATM-BR-085_
   - _After: OATM-C10-T1, OATM-C10-T2, OATM-C10-T3_
 - [ ] OATM-C10-T5 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - message "Fix these fields"
-  - radio "Primary card holder": Required: 'Primary Card Holder must be supplied.'; only Yes or No: 'Primary Card Holder must be Y or N.'
-  - text "Phone 1 (optional)": Optional; leave all of it blank to omit. If any part is entered: the area code must be supplied ('Phone Number 1: Area code must be supplied.'), 3 digits ('Phone Number 1: Area code must be A 3 digit number.'), not 000 ('Phone Number 1: Area code cannot be zero') and a general-purpose North American area code ('Phone Number 1: Not valid North America general purpose area code'); the prefix must be supplied, 3 digits and not 000 ('Phone Number 1: Prefix code must be supplied.' / 'Phone Number 1: Prefix code must be A 3 digit number.' / 'Phone Number 1: Prefix code cannot be zero'); the line number must be supplied, 4 digits and not 0000 ('Phone Number 1: Line number code must be supplied.' / 'Phone Number 1: Line number code must be A 4 digit number.' / 'Phone Number 1: Line number code cannot be zero').
-  - text "Phone 2 (optional)": Optional; leave all of it blank to omit. If any part is entered: the area code must be supplied ('Phone Number 2: Area code must be supplied.'), 3 digits ('Phone Number 2: Area code must be A 3 digit number.'), not 000 ('Phone Number 2: Area code cannot be zero') and a general-purpose North American area code ('Phone Number 2: Not valid North America general purpose area code'); the prefix must be supplied, 3 digits and not 000 ('Phone Number 2: Prefix code must be supplied.' / 'Phone Number 2: Prefix code must be A 3 digit number.' / 'Phone Number 2: Prefix code cannot be zero'); the line number must be supplied, 4 digits and not 0000 ('Phone Number 2: Line number code must be supplied.' / 'Phone Number 2: Line number code must be A 4 digit number.' / 'Phone Number 2: Line number code cannot be zero').
-  - _Requirements: OATM-REQ-F-082, OATM-REQ-F-083, OATM-REQ-F-087, OATM-REQ-F-094_
-  - _Rules: OATM-BR-073, OATM-BR-085, OATM-BR-086, OATM-BR-087, OATM-BR-091_
+  - **summary card** "Phone and payments": A phone may be left wholly blank; otherwise '<Phone Number 1 or 2>: Area code must be supplied.', ': Area code must be A 3 digit number.', ': Area code cannot be zero', ': Not valid North America general purpose area code' (from the list of general-purpose codes), ': Prefix code must be supplied.', ': Prefix code must be A 3 digit number.', ': Prefix code cannot be zero', ': Line number code must be supplied.', ': Line number code must be A 4 digit number.', ': Line number code cannot be zero'. EFT account ID: 'EFT Account Id must be supplied.', all numeric, 10 digits, not zero. Primary card holder: 'Primary Card Holder must be supplied.' and must be Yes or No ('must be Y or N.').
+  - _Requirements: OATM-REQ-F-082, OATM-REQ-F-083, OATM-REQ-F-084, OATM-REQ-F-085, OATM-REQ-F-086, OATM-REQ-F-087, OATM-REQ-F-088, OATM-REQ-F-089, OATM-REQ-F-090, OATM-REQ-F-091, OATM-REQ-F-092, OATM-REQ-F-093, OATM-REQ-F-094_
+  - _Rules: OATM-BR-073, OATM-BR-085, OATM-BR-086, OATM-BR-087, OATM-BR-088, OATM-BR-089, OATM-BR-090, OATM-BR-091, OATM-BR-092, OATM-BR-093, OATM-BR-094, OATM-BR-095, OATM-BR-096, OATM-BR-097_
   - _After: OATM-C10-T2, OATM-C10-T3, OATM-C10-T4_
 - [ ] OATM-C10-T6 [test-generation] Write a test for every acceptance criterion
   - 13 acceptance criteria, each a test named by its ID.
@@ -1032,22 +1004,20 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-099, OATM-BR-100, OATM-BR-101, OATM-BR-102, OATM-BR-103, OATM-BR-104, OATM-BR-105, OATM-BR-106_
   - _After: OATM-C11-T1_
 - [ ] OATM-C11-T3 [api] Build the services behind the screens
-  - OATM-BR-098: Input binding for the three SSN parts (3, 2 and 4 digits): each part that is blank or '*' becomes null; otherwise the entered part is kept as the proposed value for the SSN validator.
+  - OATM-BR-098: Capture the SSN as three optional parts (3, 2 and 4 characters). Blank or '*' parts are absent; others are kept as typed for the supplied, numeric, non-zero and forbidden-range checks. The SSN is sensitive personal data: mask it on screen and in logs, and protect it in storage.
   - _Requirements: OATM-REQ-F-095_
   - _Rules: OATM-BR-098_
   - _After: OATM-C11-T1, OATM-C11-T2_
 - [ ] OATM-C11-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - text "Social Security number": First 3 digits must be supplied, numeric and not zero: 'SSN: First 3 chars must be supplied.' / 'SSN: First 3 chars must be all numeric.' / 'SSN: First 3 chars must not be zero.'; and not 666 or 900-999: 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'. The 4th-5th digits and the last 4 digits must each be supplied, numeric and not zero (messages 'SSN 4th & 5th chars ...' and 'SSN Last 4 chars ...').
-  - date "Date of birth": Year, month and day must all be supplied: 'Date of Birth : Year must be supplied.', 'Date of Birth : Month must be supplied.', 'Date of Birth : Day must be supplied.'. The year must be 4 digits: 'Date of Birth must be 4 digit number.', starting 19 or 20: 'Date of Birth : Century is not valid.'. 'Date of Birth: Month must be a number between 1 and 12.'; 'Date of Birth:day must be a number between 1 and 31.'; 'Date of Birth:Cannot have 31 days in this month.'; 'Date of Birth:Cannot have 30 days in this month.'; 'Date of Birth:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Date of Birth validation error ...'. Must be before today: 'Date of Birth:cannot be in the future '.
-  - number "FICO score": Required: 'FICO Score must be supplied.'; 3 digits: 'FICO Score must be all numeric.'; not zero: 'FICO Score must not be zero.'; 300 to 850 inclusive: 'FICO Score: should be between 300 and 850'.
-  - _Requirements: OATM-REQ-F-095, OATM-REQ-F-096, OATM-REQ-F-099, OATM-REQ-F-100, OATM-REQ-F-101_
-  - _Rules: OATM-BR-098, OATM-BR-099, OATM-BR-100, OATM-BR-103, OATM-BR-104, OATM-BR-105_
+  - **summary card** "Customer identity": SSN: 'SSN: First 3 chars must be supplied.', 'SSN: First 3 chars must be all numeric.', 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'; the 4th & 5th and last 4 characters must each be supplied, all numeric and non-zero. Date of birth: the date checks above, and 'Date of Birth:cannot be in the future '. FICO: 'FICO Score must be supplied.', 'FICO Score must be all numeric.', 'FICO Score must not be zero.', 'FICO Score: should be between 300 and 850'.
+  - _Requirements: OATM-REQ-F-095, OATM-REQ-F-096, OATM-REQ-F-097, OATM-REQ-F-098, OATM-REQ-F-099, OATM-REQ-F-100, OATM-REQ-F-101, OATM-REQ-F-102_
+  - _Rules: OATM-BR-098, OATM-BR-099, OATM-BR-100, OATM-BR-101, OATM-BR-102, OATM-BR-103, OATM-BR-104, OATM-BR-105, OATM-BR-106_
   - _After: OATM-C11-T2, OATM-C11-T3_
 - [ ] OATM-C11-T5 [test-generation] Write a test for every acceptance criterion
-  - 13 acceptance criteria, each a test named by its ID.
+  - 12 acceptance criteria, each a test named by its ID.
   - _Requirements: OATM-REQ-F-095, OATM-REQ-F-096, OATM-REQ-F-097, OATM-REQ-F-098, OATM-REQ-F-099, OATM-REQ-F-100, OATM-REQ-F-101, OATM-REQ-F-102_
-  - _Criteria: OATM-C11-AC-01, OATM-C11-AC-02, OATM-C11-AC-03, OATM-C11-AC-04, OATM-C11-AC-05, OATM-C11-AC-06, OATM-C11-AC-07, OATM-C11-AC-08, OATM-C11-AC-09, OATM-C11-AC-10, OATM-C11-AC-11, OATM-C11-AC-12, OATM-C11-AC-13_
+  - _Criteria: OATM-C11-AC-01, OATM-C11-AC-02, OATM-C11-AC-03, OATM-C11-AC-04, OATM-C11-AC-05, OATM-C11-AC-06, OATM-C11-AC-07, OATM-C11-AC-08, OATM-C11-AC-09, OATM-C11-AC-10, OATM-C11-AC-11, OATM-C11-AC-12_
   - _After: OATM-C11-T1, OATM-C11-T2, OATM-C11-T3, OATM-C11-T4_
 - [ ] OATM-C11-T6 [compliance] Review the handling of personal data
   - Check storage, logs, screens and audit against the rules.
@@ -1066,21 +1036,18 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-074, OATM-BR-082, OATM-BR-087, OATM-BR-108, OATM-BR-109_
   - _After: OATM-C12-T1_
 - [ ] OATM-C12-T3 [api] Build the services behind the screens
-  - OATM-BR-107: Input binding for Account Status and Primary Card Holder: blank or '*' becomes null (not supplied) so the Y/N validator reports it as missing rather than saving it.
-  - OATM-BR-074: Input binding for the EFT account id (and the name, address and city fields): blank or '*' becomes null; otherwise the value is the proposed new value passed to the 10-digit, non-zero numeric check.
+  - OATM-BR-107: Treat blank or '*' entries for Account Status and Primary Card Holder as absent (null), never as a value to save. Validation then rejects an absent or non-Y/N value. Store each flag as a two-valued field (Y/N or boolean).
+  - OATM-BR-074: Treat a blank or '*' EFT account id as absent (null); otherwise it is the proposed value for the 10-digit supplied, numeric and non-zero checks. Store it as a 10-character digit string so leading zeros are kept.
   - _Requirements: OATM-REQ-F-103_
   - _Rules: OATM-BR-107_
   - _After: OATM-C12-T1, OATM-C12-T2_
 - [ ] OATM-C12-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - radio "Account status": Required: 'Account Status must be supplied.'; only Active or Inactive: 'Account Status must be Y or N.'
-  - radio "Primary card holder": Required: 'Primary Card Holder must be supplied.'; only Yes or No: 'Primary Card Holder must be Y or N.'
-  - text "ZIP code": Required: 'Zip must be supplied.'; 5 digits: 'Zip must be all numeric.'; not zero: 'Zip must not be zero.'; its first two digits must belong to the chosen state: 'Invalid zip code for state'.
-  - text "Phone 1 (optional)": Optional; leave all of it blank to omit. If any part is entered: the area code must be supplied ('Phone Number 1: Area code must be supplied.'), 3 digits ('Phone Number 1: Area code must be A 3 digit number.'), not 000 ('Phone Number 1: Area code cannot be zero') and a general-purpose North American area code ('Phone Number 1: Not valid North America general purpose area code'); the prefix must be supplied, 3 digits and not 000 ('Phone Number 1: Prefix code must be supplied.' / 'Phone Number 1: Prefix code must be A 3 digit number.' / 'Phone Number 1: Prefix code cannot be zero'); the line number must be supplied, 4 digits and not 0000 ('Phone Number 1: Line number code must be supplied.' / 'Phone Number 1: Line number code must be A 4 digit number.' / 'Phone Number 1: Line number code cannot be zero').
-  - text "Phone 2 (optional)": Optional; leave all of it blank to omit. If any part is entered: the area code must be supplied ('Phone Number 2: Area code must be supplied.'), 3 digits ('Phone Number 2: Area code must be A 3 digit number.'), not 000 ('Phone Number 2: Area code cannot be zero') and a general-purpose North American area code ('Phone Number 2: Not valid North America general purpose area code'); the prefix must be supplied, 3 digits and not 000 ('Phone Number 2: Prefix code must be supplied.' / 'Phone Number 2: Prefix code must be A 3 digit number.' / 'Phone Number 2: Prefix code cannot be zero'); the line number must be supplied, 4 digits and not 0000 ('Phone Number 2: Line number code must be supplied.' / 'Phone Number 2: Line number code must be A 4 digit number.' / 'Phone Number 2: Line number code cannot be zero').
-  - text "EFT account ID": Required: 'EFT Account Id must be supplied.'; 10 digits: 'EFT Account Id must be all numeric.'; not zero: 'EFT Account Id must not be zero.'
-  - _Requirements: OATM-REQ-F-103, OATM-REQ-F-104, OATM-REQ-F-106_
-  - _Rules: OATM-BR-074, OATM-BR-082, OATM-BR-087, OATM-BR-107, OATM-BR-108_
+  - **summary card** "Status and group": Status is required: 'Account Status must be supplied.' and must be Active or Inactive ('Account Status must be Y or N.'). The choice offers only those two values.
+  - **summary card** "Name and address": '<field> must be supplied.' for First Name, Last Name, City, State, Country and Address Line 1; '<field> can have alphabets only.' for names, city, state and country; 'Middle Name can have alphabets only.'; 'State: is not a valid state code'; ZIP: 'ZIP must be supplied.', must be all numeric, 5 digits and not zero; 'Invalid zip code for state' - check the state and ZIP together.
+  - **summary card** "Phone and payments": A phone may be left wholly blank; otherwise '<Phone Number 1 or 2>: Area code must be supplied.', ': Area code must be A 3 digit number.', ': Area code cannot be zero', ': Not valid North America general purpose area code' (from the list of general-purpose codes), ': Prefix code must be supplied.', ': Prefix code must be A 3 digit number.', ': Prefix code cannot be zero', ': Line number code must be supplied.', ': Line number code must be A 4 digit number.', ': Line number code cannot be zero'. EFT account ID: 'EFT Account Id must be supplied.', all numeric, 10 digits, not zero. Primary card holder: 'Primary Card Holder must be supplied.' and must be Yes or No ('must be Y or N.').
+  - _Requirements: OATM-REQ-F-103, OATM-REQ-F-104, OATM-REQ-F-105, OATM-REQ-F-106_
+  - _Rules: OATM-BR-074, OATM-BR-082, OATM-BR-087, OATM-BR-107, OATM-BR-108, OATM-BR-109_
   - _After: OATM-C12-T2, OATM-C12-T3_
 - [ ] OATM-C12-T5 [test-generation] Write a test for every acceptance criterion
   - 5 acceptance criteria, each a test named by its ID.
@@ -1110,10 +1077,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C13-T1_
 - [ ] OATM-C13-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - button "Save changes": If the stored record changed since it was fetched: 'Record changed by some one else. Please review' and nothing is saved.
-  - message "Save result"
-  - _Requirements: OATM-REQ-F-107, OATM-REQ-N-004, OATM-REQ-F-112, OATM-REQ-F-113_
-  - _Rules: OATM-BR-110, OATM-BR-114, OATM-BR-115, OATM-BR-116_
+  - **primary button** "Save changes": If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved.
+  - _Requirements: OATM-REQ-F-107, OATM-REQ-F-108, OATM-REQ-F-109, OATM-REQ-F-110, OATM-REQ-F-111, OATM-REQ-N-004, OATM-REQ-F-112, OATM-REQ-F-113_
+  - _Rules: OATM-BR-110, OATM-BR-111, OATM-BR-112, OATM-BR-113, OATM-BR-114, OATM-BR-115, OATM-BR-116_
   - _After: OATM-C13-T2, OATM-C13-T3_
 - [ ] OATM-C13-T5 [test-generation] Write a test for every acceptance criterion
   - 8 acceptance criteria, each a test named by its ID.
@@ -1143,20 +1109,22 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C14-T1_
 - [ ] OATM-C14-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - search "Account number": Required: 'No input received' when blank; 'Account Number if supplied must be a 11 digit Non-Zero Number' when not numeric or all zeros; 'Account:<number> not found in Cross ref file' when the account has no card cross-reference.
-  - form "Account and customer details": If nothing differs from the fetched values (ignoring case): 'No change detected with respect to values fetched.' and nothing is checked or saved.
-  - button "Discard changes"
-  - dialog "Save these changes?"
-  - message "Save result"
-  - link "Back"
-  - _Requirements: OATM-REQ-F-116, OATM-REQ-F-117_
-  - _Rules: OATM-BR-119, OATM-BR-120_
+  - **lookup field** "Account number": Blank: 'No input received' - enter an account number. Not 11 digits or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number'. Not in the card cross-reference: 'Account:<account> not found in Cross ref file.' - check the number with the caller. Only the account number is checked until an account is fetched.
+  - **primary button** "Save changes": If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved.
+  - _Requirements: OATM-REQ-F-114, OATM-REQ-F-115, OATM-REQ-F-116, OATM-REQ-F-117_
+  - _Rules: OATM-BR-117, OATM-BR-118, OATM-BR-119, OATM-BR-120_
   - _After: OATM-C14-T2, OATM-C14-T3_
-- [ ] OATM-C14-T5 [test-generation] Write a test for every acceptance criterion
+- [ ] OATM-C14-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - **primary button** "Update account"
+  - _Requirements: OATM-REQ-F-114_
+  - _Rules: OATM-BR-117_
+  - _After: OATM-C14-T2, OATM-C14-T3_
+- [ ] OATM-C14-T6 [test-generation] Write a test for every acceptance criterion
   - 6 acceptance criteria, each a test named by its ID.
   - _Requirements: OATM-REQ-F-114, OATM-REQ-F-115, OATM-REQ-F-116, OATM-REQ-F-117_
   - _Criteria: OATM-C14-AC-01, OATM-C14-AC-02, OATM-C14-AC-03, OATM-C14-AC-04, OATM-C14-AC-05, OATM-C14-AC-06_
-  - _After: OATM-C14-T1, OATM-C14-T2, OATM-C14-T3, OATM-C14-T4_
+  - _After: OATM-C14-T1, OATM-C14-T2, OATM-C14-T3, OATM-C14-T4, OATM-C14-T5_
 
 ## OATM-C15 Update account details with validation and confirmation (final)
 
@@ -1176,12 +1144,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C15-T1_
 - [ ] OATM-C15-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - form "Account and customer details": If nothing differs from the fetched values (ignoring case): 'No change detected with respect to values fetched.' and nothing is checked or saved.
-  - button "Check changes"
-  - button "Save changes": If the stored record changed since it was fetched: 'Record changed by some one else. Please review' and nothing is saved.
-  - message "Save result"
-  - _Requirements: OATM-REQ-F-118, OATM-REQ-F-120, OATM-REQ-F-122_
-  - _Rules: OATM-BR-121, OATM-BR-123, OATM-BR-125_
+  - **summary card** "Name and address": '<field> must be supplied.' for First Name, Last Name, City, State, Country and Address Line 1; '<field> can have alphabets only.' for names, city, state and country; 'Middle Name can have alphabets only.'; 'State: is not a valid state code'; ZIP: 'ZIP must be supplied.', must be all numeric, 5 digits and not zero; 'Invalid zip code for state' - check the state and ZIP together.
+  - **summary card** "Fix these before saving"
+  - **primary button** "Save changes": If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved.
+  - _Requirements: OATM-REQ-F-118, OATM-REQ-F-119, OATM-REQ-F-120, OATM-REQ-F-121, OATM-REQ-F-122_
+  - _Rules: OATM-BR-121, OATM-BR-122, OATM-BR-123, OATM-BR-124, OATM-BR-125_
   - _After: OATM-C15-T2, OATM-C15-T3_
 - [ ] OATM-C15-T5 [test-generation] Write a test for every acceptance criterion
   - 7 acceptance criteria, each a test named by its ID.
@@ -1206,29 +1173,33 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-132, OATM-BR-134, OATM-BR-135, OATM-BR-137, OATM-BR-138_
   - _After: OATM-C16-T1_
 - [ ] OATM-C16-T4 [api] Build the services behind the screens
-  - OATM-BR-130: Needs a keyed lookup from account number to its card cross-reference entry, which gives the customer number and card number (a secondary index or account-keyed query on the card-account link). Both values must be kept in the user's session for the following reads and later screens.
-  - OATM-BR-133: Needs a keyed read of the account by account number, done only after the cross-reference lookup succeeds. A successful read sets an 'account found' flag that the screen uses to decide whether to show account details.
-  - OATM-BR-136: Needs a keyed read of the customer by the customer number that came from the cross-reference, not by any value the user typed. A successful read sets a 'customer found' flag that controls display of the customer details.
+  - OATM-BR-130: Needs a lookup of the card-to-account link by account number (a secondary index or query on account ID). When a link is found, the customer number and card number it holds are kept in the user's session for the rest of the interaction and used by the later customer lookup.
+  - OATM-BR-133: Needs a read of the account by its 11-digit account number, which is the primary key. A successful read sets an 'account found' flag that tells the view to show the account's financial details.
+  - OATM-BR-136: Needs a read of the customer by the customer number taken from the card-to-account link, not from anything the user typed. A successful read sets a 'customer found' flag that tells the view to show the customer details.
   - _Requirements: OATM-REQ-F-127, OATM-REQ-F-130, OATM-REQ-F-133_
   - _Rules: OATM-BR-130, OATM-BR-133, OATM-BR-136_
   - _After: OATM-C16-T1, OATM-C16-T2, OATM-C16-T3_
 - [ ] OATM-C16-T5 [ui-modernization] Build the screen Account (S-ACCOUNT-VIEW)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-VIEW.
-  - search "Account number": Required: 'No input received' when blank; must be 11 digits and not all zeros: 'Account Filter must be a non-zero 11 digit number'.
-  - button "View account"
-  - message "Account lookup error"
-  - _Requirements: OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-127, OATM-REQ-F-128, OATM-REQ-F-129, OATM-REQ-F-136_
-  - _Rules: OATM-BR-126, OATM-BR-127, OATM-BR-128, OATM-BR-130, OATM-BR-131, OATM-BR-132, OATM-BR-139_
-  - _After: OATM-C16-T2, OATM-C16-T3, OATM-C16-T4_
-- [ ] OATM-C16-T6 [test-generation] Write a test for every acceptance criterion
-  - 16 acceptance criteria, each a test named by its ID.
+  - **lookup field** "Account or card number": Blank: 'No input received' - enter an account number (11 digits) or a card number (16 digits). Not digits, wrong length or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number' (or a 16-digit card number). Not in the card cross-reference: 'Account:<number> not found in Cross ref file.' - check the number with the caller. The error shows under the field.
   - _Requirements: OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126, OATM-REQ-F-127, OATM-REQ-F-128, OATM-REQ-F-129, OATM-REQ-F-130, OATM-REQ-F-131, OATM-REQ-F-132, OATM-REQ-F-133, OATM-REQ-F-134, OATM-REQ-F-135, OATM-REQ-F-136_
-  - _Criteria: OATM-C16-AC-01, OATM-C16-AC-02, OATM-C16-AC-03, OATM-C16-AC-04, OATM-C16-AC-05, OATM-C16-AC-06, OATM-C16-AC-07, OATM-C16-AC-08, OATM-C16-AC-09, OATM-C16-AC-10, OATM-C16-AC-11, OATM-C16-AC-12, OATM-C16-AC-13, OATM-C16-AC-14, OATM-C16-AC-15, OATM-C16-AC-16_
-  - _After: OATM-C16-T1, OATM-C16-T2, OATM-C16-T3, OATM-C16-T4, OATM-C16-T5_
-- [ ] OATM-C16-T7 [compliance] Review the handling of card data
+  - _Rules: OATM-BR-126, OATM-BR-127, OATM-BR-128, OATM-BR-129, OATM-BR-130, OATM-BR-131, OATM-BR-132, OATM-BR-133, OATM-BR-134, OATM-BR-135, OATM-BR-136, OATM-BR-137, OATM-BR-138, OATM-BR-139_
+  - _After: OATM-C16-T2, OATM-C16-T3, OATM-C16-T4_
+- [ ] OATM-C16-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - **lookup field** "Find account (account or card number)": Same checks as the account search on S-ACCOUNT-VIEW; an empty search says 'No input received' - enter an account number (11 digits) or a card number (16 digits).
+  - _Requirements: OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126_
+  - _Rules: OATM-BR-126, OATM-BR-127, OATM-BR-128, OATM-BR-129_
+  - _After: OATM-C16-T2, OATM-C16-T3, OATM-C16-T4_
+- [ ] OATM-C16-T7 [test-generation] Write a test for every acceptance criterion
+  - 18 acceptance criteria, each a test named by its ID.
+  - _Requirements: OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126, OATM-REQ-F-127, OATM-REQ-F-128, OATM-REQ-F-129, OATM-REQ-F-130, OATM-REQ-F-131, OATM-REQ-F-132, OATM-REQ-F-133, OATM-REQ-F-134, OATM-REQ-F-135, OATM-REQ-F-136_
+  - _Criteria: OATM-C16-AC-01, OATM-C16-AC-02, OATM-C16-AC-03, OATM-C16-AC-04, OATM-C16-AC-05, OATM-C16-AC-06, OATM-C16-AC-07, OATM-C16-AC-08, OATM-C16-AC-09, OATM-C16-AC-10, OATM-C16-AC-11, OATM-C16-AC-12, OATM-C16-AC-13, OATM-C16-AC-14, OATM-C16-AC-15, OATM-C16-AC-16, OATM-C16-AC-17, OATM-C16-AC-18_
+  - _After: OATM-C16-T1, OATM-C16-T2, OATM-C16-T3, OATM-C16-T4, OATM-C16-T5, OATM-C16-T6_
+- [ ] OATM-C16-T8 [compliance] Review the handling of card data
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126, OATM-REQ-F-127, OATM-REQ-F-128, OATM-REQ-F-129, OATM-REQ-F-130, OATM-REQ-F-131, OATM-REQ-F-132, OATM-REQ-F-133, OATM-REQ-F-134, OATM-REQ-F-135, OATM-REQ-F-136_
-  - _After: OATM-C16-T1, OATM-C16-T2, OATM-C16-T3, OATM-C16-T4, OATM-C16-T5_
+  - _After: OATM-C16-T1, OATM-C16-T2, OATM-C16-T3, OATM-C16-T4, OATM-C16-T5, OATM-C16-T6_
 
 ## OATM-C17 Display account and customer details (final)
 
@@ -1248,13 +1219,13 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C17-T1_
 - [ ] OATM-C17-T4 [ui-modernization] Build the screen Account (S-ACCOUNT-VIEW)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-VIEW.
-  - search "Account number": Required: 'No input received' when blank; must be 11 digits and not all zeros: 'Account Filter must be a non-zero 11 digit number'.
-  - message "Guidance"
-  - display "Status"
-  - display "Customer ID"
-  - display "Social Security number"
-  - _Requirements: OATM-REQ-F-137, OATM-REQ-F-138, OATM-REQ-N-005, OATM-REQ-F-139, OATM-REQ-F-140, OATM-REQ-F-141_
-  - _Rules: OATM-BR-140, OATM-BR-141, OATM-BR-142, OATM-BR-143, OATM-BR-144, OATM-BR-145, OATM-BR-146_
+  - **lookup field** "Account or card number": Blank: 'No input received' - enter an account number (11 digits) or a card number (16 digits). Not digits, wrong length or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number' (or a 16-digit card number). Not in the card cross-reference: 'Account:<number> not found in Cross ref file.' - check the number with the caller. The error shows under the field.
+  - **status badge** "Account status"
+  - **summary card** "Account"
+  - **summary card** "Customer"
+  - **summary card** "Address and phone"
+  - _Requirements: OATM-REQ-F-137, OATM-REQ-F-138, OATM-REQ-N-005, OATM-REQ-F-139, OATM-REQ-F-140, OATM-REQ-F-141, OATM-REQ-F-142_
+  - _Rules: OATM-BR-140, OATM-BR-141, OATM-BR-142, OATM-BR-143, OATM-BR-144, OATM-BR-145, OATM-BR-146, OATM-BR-147_
   - _After: OATM-C17-T2, OATM-C17-T3_
 - [ ] OATM-C17-T5 [test-generation] Write a test for every acceptance criterion
   - 11 acceptance criteria, each a test named by its ID.
@@ -1283,24 +1254,28 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-153_
   - _After: OATM-C18-T1_
 - [ ] OATM-C18-T4 [api] Build the services behind the screens
-  - OATM-BR-150: The screen needs a per-user conversation state with a 'first entry' marker. When there is no session, or the user arrives fresh from the main menu, the server creates new screen state and ignores any data passed in. Only a return visit to the same screen reuses its state.
-  - OATM-BR-152: Each time the account view is rendered, store its session state server-side (or in a signed client token) marked as 're-entry'. The next request from the user then resumes the same account view conversation. No process stays waiting between requests: the flow is stateless request handling with persisted session state.
+  - OATM-BR-150: When the view is opened with no session state, or opened from the main menu as a new visit, the application must create a new, empty view state and discard any data handed over by the previous screen. Only an explicit re-entry from the same view may reuse existing state.
+  - OATM-BR-152: The view is a request/response interaction that keeps its state between requests. Every time the screen is returned, the session must be marked as 're-entry' and the entered account number and lookup results kept, so that the user's next submission is handled as a continuation of the same Account View interaction.
   - _Requirements: OATM-REQ-F-145, OATM-REQ-F-147_
   - _Rules: OATM-BR-150, OATM-BR-152_
   - _After: OATM-C18-T1, OATM-C18-T2, OATM-C18-T3_
 - [ ] OATM-C18-T5 [ui-modernization] Build the screen Account (S-ACCOUNT-VIEW)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-VIEW.
-  - button "View account"
-  - message "Account lookup error"
-  - link "Back"
-  - _Requirements: OATM-REQ-F-143, OATM-REQ-F-144, OATM-REQ-F-145, OATM-REQ-F-146, OATM-REQ-F-147_
-  - _Rules: OATM-BR-148, OATM-BR-149, OATM-BR-150, OATM-BR-151, OATM-BR-152_
+  - **lookup field** "Account or card number": Blank: 'No input received' - enter an account number (11 digits) or a card number (16 digits). Not digits, wrong length or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number' (or a 16-digit card number). Not in the card cross-reference: 'Account:<number> not found in Cross ref file.' - check the number with the caller. The error shows under the field.
+  - _Requirements: OATM-REQ-F-143, OATM-REQ-F-146_
+  - _Rules: OATM-BR-148, OATM-BR-151_
   - _After: OATM-C18-T2, OATM-C18-T3, OATM-C18-T4_
-- [ ] OATM-C18-T6 [test-generation] Write a test for every acceptance criterion
+- [ ] OATM-C18-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - **primary button** "Account"
+  - _Requirements: OATM-REQ-F-144, OATM-REQ-F-145_
+  - _Rules: OATM-BR-149, OATM-BR-150_
+  - _After: OATM-C18-T2, OATM-C18-T3, OATM-C18-T4_
+- [ ] OATM-C18-T7 [test-generation] Write a test for every acceptance criterion
   - 8 acceptance criteria, each a test named by its ID.
   - _Requirements: OATM-REQ-F-143, OATM-REQ-F-144, OATM-REQ-F-145, OATM-REQ-F-146, OATM-REQ-F-147, OATM-REQ-F-148_
   - _Criteria: OATM-C18-AC-01, OATM-C18-AC-02, OATM-C18-AC-03, OATM-C18-AC-04, OATM-C18-AC-05, OATM-C18-AC-06, OATM-C18-AC-07, OATM-C18-AC-08_
-  - _After: OATM-C18-T1, OATM-C18-T2, OATM-C18-T3, OATM-C18-T4, OATM-C18-T5_
+  - _After: OATM-C18-T1, OATM-C18-T2, OATM-C18-T3, OATM-C18-T4, OATM-C18-T5, OATM-C18-T6_
 
 ## OATM-C19 Request a bill payment (final)
 
@@ -1318,38 +1293,30 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: OATM-REQ-F-149, OATM-REQ-F-151, OATM-REQ-F-152_
   - _Rules: OATM-BR-155, OATM-BR-157, OATM-BR-158_
   - _After: OATM-C19-T1_
-- [ ] OATM-C19-T4 [ui-modernization] Build the screen Account (S-ACCOUNT-VIEW)
-  - To the prototype: ui-reference/index.html#/S-ACCOUNT-VIEW.
-  - link "Pay balance"
-  - _Requirements: OATM-REQ-F-150_
-  - _Rules: OATM-BR-156_
-  - _After: OATM-C19-T2, OATM-C19-T3_
-- [ ] OATM-C19-T5 [ui-modernization] Build the screen Pay balance (S-BILL-PAY)
+- [ ] OATM-C19-T4 [ui-modernization] Build the screen Pay balance (S-BILL-PAY)
   - To the prototype: ui-reference/index.html#/S-BILL-PAY.
-  - text "Account ID": Required: 'Acct ID can NOT be empty...'; must exist: 'Account ID NOT found...'.
-  - button "Show balance"
-  - display "Current balance": Nothing owed (zero or less): 'You have nothing to pay...' and Pay is not offered.
-  - dialog "Pay your balance now?"
-  - button "Clear"
-  - link "Back"
-  - _Requirements: OATM-REQ-N-006, OATM-REQ-F-150, OATM-REQ-F-151, OATM-REQ-F-152, OATM-REQ-F-153, OATM-REQ-F-154, OATM-REQ-F-155, OATM-REQ-F-156, OATM-REQ-F-157, OATM-REQ-F-158, OATM-REQ-F-159_
-  - _Rules: OATM-BR-154, OATM-BR-156, OATM-BR-157, OATM-BR-158, OATM-BR-159, OATM-BR-160, OATM-BR-161, OATM-BR-162, OATM-BR-163, OATM-BR-164, OATM-BR-165_
+  - **lookup field** "Account number": Blank: 'Acct ID can NOT be empty...' - enter the 11-digit account number. Not found: 'Account ID NOT found...' - check the number with the caller.
+  - **summary card** "Balance to pay": When the balance is zero or less: 'You have nothing to pay...' and Pay balance is unavailable.
+  - **primary button** "Pay balance": The dialog offers only Pay or Cancel, so no other value can be entered (legacy: 'Invalid value. Valid values are (Y/N)...'). If the card linked to the account is not found, nothing is paid and the message says so. The payment and the balance change are saved together or not at all.
+  - _Requirements: OATM-REQ-N-006, OATM-REQ-F-149, OATM-REQ-F-150, OATM-REQ-F-152, OATM-REQ-F-153, OATM-REQ-F-154, OATM-REQ-F-155, OATM-REQ-F-156, OATM-REQ-F-157, OATM-REQ-F-158, OATM-REQ-F-159_
+  - _Rules: OATM-BR-154, OATM-BR-155, OATM-BR-156, OATM-BR-158, OATM-BR-159, OATM-BR-160, OATM-BR-161, OATM-BR-162, OATM-BR-163, OATM-BR-164, OATM-BR-165_
   - _After: OATM-C19-T2, OATM-C19-T3_
-- [ ] OATM-C19-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+- [ ] OATM-C19-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - header "CardDemo"
-  - _Requirements: OATM-REQ-N-006_
-  - _Rules: OATM-BR-154_
+  - **summary card** "CardDemo"
+  - **primary button** "Pay balance"
+  - _Requirements: OATM-REQ-N-006, OATM-REQ-F-150, OATM-REQ-F-151_
+  - _Rules: OATM-BR-154, OATM-BR-156, OATM-BR-157_
   - _After: OATM-C19-T2, OATM-C19-T3_
-- [ ] OATM-C19-T7 [test-generation] Write a test for every acceptance criterion
+- [ ] OATM-C19-T6 [test-generation] Write a test for every acceptance criterion
   - 16 acceptance criteria, each a test named by its ID.
   - _Requirements: OATM-REQ-N-006, OATM-REQ-F-149, OATM-REQ-F-150, OATM-REQ-F-151, OATM-REQ-F-152, OATM-REQ-F-153, OATM-REQ-F-154, OATM-REQ-F-155, OATM-REQ-F-156, OATM-REQ-F-157, OATM-REQ-F-158, OATM-REQ-F-159_
   - _Criteria: OATM-C19-AC-01, OATM-C19-AC-02, OATM-C19-AC-03, OATM-C19-AC-04, OATM-C19-AC-05, OATM-C19-AC-06, OATM-C19-AC-07, OATM-C19-AC-08, OATM-C19-AC-09, OATM-C19-AC-10, OATM-C19-AC-11, OATM-C19-AC-12, OATM-C19-AC-13, OATM-C19-AC-14, OATM-C19-AC-15, OATM-C19-AC-16_
-  - _After: OATM-C19-T1, OATM-C19-T2, OATM-C19-T3, OATM-C19-T4, OATM-C19-T5, OATM-C19-T6_
-- [ ] OATM-C19-T8 [compliance] Review the handling of money, security
+  - _After: OATM-C19-T1, OATM-C19-T2, OATM-C19-T3, OATM-C19-T4, OATM-C19-T5_
+- [ ] OATM-C19-T7 [compliance] Review the handling of money, security
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: OATM-REQ-N-006, OATM-REQ-F-149, OATM-REQ-F-150, OATM-REQ-F-151, OATM-REQ-F-152, OATM-REQ-F-153, OATM-REQ-F-154, OATM-REQ-F-155, OATM-REQ-F-156, OATM-REQ-F-157, OATM-REQ-F-158, OATM-REQ-F-159_
-  - _After: OATM-C19-T1, OATM-C19-T2, OATM-C19-T3, OATM-C19-T4, OATM-C19-T5, OATM-C19-T6_
+  - _After: OATM-C19-T1, OATM-C19-T2, OATM-C19-T3, OATM-C19-T4, OATM-C19-T5_
 
 ## OATM-C20 Post a full-balance bill payment (final)
 
@@ -1368,17 +1335,17 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-169, OATM-BR-175, OATM-BR-176, OATM-BR-177, OATM-BR-178_
   - _After: OATM-C20-T1_
 - [ ] OATM-C20-T4 [api] Build the services behind the screens
-  - OATM-BR-167: Needs the highest existing transaction ID (a 'max ID' query or a descending keyed read of the last record). When there are no transactions it returns zero. Because 'highest plus 1' can race between concurrent payments, the new application should use a database sequence or an atomic ID generator, with the unique key as a safety net.
-  - OATM-BR-174: After the payment transaction is written, the account read for update earlier is saved with its reduced current balance. This should be an update on the same locked or version-checked account row. Ideally it runs in the same database transaction as the payment insert, so the balance and the payment record cannot disagree (subject to the decision on the non-atomic legacy behaviour).
+  - OATM-BR-167: Needs the highest existing transaction ID, taken as the last key in transaction-ID order (equivalent to a max query over transactions), so the new payment can be numbered one higher. Because two payments could otherwise get the same number, the new application should allocate IDs safely under concurrency, for example with a database sequence or a locked read of the max. It must still treat an empty transaction store as ID 0.
+  - OATM-BR-174: After the payment transaction is written, the account read earlier for update must be saved with its current balance reduced by the payment amount. This needs a locked or version-checked update of that account by account ID, so that no change made in between is overwritten.
   - _Requirements: OATM-REQ-F-161_
   - _Rules: OATM-BR-167_
   - _After: OATM-C20-T1, OATM-C20-T2, OATM-C20-T3_
 - [ ] OATM-C20-T5 [ui-modernization] Build the screen Pay balance (S-BILL-PAY)
   - To the prototype: ui-reference/index.html#/S-BILL-PAY.
-  - button "Pay full balance"
-  - message "Payment result"
-  - _Requirements: OATM-REQ-F-164, OATM-REQ-F-165, OATM-REQ-F-166, OATM-REQ-F-167, OATM-REQ-F-169_
-  - _Rules: OATM-BR-170, OATM-BR-171, OATM-BR-172, OATM-BR-173, OATM-BR-174, OATM-BR-175, OATM-BR-177_
+  - **summary card** "Balance to pay": When the balance is zero or less: 'You have nothing to pay...' and Pay balance is unavailable.
+  - **primary button** "Pay balance": The dialog offers only Pay or Cancel, so no other value can be entered (legacy: 'Invalid value. Valid values are (Y/N)...'). If the card linked to the account is not found, nothing is paid and the message says so. The payment and the balance change are saved together or not at all.
+  - _Requirements: OATM-REQ-F-160, OATM-REQ-F-161, OATM-REQ-F-162, OATM-REQ-F-163, OATM-REQ-F-164, OATM-REQ-F-165, OATM-REQ-F-166, OATM-REQ-F-167, OATM-REQ-F-168, OATM-REQ-F-169, OATM-REQ-F-170_
+  - _Rules: OATM-BR-166, OATM-BR-167, OATM-BR-168, OATM-BR-169, OATM-BR-170, OATM-BR-171, OATM-BR-172, OATM-BR-173, OATM-BR-174, OATM-BR-175, OATM-BR-176, OATM-BR-177, OATM-BR-178_
   - _After: OATM-C20-T2, OATM-C20-T3, OATM-C20-T4_
 - [ ] OATM-C20-T6 [test-generation] Write a test for every acceptance criterion
   - 15 acceptance criteria, each a test named by its ID.
@@ -1402,7 +1369,7 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C21-T1_
 - [ ] OATM-C21-T3 [ui-modernization] Build the screen Transaction reports (S-REPORT-REQUEST)
   - To the prototype: ui-reference/index.html#/S-REPORT-REQUEST.
-  - radio "Report period": Required: 'Select a report type to print report...'.
+  - **summary card** "Report type": None chosen: 'Select a report type to print report...' - choose Monthly, Yearly or Custom.
   - _Requirements: OATM-REQ-F-171, OATM-REQ-F-172_
   - _Rules: OATM-BR-179, OATM-BR-180_
   - _After: OATM-C21-T2_
@@ -1429,16 +1396,16 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C22-T1_
 - [ ] OATM-C22-T4 [ui-modernization] Build the screen Transaction reports (S-REPORT-REQUEST)
   - To the prototype: ui-reference/index.html#/S-REPORT-REQUEST.
-  - button "Submit for printing"
-  - link "Back"
-  - _Requirements: OATM-REQ-N-007, OATM-REQ-F-173, OATM-REQ-F-174, OATM-REQ-F-175, OATM-REQ-F-176_
-  - _Rules: OATM-BR-181, OATM-BR-182, OATM-BR-183, OATM-BR-184, OATM-BR-185_
+  - **primary button** "Submit report": The dialog offers only Submit or Cancel, replacing the typed confirmation and its messages 'Please confirm to print the <report name> report...' and '"<value>" is not a valid value to confirm...'. If the job cannot be queued, the message says the report was not submitted and to try again.
+  - _Requirements: OATM-REQ-N-007, OATM-REQ-F-175, OATM-REQ-F-176_
+  - _Rules: OATM-BR-181, OATM-BR-184, OATM-BR-185_
   - _After: OATM-C22-T2, OATM-C22-T3_
 - [ ] OATM-C22-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - header "CardDemo"
-  - _Requirements: OATM-REQ-N-007_
-  - _Rules: OATM-BR-181_
+  - **summary card** "CardDemo"
+  - **primary button** "Transaction reports"
+  - _Requirements: OATM-REQ-N-007, OATM-REQ-F-173, OATM-REQ-F-174_
+  - _Rules: OATM-BR-181, OATM-BR-182, OATM-BR-183_
   - _After: OATM-C22-T2, OATM-C22-T3_
 - [ ] OATM-C22-T6 [test-generation] Write a test for every acceptance criterion
   - 5 acceptance criteria, each a test named by its ID.
@@ -1461,17 +1428,16 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-186, OATM-BR-187, OATM-BR-188, OATM-BR-190, OATM-BR-191, OATM-BR-192, OATM-BR-193, OATM-BR-194, OATM-BR-195_
   - _After: OATM-C23-T1_
 - [ ] OATM-C23-T3 [api] Build the services behind the screens
-  - OATM-BR-189: Before validating, turn the entered month and day into two-digit numbers and the year into a four-digit number (for example, '3' becomes '03'). This makes the range checks and the YYYY-MM-DD calendar check work on a consistent form. A standard date-parsing library can then do the calendar check.
+  - OATM-BR-189: Before validating, normalise the custom date inputs: pad month and day to two digits (for example '3' becomes '03') and year to four digits, so that the range checks and the calendar-date check see a consistent YYYY-MM-DD value. A typed date input or a date-parsing library in the new application can do this step.
   - _Requirements: OATM-REQ-F-180_
   - _Rules: OATM-BR-189_
   - _After: OATM-C23-T1, OATM-C23-T2_
 - [ ] OATM-C23-T4 [ui-modernization] Build the screen Transaction reports (S-REPORT-REQUEST)
   - To the prototype: ui-reference/index.html#/S-REPORT-REQUEST.
-  - radio "Report period": Required: 'Select a report type to print report...'.
-  - date "Start date": Month, day and year required: 'Start Date - Month can NOT be empty...', 'Start Date - Day can NOT be empty...', 'Start Date - Year can NOT be empty...'; 'Start Date - Not a valid Month...'; 'Start Date - Not a valid Day...'; 'Start Date - Not a valid Year...'; must be a real date: 'Start Date - Not a valid date...'.
-  - date "End date": Month, day and year required: 'End Date - Month can NOT be empty...', 'End Date - Day can NOT be empty...', 'End Date - Year can NOT be empty...'; 'End Date - Not a valid Month...'; 'End Date - Not a valid Day...'; 'End Date - Not a valid Year...'; must be a real date: 'End Date - Not a valid date...'.
-  - _Requirements: OATM-REQ-F-178, OATM-REQ-F-179, OATM-REQ-F-181, OATM-REQ-F-184, OATM-REQ-F-185, OATM-REQ-F-186_
-  - _Rules: OATM-BR-187, OATM-BR-188, OATM-BR-190, OATM-BR-193, OATM-BR-194, OATM-BR-195_
+  - **summary card** "Report type": None chosen: 'Select a report type to print report...' - choose Monthly, Yearly or Custom.
+  - **summary card** "Custom period": Every part is required, checked start month, day, year then end month, day, year ('Start Date - Month can NOT be empty...' and so on). 'Start Date - Not a valid Month...' / 'End Date - Not a valid Month...' (1 to 12); 'Start Date - Not a valid Day...' / 'End Date - Not a valid Day...' (1 to 31); 'Start Date - Not a valid Year...' / 'End Date - Not a valid Year...'; 'Start Date - Not a valid date...' / 'End Date - Not a valid date...' for a date not on the calendar. The message sits under the part to fix.
+  - _Requirements: OATM-REQ-F-177, OATM-REQ-F-178, OATM-REQ-F-179, OATM-REQ-F-180, OATM-REQ-F-181, OATM-REQ-F-182, OATM-REQ-F-183, OATM-REQ-F-184, OATM-REQ-F-185, OATM-REQ-F-186_
+  - _Rules: OATM-BR-186, OATM-BR-187, OATM-BR-188, OATM-BR-189, OATM-BR-190, OATM-BR-191, OATM-BR-192, OATM-BR-193, OATM-BR-194, OATM-BR-195_
   - _After: OATM-C23-T2, OATM-C23-T3_
 - [ ] OATM-C23-T5 [test-generation] Write a test for every acceptance criterion
   - 13 acceptance criteria, each a test named by its ID.
@@ -1495,16 +1461,15 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-202, OATM-BR-203, OATM-BR-204_
   - _After: OATM-C24-T1_
 - [ ] OATM-C24-T4 [api] Build the services behind the screens
-  - OATM-BR-200: The report job needs the start and end dates as YYYY-MM-DD parameters, plus a combined 'YYYY-MM-DD YYYY-MM-DD' date value. The new application should pass these as named parameters on the job submission request (for example, a message to the batch scheduler or a job-run API). It should not edit a job script text.
+  - OATM-BR-200: The report job takes its period as two parameters, a start date and an end date, each in YYYY-MM-DD form. In the legacy job these are also passed together as the single string 'YYYY-MM-DD YYYY-MM-DD'. The new application should send these as typed parameters on the request it submits to the scheduled or queued transaction-report job, so that the batch run filters transactions to exactly that inclusive range.
   - _Requirements: OATM-REQ-F-191_
   - _Rules: OATM-BR-200_
   - _After: OATM-C24-T1, OATM-C24-T2, OATM-C24-T3_
 - [ ] OATM-C24-T5 [ui-modernization] Build the screen Transaction reports (S-REPORT-REQUEST)
   - To the prototype: ui-reference/index.html#/S-REPORT-REQUEST.
-  - dialog "Print this report?"
-  - message "Submission result"
-  - _Requirements: OATM-REQ-F-187, OATM-REQ-F-188, OATM-REQ-F-190, OATM-REQ-F-193, OATM-REQ-F-194_
-  - _Rules: OATM-BR-196, OATM-BR-197, OATM-BR-199, OATM-BR-202, OATM-BR-203, OATM-BR-204_
+  - **primary button** "Submit report": The dialog offers only Submit or Cancel, replacing the typed confirmation and its messages 'Please confirm to print the <report name> report...' and '"<value>" is not a valid value to confirm...'. If the job cannot be queued, the message says the report was not submitted and to try again.
+  - _Requirements: OATM-REQ-F-187, OATM-REQ-F-188, OATM-REQ-F-189, OATM-REQ-F-190, OATM-REQ-F-191, OATM-REQ-F-192, OATM-REQ-F-193, OATM-REQ-F-194_
+  - _Rules: OATM-BR-196, OATM-BR-197, OATM-BR-198, OATM-BR-199, OATM-BR-200, OATM-BR-201, OATM-BR-202, OATM-BR-203, OATM-BR-204_
   - _After: OATM-C24-T2, OATM-C24-T3, OATM-C24-T4_
 - [ ] OATM-C24-T6 [test-generation] Write a test for every acceptance criterion
   - 9 acceptance criteria, each a test named by its ID.
@@ -1529,25 +1494,24 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-212, OATM-BR-214, OATM-BR-215, OATM-BR-220, OATM-BR-221, OATM-BR-223, OATM-BR-225, OATM-BR-227, OATM-BR-229_
   - _After: OATM-C25-T1_
 - [ ] OATM-C25-T4 [api] Build the services behind the screens
-  - OATM-BR-206: Every request to the list starts from a clean state: no leftover message, no error, end-of-list or next-page flags carried over, and focus on the transaction ID filter. Page position comes only from the paging state the server keeps (or the request carries), not from previous screen contents.
-  - OATM-BR-216: Each page response must keep the transaction ID of its first row and of its last row as paging cursors. The first ID is where the next previous-page request starts. Keep them in the user's session or return them as opaque cursors.
-  - OATM-BR-217: The ID of the tenth row is the cursor for the next-page request. The next page is a keyed range read of transactions with ID strictly greater than this cursor, in ascending ID order, limited to 10 (plus one look-ahead to tell whether more exist).
-  - OATM-BR-226: The previous page is a keyed range read of transactions with ID strictly less than the current page's first ID, in descending order, limited to 10, then reversed for display. The current first transaction is never repeated. Use an index on transaction ID that supports reading in both directions from a key.
+  - OATM-BR-206: Each request to the list starts from a clean screen state: no leftover message, error, end-of-list or next-page flags, and focus on the Tran ID filter. In a modern UI this is just rendering the list view fresh per request rather than carrying flags between requests.
+  - OATM-BR-216: The page needs to keep the IDs of its first and last rows (in the page response or a cursor token) so the next request can page backward from the first ID. A keyset/cursor query on transaction ID does this; offset paging would not match the legacy behaviour.
+  - OATM-BR-217: The ID of the tenth row is the forward cursor: the next-page query reads transactions with ID greater than it, in ascending ID order, limit 10 (plus one look-ahead row to know whether another page exists).
+  - OATM-BR-226: The previous-page query reads transactions with ID strictly less than the current page's first ID, in descending order, limit 10 (plus one look-ahead), and reverses them for display, so the current first row is never repeated.
   - _Requirements: OATM-REQ-F-196, OATM-REQ-F-206, OATM-REQ-F-207, OATM-REQ-F-216_
   - _Rules: OATM-BR-206, OATM-BR-216, OATM-BR-217, OATM-BR-226_
   - _After: OATM-C25-T1, OATM-C25-T2, OATM-C25-T3_
 - [ ] OATM-C25-T5 [ui-modernization] Build the screen Transactions (S-TRANSACTION-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-LIST.
-  - search "Start from transaction ID": Digits only: 'Tran ID must be Numeric ...'; above every ID on file: 'You are at the top of the page...'.
-  - table "Transactions": Previous on the first page: 'You are already at the top of the page...'; Next on the last page: 'You are already at the bottom of the page...'.
-  - message "List error"
-  - _Requirements: OATM-REQ-F-197, OATM-REQ-F-198, OATM-REQ-F-199, OATM-REQ-F-200, OATM-REQ-F-211, OATM-REQ-F-212_
-  - _Rules: OATM-BR-207, OATM-BR-208, OATM-BR-209, OATM-BR-210, OATM-BR-221, OATM-BR-222_
+  - **lookup field** "Start from transaction ID": Not all digits: 'Tran ID must be Numeric ...' - enter digits only. Higher than every ID on file: 'You are at the top of the page...'.
+  - **data table** "Transactions": Rows open on Enter or click, so there is no selection code to mistype (legacy: 'Invalid selection. Valid value is S'). At the first or last page the previous or next control is disabled and says 'You are already at the top of the page...' / 'You have reached the bottom of the page...'. Empty state: 'No transactions yet. Use Add transaction to record the first one.'
+  - _Requirements: OATM-REQ-F-195, OATM-REQ-F-196, OATM-REQ-F-197, OATM-REQ-F-198, OATM-REQ-F-199, OATM-REQ-F-200, OATM-REQ-F-201, OATM-REQ-F-202, OATM-REQ-F-203, OATM-REQ-F-204, OATM-REQ-F-205, OATM-REQ-F-206, OATM-REQ-F-207, OATM-REQ-F-208, OATM-REQ-F-209, OATM-REQ-F-210, OATM-REQ-F-211, OATM-REQ-F-212, OATM-REQ-F-213, OATM-REQ-F-214, OATM-REQ-F-215, OATM-REQ-F-216, OATM-REQ-F-217, OATM-REQ-F-218, OATM-REQ-F-219_
+  - _Rules: OATM-BR-205, OATM-BR-206, OATM-BR-207, OATM-BR-208, OATM-BR-209, OATM-BR-210, OATM-BR-211, OATM-BR-212, OATM-BR-213, OATM-BR-214, OATM-BR-215, OATM-BR-216, OATM-BR-217, OATM-BR-218, OATM-BR-219, OATM-BR-220, OATM-BR-221, OATM-BR-222, OATM-BR-223, OATM-BR-224, OATM-BR-225, OATM-BR-226, OATM-BR-227, OATM-BR-228, OATM-BR-229_
   - _After: OATM-C25-T2, OATM-C25-T3, OATM-C25-T4_
 - [ ] OATM-C25-T6 [test-generation] Write a test for every acceptance criterion
-  - 31 acceptance criteria, each a test named by its ID.
+  - 32 acceptance criteria, each a test named by its ID.
   - _Requirements: OATM-REQ-F-195, OATM-REQ-F-196, OATM-REQ-F-197, OATM-REQ-F-198, OATM-REQ-F-199, OATM-REQ-F-200, OATM-REQ-F-201, OATM-REQ-F-202, OATM-REQ-F-203, OATM-REQ-F-204, OATM-REQ-F-205, OATM-REQ-F-206, OATM-REQ-F-207, OATM-REQ-F-208, OATM-REQ-F-209, OATM-REQ-F-210, OATM-REQ-F-211, OATM-REQ-F-212, OATM-REQ-F-213, OATM-REQ-F-214, OATM-REQ-F-215, OATM-REQ-F-216, OATM-REQ-F-217, OATM-REQ-F-218, OATM-REQ-F-219_
-  - _Criteria: OATM-C25-AC-01, OATM-C25-AC-02, OATM-C25-AC-03, OATM-C25-AC-04, OATM-C25-AC-05, OATM-C25-AC-06, OATM-C25-AC-07, OATM-C25-AC-08, OATM-C25-AC-09, OATM-C25-AC-10, OATM-C25-AC-11, OATM-C25-AC-12, OATM-C25-AC-13, OATM-C25-AC-14, OATM-C25-AC-15, OATM-C25-AC-16, OATM-C25-AC-17, OATM-C25-AC-18, OATM-C25-AC-19, OATM-C25-AC-20, OATM-C25-AC-21, OATM-C25-AC-22, OATM-C25-AC-23, OATM-C25-AC-24, OATM-C25-AC-25, OATM-C25-AC-26, OATM-C25-AC-27, OATM-C25-AC-28, OATM-C25-AC-29, OATM-C25-AC-30, OATM-C25-AC-31_
+  - _Criteria: OATM-C25-AC-01, OATM-C25-AC-02, OATM-C25-AC-03, OATM-C25-AC-04, OATM-C25-AC-05, OATM-C25-AC-06, OATM-C25-AC-07, OATM-C25-AC-08, OATM-C25-AC-09, OATM-C25-AC-10, OATM-C25-AC-11, OATM-C25-AC-12, OATM-C25-AC-13, OATM-C25-AC-14, OATM-C25-AC-15, OATM-C25-AC-16, OATM-C25-AC-17, OATM-C25-AC-18, OATM-C25-AC-19, OATM-C25-AC-20, OATM-C25-AC-21, OATM-C25-AC-22, OATM-C25-AC-23, OATM-C25-AC-24, OATM-C25-AC-25, OATM-C25-AC-26, OATM-C25-AC-27, OATM-C25-AC-28, OATM-C25-AC-29, OATM-C25-AC-30, OATM-C25-AC-31, OATM-C25-AC-32_
   - _After: OATM-C25-T1, OATM-C25-T2, OATM-C25-T3, OATM-C25-T4, OATM-C25-T5_
 - [ ] OATM-C25-T7 [compliance] Review the handling of card data, money
   - Check storage, logs, screens and audit against the rules.
@@ -1566,15 +1530,15 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-230, OATM-BR-231, OATM-BR-232_
   - _After: OATM-C26-T1_
 - [ ] OATM-C26-T3 [api] Build the services behind the screens
-  - OATM-BR-233: When a list submission has no row selected, the server must clear any selection code and selected transaction ID held in the session. That way a later step cannot open a transaction from an earlier interaction. The selection lives only for the request that made it.
+  - OATM-BR-233: When Enter is submitted with no row marked, discard any selection kept from an earlier request (selection code and selected transaction ID) and simply redisplay the list. A stale selection must never open a transaction.
   - _Requirements: OATM-REQ-F-223_
   - _Rules: OATM-BR-233_
   - _After: OATM-C26-T1, OATM-C26-T2_
 - [ ] OATM-C26-T4 [ui-modernization] Build the screen Transactions (S-TRANSACTION-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-LIST.
-  - table "Transactions": Previous on the first page: 'You are already at the top of the page...'; Next on the last page: 'You are already at the bottom of the page...'.
-  - _Requirements: OATM-REQ-F-220_
-  - _Rules: OATM-BR-230_
+  - **data table** "Transactions": Rows open on Enter or click, so there is no selection code to mistype (legacy: 'Invalid selection. Valid value is S'). At the first or last page the previous or next control is disabled and says 'You are already at the top of the page...' / 'You have reached the bottom of the page...'. Empty state: 'No transactions yet. Use Add transaction to record the first one.'
+  - _Requirements: OATM-REQ-F-220, OATM-REQ-F-221, OATM-REQ-F-222, OATM-REQ-F-223_
+  - _Rules: OATM-BR-230, OATM-BR-231, OATM-BR-232, OATM-BR-233_
   - _After: OATM-C26-T2, OATM-C26-T3_
 - [ ] OATM-C26-T5 [test-generation] Write a test for every acceptance criterion
   - 6 acceptance criteria, each a test named by its ID.
@@ -1598,23 +1562,22 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-234, OATM-BR-235, OATM-BR-236, OATM-BR-237_
   - _After: OATM-C27-T1_
 - [ ] OATM-C27-T3 [api] Build the services behind the screens
-  - OATM-BR-238: The list is a stateful interaction. Between requests the application must keep the user's session state: signed-on user, current page number, first and last transaction IDs of the page, next-page flag and any selection. This can be a server-side session keyed by an authenticated session token, or signed state round-tripped with the client. Each response then waits for the user's next action.
+  - OATM-BR-238: The list needs server-side session state (or a signed cursor carried with each request) that holds the page position (first/last IDs, page number), the current selection and the signed-on user between requests and across the hand-off to the detail screen. No other transaction routing is needed.
   - _Requirements: OATM-REQ-N-010_
   - _Rules: OATM-BR-238_
   - _After: OATM-C27-T1, OATM-C27-T2_
 - [ ] OATM-C27-T4 [ui-modernization] Build the screen Transactions (S-TRANSACTION-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-LIST.
-  - table "Transactions": Previous on the first page: 'You are already at the top of the page...'; Next on the last page: 'You are already at the bottom of the page...'.
-  - message "List error"
-  - link "Back"
-  - _Requirements: OATM-REQ-N-008, OATM-REQ-N-009, OATM-REQ-F-224, OATM-REQ-F-225_
-  - _Rules: OATM-BR-234, OATM-BR-235, OATM-BR-236, OATM-BR-237_
+  - **data table** "Transactions": Rows open on Enter or click, so there is no selection code to mistype (legacy: 'Invalid selection. Valid value is S'). At the first or last page the previous or next control is disabled and says 'You are already at the top of the page...' / 'You have reached the bottom of the page...'. Empty state: 'No transactions yet. Use Add transaction to record the first one.'
+  - _Requirements: OATM-REQ-N-008, OATM-REQ-N-009, OATM-REQ-F-225, OATM-REQ-N-010_
+  - _Rules: OATM-BR-234, OATM-BR-235, OATM-BR-237, OATM-BR-238_
   - _After: OATM-C27-T2, OATM-C27-T3_
 - [ ] OATM-C27-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - header "CardDemo"
-  - _Requirements: OATM-REQ-N-008_
-  - _Rules: OATM-BR-234_
+  - **summary card** "CardDemo"
+  - **primary button** "Transactions"
+  - _Requirements: OATM-REQ-N-008, OATM-REQ-F-224_
+  - _Rules: OATM-BR-234, OATM-BR-236_
   - _After: OATM-C27-T2, OATM-C27-T3_
 - [ ] OATM-C27-T6 [test-generation] Write a test for every acceptance criterion
   - 5 acceptance criteria, each a test named by its ID.
@@ -1644,9 +1607,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C28-T1_
 - [ ] OATM-C28-T4 [ui-modernization] Build the screen Transaction (S-TRANSACTION-VIEW)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-VIEW.
-  - search "Transaction ID": Required: 'Tran ID can NOT be empty...'; must exist: 'Transaction ID NOT found...'.
-  - _Requirements: OATM-REQ-F-227_
-  - _Rules: OATM-BR-240_
+  - **lookup field** "Transaction ID": Blank: 'Tran ID can NOT be empty...' - enter a transaction ID. Not found: 'Transaction ID NOT found...' - check the ID or find it in Transactions.
+  - _Requirements: OATM-REQ-F-226, OATM-REQ-F-227_
+  - _Rules: OATM-BR-239, OATM-BR-240_
   - _After: OATM-C28-T2, OATM-C28-T3_
 - [ ] OATM-C28-T5 [test-generation] Write a test for every acceptance criterion
   - 2 acceptance criteria, each a test named by its ID.
@@ -1674,28 +1637,36 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: OATM-REQ-N-011, OATM-REQ-F-231, OATM-REQ-F-232, OATM-REQ-F-235_
   - _Rules: OATM-BR-244, OATM-BR-245, OATM-BR-247, OATM-BR-249_
   - _After: OATM-C29-T1_
-- [ ] OATM-C29-T4 [ui-modernization] Build the screen Transaction (S-TRANSACTION-VIEW)
-  - To the prototype: ui-reference/index.html#/S-TRANSACTION-VIEW.
-  - search "Transaction ID": Required: 'Tran ID can NOT be empty...'; must exist: 'Transaction ID NOT found...'.
-  - button "Look up"
-  - button "Clear"
-  - message "Lookup error"
-  - display "Transaction ID"
-  - display "Amount"
-  - link "Back to transactions"
-  - link "Back"
-  - _Requirements: OATM-REQ-F-228, OATM-REQ-F-229, OATM-REQ-F-231, OATM-REQ-F-232, OATM-REQ-F-233, OATM-REQ-F-234, OATM-REQ-F-235, OATM-REQ-F-236, OATM-REQ-F-237_
-  - _Rules: OATM-BR-241, OATM-BR-242, OATM-BR-244, OATM-BR-245, OATM-BR-246, OATM-BR-248, OATM-BR-249, OATM-BR-250, OATM-BR-251_
+- [ ] OATM-C29-T4 [ui-modernization] Build the screen Transactions (S-TRANSACTION-LIST)
+  - To the prototype: ui-reference/index.html#/S-TRANSACTION-LIST.
+  - **data table** "Transactions": Rows open on Enter or click, so there is no selection code to mistype (legacy: 'Invalid selection. Valid value is S'). At the first or last page the previous or next control is disabled and says 'You are already at the top of the page...' / 'You have reached the bottom of the page...'. Empty state: 'No transactions yet. Use Add transaction to record the first one.'
+  - _Requirements: OATM-REQ-N-011_
+  - _Rules: OATM-BR-247_
   - _After: OATM-C29-T2, OATM-C29-T3_
-- [ ] OATM-C29-T5 [test-generation] Write a test for every acceptance criterion
+- [ ] OATM-C29-T5 [ui-modernization] Build the screen Transaction (S-TRANSACTION-VIEW)
+  - To the prototype: ui-reference/index.html#/S-TRANSACTION-VIEW.
+  - **lookup field** "Transaction ID": Blank: 'Tran ID can NOT be empty...' - enter a transaction ID. Not found: 'Transaction ID NOT found...' - check the ID or find it in Transactions.
+  - **summary card** "Transaction"
+  - **summary card** "Merchant"
+  - **primary button** "Back to transactions"
+  - _Requirements: OATM-REQ-F-228, OATM-REQ-F-229, OATM-REQ-F-230, OATM-REQ-F-231, OATM-REQ-F-232, OATM-REQ-F-233, OATM-REQ-F-234, OATM-REQ-F-235, OATM-REQ-F-236, OATM-REQ-F-237_
+  - _Rules: OATM-BR-241, OATM-BR-242, OATM-BR-243, OATM-BR-244, OATM-BR-245, OATM-BR-246, OATM-BR-248, OATM-BR-249, OATM-BR-250, OATM-BR-251_
+  - _After: OATM-C29-T2, OATM-C29-T3_
+- [ ] OATM-C29-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - **primary button** "Transactions"
+  - _Requirements: OATM-REQ-F-234_
+  - _Rules: OATM-BR-248_
+  - _After: OATM-C29-T2, OATM-C29-T3_
+- [ ] OATM-C29-T7 [test-generation] Write a test for every acceptance criterion
   - 13 acceptance criteria, each a test named by its ID.
   - _Requirements: OATM-REQ-F-228, OATM-REQ-F-229, OATM-REQ-F-230, OATM-REQ-F-231, OATM-REQ-F-232, OATM-REQ-F-233, OATM-REQ-N-011, OATM-REQ-F-234, OATM-REQ-F-235, OATM-REQ-F-236, OATM-REQ-F-237_
   - _Criteria: OATM-C29-AC-01, OATM-C29-AC-02, OATM-C29-AC-03, OATM-C29-AC-04, OATM-C29-AC-05, OATM-C29-AC-06, OATM-C29-AC-07, OATM-C29-AC-08, OATM-C29-AC-09, OATM-C29-AC-10, OATM-C29-AC-11, OATM-C29-AC-12, OATM-C29-AC-13_
-  - _After: OATM-C29-T1, OATM-C29-T2, OATM-C29-T3, OATM-C29-T4_
-- [ ] OATM-C29-T6 [compliance] Review the handling of card data, money
+  - _After: OATM-C29-T1, OATM-C29-T2, OATM-C29-T3, OATM-C29-T4, OATM-C29-T5, OATM-C29-T6_
+- [ ] OATM-C29-T8 [compliance] Review the handling of card data, money
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: OATM-REQ-F-228, OATM-REQ-F-229, OATM-REQ-F-230, OATM-REQ-F-231, OATM-REQ-F-232, OATM-REQ-F-233, OATM-REQ-N-011, OATM-REQ-F-234, OATM-REQ-F-235, OATM-REQ-F-236, OATM-REQ-F-237_
-  - _After: OATM-C29-T1, OATM-C29-T2, OATM-C29-T3, OATM-C29-T4_
+  - _After: OATM-C29-T1, OATM-C29-T2, OATM-C29-T3, OATM-C29-T4, OATM-C29-T5, OATM-C29-T6_
 
 ## OATM-C30 Open and navigate the Add Transaction screen (final)
 
@@ -1715,19 +1686,18 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C30-T1_
 - [ ] OATM-C30-T4 [ui-modernization] Build the screen Add transaction (S-TRANSACTION-ADD)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-ADD.
-  - form "New transaction"
-  - button "Copy last transaction"
-  - button "Add transaction"
-  - button "Clear"
-  - link "Back"
-  - _Requirements: OATM-REQ-F-238, OATM-REQ-F-240, OATM-REQ-F-241, OATM-REQ-F-242, OATM-REQ-F-243_
-  - _Rules: OATM-BR-253, OATM-BR-255, OATM-BR-256, OATM-BR-257_
+  - **lookup field** "Account or card number": Blank: 'Account or Card Number must be entered...'. Not digits: 'Account ID must be Numeric...' / 'Card Number must be Numeric...'. Not in the card cross-reference: 'Account ID NOT found...' / 'Card Number NOT found...' - check the number with the caller.
+  - **summary card** "Transaction details": Each is required, in the rule's words: 'Type CD can NOT be empty...', 'Category CD can NOT be empty...', 'Source can NOT be empty...', 'Description can NOT be empty...', 'Amount can NOT be empty...', 'Orig Date can NOT be empty...', 'Proc Date can NOT be empty...'. 'Type CD must be Numeric...', 'Category CD must be Numeric...'. 'Amount should be in format -99999999.99'. 'Orig Date should be in format YYYY-MM-DD', 'Proc Date should be in format YYYY-MM-DD', and 'Orig Date - Not a valid date...' / 'Proc Date - Not a valid date...' for a date not on the calendar. Every failing field shows its message under it.
+  - **primary button** "Add transaction": The dialog offers only Add or Cancel, replacing the typed confirmation and its messages 'Confirm to add this transaction...' and 'Invalid value. Valid values are (Y/N)...'. If the ID already exists: 'Tran ID already exist...'; other failures: 'Unable to Add Transaction...'.
+  - _Requirements: OATM-REQ-N-012, OATM-REQ-F-238, OATM-REQ-F-239, OATM-REQ-F-241, OATM-REQ-F-242, OATM-REQ-F-243, OATM-REQ-F-244_
+  - _Rules: OATM-BR-252, OATM-BR-253, OATM-BR-254, OATM-BR-256, OATM-BR-257, OATM-BR-258_
   - _After: OATM-C30-T2, OATM-C30-T3_
 - [ ] OATM-C30-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - header "CardDemo"
-  - _Requirements: OATM-REQ-N-012_
-  - _Rules: OATM-BR-252_
+  - **summary card** "CardDemo"
+  - **primary button** "Add transaction"
+  - _Requirements: OATM-REQ-N-012, OATM-REQ-F-240_
+  - _Rules: OATM-BR-252, OATM-BR-255_
   - _After: OATM-C30-T2, OATM-C30-T3_
 - [ ] OATM-C30-T6 [test-generation] Write a test for every acceptance criterion
   - 9 acceptance criteria, each a test named by its ID.
@@ -1757,11 +1727,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C31-T1_
 - [ ] OATM-C31-T4 [ui-modernization] Build the screen Add transaction (S-TRANSACTION-ADD)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-ADD.
-  - form "New transaction"
-  - text "Account ID": Account or card required: 'Account or Card Number must be entered...'; digits only: 'Account ID must be Numeric...'; must exist: 'Account ID NOT found...'.
-  - text "Card number": Digits only: 'Card Number must be Numeric...'; must exist: 'Card Number NOT found...'.
-  - _Requirements: OATM-REQ-F-246, OATM-REQ-F-247, OATM-REQ-F-249, OATM-REQ-F-250, OATM-REQ-F-251, OATM-REQ-F-252_
-  - _Rules: OATM-BR-260, OATM-BR-261, OATM-BR-263, OATM-BR-265, OATM-BR-266, OATM-BR-267_
+  - **lookup field** "Account or card number": Blank: 'Account or Card Number must be entered...'. Not digits: 'Account ID must be Numeric...' / 'Card Number must be Numeric...'. Not in the card cross-reference: 'Account ID NOT found...' / 'Card Number NOT found...' - check the number with the caller.
+  - _Requirements: OATM-REQ-F-245, OATM-REQ-F-246, OATM-REQ-F-247, OATM-REQ-F-248, OATM-REQ-F-249, OATM-REQ-N-013, OATM-REQ-F-250, OATM-REQ-F-251, OATM-REQ-F-252, OATM-REQ-N-014_
+  - _Rules: OATM-BR-259, OATM-BR-260, OATM-BR-261, OATM-BR-262, OATM-BR-263, OATM-BR-264, OATM-BR-265, OATM-BR-266, OATM-BR-267, OATM-BR-268_
   - _After: OATM-C31-T2, OATM-C31-T3_
 - [ ] OATM-C31-T5 [test-generation] Write a test for every acceptance criterion
   - 13 acceptance criteria, each a test named by its ID.
@@ -1785,26 +1753,16 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: OATM-BR-269, OATM-BR-270, OATM-BR-271, OATM-BR-272, OATM-BR-273, OATM-BR-274, OATM-BR-275, OATM-BR-276, OATM-BR-277, OATM-BR-278, OATM-BR-279, OATM-BR-280, OATM-BR-281, OATM-BR-282, OATM-BR-283, OATM-BR-284, OATM-BR-285, OATM-BR-287, OATM-BR-288, OATM-BR-289, OATM-BR-290, OATM-BR-291, OATM-BR-292_
   - _After: OATM-C32-T1_
 - [ ] OATM-C32-T3 [api] Build the services behind the screens
-  - OATM-BR-286: Parse the validated amount text into an exact decimal with two places (never floating point). Echo it back to the user in the canonical form +99999999.99, and store exactly that decimal value as the transaction amount when the transaction is added.
+  - OATM-BR-286: Parse the accepted amount text into an exact signed decimal with two decimal places (no floating point), echo it back formatted as +99999999.99, and use that same parsed value as the stored transaction amount.
   - _Requirements: OATM-REQ-F-270_
   - _Rules: OATM-BR-286_
   - _After: OATM-C32-T1, OATM-C32-T2_
 - [ ] OATM-C32-T4 [ui-modernization] Build the screen Add transaction (S-TRANSACTION-ADD)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-ADD.
-  - form "New transaction"
-  - select "Transaction type": Required: 'Type CD can NOT be empty...'; numeric code: 'Type CD must be Numeric...'.
-  - select "Category": Required: 'Category CD can NOT be empty...'; numeric code: 'Category CD must be Numeric...'.
-  - text "Source": Required: 'Source can NOT be empty...'.
-  - text "Description": Required: 'Description can NOT be empty...'.
-  - money "Amount": Required: 'Amount can NOT be empty...'; format: 'Amount should be in format -99999999.99'.
-  - date "Original date": Required: 'Orig Date can NOT be empty...'; format: 'Orig Date should be in format YYYY-MM-DD'; real date: 'Orig Date - Not a valid date...'.
-  - date "Processed date": Required: 'Proc Date can NOT be empty...'; format: 'Proc Date should be in format YYYY-MM-DD'; real date: 'Proc Date - Not a valid date...'.
-  - text "Merchant ID": Required: 'Merchant ID can NOT be empty...'; 9 digits: 'Merchant ID must be Numeric...'.
-  - text "Merchant name": Required: 'Merchant Name can NOT be empty...'.
-  - text "Merchant city": Required: 'Merchant City can NOT be empty...'.
-  - text "Merchant ZIP": Required: 'Merchant Zip can NOT be empty...'.
-  - _Requirements: OATM-REQ-F-254, OATM-REQ-F-255, OATM-REQ-F-256, OATM-REQ-F-257, OATM-REQ-F-258, OATM-REQ-F-259, OATM-REQ-F-260, OATM-REQ-F-261, OATM-REQ-F-262, OATM-REQ-F-263, OATM-REQ-F-264, OATM-REQ-F-265, OATM-REQ-F-267, OATM-REQ-F-268, OATM-REQ-F-269, OATM-REQ-F-270, OATM-REQ-F-271, OATM-REQ-F-272, OATM-REQ-F-273, OATM-REQ-F-274, OATM-REQ-F-275, OATM-REQ-F-276_
-  - _Rules: OATM-BR-270, OATM-BR-271, OATM-BR-272, OATM-BR-273, OATM-BR-274, OATM-BR-275, OATM-BR-276, OATM-BR-277, OATM-BR-278, OATM-BR-279, OATM-BR-280, OATM-BR-281, OATM-BR-283, OATM-BR-284, OATM-BR-285, OATM-BR-286, OATM-BR-287, OATM-BR-288, OATM-BR-289, OATM-BR-290, OATM-BR-291, OATM-BR-292_
+  - **summary card** "Transaction details": Each is required, in the rule's words: 'Type CD can NOT be empty...', 'Category CD can NOT be empty...', 'Source can NOT be empty...', 'Description can NOT be empty...', 'Amount can NOT be empty...', 'Orig Date can NOT be empty...', 'Proc Date can NOT be empty...'. 'Type CD must be Numeric...', 'Category CD must be Numeric...'. 'Amount should be in format -99999999.99'. 'Orig Date should be in format YYYY-MM-DD', 'Proc Date should be in format YYYY-MM-DD', and 'Orig Date - Not a valid date...' / 'Proc Date - Not a valid date...' for a date not on the calendar. Every failing field shows its message under it.
+  - **summary card** "Merchant": 'Merchant ID can NOT be empty...', 'Merchant Name can NOT be empty...', 'Merchant City can NOT be empty...', 'Merchant Zip can NOT be empty...'; 'Merchant ID must be Numeric...'.
+  - _Requirements: OATM-REQ-F-253, OATM-REQ-F-254, OATM-REQ-F-255, OATM-REQ-F-256, OATM-REQ-F-257, OATM-REQ-F-258, OATM-REQ-F-259, OATM-REQ-F-260, OATM-REQ-F-261, OATM-REQ-F-262, OATM-REQ-F-263, OATM-REQ-F-264, OATM-REQ-F-265, OATM-REQ-F-266, OATM-REQ-F-267, OATM-REQ-F-268, OATM-REQ-F-269, OATM-REQ-F-270, OATM-REQ-F-271, OATM-REQ-F-272, OATM-REQ-F-273, OATM-REQ-F-274, OATM-REQ-F-275, OATM-REQ-F-276_
+  - _Rules: OATM-BR-269, OATM-BR-270, OATM-BR-271, OATM-BR-272, OATM-BR-273, OATM-BR-274, OATM-BR-275, OATM-BR-276, OATM-BR-277, OATM-BR-278, OATM-BR-279, OATM-BR-280, OATM-BR-281, OATM-BR-282, OATM-BR-283, OATM-BR-284, OATM-BR-285, OATM-BR-286, OATM-BR-287, OATM-BR-288, OATM-BR-289, OATM-BR-290, OATM-BR-291, OATM-BR-292_
   - _After: OATM-C32-T2, OATM-C32-T3_
 - [ ] OATM-C32-T5 [test-generation] Write a test for every acceptance criterion
   - 30 acceptance criteria, each a test named by its ID.
@@ -1834,10 +1792,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C33-T1_
 - [ ] OATM-C33-T4 [ui-modernization] Build the screen Add transaction (S-TRANSACTION-ADD)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-ADD.
-  - dialog "Add this transaction?"
-  - message "Result"
-  - _Requirements: OATM-REQ-F-277, OATM-REQ-F-278, OATM-REQ-F-282, OATM-REQ-F-283_
-  - _Rules: OATM-BR-293, OATM-BR-294, OATM-BR-298, OATM-BR-299_
+  - **primary button** "Add transaction": The dialog offers only Add or Cancel, replacing the typed confirmation and its messages 'Confirm to add this transaction...' and 'Invalid value. Valid values are (Y/N)...'. If the ID already exists: 'Tran ID already exist...'; other failures: 'Unable to Add Transaction...'.
+  - _Requirements: OATM-REQ-F-277, OATM-REQ-F-278, OATM-REQ-F-279, OATM-REQ-F-280, OATM-REQ-F-281, OATM-REQ-F-282, OATM-REQ-F-283, OATM-REQ-N-015_
+  - _Rules: OATM-BR-293, OATM-BR-294, OATM-BR-295, OATM-BR-296, OATM-BR-297, OATM-BR-298, OATM-BR-299, OATM-BR-300_
   - _After: OATM-C33-T2, OATM-C33-T3_
 - [ ] OATM-C33-T5 [test-generation] Write a test for every acceptance criterion
   - 9 acceptance criteria, each a test named by its ID.
@@ -1862,7 +1819,7 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: OATM-C34-T1_
 - [ ] OATM-C34-T3 [ui-modernization] Build the screen Add transaction (S-TRANSACTION-ADD)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-ADD.
-  - dialog "Add this transaction?"
+  - **primary button** "Add transaction": The dialog offers only Add or Cancel, replacing the typed confirmation and its messages 'Confirm to add this transaction...' and 'Invalid value. Valid values are (Y/N)...'. If the ID already exists: 'Tran ID already exist...'; other failures: 'Unable to Add Transaction...'.
   - _Requirements: OATM-REQ-F-284, OATM-REQ-F-285_
   - _Rules: OATM-BR-301, OATM-BR-302_
   - _After: OATM-C34-T2_
@@ -1879,8 +1836,8 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: OATM-REQ-F-288, OATM-REQ-F-289, OATM-REQ-F-290, OATM-REQ-F-291, OATM-REQ-F-292, OATM-REQ-F-293, OATM-REQ-F-294, OATM-REQ-F-295, OATM-REQ-F-296, OATM-REQ-F-297, OATM-REQ-F-298_
   - _Rules: OATM-BR-305, OATM-BR-306, OATM-BR-307, OATM-BR-308, OATM-BR-309, OATM-BR-310, OATM-BR-311, OATM-BR-312, OATM-BR-313, OATM-BR-314, OATM-BR-315_
 - [ ] OATM-C35-T2 [api] Build the service
-  - OATM-BR-303: Provide a reusable date-validation function that takes a date string and a format pattern and returns a structured result: a 4-digit severity, a 4-digit message number and a reason. Implement it with the platform's standard strict date parsing, which rejects impossible dates. Map outcomes to the legacy message numbers (2507, 2508, 2509, 2513, 2517, 2518, 2521) where callers depend on them, for example the 2513 exception.
-  - OATM-BR-304: Return the result as a structured value (severity, message number, result text, tested date, mask used) with severity as the outcome code. Keep a formatter that renders the legacy 80-character text ('Mesg Code:', 'TstDate:', 'Mask used:') only if a consumer still needs that exact layout.
+  - OATM-BR-303: Expose date validation as one shared function or service that takes a date string and a format mask and returns a structured result (severity, message code, reason). Implement it with the platform's standard date-parsing library instead of the mainframe date service, and keep the legacy severity/message codes (0000, 2508, 2513 and so on) only as far as callers need them to tell valid from invalid.
+  - OATM-BR-304: Callers need a result they can test: a severity/status, a message code, the reason text, and the tested date and mask for diagnostics. A typed result object replaces the fixed 80-character string and the program return code. Keep the layout only if a remaining legacy consumer still reads it.
   - _Requirements: OATM-REQ-F-286, OATM-REQ-F-287_
   - _Rules: OATM-BR-303, OATM-BR-304_
   - _After: OATM-C35-T1_
@@ -1907,43 +1864,34 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CCLDV-BR-001, CCLDV-BR-010, CCLDV-BR-019, CCLDV-BR-020, CCLDV-BR-021_
   - _After: CCLDV-C01-T1_
 - [ ] CCLDV-C01-T4 [api] Build the services behind the screens
-  - CCLDV-BR-002: Arriving at the list from the menu or back from card detail or card update starts a fresh browse: the stored first and last card positions are cleared, the page is set to 1, the 'last page shown' marker is cleared, and nothing left in the form from before is read as input.
-  - CCLDV-BR-017: The browse state kept between requests must hold the first card of each page shown, so that after paging back the next-page marker is 'Y' and a forward page returns to exactly the page the user left. A keyset or cursor over card number is enough; no offset counting is needed.
-  - CCLDV-BR-018: The per-user browse state carries a 'last page already shown' marker that is cleared on every action except page-forward. It is what tells the first page-forward on the last page apart from a repeated one.
+  - CCLDV-BR-002: When the list is opened fresh (from the main menu, or on return from card detail or card update), start a new list session: no saved first or last card positions, page number 1, last-page-shown false. Ignore any form or filter input sent with that request.
+  - CCLDV-BR-017: When paging back, set the session's 'has next page' to true and save the first card number of the page being left as the start of the next page, so the next forward page request goes back to exactly that page.
+  - CCLDV-BR-018: Keep a 'last page already shown' flag in the list session. Clear it on every user action except next page, so that only two next-page requests in a row on the last page lead to the 'no more pages' message.
   - _Requirements: CCLDV-REQ-F-002, CCLDV-REQ-F-015, CCLDV-REQ-F-016_
   - _Rules: CCLDV-BR-002, CCLDV-BR-017, CCLDV-BR-018_
   - _After: CCLDV-C01-T1, CCLDV-C01-T2, CCLDV-C01-T3_
 - [ ] CCLDV-C01-T5 [ui-modernization] Build the screen Cards (S-CARD-LIST)
   - To the prototype: ui-reference/index.html#/S-CARD-LIST.
-  - button "Apply filters"
-  - button "Clear filters"
-  - message "Problems with the filters"
-  - table "Cards"
-  - message "No cards found"
-  - _Requirements: CCLDV-REQ-F-001, CCLDV-REQ-F-003, CCLDV-REQ-F-004, CCLDV-REQ-F-005, CCLDV-REQ-F-006, CCLDV-REQ-F-007, CCLDV-REQ-F-008, CCLDV-REQ-F-009, CCLDV-REQ-F-010, CCLDV-REQ-F-011, CCLDV-REQ-F-012, CCLDV-REQ-F-013, CCLDV-REQ-F-014, CCLDV-REQ-F-015, CCLDV-REQ-F-016, CCLDV-REQ-F-017, CCLDV-REQ-F-018, CCLDV-REQ-F-019_
-  - _Rules: CCLDV-BR-001, CCLDV-BR-003, CCLDV-BR-004, CCLDV-BR-005, CCLDV-BR-006, CCLDV-BR-007, CCLDV-BR-008, CCLDV-BR-009, CCLDV-BR-010, CCLDV-BR-011, CCLDV-BR-012, CCLDV-BR-013, CCLDV-BR-014, CCLDV-BR-015, CCLDV-BR-016, CCLDV-BR-017, CCLDV-BR-018, CCLDV-BR-019, CCLDV-BR-020, CCLDV-BR-021_
+  - **data table** "Cards found": Each row is its own link and only one opens at a time, so no selection code is typed and 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' and 'INVALID ACTION CODE' cannot occur
+  - **status badge** "Card status"
+  - _Requirements: CCLDV-REQ-F-001, CCLDV-REQ-F-004, CCLDV-REQ-F-009_
+  - _Rules: CCLDV-BR-001, CCLDV-BR-004, CCLDV-BR-010_
   - _After: CCLDV-C01-T2, CCLDV-C01-T3, CCLDV-C01-T4_
-- [ ] CCLDV-C01-T6 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
-  - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - link "Back to cards"
-  - _Requirements: CCLDV-REQ-F-003, CCLDV-REQ-F-020_
-  - _Rules: CCLDV-BR-003, CCLDV-BR-022_
-  - _After: CCLDV-C01-T2, CCLDV-C01-T3, CCLDV-C01-T4_
-- [ ] CCLDV-C01-T7 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+- [ ] CCLDV-C01-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - link "Cards"
-  - _Requirements: CCLDV-REQ-F-001, CCLDV-REQ-F-002_
-  - _Rules: CCLDV-BR-001, CCLDV-BR-002_
+  - **data table** "Cards"
+  - _Requirements: CCLDV-REQ-F-020_
+  - _Rules: CCLDV-BR-022_
   - _After: CCLDV-C01-T2, CCLDV-C01-T3, CCLDV-C01-T4_
-- [ ] CCLDV-C01-T8 [test-generation] Write a test for every acceptance criterion
+- [ ] CCLDV-C01-T7 [test-generation] Write a test for every acceptance criterion
   - 28 acceptance criteria, each a test named by its ID.
   - _Requirements: CCLDV-REQ-F-001, CCLDV-REQ-F-002, CCLDV-REQ-F-003, CCLDV-REQ-F-004, CCLDV-REQ-F-005, CCLDV-REQ-F-006, CCLDV-REQ-F-007, CCLDV-REQ-F-008, CCLDV-REQ-F-009, CCLDV-REQ-F-010, CCLDV-REQ-F-011, CCLDV-REQ-F-012, CCLDV-REQ-F-013, CCLDV-REQ-F-014, CCLDV-REQ-F-015, CCLDV-REQ-F-016, CCLDV-REQ-F-017, CCLDV-REQ-F-018, CCLDV-REQ-F-019, CCLDV-REQ-F-020_
   - _Criteria: CCLDV-C01-AC-01, CCLDV-C01-AC-02, CCLDV-C01-AC-03, CCLDV-C01-AC-04, CCLDV-C01-AC-05, CCLDV-C01-AC-06, CCLDV-C01-AC-07, CCLDV-C01-AC-08, CCLDV-C01-AC-09, CCLDV-C01-AC-10, CCLDV-C01-AC-11, CCLDV-C01-AC-12, CCLDV-C01-AC-13, CCLDV-C01-AC-14, CCLDV-C01-AC-15, CCLDV-C01-AC-16, CCLDV-C01-AC-17, CCLDV-C01-AC-18, CCLDV-C01-AC-19, CCLDV-C01-AC-20, CCLDV-C01-AC-21, CCLDV-C01-AC-22, CCLDV-C01-AC-23, CCLDV-C01-AC-24, CCLDV-C01-AC-25, CCLDV-C01-AC-26, CCLDV-C01-AC-27, CCLDV-C01-AC-28_
-  - _After: CCLDV-C01-T1, CCLDV-C01-T2, CCLDV-C01-T3, CCLDV-C01-T4, CCLDV-C01-T5, CCLDV-C01-T6, CCLDV-C01-T7_
-- [ ] CCLDV-C01-T9 [compliance] Review the handling of card data
+  - _After: CCLDV-C01-T1, CCLDV-C01-T2, CCLDV-C01-T3, CCLDV-C01-T4, CCLDV-C01-T5, CCLDV-C01-T6_
+- [ ] CCLDV-C01-T8 [compliance] Review the handling of card data
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: CCLDV-REQ-F-001, CCLDV-REQ-F-002, CCLDV-REQ-F-003, CCLDV-REQ-F-004, CCLDV-REQ-F-005, CCLDV-REQ-F-006, CCLDV-REQ-F-007, CCLDV-REQ-F-008, CCLDV-REQ-F-009, CCLDV-REQ-F-010, CCLDV-REQ-F-011, CCLDV-REQ-F-012, CCLDV-REQ-F-013, CCLDV-REQ-F-014, CCLDV-REQ-F-015, CCLDV-REQ-F-016, CCLDV-REQ-F-017, CCLDV-REQ-F-018, CCLDV-REQ-F-019, CCLDV-REQ-F-020_
-  - _After: CCLDV-C01-T1, CCLDV-C01-T2, CCLDV-C01-T3, CCLDV-C01-T4, CCLDV-C01-T5, CCLDV-C01-T6, CCLDV-C01-T7_
+  - _After: CCLDV-C01-T1, CCLDV-C01-T2, CCLDV-C01-T3, CCLDV-C01-T4, CCLDV-C01-T5, CCLDV-C01-T6_
 
 ## CCLDV-C02 Filter the card list by account and card number (draft)
 
@@ -1963,12 +1911,10 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: CCLDV-C02-T1_
 - [ ] CCLDV-C02-T4 [ui-modernization] Build the screen Cards (S-CARD-LIST)
   - To the prototype: ui-reference/index.html#/S-CARD-LIST.
-  - form "Filter cards"
-  - text "Account number": If supplied, must be an 11-digit number; blank or all zeros means no account filter. Message: 'Account filter, if supplied, must be an 11-digit number.'
-  - text "Card number": If supplied, must be a 16-digit number; blank or all zeros means no card filter. Message: 'Card number filter, if supplied, must be a 16-digit number.'
-  - message "Problems with the filters"
-  - _Requirements: CCLDV-REQ-F-021, CCLDV-REQ-F-022, CCLDV-REQ-F-023, CCLDV-REQ-F-024, CCLDV-REQ-F-025, CCLDV-REQ-F-026, CCLDV-REQ-F-027_
-  - _Rules: CCLDV-BR-021, CCLDV-BR-023, CCLDV-BR-024, CCLDV-BR-025, CCLDV-BR-026, CCLDV-BR-027, CCLDV-BR-028_
+  - **lookup field** "Account number": Must be an 11-digit number if entered: 'Account filter, if supplied, must be an 11 digit number. Enter the 11 digits or leave it blank.'
+  - **lookup field** "Card number": Must be a 16-digit number if entered: 'Card ID filter, if supplied, must be a 16 digit number. Enter the 16 digits or leave it blank.'
+  - _Requirements: CCLDV-REQ-F-021, CCLDV-REQ-F-022, CCLDV-REQ-F-023, CCLDV-REQ-F-025, CCLDV-REQ-F-026_
+  - _Rules: CCLDV-BR-023, CCLDV-BR-024, CCLDV-BR-025, CCLDV-BR-026, CCLDV-BR-027_
   - _After: CCLDV-C02-T2, CCLDV-C02-T3_
 - [ ] CCLDV-C02-T5 [test-generation] Write a test for every acceptance criterion
   - 10 acceptance criteria, each a test named by its ID.
@@ -1998,11 +1944,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: CCLDV-C03-T1_
 - [ ] CCLDV-C03-T4 [ui-modernization] Build the screen Cards (S-CARD-LIST)
   - To the prototype: ui-reference/index.html#/S-CARD-LIST.
-  - message "Problems with the filters"
-  - button "View": Only one card can be opened at a time, so the legacy errors 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' and 'INVALID ACTION CODE' cannot occur.
-  - button "Edit"
-  - _Requirements: CCLDV-REQ-F-028, CCLDV-REQ-F-029, CCLDV-REQ-F-030, CCLDV-REQ-F-031, CCLDV-REQ-F-032, CCLDV-REQ-F-033_
-  - _Rules: CCLDV-BR-028, CCLDV-BR-029, CCLDV-BR-030, CCLDV-BR-031_
+  - **data table** "Cards found": Each row is its own link and only one opens at a time, so no selection code is typed and 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' and 'INVALID ACTION CODE' cannot occur
+  - _Requirements: CCLDV-REQ-F-028, CCLDV-REQ-F-029, CCLDV-REQ-F-032, CCLDV-REQ-F-033_
+  - _Rules: CCLDV-BR-029, CCLDV-BR-030, CCLDV-BR-031_
   - _After: CCLDV-C03-T2, CCLDV-C03-T3_
 - [ ] CCLDV-C03-T5 [test-generation] Write a test for every acceptance criterion
   - 7 acceptance criteria, each a test named by its ID.
@@ -2030,20 +1974,14 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: CCLDV-REQ-F-047, CCLDV-REQ-F-045, CCLDV-REQ-F-048, CCLDV-REQ-F-049, CCLDV-REQ-F-050, CCLDV-REQ-F-051, CCLDV-REQ-F-052, CCLDV-REQ-F-053_
   - _Rules: CCLDV-BR-044, CCLDV-BR-046, CCLDV-BR-047, CCLDV-BR-048, CCLDV-BR-049, CCLDV-BR-050, CCLDV-BR-051, CCLDV-BR-052_
   - _After: CCLDV-C04-T1_
-- [ ] CCLDV-C04-T4 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
+- [ ] CCLDV-C04-T4 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
   - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - form "Find a card"
-  - text "Account number": Required; must be an 11-digit number other than all zeros. Messages: 'Enter the account number.' (blank or zeros; legacy 'Account number not provided'), 'Account number must be an 11-digit number.' (not numeric). When both numbers are missing: 'Enter the account number and card number.' (legacy 'No input received'). Only the search fields are checked until a card is found.
-  - text "Card number": Required; must be a 16-digit number other than all zeros. Messages: 'Enter the card number.' (blank or zeros; legacy 'Card number not provided'), 'Card number must be a 16-digit number.' (not numeric)
-  - button "Find card"
-  - message "Card not found": Card number must exist on the card file: 'No card was found with this card number. Check the numbers and try again.' (legacy 'Did not find cards for this search condition')
-  - display "Account number"
-  - display "Card number"
-  - display "Name on card"
-  - display "Status"
-  - display "Expiry date"
-  - _Requirements: CCLDV-REQ-F-034, CCLDV-REQ-F-035, CCLDV-REQ-F-036, CCLDV-REQ-F-037, CCLDV-REQ-F-038, CCLDV-REQ-F-039, CCLDV-REQ-F-040, CCLDV-REQ-F-041, CCLDV-REQ-F-042, CCLDV-REQ-F-043, CCLDV-REQ-F-044, CCLDV-REQ-F-045, CCLDV-REQ-F-046, CCLDV-REQ-F-047, CCLDV-REQ-F-048, CCLDV-REQ-F-049, CCLDV-REQ-F-050, CCLDV-REQ-F-051, CCLDV-REQ-F-052, CCLDV-REQ-F-053_
-  - _Rules: CCLDV-BR-032, CCLDV-BR-033, CCLDV-BR-034, CCLDV-BR-035, CCLDV-BR-036, CCLDV-BR-037, CCLDV-BR-038, CCLDV-BR-039, CCLDV-BR-040, CCLDV-BR-041, CCLDV-BR-042, CCLDV-BR-043, CCLDV-BR-044, CCLDV-BR-045, CCLDV-BR-046, CCLDV-BR-047, CCLDV-BR-048, CCLDV-BR-049, CCLDV-BR-050, CCLDV-BR-051, CCLDV-BR-052_
+  - **lookup field** "Account number": Required, an 11-digit number other than zeros: 'Account number not provided. Enter the 11-digit account number.' or 'Account filter, if supplied, must be an 11 digit number. Enter digits only.' Both fields empty: 'No input received. Enter the account and card number.' Account is checked before card, and focus moves to the first field in error.
+  - **lookup field** "Card number": Required, a 16-digit number other than zeros: 'Card number not provided. Enter the 16-digit card number.' or 'Card ID filter, if supplied, must be a 16 digit number. Enter digits only.' No card with that number: 'Did not find cards for this search condition. Check the card number.'
+  - **summary card** "Card"
+  - **status badge** "Current status"
+  - _Requirements: CCLDV-REQ-F-044, CCLDV-REQ-F-045, CCLDV-REQ-F-046, CCLDV-REQ-F-047, CCLDV-REQ-F-051, CCLDV-REQ-F-053_
+  - _Rules: CCLDV-BR-043, CCLDV-BR-044, CCLDV-BR-045, CCLDV-BR-046, CCLDV-BR-050, CCLDV-BR-052_
   - _After: CCLDV-C04-T2, CCLDV-C04-T3_
 - [ ] CCLDV-C04-T5 [test-generation] Write a test for every acceptance criterion
   - 33 acceptance criteria, each a test named by its ID.
@@ -2072,34 +2010,27 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CCLDV-BR-054, CCLDV-BR-055_
   - _After: CCLDV-C05-T1_
 - [ ] CCLDV-C05-T4 [api] Build the services behind the screens
-  - CCLDV-BR-053: When the card detail screen is opened with no session state, or opened fresh from the main menu, the user's navigation and selection state (selected account and card, previous screen) is cleared before anything else happens.
-  - CCLDV-BR-057: The card detail screen is a stateful form: every response must keep the session state so that the user's next submit is handled as a continuation of the same screen, not a new entry. In a web app this is a normal form post back to the same route, with the session state held on the server.
-  - CCLDV-BR-059: On exit the shared navigation state handed to the next screen records card detail as the screen that sent the user, the user type as regular user ('U'), and that the destination should treat this as a first entry, so it starts clean and does not re-process this screen's input.
+  - CCLDV-BR-053: When card detail opens with no navigation context, or opens fresh from the main menu, clear the whole shared navigation/session context (selected account, card, caller and last screen) before doing anything else.
+  - CCLDV-BR-057: Card detail is a stateful page. Every response it sends keeps the user in the card detail conversation, so the next submit from that page comes back to the card detail handler as a continuation of the same search, not as a fresh entry.
+  - CCLDV-BR-059: On leaving card detail, update the shared navigation context: sender = card detail, user type = regular user ('U'), last screen = card detail, and mark the next screen's entry as a first entry so it starts fresh.
   - _Requirements: CCLDV-REQ-F-054, CCLDV-REQ-N-001, CCLDV-REQ-F-058_
   - _Rules: CCLDV-BR-053, CCLDV-BR-057, CCLDV-BR-059_
   - _After: CCLDV-C05-T1, CCLDV-C05-T2, CCLDV-C05-T3_
-- [ ] CCLDV-C05-T5 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
-  - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - link "Back to cards"
-  - form "Find a card"
-  - _Requirements: CCLDV-REQ-F-054, CCLDV-REQ-F-055, CCLDV-REQ-F-056, CCLDV-REQ-N-001, CCLDV-REQ-F-057, CCLDV-REQ-F-058_
-  - _Rules: CCLDV-BR-053, CCLDV-BR-054, CCLDV-BR-055, CCLDV-BR-056, CCLDV-BR-057, CCLDV-BR-058, CCLDV-BR-059_
-  - _After: CCLDV-C05-T2, CCLDV-C05-T3, CCLDV-C05-T4_
-- [ ] CCLDV-C05-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+- [ ] CCLDV-C05-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - link "Find a card by number"
-  - _Requirements: CCLDV-REQ-F-054, CCLDV-REQ-F-055_
-  - _Rules: CCLDV-BR-053, CCLDV-BR-054, CCLDV-BR-055_
+  - **data table** "Cards"
+  - _Requirements: CCLDV-REQ-F-057_
+  - _Rules: CCLDV-BR-058_
   - _After: CCLDV-C05-T2, CCLDV-C05-T3, CCLDV-C05-T4_
-- [ ] CCLDV-C05-T7 [test-generation] Write a test for every acceptance criterion
+- [ ] CCLDV-C05-T6 [test-generation] Write a test for every acceptance criterion
   - 8 acceptance criteria, each a test named by its ID.
   - _Requirements: CCLDV-REQ-F-054, CCLDV-REQ-F-055, CCLDV-REQ-F-056, CCLDV-REQ-N-001, CCLDV-REQ-F-057, CCLDV-REQ-F-058_
   - _Criteria: CCLDV-C05-AC-01, CCLDV-C05-AC-02, CCLDV-C05-AC-03, CCLDV-C05-AC-04, CCLDV-C05-AC-05, CCLDV-C05-AC-06, CCLDV-C05-AC-07, CCLDV-C05-AC-08_
-  - _After: CCLDV-C05-T1, CCLDV-C05-T2, CCLDV-C05-T3, CCLDV-C05-T4, CCLDV-C05-T5, CCLDV-C05-T6_
-- [ ] CCLDV-C05-T8 [compliance] Review the handling of card data
+  - _After: CCLDV-C05-T1, CCLDV-C05-T2, CCLDV-C05-T3, CCLDV-C05-T4, CCLDV-C05-T5_
+- [ ] CCLDV-C05-T7 [compliance] Review the handling of card data
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: CCLDV-REQ-F-054, CCLDV-REQ-F-055, CCLDV-REQ-F-056, CCLDV-REQ-N-001, CCLDV-REQ-F-057, CCLDV-REQ-F-058_
-  - _After: CCLDV-C05-T1, CCLDV-C05-T2, CCLDV-C05-T3, CCLDV-C05-T4, CCLDV-C05-T5, CCLDV-C05-T6_
+  - _After: CCLDV-C05-T1, CCLDV-C05-T2, CCLDV-C05-T3, CCLDV-C05-T4, CCLDV-C05-T5_
 
 ## CCLDV-C06 Detect unchanged card details on update (draft)
 
@@ -2112,9 +2043,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: CCLDV-REQ-F-059, CCLDV-REQ-F-060_
   - _Rules: CCLDV-BR-060_
   - _After: CCLDV-C06-T1_
-- [ ] CCLDV-C06-T3 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
+- [ ] CCLDV-C06-T3 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
   - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - form "Edit card": Something must change (ignoring upper/lower case): 'No changes to save. The details match the stored values.' (legacy 'No change detected with respect to values fetched.') Errors are reported in the order name, status, expiry month, expiry year.
+  - **primary button** "Save card": Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year.
   - _Requirements: CCLDV-REQ-F-059, CCLDV-REQ-F-060_
   - _Rules: CCLDV-BR-060_
   - _After: CCLDV-C06-T2_
@@ -2145,42 +2076,29 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CCLDV-BR-061, CCLDV-BR-062, CCLDV-BR-063, CCLDV-BR-064, CCLDV-BR-065, CCLDV-BR-066, CCLDV-BR-080, CCLDV-BR-082, CCLDV-BR-083_
   - _After: CCLDV-C07-T1_
 - [ ] CCLDV-C07-T4 [api] Build the services behind the screens
-  - CCLDV-BR-067: The account number input treats '*' or blank as 'not supplied'. Any other value is used both as the account to search on and as the account carried forward with the edit. The new form should keep the two meanings separate in its model, even though one field fills both.
-  - CCLDV-BR-068: The card number input treats '*' or blank as 'not supplied'. Any other value is used both as the lookup key (a keyed lookup of the card by card number) and as the card number carried forward with the edit.
-  - CCLDV-BR-081: When the card is found, the server keeps a snapshot of the original values for the length of the edit: the embossed name in upper case, the expiry year, month and day split from the stored date (YYYY-MM-DD), the active status and the CVV code. This snapshot is the baseline for the 'no change' check and for spotting that someone else changed the card before the save (optimistic concurrency), so it must be held on the server and not trusted from the browser.
+  - CCLDV-BR-067: Normalise the account number input: '*' or blank means 'not supplied' (null). Any other value is used both as the account to search by and as the account number held for the update.
+  - CCLDV-BR-068: Normalise the card number input: '*' or blank means 'not supplied' (null). Any other value is used both as the card number to look up and as the card number held for the update.
+  - CCLDV-BR-081: When the card is loaded, keep a snapshot of the original values in the update session: embossed name in upper case, expiry year, month and day split from the stored expiry date (characters 1-4, 6-7 and 9-10), active status and CVV. Use this snapshot for no-change detection and to check at save time whether someone else has changed the card.
   - _Requirements: CCLDV-REQ-F-065, CCLDV-REQ-F-075_
   - _Rules: CCLDV-BR-067, CCLDV-BR-068, CCLDV-BR-081_
   - _After: CCLDV-C07-T1, CCLDV-C07-T2, CCLDV-C07-T3_
-- [ ] CCLDV-C07-T5 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
+- [ ] CCLDV-C07-T5 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
   - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - form "Find a card"
-  - text "Account number": Required; must be an 11-digit number other than all zeros. Messages: 'Enter the account number.' (blank or zeros; legacy 'Account number not provided'), 'Account number must be an 11-digit number.' (not numeric). When both numbers are missing: 'Enter the account number and card number.' (legacy 'No input received'). Only the search fields are checked until a card is found.
-  - text "Card number": Required; must be a 16-digit number other than all zeros. Messages: 'Enter the card number.' (blank or zeros; legacy 'Card number not provided'), 'Card number must be a 16-digit number.' (not numeric)
-  - button "Find card"
-  - message "Card not found": Card number must exist on the card file: 'No card was found with this card number. Check the numbers and try again.' (legacy 'Did not find cards for this search condition')
-  - display "Name on card"
-  - display "Status"
-  - display "Expiry date"
-  - button "Edit card"
-  - form "Edit card": Something must change (ignoring upper/lower case): 'No changes to save. The details match the stored values.' (legacy 'No change detected with respect to values fetched.') Errors are reported in the order name, status, expiry month, expiry year.
-  - _Requirements: CCLDV-REQ-F-061, CCLDV-REQ-F-062, CCLDV-REQ-F-063, CCLDV-REQ-F-064, CCLDV-REQ-F-065, CCLDV-REQ-F-066, CCLDV-REQ-F-067, CCLDV-REQ-F-068, CCLDV-REQ-F-069, CCLDV-REQ-F-070, CCLDV-REQ-F-071, CCLDV-REQ-F-072, CCLDV-REQ-F-073, CCLDV-REQ-F-074, CCLDV-REQ-F-075, CCLDV-REQ-F-076, CCLDV-REQ-F-077_
-  - _Rules: CCLDV-BR-061, CCLDV-BR-062, CCLDV-BR-063, CCLDV-BR-064, CCLDV-BR-065, CCLDV-BR-066, CCLDV-BR-067, CCLDV-BR-068, CCLDV-BR-069, CCLDV-BR-070, CCLDV-BR-071, CCLDV-BR-072, CCLDV-BR-073, CCLDV-BR-074, CCLDV-BR-075, CCLDV-BR-076, CCLDV-BR-077, CCLDV-BR-078, CCLDV-BR-079, CCLDV-BR-080, CCLDV-BR-081, CCLDV-BR-082, CCLDV-BR-083, CCLDV-BR-084_
+  - **lookup field** "Account number": Required, an 11-digit number other than zeros: 'Account number not provided. Enter the 11-digit account number.' or 'Account filter, if supplied, must be an 11 digit number. Enter digits only.' Both fields empty: 'No input received. Enter the account and card number.' Account is checked before card, and focus moves to the first field in error.
+  - **lookup field** "Card number": Required, a 16-digit number other than zeros: 'Card number not provided. Enter the 16-digit card number.' or 'Card ID filter, if supplied, must be a 16 digit number. Enter digits only.' No card with that number: 'Did not find cards for this search condition. Check the card number.'
+  - **summary card** "Card"
+  - _Requirements: CCLDV-REQ-F-064, CCLDV-REQ-F-073, CCLDV-REQ-F-077_
+  - _Rules: CCLDV-BR-066, CCLDV-BR-077, CCLDV-BR-079, CCLDV-BR-084_
   - _After: CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4_
-- [ ] CCLDV-C07-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
-  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - link "Find a card by number"
-  - _Requirements: CCLDV-REQ-F-061, CCLDV-REQ-F-062_
-  - _Rules: CCLDV-BR-061, CCLDV-BR-062, CCLDV-BR-063_
-  - _After: CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4_
-- [ ] CCLDV-C07-T7 [test-generation] Write a test for every acceptance criterion
+- [ ] CCLDV-C07-T6 [test-generation] Write a test for every acceptance criterion
   - 34 acceptance criteria, each a test named by its ID.
   - _Requirements: CCLDV-REQ-F-061, CCLDV-REQ-F-062, CCLDV-REQ-F-063, CCLDV-REQ-F-064, CCLDV-REQ-F-065, CCLDV-REQ-F-066, CCLDV-REQ-F-067, CCLDV-REQ-F-068, CCLDV-REQ-F-069, CCLDV-REQ-F-070, CCLDV-REQ-F-071, CCLDV-REQ-F-072, CCLDV-REQ-F-073, CCLDV-REQ-F-074, CCLDV-REQ-F-075, CCLDV-REQ-F-076, CCLDV-REQ-F-077_
   - _Criteria: CCLDV-C07-AC-01, CCLDV-C07-AC-02, CCLDV-C07-AC-03, CCLDV-C07-AC-04, CCLDV-C07-AC-05, CCLDV-C07-AC-06, CCLDV-C07-AC-07, CCLDV-C07-AC-08, CCLDV-C07-AC-09, CCLDV-C07-AC-10, CCLDV-C07-AC-11, CCLDV-C07-AC-12, CCLDV-C07-AC-13, CCLDV-C07-AC-14, CCLDV-C07-AC-15, CCLDV-C07-AC-16, CCLDV-C07-AC-17, CCLDV-C07-AC-18, CCLDV-C07-AC-19, CCLDV-C07-AC-20, CCLDV-C07-AC-21, CCLDV-C07-AC-22, CCLDV-C07-AC-23, CCLDV-C07-AC-24, CCLDV-C07-AC-25, CCLDV-C07-AC-26, CCLDV-C07-AC-27, CCLDV-C07-AC-28, CCLDV-C07-AC-29, CCLDV-C07-AC-30, CCLDV-C07-AC-31, CCLDV-C07-AC-32, CCLDV-C07-AC-33, CCLDV-C07-AC-34_
-  - _After: CCLDV-C07-T1, CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4, CCLDV-C07-T5, CCLDV-C07-T6_
-- [ ] CCLDV-C07-T8 [compliance] Review the handling of card data, personal data
+  - _After: CCLDV-C07-T1, CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4, CCLDV-C07-T5_
+- [ ] CCLDV-C07-T7 [compliance] Review the handling of card data, personal data
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: CCLDV-REQ-F-061, CCLDV-REQ-F-062, CCLDV-REQ-F-063, CCLDV-REQ-F-064, CCLDV-REQ-F-065, CCLDV-REQ-F-066, CCLDV-REQ-F-067, CCLDV-REQ-F-068, CCLDV-REQ-F-069, CCLDV-REQ-F-070, CCLDV-REQ-F-071, CCLDV-REQ-F-072, CCLDV-REQ-F-073, CCLDV-REQ-F-074, CCLDV-REQ-F-075, CCLDV-REQ-F-076, CCLDV-REQ-F-077_
-  - _After: CCLDV-C07-T1, CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4, CCLDV-C07-T5, CCLDV-C07-T6_
+  - _After: CCLDV-C07-T1, CCLDV-C07-T2, CCLDV-C07-T3, CCLDV-C07-T4, CCLDV-C07-T5_
 
 ## CCLDV-C08 Edit and validate card details (draft)
 
@@ -2199,28 +2117,24 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CCLDV-BR-101, CCLDV-BR-106_
   - _After: CCLDV-C08-T1_
 - [ ] CCLDV-C08-T4 [api] Build the services behind the screens
-  - CCLDV-BR-085: When the edit form is submitted, an embossed name, active status, expiry month or expiry year entered as '*' or left blank counts as 'not supplied', and any other entry is the proposed new value. Map this once in the form-to-model step so the checks only see a value or 'not supplied'.
-  - CCLDV-BR-086: An embossed name entered as '*' or left blank is read as 'not supplied'. Any other text is the proposed new name, which the name check then validates.
-  - CCLDV-BR-087: An active status entered as '*' or left blank is read as 'not supplied', so the status check reports it as missing rather than as an invalid value.
-  - CCLDV-BR-088: An expiry month or expiry year entered as '*' or left blank is read as 'not supplied'. Any other entry is the proposed new value, which the month and year range checks then validate.
-  - CCLDV-BR-089: The expiry day is not editable and is not given the '*' or blank treatment. The new application should carry the original expiry day through unchanged instead of reading it back from the form.
-  - CCLDV-BR-090: The expiry day saved with the card is the day held for the edit, unchanged, joined with the new year and month. Take it from the server-side original snapshot, not from a hidden form field, so it cannot be altered.
+  - CCLDV-BR-085: Normalise the editable card fields on submit: an embossed name, active status, expiry month or expiry year entered as '*' or left blank becomes 'not supplied' (null). Any other entry becomes the new value.
+  - CCLDV-BR-086: Embossed name input: '*' or blank becomes 'not supplied'. Otherwise the entered text is the new embossed name, passed to the name check.
+  - CCLDV-BR-087: Active status input: '*' or blank becomes 'not supplied', which the status check then rejects as not Y or N.
+  - CCLDV-BR-088: Expiry month and expiry year inputs: '*' or blank becomes 'not supplied'. Otherwise the entered value is the new month or year, passed to the range checks.
+  - CCLDV-BR-089: The expiry day is not normalised or validated. Carry it through exactly as the screen returns it. The screen shows the original expiry day, so in practice the stored day is kept.
+  - CCLDV-BR-090: When building the expiry date to save, use the expiry day as returned by the screen, unchanged, together with the validated new year and month.
   - _Requirements: CCLDV-REQ-F-078, CCLDV-REQ-F-079_
   - _Rules: CCLDV-BR-085, CCLDV-BR-086, CCLDV-BR-087, CCLDV-BR-088, CCLDV-BR-089, CCLDV-BR-090_
   - _After: CCLDV-C08-T1, CCLDV-C08-T2, CCLDV-C08-T3_
-- [ ] CCLDV-C08-T5 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
+- [ ] CCLDV-C08-T5 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
   - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - form "Edit card": Something must change (ignoring upper/lower case): 'No changes to save. The details match the stored values.' (legacy 'No change detected with respect to values fetched.') Errors are reported in the order name, status, expiry month, expiry year.
-  - text "Name on card": Required; letters and spaces only. Messages: 'Enter the name on the card.' (legacy 'Card name not provided'), 'Name on card can only contain letters and spaces.' (legacy 'Card name can only contain alphabets and spaces')
-  - radio "Status": One must be chosen: 'Choose whether the card is active or inactive.' (legacy 'Card Active Status must be Y or N')
-  - select "Expiry month": Required; 1 to 12. Message: 'Card expiry month must be between 1 and 12.'
-  - number "Expiry year": Required; 1950 to 2099. Message: 'Enter an expiry year between 1950 and 2099.' (legacy 'Invalid card expiry year')
-  - message "Fix the highlighted fields"
-  - button "Save changes"
-  - button "Discard changes"
-  - dialog "Save changes to this card?"
-  - _Requirements: CCLDV-REQ-F-078, CCLDV-REQ-F-079, CCLDV-REQ-F-080, CCLDV-REQ-F-081, CCLDV-REQ-F-082, CCLDV-REQ-F-083, CCLDV-REQ-F-084, CCLDV-REQ-F-085, CCLDV-REQ-F-086, CCLDV-REQ-F-087, CCLDV-REQ-F-088, CCLDV-REQ-F-089, CCLDV-REQ-F-090, CCLDV-REQ-F-091, CCLDV-REQ-F-092_
-  - _Rules: CCLDV-BR-085, CCLDV-BR-086, CCLDV-BR-087, CCLDV-BR-088, CCLDV-BR-089, CCLDV-BR-090, CCLDV-BR-091, CCLDV-BR-092, CCLDV-BR-093, CCLDV-BR-094, CCLDV-BR-095, CCLDV-BR-096, CCLDV-BR-097, CCLDV-BR-098, CCLDV-BR-099, CCLDV-BR-100, CCLDV-BR-101, CCLDV-BR-102, CCLDV-BR-103, CCLDV-BR-104, CCLDV-BR-105, CCLDV-BR-106_
+  - **summary card** "Name on card": Required, letters and spaces only: 'Card name not provided. Enter the name as it should appear on the card.' or 'Card name can only contain alphabets and spaces. Remove digits and symbols.'
+  - **summary card** "Card active": One must be chosen; 'Card Active Status must be Y or N' becomes 'Choose Active or Inactive.'
+  - **summary card** "Expiry month": 'Card expiry month must be between 1 and 12. Choose the month printed on the card.'
+  - **summary card** "Expiry year": 'Invalid card expiry year. Enter a year from 1950 to 2099.'
+  - **primary button** "Save card": Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year.
+  - _Requirements: CCLDV-REQ-F-079, CCLDV-REQ-F-080, CCLDV-REQ-F-082, CCLDV-REQ-F-083, CCLDV-REQ-F-084, CCLDV-REQ-F-085, CCLDV-REQ-F-086, CCLDV-REQ-F-088, CCLDV-REQ-F-090_
+  - _Rules: CCLDV-BR-089, CCLDV-BR-090, CCLDV-BR-091, CCLDV-BR-092, CCLDV-BR-093, CCLDV-BR-095, CCLDV-BR-096, CCLDV-BR-097, CCLDV-BR-098, CCLDV-BR-099, CCLDV-BR-100, CCLDV-BR-102, CCLDV-BR-104_
   - _After: CCLDV-C08-T2, CCLDV-C08-T3, CCLDV-C08-T4_
 - [ ] CCLDV-C08-T6 [test-generation] Write a test for every acceptance criterion
   - 33 acceptance criteria, each a test named by its ID.
@@ -2248,16 +2162,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: CCLDV-REQ-F-096, CCLDV-REQ-F-098_
   - _Rules: CCLDV-BR-111, CCLDV-BR-112, CCLDV-BR-113_
   - _After: CCLDV-C09-T1_
-- [ ] CCLDV-C09-T4 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
+- [ ] CCLDV-C09-T4 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
   - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - button "Edit card"
-  - form "Edit card": Something must change (ignoring upper/lower case): 'No changes to save. The details match the stored values.' (legacy 'No change detected with respect to values fetched.') Errors are reported in the order name, status, expiry month, expiry year.
-  - button "Save changes"
-  - button "Discard changes"
-  - dialog "Save changes to this card?"
-  - message "Save result"
-  - _Requirements: CCLDV-REQ-F-093, CCLDV-REQ-F-094, CCLDV-REQ-F-095, CCLDV-REQ-F-096, CCLDV-REQ-F-097, CCLDV-REQ-F-098, CCLDV-REQ-F-099_
-  - _Rules: CCLDV-BR-105, CCLDV-BR-107, CCLDV-BR-108, CCLDV-BR-109, CCLDV-BR-110, CCLDV-BR-111, CCLDV-BR-112, CCLDV-BR-113, CCLDV-BR-114, CCLDV-BR-115, CCLDV-BR-116_
+  - **primary button** "Save card": Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year.
+  - _Requirements: CCLDV-REQ-F-094, CCLDV-REQ-F-096, CCLDV-REQ-F-097, CCLDV-REQ-F-098, CCLDV-REQ-F-099_
+  - _Rules: CCLDV-BR-109, CCLDV-BR-111, CCLDV-BR-112, CCLDV-BR-113, CCLDV-BR-114, CCLDV-BR-115, CCLDV-BR-116_
   - _After: CCLDV-C09-T2, CCLDV-C09-T3_
 - [ ] CCLDV-C09-T5 [test-generation] Write a test for every acceptance criterion
   - 14 acceptance criteria, each a test named by its ID.
@@ -2281,17 +2190,16 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CCLDV-BR-117, CCLDV-BR-120_
   - _After: CCLDV-C10-T1_
 - [ ] CCLDV-C10-T3 [api] Build the services behind the screens
-  - CCLDV-BR-118: When leaving card update to go back to the card list, the selected account and card numbers are cleared from the shared navigation state, so the list does not reopen on, or reselect, the card just edited.
-  - CCLDV-BR-119: On exit the shared navigation state records card update as the screen that sent the user, sets the user type to regular user, and tells the destination to treat this as a first entry, so it starts clean.
+  - CCLDV-BR-118: When card update returns to the card list, clear the selected account and card numbers from the shared navigation context, so the list starts without a stale selection.
+  - CCLDV-BR-119: On leaving card update, update the shared navigation context: sender = card update, user type = regular user, and mark the next screen's entry as a first entry so it starts fresh.
   - _Requirements: CCLDV-REQ-F-101, CCLDV-REQ-F-102_
   - _Rules: CCLDV-BR-118, CCLDV-BR-119_
   - _After: CCLDV-C10-T1, CCLDV-C10-T2_
-- [ ] CCLDV-C10-T4 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
-  - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - link "Back to cards"
-  - message "Save result"
-  - _Requirements: CCLDV-REQ-F-100, CCLDV-REQ-F-101, CCLDV-REQ-F-102, CCLDV-REQ-F-103_
-  - _Rules: CCLDV-BR-117, CCLDV-BR-118, CCLDV-BR-119, CCLDV-BR-120_
+- [ ] CCLDV-C10-T4 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - **data table** "Cards"
+  - _Requirements: CCLDV-REQ-F-100_
+  - _Rules: CCLDV-BR-117_
   - _After: CCLDV-C10-T2, CCLDV-C10-T3_
 - [ ] CCLDV-C10-T5 [test-generation] Write a test for every acceptance criterion
   - 5 acceptance criteria, each a test named by its ID.
@@ -2319,12 +2227,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: CCLDV-REQ-F-105_
   - _Rules: CCLDV-BR-122_
   - _After: CCLDV-C11-T1_
-- [ ] CCLDV-C11-T4 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
+- [ ] CCLDV-C11-T4 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
   - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - dialog "Save changes to this card?"
-  - message "Save result"
-  - _Requirements: CCLDV-REQ-F-104, CCLDV-REQ-F-105_
-  - _Rules: CCLDV-BR-121, CCLDV-BR-122_
+  - **primary button** "Save card": Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year.
+  - _Requirements: CCLDV-REQ-F-104_
+  - _Rules: CCLDV-BR-121_
   - _After: CCLDV-C11-T2, CCLDV-C11-T3_
 - [ ] CCLDV-C11-T5 [test-generation] Write a test for every acceptance criterion
   - 2 acceptance criteria, each a test named by its ID.
@@ -2653,40 +2560,27 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: TTRDM-BR-014, TTRDM-BR-015, TTRDM-BR-016, TTRDM-BR-017, TTRDM-BR-018_
   - _After: TTRDM-C02-T1_
 - [ ] TTRDM-C02-T3 [api] Build the services behind the screens
-  - TTRDM-BR-015: The list keeps its filters, row selections and paging position in per-user session state. Navigating to the list from another screen (for example admin menu option 5) must reset that state and load the first page, so a fresh entry never shows an earlier visit's view.
-  - TTRDM-BR-016: Same entry behaviour as above, seen from the request side: a fresh entry is handled as a plain 'show list' request (the Enter action) with empty filters and page 1. A route or query parameter showing where the user came from is enough to tell a fresh entry from a submission of the list's own form.
-  - TTRDM-BR-017: Going back from the transaction type add/update screen must land on a freshly loaded first page of the list. It is not an exit from the list, so the back action from that screen goes to the list route with its state reset.
-  - TTRDM-BR-018: The add/update screen's back/exit action, when returning to the list, is treated as a 'show list' request on page 1. The list must not take it as its own exit and pass the user on to the admin menu.
-  - TTRDM-BR-019: Exit from the list commits any open unit of work and navigates back to the screen that opened it. Keep a 'return to' value in the session; when it is missing or points at the list itself, go to the admin menu.
-  - TTRDM-BR-020: When the list's own form is submitted, the server-side handler runs its checks in a fixed order: row actions first, then the description filter, then the type code filter, then whether any record matches the filters. Keep that order, because which message wins depends on it.
-  - TTRDM-BR-021: Page numbers start at 1. A freshly started list has page number 0 or none; set it to 1 when the first page of rows is loaded.
+  - TTRDM-BR-015: The list keeps per-user view state (filters, selected row, page number, first and last code on the page). When the user navigates to the list from any other screen, that state must be reset, not restored, and the first page loaded.
+  - TTRDM-BR-016: Opening the list from another screen is handled exactly like a plain refresh (Enter): clear filters and paging and load page 1 from the lowest type code. A route or entry parameter telling the list it was opened fresh is enough; no previous view state is carried over.
+  - TTRDM-BR-017: Coming back from the add/change transaction type screen via its Back/Exit action counts as a fresh entry to the list: the list must not interpret it as its own exit, and must load page 1 with no filters.
+  - TTRDM-BR-018: Same as returning from the add/change screen: the back navigation lands on a freshly reset list (page 1, no filters, no selection); any earlier list state is discarded rather than restored.
+  - TTRDM-BR-019: Exit from the list finishes any open unit of work (commit) and navigates back to the screen that opened it; if it was opened directly or there is no recorded caller other than itself, navigate to the admin menu. The navigation needs a recorded 'return to' target in the user's session.
+  - TTRDM-BR-020: When the list form is submitted, the server reads the submitted form and validates in a fixed order: row actions, then the description filter, then the type code filter, then a count of records matching the filters. Keep this order, since it decides which error message the user sees first.
+  - TTRDM-BR-021: Page numbers start at 1: when the first page is loaded on a fresh start, the page number in the view state is set to 1, not left at 0.
   - _Requirements: TTRDM-REQ-F-014, TTRDM-REQ-F-015, TTRDM-REQ-F-016_
   - _Rules: TTRDM-BR-019, TTRDM-BR-020, TTRDM-BR-021_
   - _After: TTRDM-C02-T1, TTRDM-C02-T2_
-- [ ] TTRDM-C02-T4 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
-  - form "Filter transaction types"
-  - table "Transaction types"
-  - _Requirements: TTRDM-REQ-F-012, TTRDM-REQ-F-015, TTRDM-REQ-F-016_
-  - _Rules: TTRDM-BR-014, TTRDM-BR-015, TTRDM-BR-016, TTRDM-BR-020, TTRDM-BR-021_
-  - _After: TTRDM-C02-T2, TTRDM-C02-T3_
-- [ ] TTRDM-C02-T5 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - link "Back to transaction types"
-  - _Requirements: TTRDM-REQ-F-013, TTRDM-REQ-F-014_
-  - _Rules: TTRDM-BR-014, TTRDM-BR-017, TTRDM-BR-018, TTRDM-BR-019_
-  - _After: TTRDM-C02-T2, TTRDM-C02-T3_
-- [ ] TTRDM-C02-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+- [ ] TTRDM-C02-T4 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - link "Transaction types"
-  - _Requirements: TTRDM-REQ-F-012_
-  - _Rules: TTRDM-BR-014, TTRDM-BR-015, TTRDM-BR-016_
+  - **data table** "Transaction types"
+  - _Requirements: TTRDM-REQ-F-014_
+  - _Rules: TTRDM-BR-019_
   - _After: TTRDM-C02-T2, TTRDM-C02-T3_
-- [ ] TTRDM-C02-T7 [test-generation] Write a test for every acceptance criterion
+- [ ] TTRDM-C02-T5 [test-generation] Write a test for every acceptance criterion
   - 11 acceptance criteria, each a test named by its ID.
   - _Requirements: TTRDM-REQ-F-012, TTRDM-REQ-F-013, TTRDM-REQ-F-014, TTRDM-REQ-F-015, TTRDM-REQ-F-016_
   - _Criteria: TTRDM-C02-AC-01, TTRDM-C02-AC-02, TTRDM-C02-AC-03, TTRDM-C02-AC-04, TTRDM-C02-AC-05, TTRDM-C02-AC-06, TTRDM-C02-AC-07, TTRDM-C02-AC-08, TTRDM-C02-AC-09, TTRDM-C02-AC-10, TTRDM-C02-AC-11_
-  - _After: TTRDM-C02-T1, TTRDM-C02-T2, TTRDM-C02-T3, TTRDM-C02-T4, TTRDM-C02-T5, TTRDM-C02-T6_
+  - _After: TTRDM-C02-T1, TTRDM-C02-T2, TTRDM-C02-T3, TTRDM-C02-T4_
 
 ## TTRDM-C03 Page through transaction types (draft)
 
@@ -2705,10 +2599,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: TTRDM-C03-T1_
 - [ ] TTRDM-C03-T4 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
-  - button "Apply filters"
-  - table "Transaction types"
-  - _Requirements: TTRDM-REQ-F-017, TTRDM-REQ-F-018, TTRDM-REQ-F-019, TTRDM-REQ-F-020, TTRDM-REQ-F-021, TTRDM-REQ-F-022, TTRDM-REQ-F-023, TTRDM-REQ-F-024, TTRDM-REQ-F-025, TTRDM-REQ-F-026, TTRDM-REQ-F-027, TTRDM-REQ-F-028, TTRDM-REQ-F-029, TTRDM-REQ-F-030, TTRDM-REQ-F-031_
-  - _Rules: TTRDM-BR-022, TTRDM-BR-023, TTRDM-BR-024, TTRDM-BR-025, TTRDM-BR-026, TTRDM-BR-027, TTRDM-BR-028, TTRDM-BR-029, TTRDM-BR-030, TTRDM-BR-031, TTRDM-BR-032, TTRDM-BR-033, TTRDM-BR-034, TTRDM-BR-035, TTRDM-BR-036, TTRDM-BR-037_
+  - **data table** "Transaction types": In-place description: 'Transaction Desc must be supplied. Enter a description.' or 'Transaction Desc can have numbers or alphabets only. Remove other characters.'; unchanged: 'No change detected with respect to values fetched.' Row actions replace action codes, so 'Action code selected is invalid' and 'Please select only 1 action' cannot occur. If a filter or the row changes while a dialog is open, the dialog closes and nothing changes.
+  - _Requirements: TTRDM-REQ-F-017_
+  - _Rules: TTRDM-BR-022_
   - _After: TTRDM-C03-T2, TTRDM-C03-T3_
 - [ ] TTRDM-C03-T5 [test-generation] Write a test for every acceptance criterion
   - 21 acceptance criteria, each a test named by its ID.
@@ -2732,20 +2625,17 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: TTRDM-BR-047_
   - _After: TTRDM-C04-T1_
 - [ ] TTRDM-C04-T4 [api] Build the services behind the screens
-  - TTRDM-BR-042: Keep the last-used type code filter in session state. When the submitted filter differs from it, save the new value, reset paging to the first page, and set a 'filter changed' flag. With that flag set, a pending F10 confirmation is ignored and handled as a plain refresh.
-  - TTRDM-BR-043: When the submitted type code filter equals the saved one, or both are empty, keep the current page position and clear the 'filter changed' flag.
+  - TTRDM-BR-042: The view state keeps the type code filter used for the last page shown. When the submitted filter differs, reset paging to page 1, store the new filter and mark it changed; a pending update/delete confirmation must then be treated as a plain refresh, not applied.
+  - TTRDM-BR-043: When the submitted type code filter equals the stored one (two empty values count as equal), keep the current page and mark the filter unchanged, so a pending confirmation can still proceed.
   - _Requirements: TTRDM-REQ-F-035, TTRDM-REQ-F-036_
   - _Rules: TTRDM-BR-042, TTRDM-BR-043_
   - _After: TTRDM-C04-T1, TTRDM-C04-T2, TTRDM-C04-T3_
 - [ ] TTRDM-C04-T5 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
-  - form "Filter transaction types"
-  - text "Type code": If supplied, must be a 2-digit number; blank or 00 means no type filter. Message: 'Type code filter, if supplied, must be a 2-digit number.'
-  - search "Description contains"
-  - button "Clear filters"
-  - message "No matching transaction types": Supplied filters must match at least one type: 'No transaction types match these filters.' (legacy 'No Records found for these filter conditions')
-  - _Requirements: TTRDM-REQ-F-032, TTRDM-REQ-F-033, TTRDM-REQ-F-034, TTRDM-REQ-F-035, TTRDM-REQ-F-036, TTRDM-REQ-F-037, TTRDM-REQ-F-038, TTRDM-REQ-F-039, TTRDM-REQ-F-040_
-  - _Rules: TTRDM-BR-038, TTRDM-BR-039, TTRDM-BR-040, TTRDM-BR-041, TTRDM-BR-042, TTRDM-BR-043, TTRDM-BR-044, TTRDM-BR-045, TTRDM-BR-046, TTRDM-BR-047_
+  - **lookup field** "Type code": 'Type code filter, if supplied, must be a 2 digit number. Enter two digits, for example 01, or leave it blank.' No type matches: 'No Records found for these filter conditions. Change or clear the filters.'
+  - **lookup field** "Description contains": Checked against the data only when a filter holds a value: 'No Records found for these filter conditions. Change or clear the filters.'
+  - _Requirements: TTRDM-REQ-F-032, TTRDM-REQ-F-033, TTRDM-REQ-F-034, TTRDM-REQ-F-037, TTRDM-REQ-F-038_
+  - _Rules: TTRDM-BR-038, TTRDM-BR-039, TTRDM-BR-040, TTRDM-BR-041, TTRDM-BR-044, TTRDM-BR-045_
   - _After: TTRDM-C04-T2, TTRDM-C04-T3, TTRDM-C04-T4_
 - [ ] TTRDM-C04-T6 [test-generation] Write a test for every acceptance criterion
   - 12 acceptance criteria, each a test named by its ID.
@@ -2769,18 +2659,16 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: TTRDM-BR-054, TTRDM-BR-055, TTRDM-BR-056, TTRDM-BR-058_
   - _After: TTRDM-C05-T1_
 - [ ] TTRDM-C05-T4 [api] Build the services behind the screens
-  - TTRDM-BR-048: The list form posts the two filters plus seven row entries, each with an action, a type code and a description. Bind them to a request model with a fixed list of 7 rows. Map a description of '*' or all spaces to 'not entered', and trim any other description.
-  - TTRDM-BR-049: Normalise row descriptions when reading the request: a blank value or a lone '*' becomes null (not entered), and any other value is trimmed at both ends. Validation and change detection work on the normalised value.
+  - TTRDM-BR-048: The list form submits the two filters and, for each of up to 7 rows, the action code, type code and description. The server binds these into a request model, treating a description of '*' or only spaces as not entered and trimming any other description.
+  - TTRDM-BR-049: Normalise each submitted row description on input: blank or a lone '*' becomes 'not entered' (null); any other value is trimmed of leading and trailing spaces before comparison and validation.
   - _Requirements: TTRDM-REQ-F-041, TTRDM-REQ-F-042_
   - _Rules: TTRDM-BR-048, TTRDM-BR-049_
   - _After: TTRDM-C05-T1, TTRDM-C05-T2, TTRDM-C05-T3_
 - [ ] TTRDM-C05-T5 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
-  - message "No matching transaction types": Supplied filters must match at least one type: 'No transaction types match these filters.' (legacy 'No Records found for these filter conditions')
-  - button "Edit description": One row action at a time, so the legacy errors 'Please select only 1 action' and 'Action code selected is invalid' cannot occur.
-  - text "Description": Required; letters, digits and spaces only. Messages: 'Enter a description.' (legacy 'Transaction Desc must be supplied.'), 'Description can only contain letters, digits and spaces.' (legacy 'Transaction Desc can have numbers or alphabets only.'). If unchanged: 'No changes to save.' (legacy 'No change detected with respect to values fetched.')
-  - _Requirements: TTRDM-REQ-F-041, TTRDM-REQ-F-042, TTRDM-REQ-F-043, TTRDM-REQ-F-044, TTRDM-REQ-F-045, TTRDM-REQ-F-046, TTRDM-REQ-F-047, TTRDM-REQ-F-048, TTRDM-REQ-F-049, TTRDM-REQ-F-050, TTRDM-REQ-F-051_
-  - _Rules: TTRDM-BR-048, TTRDM-BR-049, TTRDM-BR-050, TTRDM-BR-051, TTRDM-BR-052, TTRDM-BR-053, TTRDM-BR-054, TTRDM-BR-055, TTRDM-BR-056, TTRDM-BR-057, TTRDM-BR-058_
+  - **data table** "Transaction types": In-place description: 'Transaction Desc must be supplied. Enter a description.' or 'Transaction Desc can have numbers or alphabets only. Remove other characters.'; unchanged: 'No change detected with respect to values fetched.' Row actions replace action codes, so 'Action code selected is invalid' and 'Please select only 1 action' cannot occur. If a filter or the row changes while a dialog is open, the dialog closes and nothing changes.
+  - _Requirements: TTRDM-REQ-F-043, TTRDM-REQ-F-044, TTRDM-REQ-F-045, TTRDM-REQ-F-046_
+  - _Rules: TTRDM-BR-050, TTRDM-BR-051, TTRDM-BR-052, TTRDM-BR-053_
   - _After: TTRDM-C05-T2, TTRDM-C05-T3, TTRDM-C05-T4_
 - [ ] TTRDM-C05-T6 [test-generation] Write a test for every acceptance criterion
   - 13 acceptance criteria, each a test named by its ID.
@@ -2800,9 +2688,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: TTRDM-C06-T1_
 - [ ] TTRDM-C06-T3 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - link "Transaction types"
-  - _Requirements: TTRDM-REQ-N-003_
-  - _Rules: TTRDM-BR-060_
+  - **data table** "Transaction types"
+  - _Requirements: TTRDM-REQ-N-002, TTRDM-REQ-N-003_
+  - _Rules: TTRDM-BR-059, TTRDM-BR-060_
   - _After: TTRDM-C06-T2_
 - [ ] TTRDM-C06-T4 [test-generation] Write a test for every acceptance criterion
   - 2 acceptance criteria, each a test named by its ID.
@@ -2831,10 +2719,10 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: TTRDM-C07-T1_
 - [ ] TTRDM-C07-T4 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
-  - form "Filter transaction types"
-  - message "No matching transaction types": Supplied filters must match at least one type: 'No transaction types match these filters.' (legacy 'No Records found for these filter conditions')
-  - _Requirements: TTRDM-REQ-F-052, TTRDM-REQ-F-053, TTRDM-REQ-F-054, TTRDM-REQ-F-055_
-  - _Rules: TTRDM-BR-061, TTRDM-BR-062, TTRDM-BR-063, TTRDM-BR-064_
+  - **lookup field** "Type code": 'Type code filter, if supplied, must be a 2 digit number. Enter two digits, for example 01, or leave it blank.' No type matches: 'No Records found for these filter conditions. Change or clear the filters.'
+  - **lookup field** "Description contains": Checked against the data only when a filter holds a value: 'No Records found for these filter conditions. Change or clear the filters.'
+  - _Requirements: TTRDM-REQ-F-052, TTRDM-REQ-F-054_
+  - _Rules: TTRDM-BR-061, TTRDM-BR-063_
   - _After: TTRDM-C07-T2, TTRDM-C07-T3_
 - [ ] TTRDM-C07-T5 [test-generation] Write a test for every acceptance criterion
   - 4 acceptance criteria, each a test named by its ID.
@@ -2858,19 +2746,16 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: TTRDM-BR-073_
   - _After: TTRDM-C08-T1_
 - [ ] TTRDM-C08-T4 [api] Build the services behind the screens
-  - TTRDM-BR-066: When the filters are unchanged, go through the 7 submitted rows and count three things: rows with any non-blank action, rows marked 'D' and rows marked 'U'. The counts drive the 'only one action' and invalid-code checks.
-  - TTRDM-BR-067: Record the index of the top-most row marked 'D' or 'U' (0 if none) as the selected row in session state. Compare it with the selected row saved from the previous screen and set a 'selection changed' flag, which the F10 confirmation step uses.
+  - TTRDM-BR-066: When the filters are unchanged, validation counts the non-blank row actions across the 7 submitted rows, and separately the 'D' and 'U' rows; these counts drive the 'only one action' and confirmation-prompt rules.
+  - TTRDM-BR-067: The view state records the selected row (the top-most row marked 'D' or 'U', or none) and compares it with the selection stored from the previous screen; a changed selection cancels any pending confirmation.
   - _Requirements: TTRDM-REQ-F-057, TTRDM-REQ-F-058_
   - _Rules: TTRDM-BR-066, TTRDM-BR-067_
   - _After: TTRDM-C08-T1, TTRDM-C08-T2, TTRDM-C08-T3_
 - [ ] TTRDM-C08-T5 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
-  - form "Filter transaction types"
-  - button "Edit description": One row action at a time, so the legacy errors 'Please select only 1 action' and 'Action code selected is invalid' cannot occur.
-  - button "Save"
-  - button "Delete"
-  - _Requirements: TTRDM-REQ-F-056, TTRDM-REQ-F-057, TTRDM-REQ-F-058, TTRDM-REQ-F-059, TTRDM-REQ-F-060, TTRDM-REQ-F-061, TTRDM-REQ-F-062, TTRDM-REQ-F-063, TTRDM-REQ-F-064_
-  - _Rules: TTRDM-BR-065, TTRDM-BR-066, TTRDM-BR-067, TTRDM-BR-068, TTRDM-BR-069, TTRDM-BR-070, TTRDM-BR-071, TTRDM-BR-072, TTRDM-BR-073_
+  - **data table** "Transaction types": In-place description: 'Transaction Desc must be supplied. Enter a description.' or 'Transaction Desc can have numbers or alphabets only. Remove other characters.'; unchanged: 'No change detected with respect to values fetched.' Row actions replace action codes, so 'Action code selected is invalid' and 'Please select only 1 action' cannot occur. If a filter or the row changes while a dialog is open, the dialog closes and nothing changes.
+  - _Requirements: TTRDM-REQ-F-059, TTRDM-REQ-F-060, TTRDM-REQ-F-062, TTRDM-REQ-F-063_
+  - _Rules: TTRDM-BR-068, TTRDM-BR-069, TTRDM-BR-071, TTRDM-BR-072_
   - _After: TTRDM-C08-T2, TTRDM-C08-T3, TTRDM-C08-T4_
 - [ ] TTRDM-C08-T6 [test-generation] Write a test for every acceptance criterion
   - 12 acceptance criteria, each a test named by its ID.
@@ -2895,11 +2780,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: TTRDM-C09-T1_
 - [ ] TTRDM-C09-T4 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
-  - dialog "Update this transaction type?"
-  - dialog "Delete this transaction type?"
-  - message "Change result"
-  - _Requirements: TTRDM-REQ-F-065, TTRDM-REQ-F-066, TTRDM-REQ-F-067, TTRDM-REQ-F-068, TTRDM-REQ-F-069, TTRDM-REQ-F-070, TTRDM-REQ-F-071, TTRDM-REQ-F-072, TTRDM-REQ-F-073, TTRDM-REQ-F-074, TTRDM-REQ-F-075, TTRDM-REQ-F-076, TTRDM-REQ-F-077_
-  - _Rules: TTRDM-BR-074, TTRDM-BR-075, TTRDM-BR-076, TTRDM-BR-077, TTRDM-BR-078, TTRDM-BR-079, TTRDM-BR-080, TTRDM-BR-081, TTRDM-BR-082, TTRDM-BR-083, TTRDM-BR-084, TTRDM-BR-085, TTRDM-BR-086_
+  - **data table** "Transaction types": In-place description: 'Transaction Desc must be supplied. Enter a description.' or 'Transaction Desc can have numbers or alphabets only. Remove other characters.'; unchanged: 'No change detected with respect to values fetched.' Row actions replace action codes, so 'Action code selected is invalid' and 'Please select only 1 action' cannot occur. If a filter or the row changes while a dialog is open, the dialog closes and nothing changes.
+  - _Requirements: TTRDM-REQ-F-066, TTRDM-REQ-F-067, TTRDM-REQ-F-068, TTRDM-REQ-F-074, TTRDM-REQ-F-076_
+  - _Rules: TTRDM-BR-075, TTRDM-BR-076, TTRDM-BR-077, TTRDM-BR-078, TTRDM-BR-085_
   - _After: TTRDM-C09-T2, TTRDM-C09-T3_
 - [ ] TTRDM-C09-T5 [test-generation] Write a test for every acceptance criterion
   - 15 acceptance criteria, each a test named by its ID.
@@ -2919,27 +2802,21 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: TTRDM-C10-T1_
 - [ ] TTRDM-C10-T3 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
-  - button "Add transaction type"
+  - **primary button** "Add transaction type"
   - _Requirements: TTRDM-REQ-F-079_
   - _Rules: TTRDM-BR-088_
   - _After: TTRDM-C10-T2_
-- [ ] TTRDM-C10-T4 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - link "Back to transaction types"
-  - _Requirements: TTRDM-REQ-F-078_
-  - _Rules: TTRDM-BR-087_
-  - _After: TTRDM-C10-T2_
-- [ ] TTRDM-C10-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+- [ ] TTRDM-C10-T4 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - nav "Main navigation"
+  - **data table** "Transaction types"
   - _Requirements: TTRDM-REQ-F-078_
   - _Rules: TTRDM-BR-087_
   - _After: TTRDM-C10-T2_
-- [ ] TTRDM-C10-T6 [test-generation] Write a test for every acceptance criterion
+- [ ] TTRDM-C10-T5 [test-generation] Write a test for every acceptance criterion
   - 2 acceptance criteria, each a test named by its ID.
   - _Requirements: TTRDM-REQ-F-078, TTRDM-REQ-F-079_
   - _Criteria: TTRDM-C10-AC-01, TTRDM-C10-AC-02_
-  - _After: TTRDM-C10-T1, TTRDM-C10-T2, TTRDM-C10-T3, TTRDM-C10-T4, TTRDM-C10-T5_
+  - _After: TTRDM-C10-T1, TTRDM-C10-T2, TTRDM-C10-T3, TTRDM-C10-T4_
 
 ## TTRDM-C11 Look up a transaction type to maintain (draft)
 
@@ -2959,22 +2836,18 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: TTRDM-BR-092, TTRDM-BR-093_
   - _After: TTRDM-C11-T1_
 - [ ] TTRDM-C11-T4 [api] Build the services behind the screens
-  - TTRDM-BR-095: Before each lookup by type code, clear the saved 'original' transaction type and the info message in the screen's session state, so that a failed lookup cannot leave the previous type's values behind.
-  - TTRDM-BR-096: Look up the transaction type by its primary key (the two-digit type code). On a hit, set a 'found' flag and keep the code and description as the values on file, used for display and change detection.
-  - TTRDM-BR-097: On a successful lookup, save the stored code and description, at its full stored length, as the 'original' snapshot in session state; later edits are compared against it. When the lookup finds nothing or fails, save no snapshot.
-  - TTRDM-BR-100: In the not-found state, if the same code is submitted again without F5, keep the code and description already in session state and ignore the posted form values, including any typed description, before the code is looked up again.
+  - TTRDM-BR-095: Each lookup starts by clearing the 'original' snapshot and the information message held in the screen's state, so a failed lookup can never leave the previous type's values behind.
+  - TTRDM-BR-096: A keyed read of the transaction type table by its two-digit code. On a hit, return a 'found' result with code and description; the description is used both for display and as the baseline for change detection.
+  - TTRDM-BR-097: Hold the fetched code and description, at their stored length, as an 'original' snapshot in the edit session (or as a version/ETag) to compare against the user's later edits. On not-found or a read error, leave the snapshot empty.
+  - TTRDM-BR-100: In the not-found state, if the same code is submitted again without choosing Add, keep the code and description already held in the edit session and ignore the submitted form values, including any description typed.
   - _Requirements: TTRDM-REQ-F-085, TTRDM-REQ-F-086, TTRDM-REQ-F-087_
   - _Rules: TTRDM-BR-095, TTRDM-BR-096, TTRDM-BR-097_
   - _After: TTRDM-C11-T1, TTRDM-C11-T2, TTRDM-C11-T3_
-- [ ] TTRDM-C11-T5 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
+- [ ] TTRDM-C11-T5 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - form "Find a transaction type"
-  - text "Type code": Required; a number other than zero. Messages: 'Enter a type code.' (legacy 'Tran Type code must be supplied.'), 'Type code must be a number.' (legacy 'Tran Type code must be numeric.'), 'Type code must not be 00.' (legacy 'Tran Type code must not be zero.'). Only the first problem is shown.
-  - button "Find"
-  - message "Type not on file": Code must exist to change or delete: 'No transaction type with this code.' (legacy 'No record found for this key in database')
-  - button "Add as new type"
-  - _Requirements: TTRDM-REQ-F-080, TTRDM-REQ-F-081, TTRDM-REQ-F-082, TTRDM-REQ-F-083, TTRDM-REQ-F-084, TTRDM-REQ-F-085, TTRDM-REQ-F-086, TTRDM-REQ-F-087, TTRDM-REQ-F-088, TTRDM-REQ-F-089, TTRDM-REQ-F-090_
-  - _Rules: TTRDM-BR-089, TTRDM-BR-090, TTRDM-BR-091, TTRDM-BR-092, TTRDM-BR-093, TTRDM-BR-094, TTRDM-BR-095, TTRDM-BR-096, TTRDM-BR-097, TTRDM-BR-098, TTRDM-BR-099, TTRDM-BR-100, TTRDM-BR-101, TTRDM-BR-102_
+  - **lookup field** "Transaction type code": 'Tran Type code must be supplied. Enter a two-digit code.'; 'Tran Type code must be numeric. Enter digits only.'; 'Tran Type code must not be zero. Enter a code from 01 to 99.' Only the first failing check is shown.
+  - _Requirements: TTRDM-REQ-F-080, TTRDM-REQ-F-081, TTRDM-REQ-F-082, TTRDM-REQ-F-088_
+  - _Rules: TTRDM-BR-089, TTRDM-BR-090, TTRDM-BR-091, TTRDM-BR-098_
   - _After: TTRDM-C11-T2, TTRDM-C11-T3, TTRDM-C11-T4_
 - [ ] TTRDM-C11-T6 [test-generation] Write a test for every acceptance criterion
   - 11 acceptance criteria, each a test named by its ID.
@@ -2999,31 +2872,16 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: TTRDM-BR-093, TTRDM-BR-103, TTRDM-BR-104, TTRDM-BR-105, TTRDM-BR-106, TTRDM-BR-107, TTRDM-BR-108_
   - _After: TTRDM-C12-T1_
 - [ ] TTRDM-C12-T4 [api] Build the services behind the screens
-  - TTRDM-BR-110: The maintenance screen handler has a default path for actions without a dedicated handler (exit, first entry, delete, save, cancel, or a key not allowed in the current state): bind the posted form, validate it, work out the next state, and render the screen again.
-  - TTRDM-BR-111: Route each request on the pair (action pressed, current screen state). Any pair without a specific handler falls through to the default: bind and validate the input, decide the next action, render again. A state machine with an explicit fallback transition is the natural way to build this.
+  - TTRDM-BR-110: The screen's controller has a default path: any action not handled by a dedicated step (exit, first entry, delete, save, cancel, or a key not allowed in the current state) binds the submitted form, validates it, works out the next state and re-renders the screen.
+  - TTRDM-BR-111: Route requests by action and current edit state; when no specific action-and-state handler matches, fall through to the default bind, validate, decide-next-state and re-render path rather than raising an error.
   - _Requirements: TTRDM-REQ-F-099_
   - _Rules: TTRDM-BR-110, TTRDM-BR-111_
   - _After: TTRDM-C12-T1, TTRDM-C12-T2, TTRDM-C12-T3_
-- [ ] TTRDM-C12-T5 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
-  - table "Transaction types"
-  - _Requirements: TTRDM-REQ-F-095_
-  - _Rules: TTRDM-BR-106_
-  - _After: TTRDM-C12-T2, TTRDM-C12-T3, TTRDM-C12-T4_
-- [ ] TTRDM-C12-T6 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - form "Find a transaction type"
-  - text "Description": Required; letters, digits and spaces only. Messages: 'Enter a description.' (legacy 'Transaction Desc must be supplied.'), 'Description can only contain letters, digits and spaces.' (legacy 'Transaction Desc can have numbers or alphabets only.')
-  - button "Save": Actions not available in the current step are disabled rather than rejected (legacy 'Invalid key pressed').
-  - button "Cancel"
-  - _Requirements: TTRDM-REQ-F-091, TTRDM-REQ-F-092, TTRDM-REQ-F-093, TTRDM-REQ-F-094, TTRDM-REQ-F-095, TTRDM-REQ-F-096, TTRDM-REQ-F-097, TTRDM-REQ-F-098, TTRDM-REQ-F-099_
-  - _Rules: TTRDM-BR-093, TTRDM-BR-103, TTRDM-BR-104, TTRDM-BR-105, TTRDM-BR-106, TTRDM-BR-107, TTRDM-BR-108, TTRDM-BR-109, TTRDM-BR-110, TTRDM-BR-111_
-  - _After: TTRDM-C12-T2, TTRDM-C12-T3, TTRDM-C12-T4_
-- [ ] TTRDM-C12-T7 [test-generation] Write a test for every acceptance criterion
+- [ ] TTRDM-C12-T5 [test-generation] Write a test for every acceptance criterion
   - 12 acceptance criteria, each a test named by its ID.
   - _Requirements: TTRDM-REQ-F-091, TTRDM-REQ-F-092, TTRDM-REQ-F-093, TTRDM-REQ-F-094, TTRDM-REQ-F-095, TTRDM-REQ-F-096, TTRDM-REQ-F-097, TTRDM-REQ-F-098, TTRDM-REQ-F-099_
   - _Criteria: TTRDM-C12-AC-01, TTRDM-C12-AC-02, TTRDM-C12-AC-03, TTRDM-C12-AC-04, TTRDM-C12-AC-05, TTRDM-C12-AC-06, TTRDM-C12-AC-07, TTRDM-C12-AC-08, TTRDM-C12-AC-09, TTRDM-C12-AC-10, TTRDM-C12-AC-11, TTRDM-C12-AC-12_
-  - _After: TTRDM-C12-T1, TTRDM-C12-T2, TTRDM-C12-T3, TTRDM-C12-T4, TTRDM-C12-T5, TTRDM-C12-T6_
+  - _After: TTRDM-C12-T1, TTRDM-C12-T2, TTRDM-C12-T3, TTRDM-C12-T4_
 
 ## TTRDM-C13 Detect changes to a fetched transaction type (draft)
 
@@ -3036,11 +2894,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: TTRDM-REQ-F-100, TTRDM-REQ-F-101, TTRDM-REQ-F-102_
   - _Rules: TTRDM-BR-112, TTRDM-BR-113, TTRDM-BR-114, TTRDM-BR-115_
   - _After: TTRDM-C13-T1_
-- [ ] TTRDM-C13-T3 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
+- [ ] TTRDM-C13-T3 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - message "No changes": Description must differ from the stored value (ignoring case and surrounding spaces): 'No changes to save.' (legacy 'No change detected with respect to values fetched.')
-  - _Requirements: TTRDM-REQ-F-100, TTRDM-REQ-F-101, TTRDM-REQ-F-102_
-  - _Rules: TTRDM-BR-112, TTRDM-BR-113, TTRDM-BR-114, TTRDM-BR-115_
+  - **primary button** "Save transaction type": Code and description match what is stored (ignoring case and surrounding spaces): 'No change detected with respect to values fetched.'
+  - _Requirements: TTRDM-REQ-F-100, TTRDM-REQ-F-101_
+  - _Rules: TTRDM-BR-112, TTRDM-BR-113, TTRDM-BR-114_
   - _After: TTRDM-C13-T2_
 - [ ] TTRDM-C13-T4 [test-generation] Write a test for every acceptance criterion
   - 6 acceptance criteria, each a test named by its ID.
@@ -3060,19 +2918,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: TTRDM-REQ-F-103, TTRDM-REQ-F-104, TTRDM-REQ-F-105_
   - _Rules: TTRDM-BR-116, TTRDM-BR-117, TTRDM-BR-118_
   - _After: TTRDM-C14-T1_
-- [ ] TTRDM-C14-T3 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - button "Cancel"
-  - dialog "Save this transaction type?"
-  - dialog "Delete this transaction type?"
-  - _Requirements: TTRDM-REQ-F-103, TTRDM-REQ-F-104, TTRDM-REQ-F-105_
-  - _Rules: TTRDM-BR-116, TTRDM-BR-117, TTRDM-BR-118_
-  - _After: TTRDM-C14-T2_
-- [ ] TTRDM-C14-T4 [test-generation] Write a test for every acceptance criterion
+- [ ] TTRDM-C14-T3 [test-generation] Write a test for every acceptance criterion
   - 3 acceptance criteria, each a test named by its ID.
   - _Requirements: TTRDM-REQ-F-103, TTRDM-REQ-F-104, TTRDM-REQ-F-105_
   - _Criteria: TTRDM-C14-AC-01, TTRDM-C14-AC-02, TTRDM-C14-AC-03_
-  - _After: TTRDM-C14-T1, TTRDM-C14-T2, TTRDM-C14-T3_
+  - _After: TTRDM-C14-T1, TTRDM-C14-T2_
 
 ## TTRDM-C15 Exit the maintenance screen (draft)
 
@@ -3086,27 +2936,21 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: TTRDM-BR-120_
   - _After: TTRDM-C15-T1_
 - [ ] TTRDM-C15-T3 [api] Build the services behind the screens
-  - TTRDM-BR-119: The exit action has to close any open database transaction with a commit before it navigates. The target is the calling screen recorded in the user's session, or the Admin menu when none is recorded. The new application needs a session-held 'return to' value and a default route to the Admin menu.
+  - TTRDM-BR-119: On exit, the new application must commit or close any open database transaction for the session before navigating. It then redirects to the return route stored in the session, falling back to the Admin menu route when none is stored. No unit of work may be left open across the navigation.
   - _Requirements: TTRDM-REQ-F-106_
   - _Rules: TTRDM-BR-119_
   - _After: TTRDM-C15-T1, TTRDM-C15-T2_
-- [ ] TTRDM-C15-T4 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - link "Back to transaction types"
-  - _Requirements: TTRDM-REQ-F-106, TTRDM-REQ-F-107_
-  - _Rules: TTRDM-BR-119, TTRDM-BR-120_
-  - _After: TTRDM-C15-T2, TTRDM-C15-T3_
-- [ ] TTRDM-C15-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+- [ ] TTRDM-C15-T4 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - link "Maintain a transaction type"
-  - _Requirements: TTRDM-REQ-F-107_
-  - _Rules: TTRDM-BR-120_
+  - **data table** "Transaction types"
+  - _Requirements: TTRDM-REQ-F-106_
+  - _Rules: TTRDM-BR-119_
   - _After: TTRDM-C15-T2, TTRDM-C15-T3_
-- [ ] TTRDM-C15-T6 [test-generation] Write a test for every acceptance criterion
+- [ ] TTRDM-C15-T5 [test-generation] Write a test for every acceptance criterion
   - 3 acceptance criteria, each a test named by its ID.
   - _Requirements: TTRDM-REQ-F-106, TTRDM-REQ-F-107_
   - _Criteria: TTRDM-C15-AC-01, TTRDM-C15-AC-02, TTRDM-C15-AC-03_
-  - _After: TTRDM-C15-T1, TTRDM-C15-T2, TTRDM-C15-T3, TTRDM-C15-T4, TTRDM-C15-T5_
+  - _After: TTRDM-C15-T1, TTRDM-C15-T2, TTRDM-C15-T3, TTRDM-C15-T4_
 
 ## TTRDM-C16 Find a transaction type to maintain (draft)
 
@@ -3125,29 +2969,21 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: TTRDM-BR-121, TTRDM-BR-127_
   - _After: TTRDM-C16-T1_
 - [ ] TTRDM-C16-T4 [api] Build the services behind the screens
-  - TTRDM-BR-122: Code validation needs to run before the lookup, as a step in the search action. It applies only when the screen is neither adding a new record nor waiting for confirmation of changes. In those two modes, an Enter press must not re-validate the search code or look it up again.
+  - TTRDM-BR-122: The search request needs server-side validation of the type code (supplied, numeric, non-zero) that runs before any database lookup. It applies only when the screen is in search mode, meaning not while adding a new record and not while awaiting confirmation. The validator stops at the first failure. Only a valid code, normalised to two digits, is used as the key for the single-row lookup by primary key.
   - _Requirements: TTRDM-REQ-F-109_
   - _Rules: TTRDM-BR-122_
   - _After: TTRDM-C16-T1, TTRDM-C16-T2, TTRDM-C16-T3_
-- [ ] TTRDM-C16-T5 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
+- [ ] TTRDM-C16-T5 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - form "Find a transaction type"
-  - text "Type code": Required; a number other than zero. Messages: 'Enter a type code.' (legacy 'Tran Type code must be supplied.'), 'Type code must be a number.' (legacy 'Tran Type code must be numeric.'), 'Type code must not be 00.' (legacy 'Tran Type code must not be zero.'). Only the first problem is shown.
-  - button "Find"
-  - _Requirements: TTRDM-REQ-F-108, TTRDM-REQ-F-109, TTRDM-REQ-F-110, TTRDM-REQ-F-111, TTRDM-REQ-F-112, TTRDM-REQ-F-113, TTRDM-REQ-F-114, TTRDM-REQ-F-115, TTRDM-REQ-F-116_
-  - _Rules: TTRDM-BR-121, TTRDM-BR-122, TTRDM-BR-123, TTRDM-BR-124, TTRDM-BR-125, TTRDM-BR-126, TTRDM-BR-127, TTRDM-BR-128, TTRDM-BR-129_
+  - **lookup field** "Transaction type code": 'Tran Type code must be supplied. Enter a two-digit code.'; 'Tran Type code must be numeric. Enter digits only.'; 'Tran Type code must not be zero. Enter a code from 01 to 99.' Only the first failing check is shown.
+  - _Requirements: TTRDM-REQ-F-110, TTRDM-REQ-F-111, TTRDM-REQ-F-112, TTRDM-REQ-F-113, TTRDM-REQ-F-115_
+  - _Rules: TTRDM-BR-123, TTRDM-BR-124, TTRDM-BR-125, TTRDM-BR-126, TTRDM-BR-128_
   - _After: TTRDM-C16-T2, TTRDM-C16-T3, TTRDM-C16-T4_
-- [ ] TTRDM-C16-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
-  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - link "Maintain a transaction type"
-  - _Requirements: TTRDM-REQ-F-108_
-  - _Rules: TTRDM-BR-121_
-  - _After: TTRDM-C16-T2, TTRDM-C16-T3, TTRDM-C16-T4_
-- [ ] TTRDM-C16-T7 [test-generation] Write a test for every acceptance criterion
+- [ ] TTRDM-C16-T6 [test-generation] Write a test for every acceptance criterion
   - 12 acceptance criteria, each a test named by its ID.
   - _Requirements: TTRDM-REQ-F-108, TTRDM-REQ-F-109, TTRDM-REQ-F-110, TTRDM-REQ-F-111, TTRDM-REQ-F-112, TTRDM-REQ-F-113, TTRDM-REQ-F-114, TTRDM-REQ-F-115, TTRDM-REQ-F-116_
   - _Criteria: TTRDM-C16-AC-01, TTRDM-C16-AC-02, TTRDM-C16-AC-03, TTRDM-C16-AC-04, TTRDM-C16-AC-05, TTRDM-C16-AC-06, TTRDM-C16-AC-07, TTRDM-C16-AC-08, TTRDM-C16-AC-09, TTRDM-C16-AC-10, TTRDM-C16-AC-11, TTRDM-C16-AC-12_
-  - _After: TTRDM-C16-T1, TTRDM-C16-T2, TTRDM-C16-T3, TTRDM-C16-T4, TTRDM-C16-T5, TTRDM-C16-T6_
+  - _After: TTRDM-C16-T1, TTRDM-C16-T2, TTRDM-C16-T3, TTRDM-C16-T4, TTRDM-C16-T5_
 
 ## TTRDM-C17 Change a transaction type description (draft)
 
@@ -3166,19 +3002,16 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: TTRDM-BR-140_
   - _After: TTRDM-C17-T1_
 - [ ] TTRDM-C17-T4 [api] Build the services behind the screens
-  - TTRDM-BR-131: Description input needs normalising before validation and comparison. Remove leading and trailing spaces, and treat an empty value or a lone '*' as 'not supplied' (null). Validation then sees a missing description rather than a literal '*' or blanks.
+  - TTRDM-BR-131: Input normalisation for the description field: trim leading and trailing spaces, and treat an empty result or a lone '*' as 'not supplied' before any validation or change comparison. Put this in one shared helper so that change detection and description validation see the same value.
   - _Requirements: TTRDM-REQ-F-118_
   - _Rules: TTRDM-BR-131_
   - _After: TTRDM-C17-T1, TTRDM-C17-T2, TTRDM-C17-T3_
-- [ ] TTRDM-C17-T5 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
+- [ ] TTRDM-C17-T5 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - text "Description": Required; letters, digits and spaces only. Messages: 'Enter a description.' (legacy 'Transaction Desc must be supplied.'), 'Description can only contain letters, digits and spaces.' (legacy 'Transaction Desc can have numbers or alphabets only.')
-  - message "No changes": Description must differ from the stored value (ignoring case and surrounding spaces): 'No changes to save.' (legacy 'No change detected with respect to values fetched.')
-  - button "Save": Actions not available in the current step are disabled rather than rejected (legacy 'Invalid key pressed').
-  - dialog "Save this transaction type?"
-  - message "Result"
-  - _Requirements: TTRDM-REQ-F-117, TTRDM-REQ-F-118, TTRDM-REQ-F-119, TTRDM-REQ-F-120, TTRDM-REQ-F-121, TTRDM-REQ-F-122, TTRDM-REQ-F-123, TTRDM-REQ-F-124, TTRDM-REQ-F-125, TTRDM-REQ-F-126, TTRDM-REQ-F-127, TTRDM-REQ-F-128, TTRDM-REQ-F-129_
-  - _Rules: TTRDM-BR-130, TTRDM-BR-131, TTRDM-BR-132, TTRDM-BR-133, TTRDM-BR-134, TTRDM-BR-135, TTRDM-BR-136, TTRDM-BR-137, TTRDM-BR-138, TTRDM-BR-139, TTRDM-BR-140, TTRDM-BR-141, TTRDM-BR-142_
+  - **summary card** "Description": 'Transaction Desc must be supplied. Enter a description.' or 'Transaction Desc can have numbers or alphabets only. Remove other characters.'
+  - **primary button** "Save transaction type": Code and description match what is stored (ignoring case and surrounding spaces): 'No change detected with respect to values fetched.'
+  - _Requirements: TTRDM-REQ-F-117, TTRDM-REQ-F-119, TTRDM-REQ-F-120, TTRDM-REQ-F-123, TTRDM-REQ-F-124, TTRDM-REQ-F-125_
+  - _Rules: TTRDM-BR-130, TTRDM-BR-132, TTRDM-BR-133, TTRDM-BR-136, TTRDM-BR-137, TTRDM-BR-138, TTRDM-BR-139_
   - _After: TTRDM-C17-T2, TTRDM-C17-T3, TTRDM-C17-T4_
 - [ ] TTRDM-C17-T6 [test-generation] Write a test for every acceptance criterion
   - 14 acceptance criteria, each a test named by its ID.
@@ -3202,13 +3035,12 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: TTRDM-REQ-F-132_
   - _Rules: TTRDM-BR-140_
   - _After: TTRDM-C18-T1_
-- [ ] TTRDM-C18-T4 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
+- [ ] TTRDM-C18-T4 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - button "Add as new type"
-  - dialog "Save this transaction type?"
-  - message "Result"
-  - _Requirements: TTRDM-REQ-F-130, TTRDM-REQ-F-131, TTRDM-REQ-F-132_
-  - _Rules: TTRDM-BR-140, TTRDM-BR-143, TTRDM-BR-144_
+  - **lookup field** "Transaction type code": 'Tran Type code must be supplied. Enter a two-digit code.'; 'Tran Type code must be numeric. Enter digits only.'; 'Tran Type code must not be zero. Enter a code from 01 to 99.' Only the first failing check is shown.
+  - **primary button** "Save transaction type": Code and description match what is stored (ignoring case and surrounding spaces): 'No change detected with respect to values fetched.'
+  - _Requirements: TTRDM-REQ-F-130, TTRDM-REQ-F-131_
+  - _Rules: TTRDM-BR-143, TTRDM-BR-144_
   - _After: TTRDM-C18-T2, TTRDM-C18-T3_
 - [ ] TTRDM-C18-T5 [test-generation] Write a test for every acceptance criterion
   - 3 acceptance criteria, each a test named by its ID.
@@ -3232,13 +3064,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: TTRDM-REQ-F-136, TTRDM-REQ-F-137, TTRDM-REQ-F-139_
   - _Rules: TTRDM-BR-148, TTRDM-BR-149, TTRDM-BR-151_
   - _After: TTRDM-C19-T1_
-- [ ] TTRDM-C19-T4 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - button "Delete"
-  - dialog "Delete this transaction type?"
-  - message "Result"
-  - _Requirements: TTRDM-REQ-F-133, TTRDM-REQ-F-134, TTRDM-REQ-F-135, TTRDM-REQ-F-136, TTRDM-REQ-F-137, TTRDM-REQ-F-138, TTRDM-REQ-F-139_
-  - _Rules: TTRDM-BR-145, TTRDM-BR-146, TTRDM-BR-147, TTRDM-BR-148, TTRDM-BR-149, TTRDM-BR-150, TTRDM-BR-151_
+- [ ] TTRDM-C19-T4 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
+  - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
+  - **data table** "Transaction types": In-place description: 'Transaction Desc must be supplied. Enter a description.' or 'Transaction Desc can have numbers or alphabets only. Remove other characters.'; unchanged: 'No change detected with respect to values fetched.' Row actions replace action codes, so 'Action code selected is invalid' and 'Please select only 1 action' cannot occur. If a filter or the row changes while a dialog is open, the dialog closes and nothing changes.
+  - _Requirements: TTRDM-REQ-F-134, TTRDM-REQ-F-136_
+  - _Rules: TTRDM-BR-146, TTRDM-BR-148_
   - _After: TTRDM-C19-T2, TTRDM-C19-T3_
 - [ ] TTRDM-C19-T5 [test-generation] Write a test for every acceptance criterion
   - 7 acceptance criteria, each a test named by its ID.
@@ -3262,16 +3092,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: TTRDM-REQ-F-144_
   - _Rules: TTRDM-BR-156_
   - _After: TTRDM-C20-T1_
-- [ ] TTRDM-C20-T4 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
+- [ ] TTRDM-C20-T4 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - button "Find"
-  - button "Add as new type"
-  - button "Save": Actions not available in the current step are disabled rather than rejected (legacy 'Invalid key pressed').
-  - button "Delete"
-  - button "Cancel"
-  - message "Result"
-  - _Requirements: TTRDM-REQ-F-140, TTRDM-REQ-F-141, TTRDM-REQ-F-142, TTRDM-REQ-F-143, TTRDM-REQ-F-144_
-  - _Rules: TTRDM-BR-152, TTRDM-BR-153, TTRDM-BR-154, TTRDM-BR-155, TTRDM-BR-156_
+  - **primary button** "Save transaction type": Code and description match what is stored (ignoring case and surrounding spaces): 'No change detected with respect to values fetched.'
+  - _Requirements: TTRDM-REQ-F-140, TTRDM-REQ-F-141, TTRDM-REQ-F-142_
+  - _Rules: TTRDM-BR-152, TTRDM-BR-153, TTRDM-BR-154_
   - _After: TTRDM-C20-T2, TTRDM-C20-T3_
 - [ ] TTRDM-C20-T5 [test-generation] Write a test for every acceptance criterion
   - 7 acceptance criteria, each a test named by its ID.
@@ -3286,7 +3111,7 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: TTRDM-REQ-F-146_
   - _Rules: TTRDM-BR-158_
 - [ ] TTRDM-C21-T2 [api] Build the scheduled job
-  - TTRDM-BR-157: The new application needs a batch job, run on demand or on a schedule, that reads a maintenance request file without locking it and applies the requests to the transaction type table. It must write a run log that operations can read after the job.
+  - TTRDM-BR-157: A scheduled or on-demand batch job that reads a request file without taking it exclusively. It connects to the reference data database with the application's own credentials and applies each request to the transaction types table. It writes a per-run log of messages that operations can review. The subsystem and plan names have no counterpart: they become the job's database connection configuration.
   - _Requirements: TTRDM-REQ-F-145_
   - _Rules: TTRDM-BR-157_
   - _After: TTRDM-C21-T1_
@@ -3299,10 +3124,10 @@ Build final capabilities first. Each task names its role and the IDs it implemen
 ## TTRDM-C22 Set up reference data backups (draft)
 
 - [ ] TTRDM-C22-T1 [api] Build the scheduled job
-  - TTRDM-BR-159: The new application needs versioned backup storage for the transaction type reference data, such as dated snapshots or object versions. It must keep at most 5 versions and remove the oldest automatically when a sixth is written. The retention policy has to exist before any backup is written.
-  - TTRDM-BR-160: This is a setup step that runs only after the retention policy step succeeds. It copies the current transaction type extract (60-character records) into the first backup version and records it so later jobs can find it.
-  - TTRDM-BR-161: This setup step runs only if every earlier step succeeded. It snapshots the current transaction category extract (60-character records) as the first backup version of the category data.
-  - TTRDM-BR-162: This setup step runs only if every earlier step succeeded. It snapshots the current disclosure group extract (50-character records) as the first backup version of the disclosure group data.
+  - TTRDM-BR-159: A versioned backup location for transaction type snapshots, such as a versioned object-store prefix or a backup table keyed by snapshot date. It needs a retention policy that keeps the five newest versions and removes the oldest when a sixth is written. It must exist before the first snapshot is taken.
+  - TTRDM-BR-160: A job step that runs only when the backup location was set up successfully. It writes a first snapshot of the current transaction type reference data, unchanged and in its 60-character record layout, as a new recorded version in that location.
+  - TTRDM-BR-161: A job step that runs only when every earlier step succeeded. It writes a first snapshot of the current transaction category reference data, unchanged and in its 60-character record layout, as a new recorded version in the category backup location.
+  - TTRDM-BR-162: A job step that runs only when every earlier step succeeded. It writes a first snapshot of the current disclosure group reference data, unchanged and in its 50-character record layout, as a new recorded version in the disclosure group backup location.
   - _Requirements: TTRDM-REQ-F-147, TTRDM-REQ-F-148, TTRDM-REQ-F-149, TTRDM-REQ-F-150_
   - _Rules: TTRDM-BR-159, TTRDM-BR-160, TTRDM-BR-161, TTRDM-BR-162_
 - [ ] TTRDM-C22-T2 [test-generation] Write a test for every acceptance criterion
@@ -3322,10 +3147,10 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: TTRDM-REQ-F-153, TTRDM-REQ-F-156, TTRDM-REQ-F-159_
   - _Rules: TTRDM-BR-165, TTRDM-BR-168, TTRDM-BR-171_
 - [ ] TTRDM-C23-T3 [api] Build the scheduled job
-  - TTRDM-BR-163: The first step of the scheduled extract job copies the current transaction type file to a new backup version, under the retention policy set up for these backups, before any new file is produced.
-  - TTRDM-BR-164: This step runs only if every earlier step of the job succeeded. It copies the current transaction category file to a new backup version. The job needs step-level success tracking so this step can be skipped.
-  - TTRDM-BR-167: This is a sorted extract of the transaction type table in a fixed-width layout. Each record is the 2-character type code, the description padded to 50 characters, and eight '0' filler characters, 60 characters in total. Downstream readers depend on this exact layout.
-  - TTRDM-BR-170: This is a sorted extract of the transaction category table in a fixed-width layout. Each record is the type code, the category code, the category description padded to 50 characters, and four '0' filler characters, 60 characters in total.
+  - TTRDM-BR-163: The extract job's first step copies the current transaction type extract, unchanged and in its 60-character records, into a new version in the versioned transaction type backup location before anything is overwritten.
+  - TTRDM-BR-164: A conditional job step that runs only when every earlier step succeeded. It copies the current transaction category extract, unchanged and in its 60-character records, into a new version in the category backup location. The orchestrator must skip it after any earlier failure.
+  - TTRDM-BR-167: A fixed-width writer for the sorted transaction type extract (ordered by type code). Each record has the 2-character type code, the description right-padded with spaces to 50 characters, then the literal '00000000', 60 characters in all. Downstream consumers depend on this exact layout.
+  - TTRDM-BR-170: A fixed-width writer for the sorted transaction category extract (ordered by type code, then category code). Each record has the type code, the category code, the category description right-padded with spaces to 50 characters, then the literal '0000', 60 characters in all.
   - _Requirements: TTRDM-REQ-F-151, TTRDM-REQ-F-152, TTRDM-REQ-F-155, TTRDM-REQ-F-158_
   - _Rules: TTRDM-BR-163, TTRDM-BR-164, TTRDM-BR-167, TTRDM-BR-170_
   - _After: TTRDM-C23-T1, TTRDM-C23-T2_
@@ -3338,8 +3163,8 @@ Build final capabilities first. Each task names its role and the IDs it implemen
 ## TTRDM-C24 Load reference data into keyed files (draft)
 
 - [ ] TTRDM-C24-T1 [api] Build the scheduled job
-  - TTRDM-BR-172: A scheduled job does a full replace of the transaction category lookup store from the category flat file. The store is cleared, then every 60-character record is loaded, keyed by its first 6 characters (type code plus category code). Other writers are kept out while it loads, and the source file is read without locking it.
-  - TTRDM-BR-173: A scheduled job does a full replace of the transaction type lookup store from the transaction type flat file. The store is cleared, then every 60-character record is loaded, keyed by its first 2 characters (the type code), so readers get a keyed lookup by type code. Other writers are kept out while it loads.
+  - TTRDM-BR-172: A full-refresh load of the transaction category lookup store (a table or cache keyed by type code plus category code, the first 6 characters of each 60-character record). Truncate or recreate it, then load every record from the category extract, which is read without locking it. Hold the store exclusively, or swap it in atomically, so readers never see a half-loaded store.
+  - TTRDM-BR-173: A full-refresh load of the transaction type lookup store, keyed by the 2-character type code at the start of each 60-character record. Truncate or recreate it, then load every record from the transaction type extract, which is read without locking it. Hold the store exclusively, or swap it in atomically, so readers never see a half-loaded store.
   - _Requirements: TTRDM-REQ-F-160, TTRDM-REQ-F-161_
   - _Rules: TTRDM-BR-172, TTRDM-BR-173_
 - [ ] TTRDM-C24-T2 [test-generation] Write a test for every acceptance criterion
@@ -3609,9 +3434,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-008_
   - _After: CAFM-C01-T1_
 - [ ] CAFM-C01-T4 [api] Build the scheduled job
-  - CAFM-BR-001: The job needs a parameter setup step at start-up: record today's date as the run date, take expiry days from the job parameters when numeric or else use 5, and set the checkpoint frequency to 5 when it is missing, blank or 0. Expose these as validated job configuration, not as positional text.
-  - CAFM-BR-002: Run the purge as a scheduled batch job with write access to the pending authorization store (summaries and their details). The legacy IMS batch program, PSB and DBD library setup becomes the job's scheduler entry and its database credentials and permissions.
-  - CAFM-BR-004: The job needs a full pass over all pending authorization summaries, one account at a time, with each summary's child details checked and expired ones deleted before it moves to the next summary. Commit progress at the configured checkpoint frequency so the job can restart after a failure without starting over.
+  - CAFM-BR-001: At start-up the job takes the run date from the system clock and reads two run parameters. Expiry days is used when numeric and defaults to 5 otherwise. Checkpoint frequency defaults to 5 when it is blank, zero or missing. Check both values before any data is touched.
+  - CAFM-BR-002: Run the purge as a scheduled batch job that has update access to the pending authorization store, both summaries and details. It runs alongside the online authorization service, so it must commit in small batches (see the checkpoint frequency) rather than locking the whole store.
+  - CAFM-BR-004: Read every account summary in turn and, for each one, all of its authorization details. Delete the details that qualify, then decide whether the summary goes too, before moving to the next account. A parent-child query or keyset cursor over summaries with their details is enough. Commit every checkpoint-frequency summaries so a restart can resume from the last committed account.
   - _Requirements: CAFM-REQ-F-001, CAFM-REQ-N-001, CAFM-REQ-F-003_
   - _Rules: CAFM-BR-001, CAFM-BR-002, CAFM-BR-004_
   - _After: CAFM-C01-T1, CAFM-C01-T2, CAFM-C01-T3_
@@ -3642,10 +3467,10 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-022, CAFM-BR-023, CAFM-BR-025, CAFM-BR-026, CAFM-BR-027, CAFM-BR-028, CAFM-BR-029, CAFM-BR-030_
   - _After: CAFM-C02-T1_
 - [ ] CAFM-C02-T4 [api] Build the services behind the screens
-  - CAFM-BR-013: Run the service as a consumer started when messages arrive on the account inquiry request queue. Take the request queue from the start-up event or configuration, and send replies to the fixed queue 'CARD.DEMO.REPLY.ACCT' and error records to 'CARD.DEMO.ERROR'.
-  - CAFM-BR-015: Treat consuming one request and publishing its reply as one transaction, committed before the next request is taken. A failure then never loses a request or sends a reply twice, and the last request's transaction is committed when the consumer stops.
-  - CAFM-BR-016: Parse each request as fixed-position text: characters 1-4 are the function code and the next 11 digits are the account number. Keep the message id and correlation id so the reply can be matched to the request.
-  - CAFM-BR-018: Publish each reply to 'CARD.DEMO.REPLY.ACCT' with the request's message id and correlation id, so the requester can match it. If the publish fails, record 'MQPUT ERR', send the error to the error queue and stop the consumer.
+  - CAFM-BR-013: Run the account inquiry as a consumer on the account inquiry request queue, started when messages arrive. It replies on the fixed account reply queue ('CARD.DEMO.REPLY.ACCT') and reports failures to a shared error queue ('CARD.DEMO.ERROR'). Queue names come from configuration, and the request queue is whichever one triggered the consumer.
+  - CAFM-BR-015: Take a request and send its reply in one transaction, so that a request counts as consumed only when its reply is sent. Commit before taking the next request, and commit the final request's transaction when the consumer stops.
+  - CAFM-BR-016: Keep each request's message id and correlation id for its reply. Read the request body as fixed positions: characters 1–4 are the function code and the next 11 digits are the account number. Validate the account number as numeric before looking it up.
+  - CAFM-BR-018: Publish the reply to the account reply queue with the request's message and correlation identifiers, so the caller can match it to its request. If publishing fails, send an 'MQPUT ERR' record to the error queue and stop the consumer.
   - _Requirements: CAFM-REQ-F-014, CAFM-REQ-N-002, CAFM-REQ-F-016, CAFM-REQ-F-018, CAFM-REQ-F-019_
   - _Rules: CAFM-BR-013, CAFM-BR-015, CAFM-BR-016, CAFM-BR-018_
   - _After: CAFM-C02-T1, CAFM-C02-T2, CAFM-C02-T3_
@@ -3666,10 +3491,10 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: CAFM-REQ-F-034, CAFM-REQ-F-035, CAFM-REQ-F-036, CAFM-REQ-F-037, CAFM-REQ-F-038, CAFM-REQ-F-039, CAFM-REQ-F-031_
   - _Rules: CAFM-BR-033, CAFM-BR-036, CAFM-BR-037, CAFM-BR-038, CAFM-BR-039, CAFM-BR-040, CAFM-BR-041_
 - [ ] CAFM-C03-T2 [api] Build the services behind the screens
-  - CAFM-BR-031: Run the service as a consumer started when messages arrive on the date request queue. Read the request queue name from the start-up event, and always send replies to the fixed queue 'CARD.DEMO.REPLY.DATE'.
-  - CAFM-BR-032: Drain the queue: take requests one at a time, commit each read-and-reply as one transaction before taking the next, and stop once no message arrives within 5 seconds.
-  - CAFM-BR-034: Publish the reply as a text message to 'CARD.DEMO.REPLY.DATE' with the request's message id and correlation id, inside the same transaction as consuming the request. Ignore any reply-to address the request names.
-  - CAFM-BR-035: On shutdown, release every queue connection (request, reply, error) that was opened successfully and leave the others alone, so connections are not leaked across runs.
+  - CAFM-BR-031: Run the date inquiry as a consumer on the queue whose arrival started it. It always replies on the fixed date reply queue ('CARD.DEMO.REPLY.DATE') and ignores any reply-to queue the requester names.
+  - CAFM-BR-032: Process requests one at a time until the queue is empty: wait up to 5 seconds for each, and stop when none arrives. Take a request and send its reply in one transaction, committed before the next request is taken.
+  - CAFM-BR-034: Send the reply as a text message in the broker's standard character set, carrying the request's message ID and correlation ID, inside the same transaction that consumed the request.
+  - CAFM-BR-035: On shutdown, normal or after an error, release every queue connection that was opened (request, reply and error). Release only the ones that opened successfully, then end the task.
   - _Requirements: CAFM-REQ-F-029, CAFM-REQ-F-030, CAFM-REQ-F-032, CAFM-REQ-F-033_
   - _Rules: CAFM-BR-031, CAFM-BR-032, CAFM-BR-034, CAFM-BR-035_
   - _After: CAFM-C03-T1_
@@ -3691,13 +3516,13 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-046, CAFM-BR-047, CAFM-BR-049, CAFM-BR-050, CAFM-BR-052_
   - _After: CAFM-C04-T1_
 - [ ] CAFM-C04-T3 [api] Build the services behind the screens
-  - CAFM-BR-042: Each consumer run handles at most 501 messages (the limit of 500 is tested as 'more than'), committing after each message. Leave the remaining messages on the queue for the next start-up so one run cannot hold the queue indefinitely.
-  - CAFM-BR-043: Read the request queue with a 5-second wait, and end the run when no message arrives in that time.
-  - CAFM-BR-044: Provide a parser that splits the comma-delimited request into named fields and converts the amount text to an exact decimal (not floating point) transaction amount.
-  - CAFM-BR-045: Look up the account record by the account id taken from the card cross-reference, and return found or not found as a flag for the decision step.
-  - CAFM-BR-048: Look up the customer record by the customer id taken from the card cross-reference, and return found or not found as a flag for the decision step.
-  - CAFM-BR-051: Look up the account's pending authorization summary by account id, with three outcomes: found, not found, or error. Only an error ends the task (critical 'I002'). The legacy IMS statuses blank/'FW' mean found and 'GE' means not found.
-  - CAFM-BR-053: Authorization details must be read newest first. The legacy store did this with an inverted key: date = 99999 minus the YYDDD value, time = 999999999 minus (time x 1000 + milliseconds). The new store can use a descending index on the authorization timestamp, but any shared or migrated keys must keep this formula, because the purge works out an authorization's age from the inverted date.
+  - CAFM-BR-042: Consume authorization requests from the request queue one at a time, committing after each. Stop after 501 messages in one activation (the limit is 500, checked as 'more than') and leave the rest for the next activation. Make the limit a configuration value.
+  - CAFM-BR-043: Wait up to 5 seconds for each next request, and end the consumer cleanly when none arrives.
+  - CAFM-BR-044: Read the request as comma-separated text in this field order: auth date, auth time, card number, auth type, card expiry, message type, message source, processing code, amount, merchant category code, acquirer country code, POS entry mode, merchant id, merchant name, merchant city, merchant state, merchant zip, transaction id. Convert the amount text to a decimal number.
+  - CAFM-BR-045: Once the card is found, look up the account by the account id from the card cross-reference (a keyed lookup by account id) and record whether it was found.
+  - CAFM-BR-048: Once the card is found, look up the customer by the customer id from the card cross-reference (a keyed lookup by customer id) and record whether it was found.
+  - CAFM-BR-051: Look up the pending-authorization summary by the card's account id. Keep three outcomes apart: found, not found (a valid state, after which a new summary is created) and read failure (critical error 'I002').
+  - CAFM-BR-053: Authorization details must list newest first under their account. The legacy key does this with an inverted date (99999 minus YYDDD) and an inverted time (999999999 minus time×1000+milliseconds). A modern store can order by a full timestamp descending instead, but the purge's age calculation and the paging keys must use the same date.
   - _Requirements: CAFM-REQ-F-040, CAFM-REQ-F-041, CAFM-REQ-F-042, CAFM-REQ-F-043, CAFM-REQ-F-046, CAFM-REQ-F-049, CAFM-REQ-F-051_
   - _Rules: CAFM-BR-042, CAFM-BR-043, CAFM-BR-044, CAFM-BR-045, CAFM-BR-048, CAFM-BR-051, CAFM-BR-053_
   - _After: CAFM-C04-T1, CAFM-C04-T2_
@@ -3728,7 +3553,7 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-059_
   - _After: CAFM-C05-T1_
 - [ ] CAFM-C05-T4 [api] Build the services behind the screens
-  - CAFM-BR-060: Send each reply as a one-off, non-persistent message to the reply address named in the request, with the request's correlation id and a short time-to-live (expiry 50, which is 5 seconds in MQ's tenths of a second). This way stale replies expire instead of piling up. If the send fails, log critical error 'M004'.
+  - CAFM-BR-060: Publish each authorization reply once to the reply queue the requester named, carrying the request's correlation id. Send it non-persistent with a short expiry (50, in tenths of a second, so 5 seconds), so stale answers are dropped. If publishing fails, log critical error 'M004'.
   - _Requirements: CAFM-REQ-F-059, CAFM-REQ-F-060_
   - _Rules: CAFM-BR-060_
   - _After: CAFM-C05-T1, CAFM-C05-T2, CAFM-C05-T3_
@@ -3786,8 +3611,8 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-076, CAFM-BR-077, CAFM-BR-081_
   - _After: CAFM-C07-T1_
 - [ ] CAFM-C07-T4 [api] Build the services behind the screens
-  - CAFM-BR-072: Save the pending authorization summary as an upsert keyed by account id: update it when it was found during lookup, or insert a new one when it did not exist. Report a failure as critical error 'I003' 'IMS UPDATE SUMRY FAILED'.
-  - CAFM-BR-078: Insert one authorization detail row as a child of the account's summary, built from the request and reply fields listed in the rule, and keyed so details are read newest first. Report a failure as critical error 'I004' 'IMS INSERT DETL FAILED'.
+  - CAFM-BR-072: Save the account's summary as an upsert keyed by account id: update it if one was found, insert it if not. Do the save in the same transaction as the detail insert, so the summary and its details cannot drift apart.
+  - CAFM-BR-078: Insert the authorization detail as a child of the account's summary (a foreign key to the account summary). It holds the request fields and the reply's authorization id, response code, reason and approved amount, and is keyed newest first for paging and purge.
   - _Requirements: CAFM-REQ-F-076_
   - _Rules: CAFM-BR-078_
   - _After: CAFM-C07-T1, CAFM-C07-T2, CAFM-C07-T3_
@@ -3839,43 +3664,36 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-084, CAFM-BR-090, CAFM-BR-093, CAFM-BR-094, CAFM-BR-095, CAFM-BR-096, CAFM-BR-097, CAFM-BR-098, CAFM-BR-099, CAFM-BR-100, CAFM-BR-101, CAFM-BR-102_
   - _After: CAFM-C09-T1_
 - [ ] CAFM-C09-T4 [api] Build the services behind the screens
-  - CAFM-BR-091: The screen's load endpoint does keyed lookups in order: card cross-reference by account id (an alternate index on account), account by account id, customer by the customer id from the cross-reference, then pending authorization summary by account id. It fetches the first page of authorizations only when a summary exists.
-  - CAFM-BR-092: Keep the customer id and card number from the cross-reference in the operator's session state, so the detail and fraud screens can use them without looking them up again.
+  - CAFM-BR-091: For a valid account number, the screen's backend runs four keyed lookups: the card cross-reference by account id, the account, the customer (by the customer id from the cross-reference) and the pending-authorization summary. It returns them as one view, and fetches the first page of authorization details only when a summary exists.
+  - CAFM-BR-092: Keep the customer ID and card number from the cross-reference in the operator's session (or pass them in the navigation state), so the detail and fraud screens can use them without another lookup.
   - _Requirements: CAFM-REQ-F-088, CAFM-REQ-F-089_
   - _Rules: CAFM-BR-091, CAFM-BR-092_
   - _After: CAFM-C09-T1, CAFM-C09-T2, CAFM-C09-T3_
-- [ ] CAFM-C09-T5 [ui-modernization] Build the screen Pending authorizations (S-PENDING-AUTHS)
-  - To the prototype: ui-reference/index.html#/S-PENDING-AUTHS.
-  - search "Account ID": Required: 'Please enter Acct Id...'. Digits only: 'Acct Id must be Numeric ...'. On error focus returns to Account ID and no account details or authorizations are loaded.
-  - button "Look up"
-  - message "Account lookup problem": 'Account:<account> not found in XREF file...', 'Account:<account> not found in ACCT file...', 'Customer:<customer> not found in CUST file...', ' System error while reading AUTH Summary: Code:<code>'
-  - display "Customer name"
-  - display "Customer ID"
-  - display "Address"
-  - display "Phone"
-  - display "Credit limit"
-  - display "Cash credit limit"
-  - display "Credit balance"
-  - display "Cash balance"
-  - display "Approved authorizations"
-  - display "Approved amount"
-  - display "Declined authorizations"
-  - display "Declined amount"
-  - table "Pending authorizations": Only a row's 'View details' action opens an authorization, so 'Invalid selection. Valid value is S' cannot arise; it is shown if a row without an authorization is opened. Previous is disabled on the first page and announces 'You are already at the top of the page...'; Next is disabled on the last page and announces 'You are already at the bottom of the page...'.
-  - message "Shortcut not available": Unsupported shortcut: 'Invalid key pressed. Please see below...' — use Look up, the table's paging or Main menu.
-  - nav "Main menu"
-  - _Requirements: CAFM-REQ-F-082, CAFM-REQ-F-083, CAFM-REQ-F-084, CAFM-REQ-F-085, CAFM-REQ-F-086, CAFM-REQ-F-087, CAFM-REQ-F-088, CAFM-REQ-F-089, CAFM-REQ-F-090, CAFM-REQ-F-091, CAFM-REQ-F-092, CAFM-REQ-F-093, CAFM-REQ-F-094, CAFM-REQ-F-095, CAFM-REQ-F-096, CAFM-REQ-F-097, CAFM-REQ-F-098, CAFM-REQ-F-099, CAFM-REQ-F-100_
-  - _Rules: CAFM-BR-084, CAFM-BR-085, CAFM-BR-086, CAFM-BR-087, CAFM-BR-088, CAFM-BR-089, CAFM-BR-090, CAFM-BR-091, CAFM-BR-092, CAFM-BR-093, CAFM-BR-094, CAFM-BR-095, CAFM-BR-096, CAFM-BR-097, CAFM-BR-098, CAFM-BR-099, CAFM-BR-100, CAFM-BR-101, CAFM-BR-102, CAFM-BR-103, CAFM-BR-104_
+- [ ] CAFM-C09-T5 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **lookup field** "Account ID": Blank: 'Please enter Acct Id' - type the account ID, then press Enter. Not all digits: 'Acct Id must be Numeric' - remove letters, spaces and symbols and use digits only. No card on file: 'Account <account> not found in XREF file' - check the account ID. No account record: 'Account <account> not found in ACCT file' - check the account ID. No customer record: 'Customer <customer> not found in CUST file' - report it to support. Any other read failure: 'System error while reading' with the file and code - try again, or report the code. On any error nothing is loaded, the field keeps the entry so it can be corrected, and focus returns to it.
+  - **summary card** "Customer"
+  - **summary card** "Limits and balances"
+  - **summary card** "Pending authorizations": Summary unreadable: 'System error while reading AUTH Summary: Code <code>' - try again, and report the code if it repeats. The totals and the table stay empty.
+  - **data table** "Authorizations": Previous page is disabled on the first page, with 'You are already on the first page'. Next page is disabled on the last page, with 'You are already on the last page'. Next authorization on the last one says 'Already at the last authorization' and keeps the current one open. Rows open directly, so no selection code is typed and 'Invalid selection. Valid value is S' cannot arise. There are no unsupported keys to warn about.
+  - _Requirements: CAFM-REQ-F-082, CAFM-REQ-F-083, CAFM-REQ-F-084, CAFM-REQ-F-085, CAFM-REQ-F-086, CAFM-REQ-F-087, CAFM-REQ-F-088, CAFM-REQ-F-089, CAFM-REQ-F-090, CAFM-REQ-F-091, CAFM-REQ-F-092, CAFM-REQ-F-093, CAFM-REQ-F-094, CAFM-REQ-F-095, CAFM-REQ-F-096, CAFM-REQ-F-097, CAFM-REQ-F-098, CAFM-REQ-F-100_
+  - _Rules: CAFM-BR-084, CAFM-BR-085, CAFM-BR-086, CAFM-BR-087, CAFM-BR-088, CAFM-BR-089, CAFM-BR-090, CAFM-BR-091, CAFM-BR-092, CAFM-BR-093, CAFM-BR-094, CAFM-BR-095, CAFM-BR-096, CAFM-BR-097, CAFM-BR-098, CAFM-BR-099, CAFM-BR-100, CAFM-BR-101, CAFM-BR-102, CAFM-BR-104_
   - _After: CAFM-C09-T2, CAFM-C09-T3, CAFM-C09-T4_
-- [ ] CAFM-C09-T6 [test-generation] Write a test for every acceptance criterion
+- [ ] CAFM-C09-T6 [ui-modernization] Build the screen CardDemo header and navigation (S-APP-HEADER)
+  - To the prototype: ui-reference/index.html#/S-APP-HEADER.
+  - **primary button** "Main menu"
+  - _Requirements: CAFM-REQ-F-099_
+  - _Rules: CAFM-BR-103_
+  - _After: CAFM-C09-T2, CAFM-C09-T3, CAFM-C09-T4_
+- [ ] CAFM-C09-T7 [test-generation] Write a test for every acceptance criterion
   - 24 acceptance criteria, each a test named by its ID.
   - _Requirements: CAFM-REQ-F-082, CAFM-REQ-F-083, CAFM-REQ-F-084, CAFM-REQ-F-085, CAFM-REQ-F-086, CAFM-REQ-F-087, CAFM-REQ-F-088, CAFM-REQ-F-089, CAFM-REQ-F-090, CAFM-REQ-F-091, CAFM-REQ-F-092, CAFM-REQ-F-093, CAFM-REQ-F-094, CAFM-REQ-F-095, CAFM-REQ-F-096, CAFM-REQ-F-097, CAFM-REQ-F-098, CAFM-REQ-F-099, CAFM-REQ-F-100_
   - _Criteria: CAFM-C09-AC-01, CAFM-C09-AC-02, CAFM-C09-AC-03, CAFM-C09-AC-04, CAFM-C09-AC-05, CAFM-C09-AC-06, CAFM-C09-AC-07, CAFM-C09-AC-08, CAFM-C09-AC-09, CAFM-C09-AC-10, CAFM-C09-AC-11, CAFM-C09-AC-12, CAFM-C09-AC-13, CAFM-C09-AC-14, CAFM-C09-AC-15, CAFM-C09-AC-16, CAFM-C09-AC-17, CAFM-C09-AC-18, CAFM-C09-AC-19, CAFM-C09-AC-20, CAFM-C09-AC-21, CAFM-C09-AC-22, CAFM-C09-AC-23, CAFM-C09-AC-24_
-  - _After: CAFM-C09-T1, CAFM-C09-T2, CAFM-C09-T3, CAFM-C09-T4, CAFM-C09-T5_
-- [ ] CAFM-C09-T7 [compliance] Review the handling of card data, money, personal data
+  - _After: CAFM-C09-T1, CAFM-C09-T2, CAFM-C09-T3, CAFM-C09-T4, CAFM-C09-T5, CAFM-C09-T6_
+- [ ] CAFM-C09-T8 [compliance] Review the handling of card data, money, personal data
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: CAFM-REQ-F-082, CAFM-REQ-F-083, CAFM-REQ-F-084, CAFM-REQ-F-085, CAFM-REQ-F-086, CAFM-REQ-F-087, CAFM-REQ-F-088, CAFM-REQ-F-089, CAFM-REQ-F-090, CAFM-REQ-F-091, CAFM-REQ-F-092, CAFM-REQ-F-093, CAFM-REQ-F-094, CAFM-REQ-F-095, CAFM-REQ-F-096, CAFM-REQ-F-097, CAFM-REQ-F-098, CAFM-REQ-F-099, CAFM-REQ-F-100_
-  - _After: CAFM-C09-T1, CAFM-C09-T2, CAFM-C09-T3, CAFM-C09-T4, CAFM-C09-T5_
+  - _After: CAFM-C09-T1, CAFM-C09-T2, CAFM-C09-T3, CAFM-C09-T4, CAFM-C09-T5, CAFM-C09-T6_
 
 ## CAFM-C10 Page through an account's pending authorizations (draft)
 
@@ -3894,14 +3712,14 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-113, CAFM-BR-114_
   - _After: CAFM-C10-T1_
 - [ ] CAFM-C10-T4 [api] Build the services behind the screens
-  - CAFM-BR-106: Use keyset (cursor) pagination over the account's authorizations in newest-first order. For a forward page, start after the last authorization key shown, or from the beginning when there is none. Keep the cursor in session state, not as a page offset.
-  - CAFM-BR-108: For the next page, fetch up to 5 authorizations after the cursor and replace the list rows entirely, so rows from the previous page never remain. Fetch one more to work out whether a further page exists, and keep each page's first key so backward paging works.
+  - CAFM-BR-106: Use keyset paging: a forward page request carries the key of the last authorization shown and returns the next rows after it, or starts from the beginning when there is no key. Re-check that the account's summary still exists before reading the page.
+  - CAFM-BR-108: A forward page replaces all five list rows with the next set of up to 5 authorizations. Fetch one row more than the page size to tell whether a further page exists. Keep the first key of each page visited so backward paging can go back to it.
   - _Requirements: CAFM-REQ-F-102_
   - _Rules: CAFM-BR-106_
   - _After: CAFM-C10-T1, CAFM-C10-T2, CAFM-C10-T3_
-- [ ] CAFM-C10-T5 [ui-modernization] Build the screen Pending authorizations (S-PENDING-AUTHS)
-  - To the prototype: ui-reference/index.html#/S-PENDING-AUTHS.
-  - table "Pending authorizations": Only a row's 'View details' action opens an authorization, so 'Invalid selection. Valid value is S' cannot arise; it is shown if a row without an authorization is opened. Previous is disabled on the first page and announces 'You are already at the top of the page...'; Next is disabled on the last page and announces 'You are already at the bottom of the page...'.
+- [ ] CAFM-C10-T5 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **data table** "Authorizations": Previous page is disabled on the first page, with 'You are already on the first page'. Next page is disabled on the last page, with 'You are already on the last page'. Next authorization on the last one says 'Already at the last authorization' and keeps the current one open. Rows open directly, so no selection code is typed and 'Invalid selection. Valid value is S' cannot arise. There are no unsupported keys to warn about.
   - _Requirements: CAFM-REQ-F-101, CAFM-REQ-F-102, CAFM-REQ-F-103, CAFM-REQ-F-104, CAFM-REQ-F-105, CAFM-REQ-F-106, CAFM-REQ-F-107, CAFM-REQ-F-108_
   - _Rules: CAFM-BR-105, CAFM-BR-106, CAFM-BR-107, CAFM-BR-108, CAFM-BR-109, CAFM-BR-110, CAFM-BR-111, CAFM-BR-112, CAFM-BR-113, CAFM-BR-114_
   - _After: CAFM-C10-T2, CAFM-C10-T3, CAFM-C10-T4_
@@ -3926,9 +3744,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: CAFM-REQ-F-109, CAFM-REQ-F-110, CAFM-REQ-F-111_
   - _Rules: CAFM-BR-115, CAFM-BR-116, CAFM-BR-117_
   - _After: CAFM-C11-T1_
-- [ ] CAFM-C11-T3 [ui-modernization] Build the screen Pending authorizations (S-PENDING-AUTHS)
-  - To the prototype: ui-reference/index.html#/S-PENDING-AUTHS.
-  - table "Pending authorizations": Only a row's 'View details' action opens an authorization, so 'Invalid selection. Valid value is S' cannot arise; it is shown if a row without an authorization is opened. Previous is disabled on the first page and announces 'You are already at the top of the page...'; Next is disabled on the last page and announces 'You are already at the bottom of the page...'.
+- [ ] CAFM-C11-T3 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **data table** "Authorizations": Previous page is disabled on the first page, with 'You are already on the first page'. Next page is disabled on the last page, with 'You are already on the last page'. Next authorization on the last one says 'Already at the last authorization' and keeps the current one open. Rows open directly, so no selection code is typed and 'Invalid selection. Valid value is S' cannot arise. There are no unsupported keys to warn about.
   - _Requirements: CAFM-REQ-F-109, CAFM-REQ-F-110, CAFM-REQ-F-111_
   - _Rules: CAFM-BR-115, CAFM-BR-116, CAFM-BR-117_
   - _After: CAFM-C11-T2_
@@ -3957,11 +3775,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: CAFM-REQ-F-112, CAFM-REQ-F-113_
   - _Rules: CAFM-BR-118, CAFM-BR-119_
   - _After: CAFM-C12-T1_
-- [ ] CAFM-C12-T4 [ui-modernization] Build the screen Authorization details (S-AUTH-DETAIL)
-  - To the prototype: ui-reference/index.html#/S-AUTH-DETAIL.
-  - display "Response"
-  - display "Reason"
-  - button "Mark as fraud / Remove fraud mark"
+- [ ] CAFM-C12-T4 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **status badge** "Response"
+  - **summary card** "Authorization": Not read: 'System error while reading Auth Summary: Code <code>' or 'System error while reading Auth Details: Code <code>' - reopen the authorization, and report the code if it repeats. The detail fields stay blank when the account ID is not numeric, no authorization is selected, or a read failed.
+  - **primary button** "Report fraud / Remove fraud mark": Fraud register update failed: the fraud program's message (for example 'SYSTEM ERROR DB2: CODE <code>') and 'Nothing was changed - try again, and report the code if it repeats.' Authorization save failed: 'System error while FRAUD Tagging, ROLLBACK <code>' and 'Nothing was changed - try again.' Fraud service did not respond: 'The fraud update did not complete. Nothing was changed - try again.'
   - _Requirements: CAFM-REQ-F-112, CAFM-REQ-F-113, CAFM-REQ-F-114_
   - _Rules: CAFM-BR-118, CAFM-BR-119, CAFM-BR-120_
   - _After: CAFM-C12-T2, CAFM-C12-T3_
@@ -3991,32 +3809,15 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-124, CAFM-BR-125, CAFM-BR-126, CAFM-BR-127, CAFM-BR-128, CAFM-BR-132, CAFM-BR-133, CAFM-BR-134_
   - _After: CAFM-C13-T1_
 - [ ] CAFM-C13-T4 [api] Build the services behind the screens
-  - CAFM-BR-131: Retrieval is a two-step keyed lookup: first fetch the account's pending authorization summary by account id, and only if it exists fetch the authorization detail belonging to that account whose key equals the selected authorization key. A detail must never be returned without its parent summary, and lookup by key alone (ignoring the account) is not allowed. 'Not found' at either step is a normal outcome, not an error.
+  - CAFM-BR-131: Retrieval is two keyed lookups, one after the other: first the account's pending authorization summary by account id, then, only if that is found, the authorization detail under that account by the selected authorization key. The new store needs the account to own its authorizations (for example a summary keyed by account id with details keyed by account id plus authorization key), so a detail can never be fetched for an account that has no summary. A missing summary or detail is treated as 'nothing to show', not as an error.
   - _Requirements: CAFM-REQ-F-123_
   - _Rules: CAFM-BR-131_
   - _After: CAFM-C13-T1, CAFM-C13-T2, CAFM-C13-T3_
-- [ ] CAFM-C13-T5 [ui-modernization] Build the screen Authorization details (S-AUTH-DETAIL)
-  - To the prototype: ui-reference/index.html#/S-AUTH-DETAIL.
-  - message "Authorization could not be shown": If the account is not numeric or no authorization is selected, details are left blank and the user is sent back to choose an authorization from the list. System errors: ' System error while reading Auth Summary: Code:<code>', ' System error while reading Auth Details: Code:<code>', ' System error while reading next Auth: Code:<code>'.
-  - display "Card number"
-  - display "Date"
-  - display "Time"
-  - display "Amount"
-  - display "Authorization code"
-  - display "Card expiry"
-  - display "Fraud status"
-  - display "POS entry mode"
-  - display "Source"
-  - display "Merchant category code"
-  - display "Authorization type"
-  - display "Transaction ID"
-  - display "Match status"
-  - display "Merchant name"
-  - display "Merchant ID"
-  - display "City"
-  - display "State"
-  - display "ZIP"
-  - button "Refresh"
+- [ ] CAFM-C13-T5 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **summary card** "Authorization": Not read: 'System error while reading Auth Summary: Code <code>' or 'System error while reading Auth Details: Code <code>' - reopen the authorization, and report the code if it repeats. The detail fields stay blank when the account ID is not numeric, no authorization is selected, or a read failed.
+  - **summary card** "Merchant"
+  - **status badge** "Fraud status"
   - _Requirements: CAFM-REQ-F-115, CAFM-REQ-F-116, CAFM-REQ-F-117, CAFM-REQ-F-118, CAFM-REQ-F-119, CAFM-REQ-F-120, CAFM-REQ-F-121, CAFM-REQ-F-122, CAFM-REQ-F-123, CAFM-REQ-F-124, CAFM-REQ-F-125, CAFM-REQ-F-126_
   - _Rules: CAFM-BR-121, CAFM-BR-122, CAFM-BR-123, CAFM-BR-124, CAFM-BR-125, CAFM-BR-126, CAFM-BR-127, CAFM-BR-128, CAFM-BR-129, CAFM-BR-130, CAFM-BR-131, CAFM-BR-132, CAFM-BR-133, CAFM-BR-134_
   - _After: CAFM-C13-T2, CAFM-C13-T3, CAFM-C13-T4_
@@ -4046,16 +3847,14 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-140_
   - _After: CAFM-C14-T1_
 - [ ] CAFM-C14-T4 [api] Build the services behind the screens
-  - CAFM-BR-135: The detail view can only be reached with an account and a selected authorization supplied by the pending authorization list. If it is opened directly without that context (e.g. a deep link or a fresh session), the application must redirect the user to the pending authorization list instead of showing an empty detail page.
+  - CAFM-BR-135: The detail view can only be reached with an account and a selected authorization from the pending authorization list. If it is opened directly, with no account or selection carried in (a bare URL, an expired session), it must redirect to the account's pending authorization list instead of showing an empty or default detail page.
   - _Requirements: CAFM-REQ-F-127_
   - _Rules: CAFM-BR-135_
   - _After: CAFM-C14-T1, CAFM-C14-T2, CAFM-C14-T3_
-- [ ] CAFM-C14-T5 [ui-modernization] Build the screen Authorization details (S-AUTH-DETAIL)
-  - To the prototype: ui-reference/index.html#/S-AUTH-DETAIL.
-  - message "Authorization could not be shown": If the account is not numeric or no authorization is selected, details are left blank and the user is sent back to choose an authorization from the list. System errors: ' System error while reading Auth Summary: Code:<code>', ' System error while reading Auth Details: Code:<code>', ' System error while reading next Auth: Code:<code>'.
-  - message "Shortcut not available": Unsupported shortcut: 'Invalid key pressed. Please see below...' — use Refresh, Next authorization, Mark/Remove fraud or Back.
-  - button "Next authorization"
-  - link "Back to pending authorizations"
+- [ ] CAFM-C14-T5 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **data table** "Authorizations": Previous page is disabled on the first page, with 'You are already on the first page'. Next page is disabled on the last page, with 'You are already on the last page'. Next authorization on the last one says 'Already at the last authorization' and keeps the current one open. Rows open directly, so no selection code is typed and 'Invalid selection. Valid value is S' cannot arise. There are no unsupported keys to warn about.
+  - **summary card** "Authorization": Not read: 'System error while reading Auth Summary: Code <code>' or 'System error while reading Auth Details: Code <code>' - reopen the authorization, and report the code if it repeats. The detail fields stay blank when the account ID is not numeric, no authorization is selected, or a read failed.
   - _Requirements: CAFM-REQ-F-127, CAFM-REQ-F-128, CAFM-REQ-F-129, CAFM-REQ-F-130, CAFM-REQ-F-131, CAFM-REQ-F-132_
   - _Rules: CAFM-BR-135, CAFM-BR-136, CAFM-BR-137, CAFM-BR-138, CAFM-BR-139, CAFM-BR-140, CAFM-BR-141, CAFM-BR-142_
   - _After: CAFM-C14-T2, CAFM-C14-T3, CAFM-C14-T4_
@@ -4085,15 +3884,13 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-152, CAFM-BR-153, CAFM-BR-154, CAFM-BR-155_
   - _After: CAFM-C15-T1_
 - [ ] CAFM-C15-T4 [api] Build the services behind the screens
-  - CAFM-BR-147: Marking or unmarking fraud calls a separate fraud-recording service, passing the full authorization, account number, customer number and the requested action ('F' or 'R'). The service stamps today's date (MM/DD/YY) as the fraud report date on the authorization it returns and reports success or failure with a message. This call and the save of the authorization record must run in one transaction (or an equivalent saga with compensation) so both commit or both roll back.
+  - CAFM-BR-147: The fraud action is one synchronous call from the detail screen to a fraud-recording service, passing the full authorization, the account number, the customer number and the action ('F' report or 'R' remove). The service stamps today's date (MM/DD/YY) as the fraud report date on the authorization it returns and reports success or failure with a message. Both the fraud register write and the authorization update must run in one transaction (or an equivalent all-or-nothing mechanism), committed only after the authorization update succeeds.
   - _Requirements: CAFM-REQ-F-135_
   - _Rules: CAFM-BR-147_
   - _After: CAFM-C15-T1, CAFM-C15-T2, CAFM-C15-T3_
-- [ ] CAFM-C15-T5 [ui-modernization] Build the screen Authorization details (S-AUTH-DETAIL)
-  - To the prototype: ui-reference/index.html#/S-AUTH-DETAIL.
-  - button "Mark as fraud / Remove fraud mark"
-  - dialog "Confirm fraud action"
-  - message "Fraud action result"
+- [ ] CAFM-C15-T5 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **primary button** "Report fraud / Remove fraud mark": Fraud register update failed: the fraud program's message (for example 'SYSTEM ERROR DB2: CODE <code>') and 'Nothing was changed - try again, and report the code if it repeats.' Authorization save failed: 'System error while FRAUD Tagging, ROLLBACK <code>' and 'Nothing was changed - try again.' Fraud service did not respond: 'The fraud update did not complete. Nothing was changed - try again.'
   - _Requirements: CAFM-REQ-F-133, CAFM-REQ-F-134, CAFM-REQ-F-135, CAFM-REQ-F-136, CAFM-REQ-F-137, CAFM-REQ-F-138, CAFM-REQ-N-003, CAFM-REQ-F-139, CAFM-REQ-F-140, CAFM-REQ-F-141_
   - _Rules: CAFM-BR-143, CAFM-BR-144, CAFM-BR-145, CAFM-BR-146, CAFM-BR-147, CAFM-BR-148, CAFM-BR-149, CAFM-BR-150, CAFM-BR-151, CAFM-BR-152, CAFM-BR-153, CAFM-BR-154, CAFM-BR-155, CAFM-BR-156_
   - _After: CAFM-C15-T2, CAFM-C15-T3, CAFM-C15-T4_
@@ -4123,14 +3920,13 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-160, CAFM-BR-161_
   - _After: CAFM-C16-T1_
 - [ ] CAFM-C16-T4 [api] Build the services behind the screens
-  - CAFM-BR-157: The pending authorization stores its time in complemented form (999999999 minus the time) so newest sorts first. The fraud register needs the real timestamp, so the new application must convert back (999999999 minus the stored value) and combine it with the original authorization date. Card number plus that timestamp is the unique key of a fraud record; if the new data model stores the real time directly, the conversion goes away but the key must stay the same.
+  - CAFM-BR-157: The fraud register is keyed by card number plus the authorization's original timestamp. The legacy authorization stores its time as a complement (999999999 minus the time) so newest sorts first; the new application should store the real authorization timestamp on the authorization and use it directly, with a unique key on (card number, authorization timestamp) so that recording is an upsert. If legacy data is migrated, convert the complemented time once, during migration.
   - _Requirements: CAFM-REQ-F-142_
   - _Rules: CAFM-BR-157_
   - _After: CAFM-C16-T1, CAFM-C16-T2, CAFM-C16-T3_
-- [ ] CAFM-C16-T5 [ui-modernization] Build the screen Authorization details (S-AUTH-DETAIL)
-  - To the prototype: ui-reference/index.html#/S-AUTH-DETAIL.
-  - dialog "Confirm fraud action"
-  - message "Fraud action result"
+- [ ] CAFM-C16-T5 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **primary button** "Report fraud / Remove fraud mark": Fraud register update failed: the fraud program's message (for example 'SYSTEM ERROR DB2: CODE <code>') and 'Nothing was changed - try again, and report the code if it repeats.' Authorization save failed: 'System error while FRAUD Tagging, ROLLBACK <code>' and 'Nothing was changed - try again.' Fraud service did not respond: 'The fraud update did not complete. Nothing was changed - try again.'
   - _Requirements: CAFM-REQ-F-142, CAFM-REQ-F-143, CAFM-REQ-F-144, CAFM-REQ-F-145, CAFM-REQ-F-146_
   - _Rules: CAFM-BR-157, CAFM-BR-158, CAFM-BR-159, CAFM-BR-160, CAFM-BR-161_
   - _After: CAFM-C16-T2, CAFM-C16-T3, CAFM-C16-T4_
@@ -4160,11 +3956,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-168, CAFM-BR-169, CAFM-BR-170, CAFM-BR-171_
   - _After: CAFM-C17-T1_
 - [ ] CAFM-C17-T4 [api] Build the scheduled job
-  - CAFM-BR-162: Needs a scheduled full-database export of pending authorizations that reads the live data without locking out online users, writes a new variable-length extract (records up to 27990 bytes) under a fixed name, and removes the extract if the job fails so no partial file is left registered as complete.
-  - CAFM-BR-163: The export walks all account summaries in storage order and, for each with a numeric account id, writes the summary and then all its details, so every detail follows its parent summary in the output. In a relational model this is an ordered scan of summaries joined to their details.
-  - CAFM-BR-165: Reaching the end of the summaries is the normal finish of the export, not an error; the job completes successfully.
-  - CAFM-BR-166: For each exported summary, every detail belonging to that account is read in turn and each successfully read detail is written to the detail export file.
-  - CAFM-BR-167: Running out of details for a summary is normal: log 'CHILD SEG FLAG GE : Y', reset the per-summary state and move on to the next summary. It must not be treated as an error or stop the job.
+  - CAFM-BR-162: A scheduled full extract of the pending authorization store into a single new file of variable-length records (up to 27990 bytes), read without locking out online users. The file must only be published when the job succeeds: write to a temporary name and rename on success, or delete it on failure, so a failed run never leaves a usable-looking extract.
+  - CAFM-BR-163: The extract walks all summaries in a stable order (by account id) and, for each one with a numeric account id, writes the summary and then all its details before moving to the next summary. With a relational store this is a query of summaries ordered by account id joined to their details, streamed out so memory use does not grow with volume.
+  - CAFM-BR-165: The job ends normally when there are no more summaries to read; reaching the end of the data is a normal finish, not an error.
+  - CAFM-BR-166: For each summary, every one of its details is written to the separate detail file, in the order they are held under that summary (newest first in the legacy store), so a reload can attach each detail to its summary.
+  - CAFM-BR-167: Running out of details for a summary is a normal step, not an error: log 'CHILD SEG FLAG GE : Y', reset the per-summary state and continue with the next summary.
   - _Requirements: CAFM-REQ-F-147, CAFM-REQ-F-148, CAFM-REQ-F-150, CAFM-REQ-F-151, CAFM-REQ-F-152_
   - _Rules: CAFM-BR-162, CAFM-BR-163, CAFM-BR-165, CAFM-BR-166, CAFM-BR-167_
   - _After: CAFM-C17-T1, CAFM-C17-T2, CAFM-C17-T3_
@@ -4194,9 +3990,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-177, CAFM-BR-178, CAFM-BR-179, CAFM-BR-180_
   - _After: CAFM-C18-T1_
 - [ ] CAFM-C18-T4 [api] Build the scheduled job
-  - CAFM-BR-172: Needs a scheduled load job that takes two input files, the summary file (AWS.M2.CARDDEMO.PAUTDB.ROOT.FILEO) and the detail file (AWS.M2.CARDDEMO.PAUTDB.CHILD.FILEO), and inserts their contents into the live pending authorization store while it stays available to other users.
-  - CAFM-BR-173: The load runs in two passes: the whole summary file to its end, then the whole detail file to its end. Details are never processed before all summaries are in, so each detail can find its parent.
-  - CAFM-BR-174: Same two-pass order: details are attached to their summary by account ID only after every summary has been loaded. In a relational model this is the parent table loaded before the child table, with the account ID as the foreign key.
+  - CAFM-BR-172: A batch load job that takes two input files, a summary file and a detail file, and inserts their records into the pending authorization store while online use continues (it must not need exclusive access to the store).
+  - CAFM-BR-173: The load runs in two phases: read the whole summary file and insert every summary, and only then read the detail file. This order guarantees each detail's parent summary already exists when the detail is inserted.
+  - CAFM-BR-174: Each detail is attached to its summary by account id: look up the summary by account id (a keyed lookup) and insert the detail under it, for example as a child row with a foreign key to the summary. A detail whose summary cannot be found is skipped, not loaded as an orphan.
   - _Requirements: CAFM-REQ-F-156, CAFM-REQ-F-157_
   - _Rules: CAFM-BR-172, CAFM-BR-173, CAFM-BR-174_
   - _After: CAFM-C18-T1, CAFM-C18-T2, CAFM-C18-T3_
@@ -4256,11 +4052,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-190, CAFM-BR-193_
   - _After: CAFM-C20-T1_
 - [ ] CAFM-C20-T4 [api] Build the scheduled job
-  - CAFM-BR-185: The export reads summaries one after another in storage order until there are none left, and finishes each summary (including its details) before moving to the next. A streaming or paged ordered scan is fine; loading everything into memory is not required.
-  - CAFM-BR-187: Each summary goes to the summary export file as its full 100-byte record image, unchanged, so the file can be reloaded as it is. If the new store changes the summary layout, an explicit fixed 100-byte export format must be defined to keep compatibility.
-  - CAFM-BR-189: End of summaries is the normal finish: close both export files and end the job successfully.
-  - CAFM-BR-191: Each detail goes to the detail export file as a 206-byte record: the parent account id (6-byte packed decimal) followed by the 200-byte detail image. The account prefix is what links each detail back to its summary on reload, so it must always be present.
-  - CAFM-BR-192: Running out of details for the current summary is normal: log 'CHILD SEG FLAG GE : ' with the end flag and continue with the next summary, without treating it as an error.
+  - CAFM-BR-185: The job walks all summaries one by one in a stable order (by account id), finishing each summary and its details before moving to the next; stream the results rather than loading them all into memory.
+  - CAFM-BR-187: The summary file holds one fixed 100-byte record per summary, the summary exactly as stored. The new application needs a defined summary export layout of the same fields, byte-compatible with the legacy layout for as long as anything still reads these files.
+  - CAFM-BR-189: When there are no more summaries, the job closes both output files and ends normally (return code 0); reaching the end of the data is not an error.
+  - CAFM-BR-191: The detail file holds one fixed 206-byte record per detail: the parent account id (6 bytes, packed decimal in the legacy layout) followed by the 200-byte detail as stored. The account id prefix is what lets a reload attach each detail to its summary, so the new export must always carry it; keep packed decimal only while legacy consumers need it.
+  - CAFM-BR-192: Running out of details for a summary is a normal step: log 'CHILD SEG FLAG GE : ' with the end flag and continue with the next summary.
   - _Requirements: CAFM-REQ-F-171, CAFM-REQ-F-173, CAFM-REQ-F-175, CAFM-REQ-F-177, CAFM-REQ-F-178_
   - _Rules: CAFM-BR-185, CAFM-BR-187, CAFM-BR-189, CAFM-BR-191, CAFM-BR-192_
   - _After: CAFM-C20-T1, CAFM-C20-T2, CAFM-C20-T3_
@@ -4285,11 +4081,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: CAFM-BR-199, CAFM-BR-200_
   - _After: CAFM-C21-T1_
 - [ ] CAFM-C21-T3 [api] Build the scheduled job
-  - CAFM-BR-194: Needs a scheduled batch job running the summary-and-detail unload (DBUNLDGS in the legacy) with read-only, shared access to the pending authorization data and its index, so online use is not blocked while it runs.
-  - CAFM-BR-195: This job writes to two existing output files, the summary file (AWS.M2.CARDDEMO.PAUTDB.ROOT.GSAM) and the detail file (AWS.M2.CARDDEMO.PAUTDB.CHILD.GSAM). No other process may write to them during the run, and they are kept whether the job succeeds or fails, so downstream steps must check the job status before using them.
-  - CAFM-BR-196: Needs a second scheduled export job (PAUDBUNL in the legacy) that reads the pending authorization data and its index with shared, read-only access and writes summaries to the first output file and details to the second.
-  - CAFM-BR-197: The job creates a new summary export file (AWS.M2.CARDDEMO.PAUTDB.ROOT.FILEO) of fixed 100-byte records. It is published or registered only when the job succeeds and is deleted when the job fails, for example by writing to a temporary location and renaming it on success.
-  - CAFM-BR-198: The job creates a new detail export file (AWS.M2.CARDDEMO.PAUTDB.CHILD.FILEO) of fixed 206-byte records. It is published only when the job succeeds and deleted when the job fails, the same way as the summary file.
+  - CAFM-BR-194: A scheduled batch job (legacy DBUNLDGS) that reads the whole pending authorization store, summaries with their details, with read-only shared access so online users are not locked out.
+  - CAFM-BR-195: This job writes to two standing output files, root (summary) and child (detail), that already exist. Only this job may write to them while it runs, and both are kept whether the job succeeds or fails, so downstream users must check the job's outcome before trusting their contents.
+  - CAFM-BR-196: A second scheduled batch job (legacy PAUDBUNL) that reads the pending authorization store with shared read-only access and writes summaries to the first output file and details to the second.
+  - CAFM-BR-197: The root unload file, of fixed 100-byte records, is created new on each run and published only when the job succeeds; on failure it is deleted (write under a temporary name and rename on success).
+  - CAFM-BR-198: The child unload file, of fixed 206-byte records, is created new on each run and published only when the job succeeds; on failure it is deleted, the same as the root file.
   - _Requirements: CAFM-REQ-N-004, CAFM-REQ-N-005, CAFM-REQ-N-006, CAFM-REQ-F-180, CAFM-REQ-F-181_
   - _Rules: CAFM-BR-194, CAFM-BR-195, CAFM-BR-196, CAFM-BR-197, CAFM-BR-198_
   - _After: CAFM-C21-T1, CAFM-C21-T2_
@@ -4306,9 +4102,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
 ## SOM-C01 Register online CardDemo programs and transactions (draft)
 
 - [ ] SOM-C01-T1 [api] Build the scheduled job
-  - SOM-BR-001: The sign-on entry point must be set up as part of deployment configuration, such as a route table or service registration. Its legacy code CC00 maps to the sign-on screen, and it must be usable from any node or region (the legacy data location ANY). Keep CC00 as an alias only if outside links or operators still use it.
-  - SOM-BR-002: Register the admin menu as a deployable entry point (a route or service) that answers to the legacy code CCAD. It must be declared in the same deployment configuration as sign-on (the CARDDEMO group), so the two are always released together.
-  - SOM-BR-003: A second legacy code, CCDM, must open the same admin menu. Model it as an alias route or redirect to the admin menu entry point, not as a separate screen. No location restriction is needed (ANY).
+  - SOM-BR-001: Register the sign-on screen as a routable entry point (for example a route or deep-link code that matches legacy code CC00) in the application's deployment or route configuration, which is applied when the environment is provisioned. It must be open to any user who has not signed on. No data-location setting is needed.
+  - SOM-BR-002: Register the Admin Menu as a routable entry point under the code CCAD in the same deployment or route configuration as the sign-on screen, so the configuration is versioned and applied with each release.
+  - SOM-BR-003: Map a second entry code, CCDM, to the same Admin Menu route, so both CCAD and CCDM open the Admin Menu. Keep it as an alias in the route configuration, not a separate screen.
   - _Requirements: SOM-REQ-F-001, SOM-REQ-F-002, SOM-REQ-F-003_
   - _Rules: SOM-BR-001, SOM-BR-002, SOM-BR-003_
 - [ ] SOM-C01-T2 [test-generation] Write a test for every acceptance criterion
@@ -4339,21 +4135,26 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: SOM-C02-T1_
 - [ ] SOM-C02-T4 [ui-modernization] Build the screen Home (S-HOME)
   - To the prototype: ui-reference/index.html#/S-HOME.
-  - page "Home"
-  - list "Functions": Only listed functions can be opened, so no option number can be wrong; a request for a function that does not exist shows 'Please enter a valid option number...'; a regular user requesting an admin-only function gets 'No access - Admin Only option... '
-  - message "Home messages": An unsupported action shows 'Invalid key pressed. Please see below...'
-  - _Requirements: SOM-REQ-F-004, SOM-REQ-F-005, SOM-REQ-F-006, SOM-REQ-F-007, SOM-REQ-F-008, SOM-REQ-F-009, SOM-REQ-F-010, SOM-REQ-F-011, SOM-REQ-N-001_
-  - _Rules: SOM-BR-004, SOM-BR-005, SOM-BR-006, SOM-BR-007, SOM-BR-008, SOM-BR-009, SOM-BR-010, SOM-BR-011, SOM-BR-012, SOM-BR-013_
+  - **data table** "Functions": Only the functions the role may use are listed, so the 'Please enter a valid option number...' error cannot happen. If a regular user still reaches an administrator function, the server refuses it with 'No access - Admin Only option... '. A coming-soon row opens nothing and says 'This option <name> is coming soon ...'. A function that is not installed opens nothing and says 'This option <name> is not installed...'. Only Enter and click act on a row, so the 'Invalid key pressed. Please see below...' message is no longer needed.
+  - **status badge** "Availability"
+  - _Requirements: SOM-REQ-F-004, SOM-REQ-F-005, SOM-REQ-F-006, SOM-REQ-F-007, SOM-REQ-F-008, SOM-REQ-F-009, SOM-REQ-F-010, SOM-REQ-F-011_
+  - _Rules: SOM-BR-004, SOM-BR-005, SOM-BR-006, SOM-BR-007, SOM-BR-008, SOM-BR-009, SOM-BR-010, SOM-BR-011, SOM-BR-012_
   - _After: SOM-C02-T2, SOM-C02-T3_
-- [ ] SOM-C02-T5 [test-generation] Write a test for every acceptance criterion
+- [ ] SOM-C02-T5 [ui-modernization] Build the screen CardDemo header and navigation (S-APP-HEADER)
+  - To the prototype: ui-reference/index.html#/S-APP-HEADER.
+  - **data table** "Navigation": Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home.
+  - _Requirements: SOM-REQ-N-001_
+  - _Rules: SOM-BR-013_
+  - _After: SOM-C02-T2, SOM-C02-T3_
+- [ ] SOM-C02-T6 [test-generation] Write a test for every acceptance criterion
   - 15 acceptance criteria, each a test named by its ID.
   - _Requirements: SOM-REQ-F-004, SOM-REQ-F-005, SOM-REQ-F-006, SOM-REQ-F-007, SOM-REQ-F-008, SOM-REQ-F-009, SOM-REQ-F-010, SOM-REQ-F-011, SOM-REQ-N-001_
   - _Criteria: SOM-C02-AC-01, SOM-C02-AC-02, SOM-C02-AC-03, SOM-C02-AC-04, SOM-C02-AC-05, SOM-C02-AC-06, SOM-C02-AC-07, SOM-C02-AC-08, SOM-C02-AC-09, SOM-C02-AC-10, SOM-C02-AC-11, SOM-C02-AC-12, SOM-C02-AC-13, SOM-C02-AC-14, SOM-C02-AC-15_
-  - _After: SOM-C02-T1, SOM-C02-T2, SOM-C02-T3, SOM-C02-T4_
-- [ ] SOM-C02-T6 [compliance] Review the handling of security
+  - _After: SOM-C02-T1, SOM-C02-T2, SOM-C02-T3, SOM-C02-T4, SOM-C02-T5_
+- [ ] SOM-C02-T7 [compliance] Review the handling of security
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: SOM-REQ-F-004, SOM-REQ-F-005, SOM-REQ-F-006, SOM-REQ-F-007, SOM-REQ-F-008, SOM-REQ-F-009, SOM-REQ-F-010, SOM-REQ-F-011, SOM-REQ-N-001_
-  - _After: SOM-C02-T1, SOM-C02-T2, SOM-C02-T3, SOM-C02-T4_
+  - _After: SOM-C02-T1, SOM-C02-T2, SOM-C02-T3, SOM-C02-T4, SOM-C02-T5_
 
 ## SOM-C03 Navigate the Main Menu with access control (draft)
 
@@ -4371,32 +4172,37 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: SOM-BR-018, SOM-BR-025, SOM-BR-028_
   - _After: SOM-C03-T1_
 - [ ] SOM-C03-T4 [api] Build the services behind the screens
-  - SOM-BR-015: The menu needs a 'first display' state and a 'handle input' state held in the user's session. The first request after sign-on, or after returning from a function, shows the menu. Later submits from the menu are read and acted on. A web app does this naturally with GET to show the menu and POST to submit it, inside an authenticated session.
-  - SOM-BR-016: When the menu is reached by navigation, not by submitting the menu form, render a clean menu with no message and no input processing. Then record in the session that the next request from this screen is a submit, which replaces the legacy re-enter flag (context = 1).
-  - SOM-BR-017: On submit, act on the action taken. Enter (the submit action) processes the chosen option. PF3 (a Back or Sign out action) returns to sign-on. Any other action shows the menu again with 'Invalid key pressed. Please see below...'. In a modern UI, map function keys to explicit buttons and reject any unknown action value sent to the server.
-  - SOM-BR-019: Normalise the typed option before validating: trim trailing spaces, right-align it into two digits and pad it with leading zeros (for example '7' becomes '07'). Show the normalised number back in the field. Text that is not a number must still fail the option check.
-  - SOM-BR-029: The menu keeps no server-side process waiting between interactions. After each response, the session (user, user type, origin screen) must persist so that the next submit arrives back at the Main Menu (legacy transaction CM00) with the same session data. Use a stateless request handler with session storage.
+  - SOM-BR-015: Distinguish the first display of the menu from a submission: arriving at the menu (a GET or navigation) renders it, and only a submission (POST or action) reads the input and handles the key. Track this through the request type or a per-session screen state. Do not use a shared flag.
+  - SOM-BR-016: When the menu is entered fresh, for example after sign-on or on return from a function screen, set the session's menu state to 're-enter' and render a clean menu with no option value and no message. Do not process any input on this request.
+  - SOM-BR-017: On a submission, dispatch on the action: 'Enter' or submit processes the chosen option, 'PF3' (a Back or Exit action) returns to the sign-on screen, and any other action re-renders the menu with 'Invalid key pressed. Please see below...'. Map the legacy function keys to explicit actions or keyboard shortcuts in the new UI.
+  - SOM-BR-019: Normalise the typed option before validating it: trim trailing blanks, left-pad it to two digits with zeros, and echo the two-digit value back in the option field. A numeric input limited to two digits is enough in the new UI, provided the echo and the validation behave the same.
+  - SOM-BR-029: After any interaction that stays on the menu, keep the user's session, including user identity, type and navigation origin, so the next submission returns to the Main Menu. In a web application this is ordinary server-side or token session state between requests. Nothing needs to stay running while the application waits for the user.
   - _Requirements: SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-025_
   - _Rules: SOM-BR-015, SOM-BR-016, SOM-BR-017, SOM-BR-029_
   - _After: SOM-C03-T1, SOM-C03-T2, SOM-C03-T3_
 - [ ] SOM-C03-T5 [ui-modernization] Build the screen Home (S-HOME)
   - To the prototype: ui-reference/index.html#/S-HOME.
-  - page "Home"
-  - list "Functions": Only listed functions can be opened, so no option number can be wrong; a request for a function that does not exist shows 'Please enter a valid option number...'; a regular user requesting an admin-only function gets 'No access - Admin Only option... '
-  - link "Pending Authorization View"
-  - message "Home messages": An unsupported action shows 'Invalid key pressed. Please see below...'
-  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
-  - _Rules: SOM-BR-014, SOM-BR-015, SOM-BR-016, SOM-BR-017, SOM-BR-018, SOM-BR-019, SOM-BR-020, SOM-BR-021, SOM-BR-022, SOM-BR-023, SOM-BR-024, SOM-BR-025, SOM-BR-026, SOM-BR-027, SOM-BR-028, SOM-BR-029_
+  - **data table** "Functions": Only the functions the role may use are listed, so the 'Please enter a valid option number...' error cannot happen. If a regular user still reaches an administrator function, the server refuses it with 'No access - Admin Only option... '. A coming-soon row opens nothing and says 'This option <name> is coming soon ...'. A function that is not installed opens nothing and says 'This option <name> is not installed...'. Only Enter and click act on a row, so the 'Invalid key pressed. Please see below...' message is no longer needed.
+  - **status badge** "Availability"
+  - _Requirements: SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
+  - _Rules: SOM-BR-015, SOM-BR-016, SOM-BR-017, SOM-BR-018, SOM-BR-019, SOM-BR-020, SOM-BR-022, SOM-BR-023, SOM-BR-024, SOM-BR-025, SOM-BR-026, SOM-BR-027, SOM-BR-028, SOM-BR-029_
   - _After: SOM-C03-T2, SOM-C03-T3, SOM-C03-T4_
-- [ ] SOM-C03-T6 [test-generation] Write a test for every acceptance criterion
+- [ ] SOM-C03-T6 [ui-modernization] Build the screen CardDemo header and navigation (S-APP-HEADER)
+  - To the prototype: ui-reference/index.html#/S-APP-HEADER.
+  - **data table** "Navigation": Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home.
+  - **primary button** "Sign out"
+  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-017_
+  - _Rules: SOM-BR-014, SOM-BR-017, SOM-BR-021_
+  - _After: SOM-C03-T2, SOM-C03-T3, SOM-C03-T4_
+- [ ] SOM-C03-T7 [test-generation] Write a test for every acceptance criterion
   - 23 acceptance criteria, each a test named by its ID.
   - _Requirements: SOM-REQ-F-012, SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
   - _Criteria: SOM-C03-AC-01, SOM-C03-AC-02, SOM-C03-AC-03, SOM-C03-AC-04, SOM-C03-AC-05, SOM-C03-AC-06, SOM-C03-AC-07, SOM-C03-AC-08, SOM-C03-AC-09, SOM-C03-AC-10, SOM-C03-AC-11, SOM-C03-AC-12, SOM-C03-AC-13, SOM-C03-AC-14, SOM-C03-AC-15, SOM-C03-AC-16, SOM-C03-AC-17, SOM-C03-AC-18, SOM-C03-AC-19, SOM-C03-AC-20, SOM-C03-AC-21, SOM-C03-AC-22, SOM-C03-AC-23_
-  - _After: SOM-C03-T1, SOM-C03-T2, SOM-C03-T3, SOM-C03-T4, SOM-C03-T5_
-- [ ] SOM-C03-T7 [compliance] Review the handling of security
+  - _After: SOM-C03-T1, SOM-C03-T2, SOM-C03-T3, SOM-C03-T4, SOM-C03-T5, SOM-C03-T6_
+- [ ] SOM-C03-T8 [compliance] Review the handling of security
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: SOM-REQ-F-012, SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
-  - _After: SOM-C03-T1, SOM-C03-T2, SOM-C03-T3, SOM-C03-T4, SOM-C03-T5_
+  - _After: SOM-C03-T1, SOM-C03-T2, SOM-C03-T3, SOM-C03-T4, SOM-C03-T5, SOM-C03-T6_
 
 ## SOM-C04 Send the CardDemo test file by FTP (draft)
 
@@ -4422,9 +4228,9 @@ Build final capabilities first. Each task names its role and the IDs it implemen
 ## SOM-C05 Back up and distribute the FTP test file (draft)
 
 - [ ] SOM-C05-T1 [api] Build the scheduled job
-  - SOM-BR-032: A batch step that copies every record of the FTP test file into its existing backup file (or object), replacing what is there. It must not stop other readers using either file while it runs, for example by copying to a temporary file and then renaming it, or by copying object to object in storage.
-  - SOM-BR-033: Once the backup step finishes, the job must trigger the follow-on job (INTRDRJ2) using its stored job definition, unchanged. In the new application this is a dependency in the scheduler or workflow (backup, then distribute), or an event or message that starts the follow-on job, not a submission of job text.
-  - SOM-BR-034: The follow-on job copies every record of the backup file into the existing second copy (the legacy '.INTRDR' copy). Like the first step, it must not lock out other jobs reading or writing these files while it runs.
+  - SOM-BR-032: A scheduled job step that copies the FTP test file record for record into the existing backup location, for example object-storage copy or file copy. It must not lock out other readers or writers while it runs, and it fails if the backup target does not already exist.
+  - SOM-BR-033: After the backup step succeeds, the job triggers the follow-on job (INTRDRJ2) from its stored, unchanged definition. In a modern scheduler or workflow engine this is a job dependency or chained trigger, not the copying of a job definition to a reader. The legacy output class 'A' becomes the follow-on job's default log destination.
+  - SOM-BR-034: A follow-on job that copies every record of the backup file into the already-existing secondary copy (the '.INTRDR' copy). Both files stay readable by other jobs while it runs. It runs only when the first job triggers it.
   - _Requirements: SOM-REQ-F-028, SOM-REQ-F-029, SOM-REQ-F-030_
   - _Rules: SOM-BR-032, SOM-BR-033, SOM-BR-034_
 - [ ] SOM-C05-T2 [test-generation] Write a test for every acceptance criterion
@@ -4471,32 +4277,42 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: USPM-BR-001, USPM-BR-007_
   - _After: USPM-C01-T1_
 - [ ] USPM-C01-T4 [api] Build the services behind the screens
-  - USPM-BR-010: After a successful sign-on, create a server-side session that holds the upper-cased user ID, the user type read from the user security record, the origin (sign-on, transaction 'CC00' / program 'COSGN00C') and a first-entry flag (context 0). Every later screen reads this session to identify the user and decide what they may do.
-  - USPM-BR-017: Whenever the sign-on page is shown again (first visit, an input error or an unsupported action), keep the user on the sign-on step and carry any existing session data forward to the next request. No separate state is needed beyond the normal web request/response cycle.
+  - USPM-BR-010: After a successful sign-on, create a session that holds the upper-cased user ID, the user type read from the user record, where the user came from (sign-on) and a 'first entry' marker. Every later screen reads this session to know who the user is and what role they have.
+  - USPM-BR-017: While the sign-on screen is showing (first visit, after an input error or after an invalid key), keep the session alive and wait for the user's next action on that screen. Do not lose session data between round trips.
   - _Requirements: USPM-REQ-F-014_
   - _Rules: USPM-BR-017_
   - _After: USPM-C01-T1, USPM-C01-T2, USPM-C01-T3_
 - [ ] USPM-C01-T5 [ui-modernization] Build the screen Sign in (S-SIGN-IN)
   - To the prototype: ui-reference/index.html#/S-SIGN-IN.
-  - page "Sign in to CardDemo"
-  - form "Sign in"
-  - text "User ID": Required: 'Please enter User ID ...'. Unknown ID: 'User not found. Try again ...'. Lookup failure: 'Unable to verify the User ...'. Focus returns to User ID.
-  - password "Password": Required: 'Please enter Password ...'. Mismatch: 'Wrong Password. Try again ...' and focus returns to Password.
-  - button "Sign in"
-  - message "Sign-in problem": An unsupported action shows 'Invalid key pressed. Please see below...'
-  - message "Signed out"
+  - **summary card** "You have signed out"
+  - **lookup field** "User ID": Blank: 'Please enter User ID ...', with focus back on User ID. Not on file: 'User not found. Try again ...' Read failure: 'Unable to verify the User ...' Each message shows under User ID.
+  - **lookup field** "Password": Blank: 'Please enter Password ...' Wrong password: 'Wrong Password. Try again ...' Each message shows under Password, with focus on it. Failed attempts are logged; the owner decides the attempt limit and lockout (the legacy allows unlimited attempts).
+  - **primary button** "Sign in": Checks User ID first, then Password, and reports the first problem under its field.
   - _Requirements: USPM-REQ-F-001, USPM-REQ-F-002, USPM-REQ-F-003, USPM-REQ-F-004, USPM-REQ-F-005, USPM-REQ-F-006, USPM-REQ-F-007, USPM-REQ-F-008, USPM-REQ-N-001, USPM-REQ-F-009, USPM-REQ-F-010, USPM-REQ-F-011, USPM-REQ-F-012, USPM-REQ-F-013, USPM-REQ-F-014_
   - _Rules: USPM-BR-001, USPM-BR-002, USPM-BR-003, USPM-BR-004, USPM-BR-005, USPM-BR-006, USPM-BR-007, USPM-BR-008, USPM-BR-009, USPM-BR-010, USPM-BR-011, USPM-BR-012, USPM-BR-013, USPM-BR-014, USPM-BR-015, USPM-BR-016, USPM-BR-017_
   - _After: USPM-C01-T2, USPM-C01-T3, USPM-C01-T4_
-- [ ] USPM-C01-T6 [test-generation] Write a test for every acceptance criterion
+- [ ] USPM-C01-T6 [ui-modernization] Build the screen Add user (S-USER-ADD)
+  - To the prototype: ui-reference/index.html#/S-USER-ADD.
+  - **lookup field** "User type": None chosen: 'User Type can NOT be empty...'
+  - _Requirements: USPM-REQ-F-011_
+  - _Rules: USPM-BR-011, USPM-BR-013, USPM-BR-014_
+  - _After: USPM-C01-T2, USPM-C01-T3, USPM-C01-T4_
+- [ ] USPM-C01-T7 [ui-modernization] Build the screen CardDemo header and navigation (S-APP-HEADER)
+  - To the prototype: ui-reference/index.html#/S-APP-HEADER.
+  - **summary card** "Signed in as"
+  - **primary button** "Sign out"
+  - _Requirements: USPM-REQ-F-009, USPM-REQ-F-010, USPM-REQ-F-011, USPM-REQ-F-012_
+  - _Rules: USPM-BR-010, USPM-BR-011, USPM-BR-012, USPM-BR-013, USPM-BR-014, USPM-BR-015_
+  - _After: USPM-C01-T2, USPM-C01-T3, USPM-C01-T4_
+- [ ] USPM-C01-T8 [test-generation] Write a test for every acceptance criterion
   - 19 acceptance criteria, each a test named by its ID.
   - _Requirements: USPM-REQ-F-001, USPM-REQ-F-002, USPM-REQ-F-003, USPM-REQ-F-004, USPM-REQ-F-005, USPM-REQ-F-006, USPM-REQ-F-007, USPM-REQ-F-008, USPM-REQ-N-001, USPM-REQ-F-009, USPM-REQ-F-010, USPM-REQ-F-011, USPM-REQ-F-012, USPM-REQ-F-013, USPM-REQ-F-014_
   - _Criteria: USPM-C01-AC-01, USPM-C01-AC-02, USPM-C01-AC-03, USPM-C01-AC-04, USPM-C01-AC-05, USPM-C01-AC-06, USPM-C01-AC-07, USPM-C01-AC-08, USPM-C01-AC-09, USPM-C01-AC-10, USPM-C01-AC-11, USPM-C01-AC-12, USPM-C01-AC-13, USPM-C01-AC-14, USPM-C01-AC-15, USPM-C01-AC-16, USPM-C01-AC-17, USPM-C01-AC-18, USPM-C01-AC-19_
-  - _After: USPM-C01-T1, USPM-C01-T2, USPM-C01-T3, USPM-C01-T4, USPM-C01-T5_
-- [ ] USPM-C01-T7 [compliance] Review the handling of audit, security
+  - _After: USPM-C01-T1, USPM-C01-T2, USPM-C01-T3, USPM-C01-T4, USPM-C01-T5, USPM-C01-T6, USPM-C01-T7_
+- [ ] USPM-C01-T9 [compliance] Review the handling of audit, security
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: USPM-REQ-F-001, USPM-REQ-F-002, USPM-REQ-F-003, USPM-REQ-F-004, USPM-REQ-F-005, USPM-REQ-F-006, USPM-REQ-F-007, USPM-REQ-F-008, USPM-REQ-N-001, USPM-REQ-F-009, USPM-REQ-F-010, USPM-REQ-F-011, USPM-REQ-F-012, USPM-REQ-F-013, USPM-REQ-F-014_
-  - _After: USPM-C01-T1, USPM-C01-T2, USPM-C01-T3, USPM-C01-T4, USPM-C01-T5_
+  - _After: USPM-C01-T1, USPM-C01-T2, USPM-C01-T3, USPM-C01-T4, USPM-C01-T5, USPM-C01-T6, USPM-C01-T7_
 
 ## USPM-C02 Browse the user list (draft)
 
@@ -4515,31 +4331,35 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: USPM-BR-019, USPM-BR-022, USPM-BR-023, USPM-BR-031, USPM-BR-036_
   - _After: USPM-C02-T1_
 - [ ] USPM-C02-T4 [api] Build the services behind the screens
-  - USPM-BR-024: Keep the User ID of the first row on the current page as the backward paging cursor. 'Previous page' reads the users whose keys come before this ID, in descending key order.
-  - USPM-BR-025: Keep the User ID of the tenth row on the current page as the forward paging cursor. 'Next page' reads users with keys after this ID, in ascending order (keyset pagination on User ID).
-  - USPM-BR-034: Set the 'next page available' flag to true every time the user pages backward, including when the request is refused at the top of the list, so that 'Next page' is always allowed after a 'Previous page' request.
-  - USPM-BR-037: Keep the list's paging state between requests: page number, first and last User ID shown, and the next-page flag. Store it in the session or as a cursor token passed with each request, so the next action continues from the same position.
+  - USPM-BR-024: Remember the User ID shown in the first row of the current page. Paging backward uses it as a cursor: fetch the up to ten users whose IDs sort before it, in descending key order, then show them in ascending order.
+  - USPM-BR-025: Remember the User ID shown in the last row (row 10) of the current page. Paging forward uses it as a cursor: fetch the next up to ten users whose IDs sort after it.
+  - USPM-BR-034: Any backward-page request sets the list's 'next page available' state to yes, even when it is refused at the top, so that a forward page is allowed afterwards. Keep this flag in the paging state.
+  - USPM-BR-037: Keep the list's paging state (page number, first and last User ID shown, next-page flag) in the user's session or the request between interactions, so that the next action continues from the same page.
   - _Requirements: USPM-REQ-F-021, USPM-REQ-F-022, USPM-REQ-F-030, USPM-REQ-F-033_
   - _Rules: USPM-BR-024, USPM-BR-025, USPM-BR-034, USPM-BR-037_
   - _After: USPM-C02-T1, USPM-C02-T2, USPM-C02-T3_
 - [ ] USPM-C02-T5 [ui-modernization] Build the screen Users (S-USER-LIST)
   - To the prototype: ui-reference/index.html#/S-USER-LIST.
-  - page "Users"
-  - search "Search by User ID"
-  - table "Users": On the first page: 'You are already at the top of the page...'; on the last page: 'You are already at the bottom of the page...'
-  - message "List messages": An unsupported action shows 'Invalid key pressed. Please see below...'
-  - _Requirements: USPM-REQ-F-015, USPM-REQ-F-016, USPM-REQ-F-017, USPM-REQ-F-018, USPM-REQ-F-019, USPM-REQ-F-020, USPM-REQ-F-021, USPM-REQ-F-022, USPM-REQ-F-023, USPM-REQ-F-024, USPM-REQ-F-025, USPM-REQ-F-026, USPM-REQ-F-027, USPM-REQ-F-028, USPM-REQ-F-029, USPM-REQ-F-030, USPM-REQ-F-031, USPM-REQ-F-032, USPM-REQ-F-033_
-  - _Rules: USPM-BR-018, USPM-BR-019, USPM-BR-020, USPM-BR-021, USPM-BR-022, USPM-BR-023, USPM-BR-024, USPM-BR-025, USPM-BR-026, USPM-BR-027, USPM-BR-028, USPM-BR-029, USPM-BR-030, USPM-BR-031, USPM-BR-032, USPM-BR-033, USPM-BR-034, USPM-BR-035, USPM-BR-036, USPM-BR-037_
+  - **lookup field** "Start from user ID": If the users cannot be read, 'Unable to lookup User...' shows above the table with a Try again link.
+  - **data table** "Users": Previous is disabled on page 1 and Next on the last page. The disabled buttons say 'You are already at the top of the page...' and 'You are already at the bottom of the page...', and the last page says 'You have reached the bottom of the page...'. The actions are buttons on each row, so the 'Invalid selection. Valid values are U and D' error cannot happen. If the users cannot be read while paging: 'Unable to lookup User...'.
+  - _Requirements: USPM-REQ-F-016, USPM-REQ-F-017, USPM-REQ-F-018, USPM-REQ-F-019, USPM-REQ-F-020, USPM-REQ-F-023, USPM-REQ-F-024, USPM-REQ-F-026, USPM-REQ-F-027, USPM-REQ-F-028, USPM-REQ-F-029, USPM-REQ-F-032_
+  - _Rules: USPM-BR-019, USPM-BR-020, USPM-BR-021, USPM-BR-022, USPM-BR-023, USPM-BR-026, USPM-BR-027, USPM-BR-028, USPM-BR-030, USPM-BR-031, USPM-BR-032, USPM-BR-033, USPM-BR-036_
   - _After: USPM-C02-T2, USPM-C02-T3, USPM-C02-T4_
-- [ ] USPM-C02-T6 [test-generation] Write a test for every acceptance criterion
+- [ ] USPM-C02-T6 [ui-modernization] Build the screen CardDemo header and navigation (S-APP-HEADER)
+  - To the prototype: ui-reference/index.html#/S-APP-HEADER.
+  - **data table** "Navigation": Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home.
+  - _Requirements: USPM-REQ-F-015_
+  - _Rules: USPM-BR-018_
+  - _After: USPM-C02-T2, USPM-C02-T3, USPM-C02-T4_
+- [ ] USPM-C02-T7 [test-generation] Write a test for every acceptance criterion
   - 25 acceptance criteria, each a test named by its ID.
   - _Requirements: USPM-REQ-F-015, USPM-REQ-F-016, USPM-REQ-F-017, USPM-REQ-F-018, USPM-REQ-F-019, USPM-REQ-F-020, USPM-REQ-F-021, USPM-REQ-F-022, USPM-REQ-F-023, USPM-REQ-F-024, USPM-REQ-F-025, USPM-REQ-F-026, USPM-REQ-F-027, USPM-REQ-F-028, USPM-REQ-F-029, USPM-REQ-F-030, USPM-REQ-F-031, USPM-REQ-F-032, USPM-REQ-F-033_
   - _Criteria: USPM-C02-AC-01, USPM-C02-AC-02, USPM-C02-AC-03, USPM-C02-AC-04, USPM-C02-AC-05, USPM-C02-AC-06, USPM-C02-AC-07, USPM-C02-AC-08, USPM-C02-AC-09, USPM-C02-AC-10, USPM-C02-AC-11, USPM-C02-AC-12, USPM-C02-AC-13, USPM-C02-AC-14, USPM-C02-AC-15, USPM-C02-AC-16, USPM-C02-AC-17, USPM-C02-AC-18, USPM-C02-AC-19, USPM-C02-AC-20, USPM-C02-AC-21, USPM-C02-AC-22, USPM-C02-AC-23, USPM-C02-AC-24, USPM-C02-AC-25_
-  - _After: USPM-C02-T1, USPM-C02-T2, USPM-C02-T3, USPM-C02-T4, USPM-C02-T5_
-- [ ] USPM-C02-T7 [compliance] Review the handling of personal data, security
+  - _After: USPM-C02-T1, USPM-C02-T2, USPM-C02-T3, USPM-C02-T4, USPM-C02-T5, USPM-C02-T6_
+- [ ] USPM-C02-T8 [compliance] Review the handling of personal data, security
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: USPM-REQ-F-015, USPM-REQ-F-016, USPM-REQ-F-017, USPM-REQ-F-018, USPM-REQ-F-019, USPM-REQ-F-020, USPM-REQ-F-021, USPM-REQ-F-022, USPM-REQ-F-023, USPM-REQ-F-024, USPM-REQ-F-025, USPM-REQ-F-026, USPM-REQ-F-027, USPM-REQ-F-028, USPM-REQ-F-029, USPM-REQ-F-030, USPM-REQ-F-031, USPM-REQ-F-032, USPM-REQ-F-033_
-  - _After: USPM-C02-T1, USPM-C02-T2, USPM-C02-T3, USPM-C02-T4, USPM-C02-T5_
+  - _After: USPM-C02-T1, USPM-C02-T2, USPM-C02-T3, USPM-C02-T4, USPM-C02-T5, USPM-C02-T6_
 
 ## USPM-C03 Select a user to update or delete (draft)
 
@@ -4553,18 +4373,16 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: USPM-BR-038, USPM-BR-041, USPM-BR-042, USPM-BR-043_
   - _After: USPM-C03-T1_
 - [ ] USPM-C03-T3 [api] Build the services behind the screens
-  - USPM-BR-039: When the list is submitted with no row marked, clear any pending selected action and user held in the session and simply reload the list, so that a stale selection can never open the update or delete screen.
-  - USPM-BR-040: Reset the pending selection (action code and selected User ID) to empty on every submit that has no marked row, before the routing decision is made.
+  - USPM-BR-039: When the list is submitted with no row marked, clear any pending action and selected User ID held in the session, so that no stale selection opens an update or delete screen. Then just refresh the list.
+  - USPM-BR-040: The pending selection (action code and User ID) must be reset to empty on every submit that has no marked row. It must not be carried over from an earlier interaction.
   - _Requirements: USPM-REQ-F-035_
   - _Rules: USPM-BR-039, USPM-BR-040_
   - _After: USPM-C03-T1, USPM-C03-T2_
 - [ ] USPM-C03-T4 [ui-modernization] Build the screen Users (S-USER-LIST)
   - To the prototype: ui-reference/index.html#/S-USER-LIST.
-  - search "Search by User ID"
-  - button "Edit": Only Edit and Delete are offered, so 'Invalid selection. Valid values are U and D' cannot arise
-  - button "Delete"
-  - _Requirements: USPM-REQ-F-034, USPM-REQ-F-035, USPM-REQ-F-036, USPM-REQ-F-037, USPM-REQ-F-038_
-  - _Rules: USPM-BR-038, USPM-BR-039, USPM-BR-040, USPM-BR-041, USPM-BR-042, USPM-BR-043_
+  - **data table** "Users": Previous is disabled on page 1 and Next on the last page. The disabled buttons say 'You are already at the top of the page...' and 'You are already at the bottom of the page...', and the last page says 'You have reached the bottom of the page...'. The actions are buttons on each row, so the 'Invalid selection. Valid values are U and D' error cannot happen. If the users cannot be read while paging: 'Unable to lookup User...'.
+  - _Requirements: USPM-REQ-F-034, USPM-REQ-F-036, USPM-REQ-F-037, USPM-REQ-F-038_
+  - _Rules: USPM-BR-038, USPM-BR-041, USPM-BR-042, USPM-BR-043_
   - _After: USPM-C03-T2, USPM-C03-T3_
 - [ ] USPM-C03-T5 [test-generation] Write a test for every acceptance criterion
   - 8 acceptance criteria, each a test named by its ID.
@@ -4593,19 +4411,18 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: USPM-BR-055_
   - _After: USPM-C04-T1_
 - [ ] USPM-C04-T4 [api] Build the services behind the screens
-  - USPM-BR-051: Build one user record from the five validated fields and insert it keyed on User ID, with a uniqueness constraint on that key. The insert must fail, not overwrite, when the key already exists, so that the 'User ID already exist...' path can be detected.
+  - USPM-BR-051: Map the five entered fields onto a new user record keyed by User ID and insert it into the user store as a create-only operation. The insert must fail with a distinct 'duplicate key' result when the User ID already exists, so the screen can tell 'already exists' apart from other failures.
   - _Requirements: USPM-REQ-F-046_
   - _Rules: USPM-BR-051_
   - _After: USPM-C04-T1, USPM-C04-T2, USPM-C04-T3_
 - [ ] USPM-C04-T5 [ui-modernization] Build the screen Add user (S-USER-ADD)
   - To the prototype: ui-reference/index.html#/S-USER-ADD.
-  - form "New user"
-  - text "First name": Required: 'First Name can NOT be empty...'
-  - text "Last name": Required: 'Last Name can NOT be empty...'
-  - text "User ID": Required: 'User ID can NOT be empty...'. Already used: 'User ID already exist...'
-  - password "Password": Required: 'Password can NOT be empty...'
-  - radio "User type": Required: 'User Type can NOT be empty...'; only Admin or Regular user can be chosen
-  - message "Result": An unsupported action shows 'Invalid key pressed. Please see below...'
+  - **lookup field** "First name": Blank: 'First Name can NOT be empty...'
+  - **lookup field** "Last name": Blank: 'Last Name can NOT be empty...'
+  - **lookup field** "User ID": Blank: 'User ID can NOT be empty...' Already used: 'User ID already exist...'; nothing is added and the existing user is not changed.
+  - **lookup field** "Password": Blank: 'Password can NOT be empty...'
+  - **lookup field** "User type": None chosen: 'User Type can NOT be empty...'
+  - **primary button** "Add user": Checks First name, Last name, User ID, Password and User type in that order. Every blank field is listed in an error summary at the top, each linked to its field, and nothing is added until all are filled. Any other failure: 'Unable to Add User...', with focus on First name.
   - _Requirements: USPM-REQ-F-039, USPM-REQ-F-040, USPM-REQ-F-041, USPM-REQ-F-042, USPM-REQ-F-043, USPM-REQ-F-044, USPM-REQ-F-045, USPM-REQ-F-046, USPM-REQ-N-002, USPM-REQ-F-047, USPM-REQ-F-048, USPM-REQ-F-049, USPM-REQ-F-050_
   - _Rules: USPM-BR-044, USPM-BR-045, USPM-BR-046, USPM-BR-047, USPM-BR-048, USPM-BR-049, USPM-BR-050, USPM-BR-051, USPM-BR-052, USPM-BR-053, USPM-BR-054, USPM-BR-055, USPM-BR-056_
   - _After: USPM-C04-T2, USPM-C04-T3, USPM-C04-T4_
@@ -4636,14 +4453,14 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Rules: USPM-BR-060_
   - _After: USPM-C05-T1_
 - [ ] USPM-C05-T4 [api] Build the services behind the screens
-  - USPM-BR-059: Clear the displayed name, password and type, then read the user by its User ID key. Hold the record for update, with optimistic concurrency (a version check) or a short row lock, so that a later save applies to the record that was read.
+  - USPM-BR-059: For a non-blank User ID, clear the detail fields, then fetch that user by its key from the user store. Read it so that a later save in the same flow can update that record safely, for example with optimistic concurrency (a version or the read values).
   - _Requirements: USPM-REQ-F-052_
   - _Rules: USPM-BR-059_
   - _After: USPM-C05-T1, USPM-C05-T2, USPM-C05-T3_
 - [ ] USPM-C05-T5 [ui-modernization] Build the screen Update user (S-USER-EDIT)
   - To the prototype: ui-reference/index.html#/S-USER-EDIT.
-  - search "User ID": Required: 'User ID can NOT be empty...'. Unknown: 'User ID NOT found...' and the details stay empty
-  - button "Find"
+  - **lookup field** "User ID": Blank: 'User ID can NOT be empty...' Not on file: 'User ID NOT found...', and the details stay blank. Read failure: 'Unable to lookup User...'.
+  - **primary button** "Save changes": Checks User ID, First name, Last name, Password and User type in that order. Every blank field is listed in an error summary, each linked to its field, and nothing is saved; leaving the screen never hides these messages. Nothing changed: 'Please modify to update ...' User no longer on file: 'User ID NOT found...', and no save is tried. Any other failure: 'Unable to Update User...'.
   - _Requirements: USPM-REQ-F-051, USPM-REQ-F-052, USPM-REQ-F-053_
   - _Rules: USPM-BR-057, USPM-BR-058, USPM-BR-059, USPM-BR-060_
   - _After: USPM-C05-T2, USPM-C05-T3, USPM-C05-T4_
@@ -4675,24 +4492,26 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: USPM-C06-T1_
 - [ ] USPM-C06-T4 [ui-modernization] Build the screen Update user (S-USER-EDIT)
   - To the prototype: ui-reference/index.html#/S-USER-EDIT.
-  - page "Update user"
-  - search "User ID": Required: 'User ID can NOT be empty...'. Unknown: 'User ID NOT found...' and the details stay empty
-  - button "Find"
-  - button "Clear"
-  - link "Cancel"
-  - message "Result": An unsupported action shows 'Invalid key pressed. Please see below...'
-  - _Requirements: USPM-REQ-F-054, USPM-REQ-F-055, USPM-REQ-F-056, USPM-REQ-F-057, USPM-REQ-F-058, USPM-REQ-F-059, USPM-REQ-F-060, USPM-REQ-F-061, USPM-REQ-F-062, USPM-REQ-F-063_
-  - _Rules: USPM-BR-061, USPM-BR-062, USPM-BR-063, USPM-BR-064, USPM-BR-065, USPM-BR-066, USPM-BR-067, USPM-BR-068, USPM-BR-069, USPM-BR-070, USPM-BR-071_
+  - **lookup field** "User ID": Blank: 'User ID can NOT be empty...' Not on file: 'User ID NOT found...', and the details stay blank. Read failure: 'Unable to lookup User...'.
+  - **primary button** "Save changes": Checks User ID, First name, Last name, Password and User type in that order. Every blank field is listed in an error summary, each linked to its field, and nothing is saved; leaving the screen never hides these messages. Nothing changed: 'Please modify to update ...' User no longer on file: 'User ID NOT found...', and no save is tried. Any other failure: 'Unable to Update User...'.
+  - _Requirements: USPM-REQ-F-055, USPM-REQ-F-056, USPM-REQ-F-057, USPM-REQ-F-058, USPM-REQ-F-059, USPM-REQ-F-060, USPM-REQ-F-061, USPM-REQ-F-062, USPM-REQ-F-063_
+  - _Rules: USPM-BR-062, USPM-BR-063, USPM-BR-064, USPM-BR-065, USPM-BR-066, USPM-BR-067, USPM-BR-068, USPM-BR-069, USPM-BR-070, USPM-BR-071_
   - _After: USPM-C06-T2, USPM-C06-T3_
-- [ ] USPM-C06-T5 [test-generation] Write a test for every acceptance criterion
+- [ ] USPM-C06-T5 [ui-modernization] Build the screen CardDemo header and navigation (S-APP-HEADER)
+  - To the prototype: ui-reference/index.html#/S-APP-HEADER.
+  - **data table** "Navigation": Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home.
+  - _Requirements: USPM-REQ-F-054_
+  - _Rules: USPM-BR-061_
+  - _After: USPM-C06-T2, USPM-C06-T3_
+- [ ] USPM-C06-T6 [test-generation] Write a test for every acceptance criterion
   - 10 acceptance criteria, each a test named by its ID.
   - _Requirements: USPM-REQ-F-054, USPM-REQ-F-055, USPM-REQ-F-056, USPM-REQ-F-057, USPM-REQ-F-058, USPM-REQ-F-059, USPM-REQ-F-060, USPM-REQ-F-061, USPM-REQ-F-062, USPM-REQ-F-063_
   - _Criteria: USPM-C06-AC-01, USPM-C06-AC-02, USPM-C06-AC-03, USPM-C06-AC-04, USPM-C06-AC-05, USPM-C06-AC-06, USPM-C06-AC-07, USPM-C06-AC-08, USPM-C06-AC-09, USPM-C06-AC-10_
-  - _After: USPM-C06-T1, USPM-C06-T2, USPM-C06-T3, USPM-C06-T4_
-- [ ] USPM-C06-T6 [compliance] Review the handling of personal data, security
+  - _After: USPM-C06-T1, USPM-C06-T2, USPM-C06-T3, USPM-C06-T4, USPM-C06-T5_
+- [ ] USPM-C06-T7 [compliance] Review the handling of personal data, security
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: USPM-REQ-F-054, USPM-REQ-F-055, USPM-REQ-F-056, USPM-REQ-F-057, USPM-REQ-F-058, USPM-REQ-F-059, USPM-REQ-F-060, USPM-REQ-F-061, USPM-REQ-F-062, USPM-REQ-F-063_
-  - _After: USPM-C06-T1, USPM-C06-T2, USPM-C06-T3, USPM-C06-T4_
+  - _After: USPM-C06-T1, USPM-C06-T2, USPM-C06-T3, USPM-C06-T4, USPM-C06-T5_
 
 ## USPM-C07 Save changes to a user profile (draft)
 
@@ -4712,14 +4531,11 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: USPM-C07-T1_
 - [ ] USPM-C07-T4 [ui-modernization] Build the screen Update user (S-USER-EDIT)
   - To the prototype: ui-reference/index.html#/S-USER-EDIT.
-  - search "User ID": Required: 'User ID can NOT be empty...'. Unknown: 'User ID NOT found...' and the details stay empty
-  - form "User details"
-  - text "First name": Required: 'First Name can NOT be empty...'
-  - text "Last name": Required: 'Last Name can NOT be empty...'
-  - password "Password": Required: 'Password can NOT be empty...'
-  - radio "User type": Required: 'User Type can NOT be empty...'
-  - button "Save": Nothing changed: 'Please modify to update ...'
-  - button "Save and close"
+  - **lookup field** "First name": Blank: 'First Name can NOT be empty...'
+  - **lookup field** "Last name": Blank: 'Last Name can NOT be empty...'
+  - **lookup field** "Password": Cleared without a new password: 'Password can NOT be empty...'
+  - **lookup field** "User type": None chosen: 'User Type can NOT be empty...'
+  - **primary button** "Save changes": Checks User ID, First name, Last name, Password and User type in that order. Every blank field is listed in an error summary, each linked to its field, and nothing is saved; leaving the screen never hides these messages. Nothing changed: 'Please modify to update ...' User no longer on file: 'User ID NOT found...', and no save is tried. Any other failure: 'Unable to Update User...'.
   - _Requirements: USPM-REQ-F-064, USPM-REQ-F-065, USPM-REQ-F-066, USPM-REQ-F-067, USPM-REQ-F-068, USPM-REQ-F-069, USPM-REQ-F-070, USPM-REQ-F-071, USPM-REQ-F-072, USPM-REQ-F-073, USPM-REQ-F-074, USPM-REQ-F-075_
   - _Rules: USPM-BR-072, USPM-BR-073, USPM-BR-074, USPM-BR-075, USPM-BR-076, USPM-BR-077, USPM-BR-078, USPM-BR-079, USPM-BR-080, USPM-BR-081, USPM-BR-082, USPM-BR-083_
   - _After: USPM-C07-T2, USPM-C07-T3_
@@ -4751,26 +4567,27 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _After: USPM-C08-T1_
 - [ ] USPM-C08-T4 [ui-modernization] Build the screen Delete user (S-USER-DELETE)
   - To the prototype: ui-reference/index.html#/S-USER-DELETE.
-  - page "Delete user"
-  - search "User ID": Required: 'User ID can NOT be empty...'. Unknown: 'User ID NOT found...'
-  - button "Find"
-  - button "Clear"
-  - button "Delete user"
-  - dialog "Delete this user?"
-  - link "Back to users"
-  - message "Result"
-  - _Requirements: USPM-REQ-F-076, USPM-REQ-F-077, USPM-REQ-F-078, USPM-REQ-F-079, USPM-REQ-F-080, USPM-REQ-F-081, USPM-REQ-F-082, USPM-REQ-F-083, USPM-REQ-F-084, USPM-REQ-F-085, USPM-REQ-F-086, USPM-REQ-F-087, USPM-REQ-F-088, USPM-REQ-F-089, USPM-REQ-F-090_
-  - _Rules: USPM-BR-084, USPM-BR-085, USPM-BR-086, USPM-BR-087, USPM-BR-088, USPM-BR-089, USPM-BR-090, USPM-BR-091, USPM-BR-092, USPM-BR-093, USPM-BR-094, USPM-BR-095, USPM-BR-096, USPM-BR-097, USPM-BR-098_
+  - **lookup field** "User ID": Blank: 'User ID can NOT be empty...' Not on file: 'User ID NOT found...' Read failure: 'Unable to lookup User...'.
+  - **summary card** "User to delete"
+  - **primary button** "Delete user": No user found: 'User ID can NOT be empty...' or 'User ID NOT found...', and nothing is deleted or attempted. Delete failure: 'Unable to Update User...'.
+  - _Requirements: USPM-REQ-F-078, USPM-REQ-F-079, USPM-REQ-F-080, USPM-REQ-F-081, USPM-REQ-F-082, USPM-REQ-F-083, USPM-REQ-F-084, USPM-REQ-F-085, USPM-REQ-F-086, USPM-REQ-F-087, USPM-REQ-F-088, USPM-REQ-F-089, USPM-REQ-F-090_
+  - _Rules: USPM-BR-086, USPM-BR-087, USPM-BR-088, USPM-BR-089, USPM-BR-090, USPM-BR-091, USPM-BR-092, USPM-BR-093, USPM-BR-094, USPM-BR-095, USPM-BR-096, USPM-BR-097, USPM-BR-098_
   - _After: USPM-C08-T2, USPM-C08-T3_
-- [ ] USPM-C08-T5 [test-generation] Write a test for every acceptance criterion
+- [ ] USPM-C08-T5 [ui-modernization] Build the screen CardDemo header and navigation (S-APP-HEADER)
+  - To the prototype: ui-reference/index.html#/S-APP-HEADER.
+  - **data table** "Navigation": Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home.
+  - _Requirements: USPM-REQ-F-076, USPM-REQ-F-077_
+  - _Rules: USPM-BR-084, USPM-BR-085_
+  - _After: USPM-C08-T2, USPM-C08-T3_
+- [ ] USPM-C08-T6 [test-generation] Write a test for every acceptance criterion
   - 16 acceptance criteria, each a test named by its ID.
   - _Requirements: USPM-REQ-F-076, USPM-REQ-F-077, USPM-REQ-F-078, USPM-REQ-F-079, USPM-REQ-F-080, USPM-REQ-F-081, USPM-REQ-F-082, USPM-REQ-F-083, USPM-REQ-F-084, USPM-REQ-F-085, USPM-REQ-F-086, USPM-REQ-F-087, USPM-REQ-F-088, USPM-REQ-F-089, USPM-REQ-F-090_
   - _Criteria: USPM-C08-AC-01, USPM-C08-AC-02, USPM-C08-AC-03, USPM-C08-AC-04, USPM-C08-AC-05, USPM-C08-AC-06, USPM-C08-AC-07, USPM-C08-AC-08, USPM-C08-AC-09, USPM-C08-AC-10, USPM-C08-AC-11, USPM-C08-AC-12, USPM-C08-AC-13, USPM-C08-AC-14, USPM-C08-AC-15, USPM-C08-AC-16_
-  - _After: USPM-C08-T1, USPM-C08-T2, USPM-C08-T3, USPM-C08-T4_
-- [ ] USPM-C08-T6 [compliance] Review the handling of personal data, security
+  - _After: USPM-C08-T1, USPM-C08-T2, USPM-C08-T3, USPM-C08-T4, USPM-C08-T5_
+- [ ] USPM-C08-T7 [compliance] Review the handling of personal data, security
   - Check storage, logs, screens and audit against the rules.
   - _Requirements: USPM-REQ-F-076, USPM-REQ-F-077, USPM-REQ-F-078, USPM-REQ-F-079, USPM-REQ-F-080, USPM-REQ-F-081, USPM-REQ-F-082, USPM-REQ-F-083, USPM-REQ-F-084, USPM-REQ-F-085, USPM-REQ-F-086, USPM-REQ-F-087, USPM-REQ-F-088, USPM-REQ-F-089, USPM-REQ-F-090_
-  - _After: USPM-C08-T1, USPM-C08-T2, USPM-C08-T3, USPM-C08-T4_
+  - _After: USPM-C08-T1, USPM-C08-T2, USPM-C08-T3, USPM-C08-T4, USPM-C08-T5_
 
 ## USPM-C09 Seed and load the user security file (draft)
 
@@ -4783,10 +4600,10 @@ Build final capabilities first. Each task names its role and the IDs it implemen
   - _Requirements: USPM-REQ-F-095, USPM-REQ-F-096_
   - _Rules: USPM-BR-103_
 - [ ] USPM-C09-T3 [api] Build the scheduled job
-  - USPM-BR-100: The seed step should be idempotent: remove any earlier seed data before staging, keep the new staging set only if staging completes, and discard it if staging fails. A transaction or a write-then-rename of the seed file gives this.
-  - USPM-BR-101: Provide a setup or migration job that drops and recreates the user table keyed on an 8-character User ID, then bulk-loads every staged seed record into it. It runs on demand at environment setup, not as part of normal operation.
-  - USPM-BR-104: The legacy job also copies the staged records into an entry-sequenced copy of the user file, without regard to whether earlier steps succeeded. The new application needs this only if some consumer reads users in load order. Otherwise one keyed user table covers it, and the copy should be confirmed as unneeded rather than rebuilt.
-  - USPM-BR-105: The legacy job also copies the staged records into a relative-record (record-number addressed) copy of the user file, without regard to whether earlier steps succeeded. Rebuild this only if some consumer looks users up by position. Otherwise the keyed user table is enough.
+  - USPM-BR-100: The seed step must be repeatable. Remove any previous staged seed set first, keep the new one only if staging finishes successfully, and discard it if staging fails. A transactional load or a temporary table swapped in on success meets this.
+  - USPM-BR-101: Recreate the user store from scratch, with the user ID (8 characters) as its unique primary key, then bulk-insert every staged seed record into it. This is a full reset, not a merge.
+  - USPM-BR-104: The legacy job also copies the staged records, in arrival order, into an entry-sequenced copy of the user security file, whatever happened in earlier steps. The new application needs this only if something reads users in insertion order. Otherwise one keyed user store is enough. Confirm with the owner before building a second copy.
+  - USPM-BR-105: The legacy job also copies the staged records into a relative-record (slot-numbered) copy of the user security file, whatever happened in earlier steps. The new application needs this only if a consumer looks users up by record number. Otherwise the keyed user store covers it. Confirm with the owner before building it.
   - _Requirements: USPM-REQ-F-092, USPM-REQ-F-093, USPM-REQ-F-097, USPM-REQ-F-098_
   - _Rules: USPM-BR-100, USPM-BR-101, USPM-BR-104, USPM-BR-105_
   - _After: USPM-C09-T1, USPM-C09-T2_

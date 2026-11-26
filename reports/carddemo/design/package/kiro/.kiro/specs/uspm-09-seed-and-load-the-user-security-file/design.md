@@ -4,7 +4,7 @@
 
 ## Overview
 
-Builds the user security store from a fixed seed list, so that a fresh CardDemo installation has accounts to sign on with: administrators ADMIN001-ADMIN005 (type 'A') and regular users USER0001-USER0005 (type 'U'), all with password 'PASSWORD'. It must replace any earlier store completely rather than merge into it, and it must not leave a half-built staging set behind after a failure.
+A setup job, run by operators, that builds the user security store from a fixed seed list. The list has ten accounts: administrators ADMIN001-ADMIN005 (type 'A') and regular users USER0001-USER0005 (type 'U'), all with password 'PASSWORD'. It must replace the store completely with exactly these seed records, and it must not leave a half-built staging set behind when a step fails.
 
 Runs as scheduled job.
 
@@ -48,10 +48,10 @@ None.
 
 ## Design notes
 
-- USPM-BR-100: The seed step should be idempotent: remove any earlier seed data before staging, keep the new staging set only if staging completes, and discard it if staging fails. A transaction or a write-then-rename of the seed file gives this.
-- USPM-BR-101: Provide a setup or migration job that drops and recreates the user table keyed on an 8-character User ID, then bulk-loads every staged seed record into it. It runs on demand at environment setup, not as part of normal operation.
-- USPM-BR-104: The legacy job also copies the staged records into an entry-sequenced copy of the user file, without regard to whether earlier steps succeeded. The new application needs this only if some consumer reads users in load order. Otherwise one keyed user table covers it, and the copy should be confirmed as unneeded rather than rebuilt.
-- USPM-BR-105: The legacy job also copies the staged records into a relative-record (record-number addressed) copy of the user file, without regard to whether earlier steps succeeded. Rebuild this only if some consumer looks users up by position. Otherwise the keyed user table is enough.
+- USPM-BR-100: The seed step must be repeatable. Remove any previous staged seed set first, keep the new one only if staging finishes successfully, and discard it if staging fails. A transactional load or a temporary table swapped in on success meets this.
+- USPM-BR-101: Recreate the user store from scratch, with the user ID (8 characters) as its unique primary key, then bulk-insert every staged seed record into it. This is a full reset, not a merge.
+- USPM-BR-104: The legacy job also copies the staged records, in arrival order, into an entry-sequenced copy of the user security file, whatever happened in earlier steps. The new application needs this only if something reads users in insertion order. Otherwise one keyed user store is enough. Confirm with the owner before building a second copy.
+- USPM-BR-105: The legacy job also copies the staged records into a relative-record (slot-numbered) copy of the user security file, whatever happened in earlier steps. The new application needs this only if a consumer looks users up by record number. Otherwise the keyed user store covers it. Confirm with the owner before building it.
 
 ## Open questions
 

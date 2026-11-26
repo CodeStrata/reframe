@@ -11,10 +11,9 @@ Each task names the role that does it; the role files are in .claude/agents/.
   - Keep each business rule exactly as specified.
 - [ ] TTRDM-C18-T3 [business-rules] Implement error handling and messages. Requirements: TTRDM-REQ-F-132. Rules: TTRDM-BR-140. After: TTRDM-C18-T1.
   - Show every message word for word; formatting rules may be restyled to the design system.
-- [ ] TTRDM-C18-T4 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT). Requirements: TTRDM-REQ-F-130, TTRDM-REQ-F-131, TTRDM-REQ-F-132. Rules: TTRDM-BR-140, TTRDM-BR-143, TTRDM-BR-144. After: TTRDM-C18-T2, TTRDM-C18-T3.
+- [ ] TTRDM-C18-T4 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT). Requirements: TTRDM-REQ-F-130, TTRDM-REQ-F-131. Rules: TTRDM-BR-143, TTRDM-BR-144. After: TTRDM-C18-T2, TTRDM-C18-T3.
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - button "Add as new type"
-  - dialog "Save this transaction type?"
-  - message "Result"
+  - **lookup field** "Transaction type code": 'Tran Type code must be supplied. Enter a two-digit code.'; 'Tran Type code must be numeric. Enter digits only.'; 'Tran Type code must not be zero. Enter a code from 01 to 99.' Only the first failing check is shown.
+  - **primary button** "Save transaction type": Code and description match what is stored (ignoring case and surrounding spaces): 'No change detected with respect to values fetched.'
 - [ ] TTRDM-C18-T5 [test-generation] Write a test for every acceptance criterion. Requirements: TTRDM-REQ-F-130, TTRDM-REQ-F-131, TTRDM-REQ-F-132. Criteria: TTRDM-C18-AC-01, TTRDM-C18-AC-02, TTRDM-C18-AC-03. After: TTRDM-C18-T1, TTRDM-C18-T2, TTRDM-C18-T3, TTRDM-C18-T4.
   - 3 acceptance criteria, each a test named by its ID.

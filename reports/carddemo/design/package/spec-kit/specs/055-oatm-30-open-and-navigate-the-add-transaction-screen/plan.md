@@ -16,29 +16,37 @@ Runs as online.
 
 ## Screens
 
+### Transactions (S-TRANSACTION-LIST)
+
+Browse transactions in a sortable, paged table or jump to a transaction ID, and open one with Enter or a click instead of typing S beside it. Tab order: search, table, pager, Add transaction.
+
+Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy screens COTRN0A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Add transaction (S-TRANSACTION-ADD)
 
-Enter a transaction against an account or card, see what to fix at each field, confirm the summary and record it.
+Record a new transaction against an account or card, every field checked before it is added. One field takes the account or the card number; the resolved account and card show at once. Tab order: account or card, transaction details, merchant, Add transaction.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-ADD`. Replaces the legacy screens COTRN2A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| New transaction | form | Fields are checked in screen order; the first field in error gets focus and its message; pre-filled when opened with a selected transaction |  |  | OATM-REQ-F-238 |
-| Copy last transaction | button | Fills the form from the most recent transaction for the account or card |  |  | OATM-REQ-F-243 |
-| Add transaction | button | Checks the form, then opens the confirmation |  |  | OATM-REQ-F-241 |
-| Clear | button |  |  |  | OATM-REQ-F-242 |
-| Back | link |  |  | S-APP-SHELL | OATM-REQ-F-240 |
+| Account or card number | **lookup field** | 11-digit account number or 16-digit card number, pre-filled from the account in context; the resolved account and card number show beneath it | Blank: 'Account or Card Number must be entered...'. Not digits: 'Account ID must be Numeric...' / 'Card Number must be Numeric...'. Not in the card cross-reference: 'Account ID NOT found...' / 'Card Number NOT found...' - check the number with the caller. |  | OATM-REQ-F-238, OATM-REQ-F-239, OATM-REQ-N-012 |
+| Transaction details | **summary card** | Type code and Category code (choices from the transaction types), Source, Description (up to 60), Amount (money input, sign and two decimals), Original date and Processed date (date inputs). Hint under the heading: Alt+C copies the last transaction for this card; Alt+X clears the form | Each is required, in the rule's words: 'Type CD can NOT be empty...', 'Category CD can NOT be empty...', 'Source can NOT be empty...', 'Description can NOT be empty...', 'Amount can NOT be empty...', 'Orig Date can NOT be empty...', 'Proc Date can NOT be empty...'. 'Type CD must be Numeric...', 'Category CD must be Numeric...'. 'Amount should be in format -99999999.99'. 'Orig Date should be in format YYYY-MM-DD', 'Proc Date should be in format YYYY-MM-DD', and 'Orig Date - Not a valid date...' / 'Proc Date - Not a valid date...' for a date not on the calendar. Every failing field shows its message under it. |  | OATM-REQ-F-243 |
+| Add transaction | **primary button** | Runs every check, then a confirmation dialog repeats the transaction (account, card, type, amount, dates, merchant) with Add and Cancel; success shows 'Transaction added successfully. Your Tran ID is <id>.' and clears the form | The dialog offers only Add or Cancel, replacing the typed confirmation and its messages 'Confirm to add this transaction...' and 'Invalid value. Valid values are (Y/N)...'. If the ID already exists: 'Tran ID already exist...'; other failures: 'Unable to Add Transaction...'. |  | OATM-REQ-F-241, OATM-REQ-F-242, OATM-REQ-F-244 |
 
 ### Application header and navigation (S-APP-SHELL)
 
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
 
 Prototype: `ui-reference/index.html#/S-APP-SHELL`.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| CardDemo | header | Application name and titles (legacy TITLE01/TITLE02), the signed-on user, and today's date and time (legacy CURDATE/CURTIME); a user with no session is sent to sign-on |  |  |  |
+| CardDemo | **summary card** | Application name and the current page title as the page heading |  |  | OATM-REQ-N-012 |
+| Add transaction | **primary button** | Opens with the account in context, if any |  | S-TRANSACTION-ADD | OATM-REQ-F-240 |
 
 
 ## Data model

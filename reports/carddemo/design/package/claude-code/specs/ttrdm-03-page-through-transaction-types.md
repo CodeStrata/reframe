@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Lets administrators page forwards and backwards through transaction types seven at a time, in ascending type-code order, within any accepted filters. It must never skip or repeat a type between pages. At either end of the list it must say so ('No more pages to display', 'No previous pages to display', 'No more pages for these search conditions') rather than show a wrong page.
+Administrators page forwards and backwards through transaction types seven at a time, in ascending type-code order, limited to any accepted filters. The list must never skip or repeat a type when paging, and must tell the user plainly when there are no more pages, no previous pages, or no records.
 
 **User story:** As an administrator, I want to page forwards and backwards through the transaction types, seven at a time, so that I can review every type in code order.
 
@@ -129,14 +129,13 @@ Lets administrators page forwards and backwards through transaction types seven 
 
 ### Transaction types (S-TRANTYPE-LIST)
 
-Find transaction types by code or description, correct a description in place, or delete an obsolete type, confirming each change; start adding a new type.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Apply filters | button |  |  |  | TTRDM-REQ-F-028 |
-| Transaction types | table | Columns: type code, description. Pages in ascending type-code order with Previous and Next page controls and the page number; Previous is disabled on page 1, Next on the last page. |  |  | TTRDM-REQ-F-017, TTRDM-REQ-F-018, TTRDM-REQ-F-019, TTRDM-REQ-F-020, TTRDM-REQ-F-021, TTRDM-REQ-F-022, TTRDM-REQ-F-023, TTRDM-REQ-F-024, TTRDM-REQ-F-025, TTRDM-REQ-F-026, TTRDM-REQ-F-027, TTRDM-REQ-F-029, TTRDM-REQ-F-030, TTRDM-REQ-F-031 |
+| Transaction types | **data table** | Type code and description in code order, 20 rows a page. Row actions: Edit description in place (a labelled field; Enter opens a dialog showing old and new description), Open (full edit screen) and Delete (a dialog naming the code and description). Changing a filter cancels an edit in progress. Outcomes: 'Highlighted row was updated', 'Highlighted row deleted', 'Please delete associated child records first'. Empty state: 'No records found for this search condition. Use Add transaction type to create the first one.' | In-place description: 'Transaction Desc must be supplied. Enter a description.' or 'Transaction Desc can have numbers or alphabets only. Remove other characters.'; unchanged: 'No change detected with respect to values fetched.' Row actions replace action codes, so 'Action code selected is invalid' and 'Please select only 1 action' cannot occur. If a filter or the row changes while a dialog is open, the dialog closes and nothing changes. | S-TRANTYPE-EDIT | TTRDM-REQ-F-017 |
 
 
 ## Data models
@@ -217,7 +216,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- TTRDM-BR-024: Read the page as a keyset query ordered by type code, from the page's start code, with the active filters, taking up to 8 rows (7 to show plus 1 to look ahead). When fewer than 8 come back, stop and record that there is no next page. Do not treat running out of rows as an error.
+- TTRDM-BR-024: Page queries read in type-code order from the page's start code with a limit (fetching one extra row, e.g. 8, is a simple way to know whether a next page exists). If fewer rows come back than the page holds, stop and record that there is no next page.
 
 ## Open questions
 

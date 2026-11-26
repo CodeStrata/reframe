@@ -10,7 +10,7 @@
 
 As the business, I want the transaction list reachable only within a signed-on session, with clear key handling and return to the main menu, so that users move safely through the screens.
 
-Governs access to the transaction list. Only signed-on users reach it: anyone without a session goes to sign-on. PF3 returns to the main menu, and unsupported keys get 'Invalid key pressed. Please see below...'. Any signed-on user, regular or admin, sees transactions from every account and card. That is current behaviour and the team must confirm it deliberately rather than change it by accident.
+Keeps the transaction list inside a signed-on session: a user without a session is sent to sign-on, PF3 returns to the main menu, and unsupported keys get 'Invalid key pressed. Please see below...'. Any signed-on user, regular or admin, sees transactions for every account and card in transaction-ID order. That access scope is the legacy behaviour and needs a deliberate decision, not an accidental change.
 
 **Acceptance scenarios:**
 

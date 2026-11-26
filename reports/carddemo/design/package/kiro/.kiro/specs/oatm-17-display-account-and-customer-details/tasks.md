@@ -18,13 +18,13 @@
   - _After: OATM-C17-T1_
 - [ ] 4. OATM-C17-T4 [ui-modernization] Build the screen Account (S-ACCOUNT-VIEW)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-VIEW.
-  - search "Account number": Required: 'No input received' when blank; must be 11 digits and not all zeros: 'Account Filter must be a non-zero 11 digit number'.
-  - message "Guidance"
-  - display "Status"
-  - display "Customer ID"
-  - display "Social Security number"
-  - _Requirements: OATM-REQ-F-137, OATM-REQ-F-138, OATM-REQ-N-005, OATM-REQ-F-139, OATM-REQ-F-140, OATM-REQ-F-141_
-  - _Rules: OATM-BR-140, OATM-BR-141, OATM-BR-142, OATM-BR-143, OATM-BR-144, OATM-BR-145, OATM-BR-146_
+  - **lookup field** "Account or card number": Blank: 'No input received' - enter an account number (11 digits) or a card number (16 digits). Not digits, wrong length or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number' (or a 16-digit card number). Not in the card cross-reference: 'Account:<number> not found in Cross ref file.' - check the number with the caller. The error shows under the field.
+  - **status badge** "Account status"
+  - **summary card** "Account"
+  - **summary card** "Customer"
+  - **summary card** "Address and phone"
+  - _Requirements: OATM-REQ-F-137, OATM-REQ-F-138, OATM-REQ-N-005, OATM-REQ-F-139, OATM-REQ-F-140, OATM-REQ-F-141, OATM-REQ-F-142_
+  - _Rules: OATM-BR-140, OATM-BR-141, OATM-BR-142, OATM-BR-143, OATM-BR-144, OATM-BR-145, OATM-BR-146, OATM-BR-147_
   - _After: OATM-C17-T2, OATM-C17-T3_
 - [ ] 5. OATM-C17-T5 [test-generation] Write a test for every acceptance criterion
   - 11 acceptance criteria, each a test named by its ID.

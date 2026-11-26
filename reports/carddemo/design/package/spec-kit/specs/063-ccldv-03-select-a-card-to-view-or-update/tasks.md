@@ -11,11 +11,9 @@ Each task names the role that does it; the role files are in .claude/agents/.
   - Keep each business rule exactly as specified.
 - [ ] CCLDV-C03-T3 [business-rules] Implement error handling and messages. Requirements: CCLDV-REQ-F-031. Rules: CCLDV-BR-028. After: CCLDV-C03-T1.
   - Show every message word for word; formatting rules may be restyled to the design system.
-- [ ] CCLDV-C03-T4 [ui-modernization] Build the screen Cards (S-CARD-LIST). Requirements: CCLDV-REQ-F-028, CCLDV-REQ-F-029, CCLDV-REQ-F-030, CCLDV-REQ-F-031, CCLDV-REQ-F-032, CCLDV-REQ-F-033. Rules: CCLDV-BR-028, CCLDV-BR-029, CCLDV-BR-030, CCLDV-BR-031. After: CCLDV-C03-T2, CCLDV-C03-T3.
+- [ ] CCLDV-C03-T4 [ui-modernization] Build the screen Cards (S-CARD-LIST). Requirements: CCLDV-REQ-F-028, CCLDV-REQ-F-029, CCLDV-REQ-F-032, CCLDV-REQ-F-033. Rules: CCLDV-BR-029, CCLDV-BR-030, CCLDV-BR-031. After: CCLDV-C03-T2, CCLDV-C03-T3.
   - To the prototype: ui-reference/index.html#/S-CARD-LIST.
-  - message "Problems with the filters"
-  - button "View": Only one card can be opened at a time, so the legacy errors 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' and 'INVALID ACTION CODE' cannot occur.
-  - button "Edit"
+  - **data table** "Cards found": Each row is its own link and only one opens at a time, so no selection code is typed and 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' and 'INVALID ACTION CODE' cannot occur
 - [ ] CCLDV-C03-T5 [test-generation] Write a test for every acceptance criterion. Requirements: CCLDV-REQ-F-028, CCLDV-REQ-F-029, CCLDV-REQ-F-030, CCLDV-REQ-F-031, CCLDV-REQ-F-032, CCLDV-REQ-F-033. Criteria: CCLDV-C03-AC-01, CCLDV-C03-AC-02, CCLDV-C03-AC-03, CCLDV-C03-AC-04, CCLDV-C03-AC-05, CCLDV-C03-AC-06, CCLDV-C03-AC-07. After: CCLDV-C03-T1, CCLDV-C03-T2, CCLDV-C03-T3, CCLDV-C03-T4.
   - 7 acceptance criteria, each a test named by its ID.
 - [ ] CCLDV-C03-T6 [compliance] Review the handling of card data. Requirements: CCLDV-REQ-F-028, CCLDV-REQ-F-029, CCLDV-REQ-F-030, CCLDV-REQ-F-031, CCLDV-REQ-F-032, CCLDV-REQ-F-033. After: CCLDV-C03-T1, CCLDV-C03-T2, CCLDV-C03-T3, CCLDV-C03-T4.

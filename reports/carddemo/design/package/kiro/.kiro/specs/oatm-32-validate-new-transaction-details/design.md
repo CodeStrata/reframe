@@ -4,32 +4,31 @@
 
 ## Overview
 
-Checks every new transaction before it is saved. The eleven mandatory fields are checked in a fixed order, then numeric type, category and merchant codes, an amount in the form -99999999.99, and real calendar dates in the form YYYY-MM-DD. Only the first problem is reported, with its exact message and the cursor on that field. Nothing is saved until every check passes.
+Checks every field of a new transaction in a fixed order: the eleven mandatory fields, numeric type and category codes, the amount format -99999999.99, real YYYY-MM-DD origination and processing dates, and a numeric merchant ID. It stops at the first problem and shows only that field's message. Nothing may be saved while any check fails.
 
-Runs as online. Journeys: J04.
+Runs as online. Journeys: J05.
 
 ## Screens and components
 
+### Transactions (S-TRANSACTION-LIST)
+
+Browse transactions in a sortable, paged table or jump to a transaction ID, and open one with Enter or a click instead of typing S beside it. Tab order: search, table, pager, Add transaction.
+
+Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy screens COTRN0A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Add transaction (S-TRANSACTION-ADD)
 
-Enter a transaction against an account or card, see what to fix at each field, confirm the summary and record it.
+Record a new transaction against an account or card, every field checked before it is added. One field takes the account or the card number; the resolved account and card show at once. Tab order: account or card, transaction details, merchant, Add transaction.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-ADD`. Replaces the legacy screens COTRN2A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| New transaction | form | Fields are checked in screen order; the first field in error gets focus and its message; pre-filled when opened with a selected transaction |  |  | OATM-REQ-F-254, OATM-REQ-F-276 |
-| Transaction type | select | Transaction type code and name | Required: 'Type CD can NOT be empty...'; numeric code: 'Type CD must be Numeric...'. |  | OATM-REQ-F-255, OATM-REQ-F-267 |
-| Category | select | Category code and name for the chosen type | Required: 'Category CD can NOT be empty...'; numeric code: 'Category CD must be Numeric...'. |  | OATM-REQ-F-256, OATM-REQ-F-268 |
-| Source | text |  | Required: 'Source can NOT be empty...'. |  | OATM-REQ-F-257 |
-| Description | text |  | Required: 'Description can NOT be empty...'. |  | OATM-REQ-F-258 |
-| Amount | money | Signed amount with 2 decimals | Required: 'Amount can NOT be empty...'; format: 'Amount should be in format -99999999.99'. |  | OATM-REQ-F-259, OATM-REQ-F-269, OATM-REQ-F-270 |
-| Original date | date | YYYY-MM-DD | Required: 'Orig Date can NOT be empty...'; format: 'Orig Date should be in format YYYY-MM-DD'; real date: 'Orig Date - Not a valid date...'. |  | OATM-REQ-F-260, OATM-REQ-F-271, OATM-REQ-F-273 |
-| Processed date | date | YYYY-MM-DD | Required: 'Proc Date can NOT be empty...'; format: 'Proc Date should be in format YYYY-MM-DD'; real date: 'Proc Date - Not a valid date...'. |  | OATM-REQ-F-261, OATM-REQ-F-272, OATM-REQ-F-274 |
-| Merchant ID | text |  | Required: 'Merchant ID can NOT be empty...'; 9 digits: 'Merchant ID must be Numeric...'. |  | OATM-REQ-F-262, OATM-REQ-F-275 |
-| Merchant name | text |  | Required: 'Merchant Name can NOT be empty...'. |  | OATM-REQ-F-263 |
-| Merchant city | text |  | Required: 'Merchant City can NOT be empty...'. |  | OATM-REQ-F-264 |
-| Merchant ZIP | text |  | Required: 'Merchant Zip can NOT be empty...'. |  | OATM-REQ-F-265 |
+| Transaction details | **summary card** | Type code and Category code (choices from the transaction types), Source, Description (up to 60), Amount (money input, sign and two decimals), Original date and Processed date (date inputs). Hint under the heading: Alt+C copies the last transaction for this card; Alt+X clears the form | Each is required, in the rule's words: 'Type CD can NOT be empty...', 'Category CD can NOT be empty...', 'Source can NOT be empty...', 'Description can NOT be empty...', 'Amount can NOT be empty...', 'Orig Date can NOT be empty...', 'Proc Date can NOT be empty...'. 'Type CD must be Numeric...', 'Category CD must be Numeric...'. 'Amount should be in format -99999999.99'. 'Orig Date should be in format YYYY-MM-DD', 'Proc Date should be in format YYYY-MM-DD', and 'Orig Date - Not a valid date...' / 'Proc Date - Not a valid date...' for a date not on the calendar. Every failing field shows its message under it. |  | OATM-REQ-F-253, OATM-REQ-F-254, OATM-REQ-F-255, OATM-REQ-F-256, OATM-REQ-F-257, OATM-REQ-F-258, OATM-REQ-F-259, OATM-REQ-F-260, OATM-REQ-F-261, OATM-REQ-F-266, OATM-REQ-F-267, OATM-REQ-F-268, OATM-REQ-F-269, OATM-REQ-F-270, OATM-REQ-F-271, OATM-REQ-F-272, OATM-REQ-F-273, OATM-REQ-F-274, OATM-REQ-F-276 |
+| Merchant | **summary card** | Merchant ID (9 digits), Merchant name, Merchant city, Merchant ZIP | 'Merchant ID can NOT be empty...', 'Merchant Name can NOT be empty...', 'Merchant City can NOT be empty...', 'Merchant Zip can NOT be empty...'; 'Merchant ID must be Numeric...'. |  | OATM-REQ-F-262, OATM-REQ-F-263, OATM-REQ-F-264, OATM-REQ-F-265, OATM-REQ-F-275 |
 
 
 ## Data models
@@ -173,7 +172,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- OATM-BR-286: Parse the validated amount text into an exact decimal with two places (never floating point). Echo it back to the user in the canonical form +99999999.99, and store exactly that decimal value as the transaction amount when the transaction is added.
+- OATM-BR-286: Parse the accepted amount text into an exact signed decimal with two decimal places (no floating point), echo it back formatted as +99999999.99, and use that same parsed value as the stored transaction amount.
 
 ## Open questions
 

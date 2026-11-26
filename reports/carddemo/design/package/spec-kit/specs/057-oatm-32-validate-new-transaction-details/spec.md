@@ -10,7 +10,7 @@
 
 As a staff user, I want every new transaction's fields checked for presence, numeric codes, amount format and real dates, with one clear message for the first problem, so that only complete and well-formed transactions are recorded.
 
-Checks every new transaction before it is saved. The eleven mandatory fields are checked in a fixed order, then numeric type, category and merchant codes, an amount in the form -99999999.99, and real calendar dates in the form YYYY-MM-DD. Only the first problem is reported, with its exact message and the cursor on that field. Nothing is saved until every check passes.
+Checks every field of a new transaction in a fixed order: the eleven mandatory fields, numeric type and category codes, the amount format -99999999.99, real YYYY-MM-DD origination and processing dates, and a numeric merchant ID. It stops at the first problem and shows only that field's message. Nothing may be saved while any check fails.
 
 **Acceptance scenarios:**
 

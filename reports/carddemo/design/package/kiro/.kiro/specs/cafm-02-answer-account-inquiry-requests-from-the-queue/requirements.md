@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-A message service that answers account inquiry requests from other systems with the account's status, balances, limits and dates, so they never read the account file directly. Each request is answered on the account reply queue and matched to the request by its message and correlation ids. It must never answer a malformed or unknown-account request with account data, and it must never alter the stored values it reports.
+A message-driven service for other systems. It answers an account inquiry request with the account's status, balances, limits and dates on the account reply queue, without the caller needing direct access to the account file. Each reply must carry the request's message and correlation identifiers and must show the stored values exactly as held. A bad request gets an 'INVALID REQUEST PARAMETERS' reply, never another account's data.
 
 **User story:** As a requesting system, I want to send an account inquiry message and receive the account's details on a reply queue, so that I can see an account's status, balances and limits without direct file access.
 
@@ -83,21 +83,21 @@ A message service that answers account inquiry requests from other systems with 
 #### Acceptance criteria
 
 1. When the account is found, the system shall reply with 'ACCOUNT ID : ', 'ACCOUNT STATUS : ', 'BALANCE : ', 'CREDIT LIMIT : ', 'CASH LIMIT : ', 'OPEN DATE : ', 'EXPR DATE : ', 'REIS DATE : ', 'CREDIT BAL : ', 'DEBIT BAL : ' and 'GROUP ID : ', each followed by the stored value unchanged, the credit and debit balances being the current billing cycle's. (rules CAFM-BR-022)
-2. GIVEN An 'INQA' request for account 00000000001, and that account is on the account file WHEN The inquiry service answers the request THEN The reply contains 'ACCOUNT ID : ', 'ACCOUNT STATUS : ', 'BALANCE : ', 'CREDIT LIMIT : ', 'CASH LIMIT : ', 'OPEN DATE : ', 'EXPR DATE : ', 'REIS DATE : ', 'CREDIT BAL : ', 'DEBIT BAL : ' and 'GROUP ID : ', each followed by the account's stored value unchanged, and 'CREDIT BAL : ' and 'DEBIT BAL : ' carry the current billing cycle's credit and debit (CAFM-C02-AC-18; CAFM-BR-022)
+2. GIVEN Account 00000000001 is on the account file WHEN A request arrives with function code 'INQA' and account number 00000000001 THEN The reply holds 'ACCOUNT ID : ', 'ACCOUNT STATUS : ', 'BALANCE : ', 'CREDIT LIMIT : ', 'CASH LIMIT : ', 'OPEN DATE : ', 'EXPR DATE : ', 'REIS DATE : ', 'CREDIT BAL : ', 'DEBIT BAL : ' and 'GROUP ID : ', in that order, each followed by the account's stored value unchanged. 'CREDIT BAL : ' and 'DEBIT BAL : ' show the current billing cycle's credit and debit. (CAFM-C02-AC-18; CAFM-BR-022)
 
 ### Requirement 11: CAFM-REQ-F-023 (formatting)
 
 #### Acceptance criteria
 
 1. The system shall show amounts in the reply as 12 digits with two implied decimal places, no decimal point and the sign carried in the last digit, exactly as stored. (rules CAFM-BR-023)
-2. GIVEN An account found by an 'INQA' request with a stored current balance of 1234.56 WHEN The reply is built THEN The value after 'BALANCE : ' is 12 characters long, has no decimal point, has the digits of 1234.56 with two implied decimal places, carries its sign in the last digit, and is exactly the stored value. Every other amount in the reply follows the same format (CAFM-C02-AC-19; CAFM-BR-023)
+2. GIVEN Account 00000000001 is on the account file with a stored current balance of 1234.56 WHEN An 'INQA' request for account 00000000001 is answered THEN The value after 'BALANCE : ' is 12 digits with two implied decimal places and no decimal point, with the sign carried in the last digit, exactly as stored (not shown as '1234.56'). Every other amount in the reply follows the same layout. (CAFM-C02-AC-19; CAFM-BR-023)
 
 ### Requirement 12: CAFM-REQ-F-024 (business rule)
 
 #### Acceptance criteria
 
 1. When the account is not on the account file, the system shall reply 'INVALID REQUEST PARAMETERS ACCT ID : ' followed by the 11-digit account number. (rules CAFM-BR-024)
-2. GIVEN An 'INQA' request for account 00000000099, which is not on the account file WHEN The inquiry service answers the request THEN The reply reads 'INVALID REQUEST PARAMETERS ACCT ID : 00000000099' and contains no account details (CAFM-C02-AC-20; CAFM-BR-024)
+2. GIVEN Account 00000000099 is not on the account file WHEN A request arrives with function code 'INQA' and account number 00000000099 THEN The reply is 'INVALID REQUEST PARAMETERS ACCT ID : ' followed by '00000000099', and no account details are returned. (CAFM-C02-AC-20; CAFM-BR-024)
 
 ### Requirement 13: CAFM-REQ-F-025 (error handling)
 

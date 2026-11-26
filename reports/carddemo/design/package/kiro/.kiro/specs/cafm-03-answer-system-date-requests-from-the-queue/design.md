@@ -4,7 +4,7 @@
 
 ## Overview
 
-A message service that answers date requests from other systems with the host's current system date (mm-dd-yyyy) and time on the date reply queue. Each reply carries the request's message and correlation ids. It must never lose or double-answer a request, and it must report every queue failure to the error queue, or to the console if the error queue itself is unavailable.
+A message-driven service that tells calling systems the host's current date and time. Each request gets one reply reading 'SYSTEM DATE : <mm-dd-yyyy>SYSTEM TIME : <time>' on the date reply queue, carrying the request's message and correlation identifiers. Every queue failure must be reported on the error queue, or on the console if the error queue itself is unavailable.
 
 Runs as online.
 
@@ -56,10 +56,10 @@ None.
 
 ## Design notes
 
-- CAFM-BR-031: Run the service as a consumer started when messages arrive on the date request queue. Read the request queue name from the start-up event, and always send replies to the fixed queue 'CARD.DEMO.REPLY.DATE'.
-- CAFM-BR-032: Drain the queue: take requests one at a time, commit each read-and-reply as one transaction before taking the next, and stop once no message arrives within 5 seconds.
-- CAFM-BR-034: Publish the reply as a text message to 'CARD.DEMO.REPLY.DATE' with the request's message id and correlation id, inside the same transaction as consuming the request. Ignore any reply-to address the request names.
-- CAFM-BR-035: On shutdown, release every queue connection (request, reply, error) that was opened successfully and leave the others alone, so connections are not leaked across runs.
+- CAFM-BR-031: Run the date inquiry as a consumer on the queue whose arrival started it. It always replies on the fixed date reply queue ('CARD.DEMO.REPLY.DATE') and ignores any reply-to queue the requester names.
+- CAFM-BR-032: Process requests one at a time until the queue is empty: wait up to 5 seconds for each, and stop when none arrives. Take a request and send its reply in one transaction, committed before the next request is taken.
+- CAFM-BR-034: Send the reply as a text message in the broker's standard character set, carrying the request's message ID and correlation ID, inside the same transaction that consumed the request.
+- CAFM-BR-035: On shutdown, normal or after an error, release every queue connection that was opened (request, reply and error). Release only the ones that opened successfully, then end the task.
 
 ## Open questions
 

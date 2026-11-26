@@ -6,7 +6,7 @@ User Access Control · System Operations and Maintenance · runs as online · ri
 
 ## Introduction
 
-The Main Menu is the home screen for signed-on users. It lists 11 numbered options and takes the user to the chosen function, and PF3 returns them to sign-on. It must never show a menu without an active session, never let a regular user into an admin-only option, and never route an invalid choice anywhere. Its messages must be exact, including the 'not installed' message for the Pending Authorization View when that view is not available.
+Is the home menu for every signed-on user. It lists the 11 card, account, transaction, report, bill-payment and authorization functions and opens the one chosen. It must never open without a signed-on session: such visitors go back to sign-on. It must never let a regular user open an admin-only option, and it must reject invalid options and keys with the exact legacy messages.
 
 **User story:** As a signed-on user, I want to pick a numbered option from the Main Menu, so that I reach the functions I am allowed to use and am kept out of admin-only ones.
 
@@ -43,7 +43,7 @@ The Main Menu is the home screen for signed-on users. It lists 11 numbered optio
 #### Acceptance criteria
 
 1. The system shall show one Main Menu line per menu option (11 options), each made of the option number, '. ' and the option name, in the screen slot for that option's position. (rules SOM-BR-018)
-2. GIVEN a signed-on user and the menu option table with 11 options WHEN the Main Menu is displayed THEN 11 option lines are shown, each in the slot for its position, each written as the option number followed by '. ' and the option name (for example '11. Pending Authorization View' in slot 11) (SOM-C03-AC-22; SOM-BR-018)
+2. GIVEN The menu option table holds 11 options, option 1 named 'Account View' and option 11 named 'Pending Authorization View' WHEN The Main Menu is displayed THEN Eleven option lines are shown, each in the slot for its position, the first reading '1. Account View' and the eleventh reading '11. Pending Authorization View', each formed as the option number, '. ' and the option name (SOM-C03-AC-22; SOM-BR-018)
 
 ### Requirement 5: SOM-REQ-F-016 (business rule)
 
@@ -118,7 +118,7 @@ The Main Menu is the home screen for signed-on users. It lists 11 numbered optio
 #### Acceptance criteria
 
 1. If a valid option whose program is COPAUS0C is selected and CICS does not report that program as defined, then the system shall redisplay the menu with the red message 'This option <option name> is not installed...'. (rules SOM-BR-028)
-2. GIVEN a signed-on user is on the Main Menu and the Pending Authorization View program COPAUS0C is not deployed or registered WHEN the user enters option 11 and presses Enter THEN the Main Menu is shown again with the red message 'This option Pending Authorization View is not installed...', and the user stays on the menu (SOM-C03-AC-23; SOM-BR-028)
+2. GIVEN A signed-on user is on the Main Menu and the Pending Authorization View program (COPAUS0C) is not installed WHEN The user enters option 11 and presses Enter THEN The Main Menu is redisplayed with the message 'This option Pending Authorization View is not installed...' in red, and the user stays on the menu (SOM-C03-AC-23; SOM-BR-028)
 
 ### Requirement 14: SOM-REQ-F-025 (design note)
 

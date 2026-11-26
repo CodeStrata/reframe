@@ -10,7 +10,7 @@
 
 As a cardholder or staff user, I want to look up a transaction by its Transaction ID and see its full details, so that I can review what was charged, where and when.
 
-Lets cardholders and staff look up one transaction by its Transaction ID and see its full details: card, type, category, source, signed amount, description, timestamps and merchant. It must show the exact stored record and amount sign. A missing ID gets 'Transaction ID NOT found...', and a lookup failure gets 'Unable to lookup Transaction...'. PF3, PF4 and PF5 return, clear or go to the list.
+Shows the full details of one transaction found by its Transaction ID: card, type, category, source, signed amount, description, timestamps and merchant. Cardholders and staff use it to review a charge. It must show the amount with its sign exactly as stored, and say 'Transaction ID NOT found...' or 'Unable to lookup Transaction...' rather than show stale details. PF3 goes back, PF4 clears the screen and PF5 opens the transaction list.
 
 **Acceptance scenarios:**
 
@@ -25,8 +25,8 @@ Lets cardholders and staff look up one transaction by its Transaction ID and see
 9. **Given** Shown transaction: 0000000000000123; Key: PF4, **when** the user presses PF4, **then** Empty screen with cursor on Transaction ID (OATM-C29-AC-09)
 10. **Given** Key: PF5, **when** the user presses PF5, **then** Transaction list screen is shown (OATM-C29-AC-10)
 11. **Given** Key: PF7, **when** the user presses any key other than Enter, PF3, PF4 or PF5, **then** Message 'Invalid key pressed. Please see below...' (OATM-C29-AC-11)
-12. **Given** a transaction on file with ID 0000000000000042, its card number, type code, category code, source, amount, description, original and processed timestamps, and merchant ID, name, city and ZIP, **when** the user enters 0000000000000042 on the Transaction View and presses Enter, **then** the screen shows that transaction ID, card number, type code, category code, source, signed amount, description, original and processed timestamps, and merchant ID, name, city and ZIP, each matching the stored record (OATM-C29-AC-12)
-13. **Given** a transaction on file with amount 1234.56 and another with amount -50.00, **when** each is shown on the Transaction View, **then** the amounts are shown as +00001234.56 and -00000050.00 (leading sign, 8 digits before the decimal point, 2 after) (OATM-C29-AC-13)
+12. **Given** a transaction with ID 0000000000000042 exists on file, **when** the user enters 0000000000000042 on the Transaction View and presses Enter, **then** the screen shows that transaction's ID, card number, type code, category code, source, signed amount, description, original timestamp, processed timestamp, merchant ID, merchant name, merchant city and merchant ZIP, each taken from the stored record (OATM-C29-AC-12)
+13. **Given** a transaction with amount 1234.50 and another with amount -75.00, **when** each is shown on the Transaction View, **then** the amounts are displayed as +00001234.50 and -00000075.00 (leading sign, 8 digits before the decimal point, 2 after) (OATM-C29-AC-13)
 
 ## Requirements
 

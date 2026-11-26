@@ -15,11 +15,11 @@
   - _Requirements: CAFM-REQ-F-112, CAFM-REQ-F-113_
   - _Rules: CAFM-BR-118, CAFM-BR-119_
   - _After: CAFM-C12-T1_
-- [ ] 4. CAFM-C12-T4 [ui-modernization] Build the screen Authorization details (S-AUTH-DETAIL)
-  - To the prototype: ui-reference/index.html#/S-AUTH-DETAIL.
-  - display "Response"
-  - display "Reason"
-  - button "Mark as fraud / Remove fraud mark"
+- [ ] 4. CAFM-C12-T4 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **status badge** "Response"
+  - **summary card** "Authorization": Not read: 'System error while reading Auth Summary: Code <code>' or 'System error while reading Auth Details: Code <code>' - reopen the authorization, and report the code if it repeats. The detail fields stay blank when the account ID is not numeric, no authorization is selected, or a read failed.
+  - **primary button** "Report fraud / Remove fraud mark": Fraud register update failed: the fraud program's message (for example 'SYSTEM ERROR DB2: CODE <code>') and 'Nothing was changed - try again, and report the code if it repeats.' Authorization save failed: 'System error while FRAUD Tagging, ROLLBACK <code>' and 'Nothing was changed - try again.' Fraud service did not respond: 'The fraud update did not complete. Nothing was changed - try again.'
   - _Requirements: CAFM-REQ-F-112, CAFM-REQ-F-113, CAFM-REQ-F-114_
   - _Rules: CAFM-BR-118, CAFM-BR-119, CAFM-BR-120_
   - _After: CAFM-C12-T2, CAFM-C12-T3_

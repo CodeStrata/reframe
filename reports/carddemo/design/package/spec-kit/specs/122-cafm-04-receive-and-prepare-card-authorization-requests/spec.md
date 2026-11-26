@@ -10,7 +10,7 @@
 
 As a card payment network, I want authorization request messages taken from the queue, parsed and matched to the card's account, customer and pending authorization summary, so that each request can be decided and answered.
 
-The intake step for card authorization requests from the payment network. It takes each request message, parses it, and looks up the card's account, customer and pending authorization summary so a decision can be made. It must never send a reply based on a failed read of the account, customer or summary data, and it must convert the amount text exactly into the transaction amount.
+The intake side of real-time card authorization for the card payment network. It takes authorization requests off the queue, splits them into fields, and gathers the card's account, customer and pending-authorization summary so the request can be decided. A missing account or customer must not stop the request, which goes on to be declined. A real read failure must end the task before any reply is sent for that request.
 
 **Acceptance scenarios:**
 
@@ -28,7 +28,7 @@ The intake step for card authorization requests from the payment network. It tak
 12. **Given** IMS status: 'AI', **when** reading the pending authorization summary returns any other IMS status, **then** Critical error 'I002' 'IMS GET SUMMARY FAILED' is logged and the task ends. (CAFM-C04-AC-12)
 13. **Given** Current date (YYDDD): 25330; Current time: 143015; Milliseconds: 250, **when** an authorization detail is about to be recorded, **then** Key date = 99999 - 25330 = 74669; key time = 999999999 - 143015250 = 856984749. (CAFM-C04-AC-13)
 14. **Given** Current date (YYDDD): 25001; Current time: 000000; Milliseconds: 0, **when** an authorization detail is about to be recorded, **then** Key date = 74998; key time = 999999999, so newer authorizations sort first. (CAFM-C04-AC-14)
-15. **Given** A comma-delimited authorization request message whose amount field holds the text '125.50', **when** The request is received and parsed, **then** Each comma-separated value is assigned to its request field in order, and the transaction amount holds the numeric value 125.50 (CAFM-C04-AC-15)
+15. **Given** A comma-delimited authorization request message whose amount field holds the text '125.50', **when** The request message is received, **then** Each comma-separated value goes into its own request field, and the transaction amount is the number 125.50, ready for the credit check. (CAFM-C04-AC-15)
 
 ## Requirements
 

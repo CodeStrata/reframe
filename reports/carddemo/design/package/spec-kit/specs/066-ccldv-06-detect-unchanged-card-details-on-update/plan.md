@@ -18,22 +18,22 @@ Runs as online.
 
 ### Cards (S-CARD-LIST)
 
-Browse and filter credit cards by account and card number, and open a card to view or edit it from its row.
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Card (S-CARD-DETAIL)
+### Card details (S-CARD-DETAIL)
 
-Find a card by account and card number, see its embossed name, expiry date and active status, and edit those details with a confirmation before saving. Replaces the separate view and update screens: the same card is found, shown and edited in one place.
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
 
 Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Edit card | form | Name on card, status, expiry month and expiry year in that tab order, prefilled with the stored values. Saving checks every field, shows each error beside its field, then asks for confirmation. | Something must change (ignoring upper/lower case): 'No changes to save. The details match the stored values.' (legacy 'No change detected with respect to values fetched.') Errors are reported in the order name, status, expiry month, expiry year. |  | CCLDV-REQ-F-059, CCLDV-REQ-F-060 |
+| Save card | **primary button** | Checks name, status, expiry month and expiry year, shows each failing field's message beside it with a summary at the top, and saves when all pass; enabled once a card is found. Results: 'Changes committed to database'; 'Record changed by some one else. Please review' with the stored values reloaded; 'Could not lock record for update' or 'Update of record failed' with 'Changes unsuccessful. Please try again'. Esc discards unsaved edits. | Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year. |  |  |
 
 
 ## Data model

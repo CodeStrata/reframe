@@ -4,15 +4,15 @@
 
 ## Overview
 
-Gives administrators a list of CardDemo users, ten per page in User ID order. The list can start from a chosen User ID and be paged forward and backward. It must keep the page boundaries and the top and bottom messages correct, so that no user is skipped or shown twice between pages, and it must send anyone without a session back to sign-on.
+Gives administrators a list of CardDemo users, ten per page in User ID order. The list can start from a User ID they type, and they page forward and back with clear messages at the top and bottom. It must always show users in User ID order, page without skipping or repeating users, and send anyone with no session back to sign-on.
 
-Runs as online. Journeys: J19, J20.
+Runs as online. Journeys: J15, J17.
 
 ## Screens and components
 
 ### Sign in (S-SIGN-IN)
 
-Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+Sign in to CardDemo with a user ID and password. Administrators and regular users both land on Home, which shows the functions their role allows.
 
 Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
 
@@ -21,7 +21,7 @@ Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COS
 
 ### Home (S-HOME)
 
-One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+Landing page after sign-in. It lists every function the signed-in role may use as links, and replaces the numbered Main Menu, the Admin Menu and the typed option number.
 
 Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
 
@@ -30,20 +30,18 @@ Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1
 
 ### Users (S-USER-LIST)
 
-Find users and act on them: search by User ID, page through a table of users, and edit or delete a user from its row; add a new user from here.
+Find a user and act on them. A searchable, paged table of all users has Edit and Delete actions on each row, plus Add user. It replaces the typed U and D selection codes and the F7 and F8 paging keys.
 
 Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens COUSR0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Users | page | Requires a signed-in administrator session; otherwise opens Sign in. Opens on the first page of users. |  |  | USPM-REQ-F-015, USPM-REQ-F-016, USPM-REQ-F-017, USPM-REQ-F-033 |
-| Search by User ID | search | User ID to start the list from; blank lists from the first user |  |  | USPM-REQ-F-019 |
-| Users | table | User ID, First name, Last name, User type (Admin or Regular user), 10 rows per page in User ID order, with page number and Previous and Next page controls; Previous is disabled on the first page and Next on the last | On the first page: 'You are already at the top of the page...'; on the last page: 'You are already at the bottom of the page...' |  | USPM-REQ-F-020, USPM-REQ-F-021, USPM-REQ-F-022, USPM-REQ-F-023, USPM-REQ-F-024, USPM-REQ-F-025, USPM-REQ-F-026, USPM-REQ-F-028, USPM-REQ-F-029, USPM-REQ-F-030, USPM-REQ-F-031 |
-| List messages | message | 'Unable to lookup User...' when the list cannot be read; unassigned keys are ignored | An unsupported action shows 'Invalid key pressed. Please see below...' |  | USPM-REQ-F-018, USPM-REQ-F-027, USPM-REQ-F-032 |
+| Start from user ID | **lookup field** | The user ID to start the list from; left blank, the list starts at the first user. Enter searches and returns to page 1. | If the users cannot be read, 'Unable to lookup User...' shows above the table with a Try again link. |  | USPM-REQ-F-016, USPM-REQ-F-019 |
+| Users | **data table** | Columns User ID, First name, Last name and User type (Admin or User), sorted by User ID. The table shows 20 rows a page, with Previous, Next and 'Page n'. Each row has an Edit action (opens Update user) and a Delete action (opens Delete user). Empty state: 'No users yet. Choose Add user to create the first one.' | Previous is disabled on page 1 and Next on the last page. The disabled buttons say 'You are already at the top of the page...' and 'You are already at the bottom of the page...', and the last page says 'You have reached the bottom of the page...'. The actions are buttons on each row, so the 'Invalid selection. Valid values are U and D' error cannot happen. If the users cannot be read while paging: 'Unable to lookup User...'. | S-USER-EDIT | USPM-REQ-F-017, USPM-REQ-F-018, USPM-REQ-F-020, USPM-REQ-F-023, USPM-REQ-F-024, USPM-REQ-F-026, USPM-REQ-F-027, USPM-REQ-F-028, USPM-REQ-F-029, USPM-REQ-F-032 |
 
 ### Update user (S-USER-EDIT)
 
-Change a user's name, password or user type. Opens with the user already loaded when chosen from the list; another user can be looked up by User ID.
+Correct a user's name, password or user type. It opens already filled in from the Users table; you can also type a user ID to look up another user.
 
 Prototype: `ui-reference/index.html#/S-USER-EDIT`. Replaces the legacy screens COUSR2A.
 
@@ -52,12 +50,22 @@ Prototype: `ui-reference/index.html#/S-USER-EDIT`. Replaces the legacy screens C
 
 ### Delete user (S-USER-DELETE)
 
-Check a user's name and type and delete them so they can no longer sign in; deletion is confirmed in a dialog (new).
+Remove a user who should no longer have access. The screen shows who will be deleted and asks for confirmation; the confirmation is new, because the legacy deleted on PF5 without asking.
 
 Prototype: `ui-reference/index.html#/S-USER-DELETE`. Replaces the legacy screens COUSR3A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
+
+### CardDemo header and navigation (S-APP-HEADER)
+
+New, shared by every screen: shows the application and page title, the signed-in user, today's date and the time once, with the way back to the main menu. It replaces the transaction, program, date, time and title lines that every 3270 screen repeated.
+
+Prototype: `ui-reference/index.html#/S-APP-HEADER`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Navigation | **data table** | The functions the signed-in role may use, as one list of links grouped Account, Card, Transaction, Bill payment and Reports. Administrators also get User administration (Users, Add user) and Transaction types. The current screen is marked. Esc goes back one screen, to the screen that opened this one or to Home. | Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home. | S-HOME | USPM-REQ-F-015 |
 
 
 ## Data models
@@ -166,10 +174,10 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- USPM-BR-024: Keep the User ID of the first row on the current page as the backward paging cursor. 'Previous page' reads the users whose keys come before this ID, in descending key order.
-- USPM-BR-025: Keep the User ID of the tenth row on the current page as the forward paging cursor. 'Next page' reads users with keys after this ID, in ascending order (keyset pagination on User ID).
-- USPM-BR-034: Set the 'next page available' flag to true every time the user pages backward, including when the request is refused at the top of the list, so that 'Next page' is always allowed after a 'Previous page' request.
-- USPM-BR-037: Keep the list's paging state between requests: page number, first and last User ID shown, and the next-page flag. Store it in the session or as a cursor token passed with each request, so the next action continues from the same position.
+- USPM-BR-024: Remember the User ID shown in the first row of the current page. Paging backward uses it as a cursor: fetch the up to ten users whose IDs sort before it, in descending key order, then show them in ascending order.
+- USPM-BR-025: Remember the User ID shown in the last row (row 10) of the current page. Paging forward uses it as a cursor: fetch the next up to ten users whose IDs sort after it.
+- USPM-BR-034: Any backward-page request sets the list's 'next page available' state to yes, even when it is refused at the top, so that a forward page is allowed afterwards. Keep this flag in the paging state.
+- USPM-BR-037: Keep the list's paging state (page number, first and last User ID shown, next-page flag) in the user's session or the request between interactions, so that the next action continues from the same page.
 
 ## Open questions
 

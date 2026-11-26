@@ -10,7 +10,7 @@
 
 As a batch operations team member, I want to unload the pending authorization database to extract files, so that the summaries and their details can be kept or reloaded outside the online system.
 
-A batch job for operations that copies the whole pending authorization database out to extract files: each account summary followed by all of its authorization details. Only summaries with a numeric account id are written, and a detail is never written without its summary. Any unexpected read or write failure must stop the run with return code 16 and a clear message, so a partly written extract is never mistaken for a complete one.
+A batch job that copies every pending authorization summary and its details out of the pending authorization database into extract files, so they can be kept or reloaded elsewhere. It must write each summary before its details, skip summaries whose account id is not numeric, and stop with a failure code on any unexpected read or write error instead of reporting success on a partial extract.
 
 **Acceptance scenarios:**
 
@@ -19,11 +19,11 @@ A batch job for operations that copies the whole pending authorization database 
 3. **Given** summary account id: 00000012345; details under it: 3, **when** pending authorization unload runs, **then** Summary written to the summary unload file, then its 3 details to the detail unload file (CAFM-C17-AC-03)
 4. **Given** summary read status: 'GB', **when** reading summaries reaches the end of the database (status 'GB'), **then** The loop ends and 'CLOSING THE FILE' is printed (CAFM-C17-AC-04)
 5. **Given** details under summary: 2, **when** unloading a summary, **then** Both details are written to the detail unload file (CAFM-C17-AC-05)
-6. **Given** the pending authorization database holds a summary whose account id is 'ABC123' with two details under it, **when** the unload runs, **then** neither that summary nor either of its details is written to the unload files, and the run continues with the next summary (CAFM-C17-AC-06)
-7. **Given** a summary with a numeric account id whose details have all been written, **when** reading the next detail of that summary returns status 'GE', **then** 'CHILD SEG FLAG GE : Y' is printed, detail reading stops, the read status is cleared and the next summary is read (CAFM-C17-AC-07)
-8. **Given** reading the next pending authorization summary returns status 'AI' (not blank or 'GB'), **when** the unload processes summaries, **then** 'AUTH SUM GN FAILED :' is printed with AI and the key feedback, 'DBUNLDGS ABENDING ...' is printed, the run ends with return code 16 and the unload files are left as written so far (CAFM-C17-AC-08)
-9. **Given** a summary with a numeric account id is being unloaded and reading its next detail returns status 'AI' (not blank or 'GE'), **when** the unload reads that summary's details, **then** 'GNP CALL FAILED :' is printed with AI and the key feedback, and the run ends with return code 16 (CAFM-C17-AC-09)
-10. **Given** writing a summary to the summary unload file, or a detail to the detail unload file, returns a non-blank status, **when** the unload writes that record, **then** 'GSAM PARENT FAIL :' is printed with the status and key feedback (the same text for summaries and details), and the run ends with return code 16 (CAFM-C17-AC-10)
+6. **Given** the database holds a summary with account id 'ABC123' that has two details, and a summary with numeric account id 00000000123, **when** the unload runs, **then** neither the 'ABC123' summary nor its two details are written to the unload files, and the 00000000123 summary and its details are written (CAFM-C17-AC-06)
+7. **Given** a summary with three details is being unloaded, **when** the fourth detail read returns 'GE', **then** 'CHILD SEG FLAG GE : Y' is printed, no further details are read for that summary, the read status is cleared and the next summary is read (CAFM-C17-AC-07)
+8. **Given** the unload has written some summaries and the next summary read returns a status other than blank or 'GB', for example 'AI', **when** the unload continues, **then** 'AUTH SUM GN FAILED :' is printed with AI and the key feedback, 'DBUNLDGS ABENDING ...' is printed, the job ends with return code 16, and the records already written stay in the unload files (CAFM-C17-AC-08)
+9. **Given** a summary is being unloaded and a detail read returns a status other than blank or 'GE', for example 'AI', **when** the unload continues, **then** 'GNP CALL FAILED :' is printed with AI and the key feedback, and the job ends with return code 16 (CAFM-C17-AC-09)
+10. **Given** writing a summary, or writing a detail, to its unload file returns a non-blank status, **when** the unload tries to write that record, **then** 'GSAM PARENT FAIL :' is printed with the status and key feedback (the same text for summaries and details), and the job ends with return code 16 (CAFM-C17-AC-10)
 
 ## Requirements
 

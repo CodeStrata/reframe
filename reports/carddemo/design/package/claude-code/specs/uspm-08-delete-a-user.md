@@ -6,7 +6,7 @@ User Access Control · User Security Profile Management · runs as online · ris
 
 ## Introduction
 
-Lets an administrator look up a user and delete them from the user security file, so that they can no longer sign on. Delete acts at once on the User ID in the field, with no separate confirmation and no prior lookup needed, so the screen must show the user's details before delete is offered and must report the outcome clearly. As in the legacy system, the program itself does not check that the signed-on user is an administrator.
+Lets an administrator look up a user and delete them from the user security file, so that the person can no longer sign on. Deletion happens on PF5 for whatever User ID is in the field, with no separate confirmation and no role check inside the screen. It must never delete a user other than the one whose ID is shown, and it must never delete anything when the User ID is blank.
 
 **User story:** As an administrator, I want to look up a user and delete them from the user security file, so that people who should no longer use CardDemo lose their access.
 
@@ -31,7 +31,7 @@ Lets an administrator look up a user and delete them from the user security file
 #### Acceptance criteria
 
 1. When the User Delete screen is first opened and a user was selected on the User List screen, the system shall put that user ID in the field and look the user up straight away, showing the details or the lookup error. (rules USPM-BR-086)
-2. GIVEN the administrator marked user 'USER0002' with 'D' on the User List screen WHEN the User Delete screen opens for the first time THEN the User ID field contains 'USER0002' and the user is looked up straight away, showing that user's details or the lookup error (USPM-C08-AC-13; USPM-BR-086)
+2. GIVEN the administrator marked user 'USER0003' with 'D' on the User List screen WHEN the User Delete screen opens for the first time THEN the User ID field holds 'USER0003' and the user is looked up straight away, showing that user's details, or the lookup error if the lookup fails (USPM-C08-AC-13; USPM-BR-086)
 
 ### Requirement 4: USPM-REQ-F-079 (formatting)
 
@@ -45,7 +45,7 @@ Lets an administrator look up a user and delete them from the user security file
 #### Acceptance criteria
 
 1. When the administrator presses Enter with a user ID that exists in the user security file (USRSEC), the system shall show that user's first name, last name and user type with the message 'Press PF5 key to delete this user ...' in neutral colour. (rules USPM-BR-088)
-2. GIVEN user 'USER0003' exists in the user security file with first name, last name and user type 'U' WHEN the administrator enters 'USER0003' on the User Delete screen and presses Enter THEN the user's first name, last name and user type 'U' are shown with the message 'Press PF5 key to delete this user ...' in neutral colour (USPM-C08-AC-14; USPM-BR-088)
+2. GIVEN user 'USER0003' exists in the user security file WHEN the administrator enters User ID 'USER0003' on the User Delete screen and presses Enter THEN that user's first name, last name and user type are shown with the message 'Press PF5 key to delete this user ...' in neutral colour (USPM-C08-AC-14; USPM-BR-088)
 
 ### Requirement 6: USPM-REQ-F-081 (business rule)
 
@@ -73,14 +73,14 @@ Lets an administrator look up a user and delete them from the user security file
 #### Acceptance criteria
 
 1. The system shall not require a prior Enter lookup: PF5 deletes the user whose ID is in the user ID field, without a separate confirmation step. (rules USPM-BR-092)
-2. GIVEN user 'USER0004' exists and the administrator has typed 'USER0004' into the User ID field without pressing Enter first WHEN the administrator presses PF5 THEN user 'USER0004' is deleted with no lookup step and no confirmation prompt first (USPM-C08-AC-15; USPM-BR-092)
+2. GIVEN user 'USER0004' exists and the administrator has typed 'USER0004' into the User ID field without pressing Enter first WHEN the administrator presses PF5 THEN user 'USER0004' is deleted with no separate confirmation step (USPM-C08-AC-15; USPM-BR-092)
 
 ### Requirement 10: USPM-REQ-F-085 (business rule)
 
 #### Acceptance criteria
 
 1. When the administrator presses PF5 with a user ID that exists in the user security file, the system shall read the record for update and delete it, clear the user ID, name and type fields, and show 'User <id> has been deleted ...' in green. (rules USPM-BR-093)
-2. GIVEN user 'USER0005' exists in the user security file WHEN the administrator presses PF5 with 'USER0005' in the User ID field THEN the record is read for update and deleted, the User ID, name and type fields are cleared, and 'User USER0005 has been deleted ...' is shown in green. A later lookup of 'USER0005' finds no user. (USPM-C08-AC-16; USPM-BR-093)
+2. GIVEN user 'USER0003' exists in the user security file WHEN the administrator presses PF5 with User ID 'USER0003' THEN the record for 'USER0003' is removed from the user security file, the User ID, name and type fields are cleared, and 'User USER0003 has been deleted ...' is shown in green (USPM-C08-AC-16; USPM-BR-093)
 
 ### Requirement 11: USPM-REQ-F-086 (business rule)
 
@@ -122,7 +122,7 @@ Lets an administrator look up a user and delete them from the user security file
 
 ### Sign in (S-SIGN-IN)
 
-Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+Sign in to CardDemo with a user ID and password. Administrators and regular users both land on Home, which shows the functions their role allows.
 
 Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
 
@@ -131,7 +131,7 @@ Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COS
 
 ### Home (S-HOME)
 
-One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+Landing page after sign-in. It lists every function the signed-in role may use as links, and replaces the numbered Main Menu, the Admin Menu and the typed option number.
 
 Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
 
@@ -140,7 +140,7 @@ Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1
 
 ### Users (S-USER-LIST)
 
-Find users and act on them: search by User ID, page through a table of users, and edit or delete a user from its row; add a new user from here.
+Find a user and act on them. A searchable, paged table of all users has Edit and Delete actions on each row, plus Add user. It replaces the typed U and D selection codes and the F7 and F8 paging keys.
 
 Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens COUSR0A.
 
@@ -149,20 +149,25 @@ Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens C
 
 ### Delete user (S-USER-DELETE)
 
-Check a user's name and type and delete them so they can no longer sign in; deletion is confirmed in a dialog (new).
+Remove a user who should no longer have access. The screen shows who will be deleted and asks for confirmation; the confirmation is new, because the legacy deleted on PF5 without asking.
 
 Prototype: `ui-reference/index.html#/S-USER-DELETE`. Replaces the legacy screens COUSR3A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Delete user | page | Requires a signed-in administrator session; a user chosen in the list is loaded straight away, otherwise focus is on User ID |  |  | USPM-REQ-F-076, USPM-REQ-F-077, USPM-REQ-F-078, USPM-REQ-F-079 |
-| User ID | search | User ID to look up, up to 8 characters | Required: 'User ID can NOT be empty...'. Unknown: 'User ID NOT found...' |  | USPM-REQ-F-081, USPM-REQ-F-082, USPM-REQ-F-086, USPM-REQ-F-087 |
-| Find | button |  |  |  | USPM-REQ-F-080 |
-| Clear | button |  |  |  | USPM-REQ-F-090 |
-| Delete user | button | Enabled once a user is loaded; opens the confirmation |  |  | USPM-REQ-F-084 |
-| Delete this user? | dialog | New: User ID and name, with Delete and Cancel; focus starts on Cancel |  |  | USPM-REQ-F-085 |
-| Back to users | link |  |  | S-USER-LIST | USPM-REQ-F-089 |
-| Result | message | Success: 'User <id> has been deleted ...'; failure: 'Unable to lookup User...' or 'Unable to Update User...' |  |  | USPM-REQ-F-083, USPM-REQ-F-088 |
+| User ID | **lookup field** | The user ID. Opened from Users, it is filled in and the user is looked up straight away. Opened from the navigation, it is blank and has focus. Enter or Find loads the user; changing the ID clears the details. | Blank: 'User ID can NOT be empty...' Not on file: 'User ID NOT found...' Read failure: 'Unable to lookup User...'. |  | USPM-REQ-F-078, USPM-REQ-F-079, USPM-REQ-F-081, USPM-REQ-F-082, USPM-REQ-F-083, USPM-REQ-F-090 |
+| User to delete | **summary card** | The user ID, first name, last name and user type (Admin or User) of the user found. The Delete user button replaces the legacy prompt 'Press PF5 key to delete this user ...'. |  |  | USPM-REQ-F-080 |
+| Delete user | **primary button** | Enabled only once a user is found. It opens a confirmation dialog: 'Delete user <id>, <first name> <last name> (<type>)? They will no longer be able to sign in.' Confirming deletes the user and returns to Users with 'User <id> has been deleted ...'. | No user found: 'User ID can NOT be empty...' or 'User ID NOT found...', and nothing is deleted or attempted. Delete failure: 'Unable to Update User...'. | S-USER-LIST | USPM-REQ-F-084, USPM-REQ-F-085, USPM-REQ-F-086, USPM-REQ-F-087, USPM-REQ-F-088, USPM-REQ-F-089 |
+
+### CardDemo header and navigation (S-APP-HEADER)
+
+New, shared by every screen: shows the application and page title, the signed-in user, today's date and the time once, with the way back to the main menu. It replaces the transaction, program, date, time and title lines that every 3270 screen repeated.
+
+Prototype: `ui-reference/index.html#/S-APP-HEADER`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Navigation | **data table** | The functions the signed-in role may use, as one list of links grouped Account, Card, Transaction, Bill payment and Reports. Administrators also get User administration (Users, Add user) and Transaction types. The current screen is marked. Esc goes back one screen, to the screen that opened this one or to Home. | Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home. | S-HOME | USPM-REQ-F-076, USPM-REQ-F-077 |
 
 
 ## Data models

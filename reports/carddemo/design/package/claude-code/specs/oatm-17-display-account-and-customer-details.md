@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Shows an account's financial details and its cardholder's profile together on one screen for users reviewing an account. Each part is shown only when its record was actually found. As agreed, the customer's full Social Security number is shown unmasked as NNN-NN-NNNN, so that screen needs proper access control. The cursor always returns to the account number field.
+Shows a user an account's financial details (status, balances, limits, cycle totals, dates and group) next to the linked customer's profile on one screen. It must show only what was actually found: account details only when the account was found, customer details only when the customer was found. The current error must always be visible. Under the current rules the full SSN is shown unmasked as NNN-NN-NNNN, so access to this screen needs care.
 
 **User story:** As a user, I want to see an account's financial details and its customer's profile on one screen, so that I can review the account and the cardholder.
 
@@ -70,17 +70,17 @@ Shows an account's financial details and its cardholder's profile together on on
 
 ### Account (S-ACCOUNT-VIEW)
 
-Find an account by number and review its status, dates, balances and limits together with the cardholder's profile, address and contacts, with direct links (new) to update it or pay its balance.
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Account number | search | 11-digit account number; has focus whenever the screen opens | Required: 'No input received' when blank; must be 11 digits and not all zeros: 'Account Filter must be a non-zero 11 digit number'. |  |  |
-| Guidance | message | 'Enter or update id of account to display' until an account is shown |  |  | OATM-REQ-F-139, OATM-REQ-F-140, OATM-REQ-F-141 |
-| Status | display | Active or Inactive (stored Y/N) |  |  | OATM-REQ-F-137 |
-| Customer ID | display | 9-digit customer number |  |  | OATM-REQ-F-138 |
-| Social Security number | display | SSN as NNN-NN-NNNN |  |  | OATM-REQ-N-005 |
+| Account or card number | **lookup field** | 11-digit account number or 16-digit card number (spaces and dashes ignored); a card number is resolved to its account through the card cross-reference | Blank: 'No input received' - enter an account number (11 digits) or a card number (16 digits). Not digits, wrong length or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number' (or a 16-digit card number). Not in the card cross-reference: 'Account:<number> not found in Cross ref file.' - check the number with the caller. The error shows under the field. |  | OATM-REQ-F-139, OATM-REQ-F-140, OATM-REQ-F-141, OATM-REQ-F-142 |
+| Account status | **status badge** | Active or Inactive, from the account status Y/N, always with the word |  |  |  |
+| Account | **summary card** | Account number; Opened, Expiry and Reissue dates (26 Nov 2026); Credit limit, Cash credit limit, Current balance, Current cycle credit, Current cycle debit (right-aligned, two decimals); Account group |  |  | OATM-REQ-F-137 |
+| Customer | **summary card** | Customer ID; full name (first, middle, last); SSN masked as ***-**-1234 (full number on Update account only); Date of birth; FICO score; Government-issued ID; EFT account ID; Primary card holder Yes/No |  |  | OATM-REQ-F-138, OATM-REQ-N-005 |
+| Address and phone | **summary card** | Address lines 1 and 2, City, State, ZIP, Country; Phone 1 and Phone 2 as (aaa) bbb-cccc |  |  | OATM-REQ-F-138 |
 
 
 ## Data models

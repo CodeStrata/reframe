@@ -10,7 +10,7 @@
 
 As a card operations user, I want to enter an account and card number and see that card's details, so that I can check the card's embossed name, expiry and status.
 
-Lets card operations staff enter an account number and a 16-digit card number and see that card's embossed name, expiry month and year, and active status. The card is looked up by card number alone. It must reject missing or non-numeric input with the exact messages, and must say clearly when the card is not found or the card file cannot be read.
+Card operations users enter an account number and a 16-digit card number, or arrive with a card picked from the card list, and see that card's embossed name, expiry month and year, and active status. Each missing or badly formed search field is rejected with its exact message and highlighted. The card is found by card number alone. It is not checked against the account entered, and the new application must keep this behaviour, not quietly tighten it.
 
 **Acceptance scenarios:**
 
@@ -46,7 +46,7 @@ Lets card operations staff enter an account number and a 16-digit card number an
 30. **Given** Account and card: card not found on file, **when** a search field fails its check, **then** Both fields in red (CCLDV-C04-AC-30)
 31. **Given** Account number: 00000000001; Card number: (blank), **when** card detail screen runs, **then** Cursor on the card field (CCLDV-C04-AC-31)
 32. **Given** Account number: ABC; Card number: (blank), **when** card detail screen runs, **then** Cursor on the account field (CCLDV-C04-AC-32)
-33. **Given** a valid 11-digit account number and a valid 16-digit card number are entered on the card detail screen, and the card master cannot be read for a reason other than 'not found' (for example the file is unavailable), **when** the user presses Enter, **then** the search is rejected, no card details are shown, the account field is shown in red and the error line shows 'File Error: READ on CARDDAT returned RESP <code>,RESP2 <code>' with the two response codes from the failed read (CCLDV-C04-AC-33)
+33. **Given** a valid account number and a valid 16-digit card number have been entered on the card detail screen, and reading the card master will fail with an error other than 'not found', **when** the card lookup is made, **then** the search is rejected, no card details are shown, the account field is shown in red, and the message reads 'File Error: READ on CARDDAT returned RESP <code>,RESP2 <code>' with the two response codes the read returned (CCLDV-C04-AC-33)
 
 ## Requirements
 

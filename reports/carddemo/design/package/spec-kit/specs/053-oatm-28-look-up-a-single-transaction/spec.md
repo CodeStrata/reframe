@@ -10,7 +10,7 @@
 
 As a signed-on user, I want to open the transaction view, with the transaction I picked already filled in, and be told when I leave the ID empty, so that I can see the details of one transaction.
 
-Opens the Transaction View for a signed-on user. If they came from the transaction list with a transaction picked, its ID is pre-filled and looked up straight away. If the transaction ID is left empty, the screen must refuse to look anything up and say 'Tran ID can NOT be empty...'.
+Opens the transaction view for a signed-on user, already filled in and looked up when a transaction was picked on the list. The user can also type a Transaction ID to look one up. It must never look up a blank ID: it shows 'Tran ID can NOT be empty...' and puts the cursor on the ID field.
 
 **Acceptance scenarios:**
 

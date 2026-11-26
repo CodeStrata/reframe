@@ -13,7 +13,7 @@
   - _After: OATM-C34-T1_
 - [ ] 3. OATM-C34-T3 [ui-modernization] Build the screen Add transaction (S-TRANSACTION-ADD)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-ADD.
-  - dialog "Add this transaction?"
+  - **primary button** "Add transaction": The dialog offers only Add or Cancel, replacing the typed confirmation and its messages 'Confirm to add this transaction...' and 'Invalid value. Valid values are (Y/N)...'. If the ID already exists: 'Tran ID already exist...'; other failures: 'Unable to Add Transaction...'.
   - _Requirements: OATM-REQ-F-284, OATM-REQ-F-285_
   - _Rules: OATM-BR-301, OATM-BR-302_
   - _After: OATM-C34-T2_

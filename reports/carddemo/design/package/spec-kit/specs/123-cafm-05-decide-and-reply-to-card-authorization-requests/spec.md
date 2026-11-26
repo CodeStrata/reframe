@@ -10,7 +10,7 @@
 
 As a card payment network, I want each authorization request approved or declined against the account's available credit and answered on my reply queue, so that the merchant transaction can proceed or be refused in real time.
 
-The decision and reply step for card authorizations. It approves or declines each request against available credit (credit limit minus balance, taken from the pending summary when there is one, or else from the account) and sends the reply to the payment network in real time. It must never approve an amount strictly greater than the available credit, and a decline always carries response '05' with approved amount 0.
+Approves or declines each card authorization request in real time against the account's available credit, and sends the answer back to the card payment network. Available credit is the credit limit minus the credit balance, taken from the pending-authorization summary when there is one and from the account otherwise. A request is declined only when the amount is strictly greater than that. A decline must always reply '05' with approved amount 0, and an approval '00' with the full amount.
 
 **Acceptance scenarios:**
 
@@ -22,7 +22,7 @@ The decision and reply step for card authorizations. It approves or declines eac
 6. **Given** Credit limit: 1000.00; Balance: 100.00; Transaction amount: 200.00, **when** the authorization decision is decline ('D') or approve, **then** Approved: response code '00', approved amount 200.00, reason '0000'. (CAFM-C05-AC-06)
 7. **Given** Card number: 4111111111111111; Transaction id: TX0001; Request auth time: 143015, **when** authorization reply runs, **then** The reply carries card 4111111111111111, transaction TX0001 and authorization id 143015. (CAFM-C05-AC-07)
 8. **Given** MQPUT1 completion code: not MQCC-OK, **when** an authorization decision has been made, **then** Critical error logged at location 'M004' with message 'FAILED TO PUT ON REPLY MQ' to queue 'CSSL'; the program ends. (CAFM-C05-AC-08)
-9. **Given** An authorization decided for card number 4111111111111111, transaction id TXN0001 and authorization id 143005, with response code '00', reason code '0000' and approved amount 125.50, **when** The authorization reply is formatted, **then** The reply text is the card number, transaction id, authorization id, response code '00', reason code '0000' and the approved amount 125.50 written signed with two decimals, in that order, each followed by a comma (the message ends with a comma) (CAFM-C05-AC-09)
+9. **Given** An authorization for card 4111111111111111, transaction id TXN0001 and authorization id 123456, approved with response code '00', reason '0000' and approved amount 125.50, **when** The authorization reply is built, **then** The reply text is the card number, transaction id, authorization id, '00', '0000' and the approved amount with two decimals (125.50, signed), in that order, with a comma after each value, including the last. (CAFM-C05-AC-09)
 
 ## Requirements
 

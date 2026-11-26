@@ -10,7 +10,7 @@
 
 As a user requesting a transaction report, I want to confirm the request before it is sent to the batch job queue and be told it was submitted, so that reports are printed only when I mean them to be.
 
-Asks the user to confirm a validated transaction report request. On 'Y' or 'y' it submits the report job to the batch queue with the start and end dates as its parameters, and tells the user in green that the report was submitted. It must never submit without an explicit 'Y' or 'y', and it must report a failure to queue the job instead of claiming success.
+Asks the user to confirm a validated report request. Only on 'Y' or 'y' is the transaction report job sent to the batch queue with the chosen start and end dates. The user is then told in green that the report was submitted for printing. A job must never be submitted without explicit confirmation or with any dates other than the ones requested.
 
 **Acceptance scenarios:**
 
@@ -18,11 +18,11 @@ Asks the user to confirm a validated transaction report request. On 'Y' or 'y' i
 2. **Given** Report type: Yearly; Confirm: y, **when** the request is confirmed, **then** Every job line through '/*EOF' is written to queue 'JOBS', starting a TRANREPT run for the year (OATM-C24-AC-02)
 3. **Given** Confirm: Y; JOBS queue write: fails, **when** writing a line of the report job to the job queue (JOBS) fails, **then** Message 'Unable to Write TDQ (JOBS)...' shown (OATM-C24-AC-03)
 4. **Given** Queue 'JOBS': unavailable; Confirm: Y, **when** writing a job line to queue 'JOBS' fails, **then** Message 'Unable to Write TDQ (JOBS)...' is shown and no success message appears (OATM-C24-AC-04)
-5. **Given** A Monthly report request has passed its checks and the Confirm field is blank, **when** The user presses Enter, **then** The message 'Please confirm to print the Monthly report...' is shown, the cursor is on Confirm and no report job is submitted (OATM-C24-AC-05)
-6. **Given** A Yearly report request has passed its checks, **when** The user enters 'y' in Confirm and presses Enter, **then** The report job TRNRPT00 is submitted to the batch job queue, the screen is cleared and 'Yearly report submitted for printing ...' is shown in green (OATM-C24-AC-06)
-7. **Given** A Custom report request has passed its checks, **when** The user enters 'X' in Confirm and presses Enter, **then** The message '"X" is not a valid value to confirm...' is shown, the cursor is on Confirm and no report job is submitted (OATM-C24-AC-07)
-8. **Given** A Custom report request with start date 2026-01-01 and end date 2026-03-31 has passed its checks, **when** The user confirms with 'Y', **then** The submitted job's start date parameter is '2026-01-01', its end date parameter is '2026-03-31', and its date card reads '2026-01-01 2026-03-31' (OATM-C24-AC-08)
-9. **Given** A Custom report request has been confirmed with 'Y' and every line of the report job was written to the job queue without error, **when** The screen is shown again, **then** All entry fields are empty, 'Custom report submitted for printing ...' is shown in green and the cursor is on the Monthly field (OATM-C24-AC-09)
+5. **Given** A Monthly report request has passed its checks and the Confirm field is blank, **when** The user presses Enter, **then** The message 'Please confirm to print the Monthly report...' is shown, the cursor is on Confirm and no job is submitted (OATM-C24-AC-05)
+6. **Given** A Yearly report request has passed its checks and the Confirm field is 'y', **when** The user presses Enter, **then** The report job TRNRPT00 is submitted to the batch job queue, the screen is cleared and 'Yearly report submitted for printing ...' is shown in green (OATM-C24-AC-06)
+7. **Given** A Custom report request has passed its checks and the Confirm field holds 'X', **when** The user presses Enter, **then** The message '"X" is not a valid value to confirm...' is shown, the cursor is on Confirm and no job is submitted (OATM-C24-AC-07)
+8. **Given** A Custom report request has start date 2025-01-01 and end date 2025-03-31 and the Confirm field is 'Y', **when** The user presses Enter, **then** The submitted job's selection parameters carry start date 2025-01-01 and end date 2025-03-31, and its date card reads '2025-01-01 2025-03-31' (OATM-C24-AC-08)
+9. **Given** A Monthly report request has been confirmed with 'Y' and every line of the job was written to the job queue without error, **when** Submission completes, **then** All entry fields are cleared, 'Monthly report submitted for printing ...' is shown in green and the cursor is on the Monthly field (OATM-C24-AC-09)
 
 ## Requirements
 

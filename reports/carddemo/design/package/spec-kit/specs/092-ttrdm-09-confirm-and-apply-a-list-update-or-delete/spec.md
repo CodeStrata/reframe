@@ -10,7 +10,7 @@
 
 As an administrator, I want to confirm a pending update or delete with F10, so that the transaction type table is changed only when I have reviewed the marked row.
 
-Carries out a pending list update or delete only when the administrator presses F10 and nothing has changed since the confirmation prompt (filters and selected row). It then reports 'HIGHLIGHTED row was updated' or 'HIGHLIGHTED row deleted.Hit Enter to continue'. It must never delete a type that other records still refer to, and must never report success when the database rejected the change.
+After a row is marked and the prompt shown, the administrator presses F10 to delete the transaction type or save its new description. The change goes through only if nothing has changed since the prompt: same filters, same selected row. It must never delete a type that other records still refer to, and must report a missing record, a deadlock or any other database failure without losing the pending request.
 
 **Acceptance scenarios:**
 

@@ -18,7 +18,7 @@ Runs as online.
 
 ### Sign in (S-SIGN-IN)
 
-Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+Sign in to CardDemo with a user ID and password. Administrators and regular users both land on Home, which shows the functions their role allows.
 
 Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
 
@@ -27,7 +27,7 @@ Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COS
 
 ### Home (S-HOME)
 
-One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+Landing page after sign-in. It lists every function the signed-in role may use as links, and replaces the numbered Main Menu, the Admin Menu and the typed option number.
 
 Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
 
@@ -36,7 +36,7 @@ Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1
 
 ### Users (S-USER-LIST)
 
-Find users and act on them: search by User ID, page through a table of users, and edit or delete a user from its row; add a new user from here.
+Find a user and act on them. A searchable, paged table of all users has Edit and Delete actions on each row, plus Add user. It replaces the typed U and D selection codes and the F7 and F8 paging keys.
 
 Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens COUSR0A.
 
@@ -45,20 +45,17 @@ Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens C
 
 ### Update user (S-USER-EDIT)
 
-Change a user's name, password or user type. Opens with the user already loaded when chosen from the list; another user can be looked up by User ID.
+Correct a user's name, password or user type. It opens already filled in from the Users table; you can also type a user ID to look up another user.
 
 Prototype: `ui-reference/index.html#/S-USER-EDIT`. Replaces the legacy screens COUSR2A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| User ID | search | User ID to look up, up to 8 characters | Required: 'User ID can NOT be empty...'. Unknown: 'User ID NOT found...' and the details stay empty |  | USPM-REQ-F-066 |
-| User details | form | First name, Last name, Password, User type; errors listed in a summary and next to each field, focus on the first in the order User ID, First name, Last name, Password, User type; only changed values are saved |  |  | USPM-REQ-F-071, USPM-REQ-F-073 |
-| First name | text | Up to 20 characters | Required: 'First Name can NOT be empty...' |  | USPM-REQ-F-067 |
-| Last name | text | Up to 20 characters | Required: 'Last Name can NOT be empty...' |  | USPM-REQ-F-068 |
-| Password | password | Up to 8 characters, hidden, with a Show password toggle | Required: 'Password can NOT be empty...' |  | USPM-REQ-F-069 |
-| User type | radio | Admin (A) or Regular user (U) | Required: 'User Type can NOT be empty...' |  | USPM-REQ-F-070 |
-| Save | button |  | Nothing changed: 'Please modify to update ...' |  | USPM-REQ-F-064, USPM-REQ-F-074, USPM-REQ-F-075 |
-| Save and close | button | Saves, then returns to where the user came from only when the save succeeded, so errors stay in view |  | S-USER-LIST | USPM-REQ-F-065, USPM-REQ-F-072 |
+| First name | **lookup field** | The stored first name, editable, up to 20 characters. | Blank: 'First Name can NOT be empty...' |  | USPM-REQ-F-067 |
+| Last name | **lookup field** | The stored last name, editable, up to 20 characters. | Blank: 'Last Name can NOT be empty...' |  | USPM-REQ-F-068 |
+| Password | **lookup field** | The stored password is never shown. A masked field, up to 8 characters, with a Show password toggle: type a new password to change it, or leave the field as it is to keep the current one. | Cleared without a new password: 'Password can NOT be empty...' |  | USPM-REQ-F-069 |
+| User type | **lookup field** | A choice of Admin (A) or User (U), set to the stored type. | None chosen: 'User Type can NOT be empty...' |  | USPM-REQ-F-070 |
+| Save changes | **primary button** | Saves only the changed fields and shows 'User <user ID> has been updated ...'. You stay on the screen, with a link back to Users. Leaving with unsaved changes asks 'Discard your changes to <user ID>?'. This button replaces the legacy prompt 'Press PF5 key to save your updates ...'. | Checks User ID, First name, Last name, Password and User type in that order. Every blank field is listed in an error summary, each linked to its field, and nothing is saved; leaving the screen never hides these messages. Nothing changed: 'Please modify to update ...' User no longer on file: 'User ID NOT found...', and no save is tried. Any other failure: 'Unable to Update User...'. |  | USPM-REQ-F-064, USPM-REQ-F-065, USPM-REQ-F-066, USPM-REQ-F-071, USPM-REQ-F-072, USPM-REQ-F-073, USPM-REQ-F-074, USPM-REQ-F-075 |
 
 
 ## Data model

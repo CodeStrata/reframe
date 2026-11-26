@@ -10,7 +10,7 @@
 
 As an administrator, I want to delete a transaction type after confirming it, so that obsolete transaction types are removed without accidental loss.
 
-Lets an administrator delete an obsolete transaction type in two steps: F4 asks for confirmation and a second F4 deletes it. It must delete only the code originally fetched for display, never a code typed since. It must refuse the delete while other records still refer to the type. F12 cancels without deleting anything.
+An administrator deletes a transaction type in two steps: F4 asks for confirmation, and a second F4 deletes the type that was originally fetched. F12 cancels the delete. A type that other records still refer to must never be deleted, and the delete must never act on a code typed after the record was fetched.
 
 **Acceptance scenarios:**
 
@@ -19,8 +19,8 @@ Lets an administrator delete an obsolete transaction type in two steps: F4 asks 
 3. **Given** Type: 03; Database result: SQLCODE 0, **when** the confirmed delete succeeds, **then** The deletion is committed and the screen shows 'Delete successful.' (TTRDM-C19-AC-03)
 4. **Given** Screen state: delete confirmation (9); Key pressed: F12, **when** F12 is pressed while a delete awaits confirmation (state '9'), **then** The record is kept and 'Delete was cancelled' is shown. (TTRDM-C19-AC-04)
 5. **Given** Previous result: 'Delete successful.'; Key pressed: Enter, **when** the operator presses a key after a delete has succeeded or failed, **then** The screen is cleared and asks for a transaction type to search for. (TTRDM-C19-AC-05)
-6. **Given** Transaction type '01' is on screen, other records still refer to it, and a delete is waiting for confirmation, **when** The operator presses F4 to confirm and the database refuses the delete with SQLCODE -532, **then** Transaction type '01' remains in the transaction type table, and the error shown starts with 'Please delete associated child records first:' followed by the SQL code and the database message (TTRDM-C19-AC-06)
-7. **Given** A transaction type is on screen and a delete is waiting for confirmation, **when** The operator presses F4 to confirm and the delete fails with a database error other than SQLCODE -532, **then** The delete is marked as failed, the information message is 'Changes unsuccessful', and the error shown starts with 'Delete failed with message:' followed by the SQL code and the database message (TTRDM-C19-AC-07)
+6. **Given** Transaction type '01' is shown, other records still refer to it, and the operator has pressed F4 once (delete awaiting confirmation), **when** The operator presses F4 again and the database refuses the delete (SQLCODE -532), **then** Transaction type '01' is still in the transaction type table, and the error shown starts with 'Please delete associated child records first:', followed by the SQL code and the database message (TTRDM-C19-AC-06)
+7. **Given** A transaction type is shown and its delete is awaiting confirmation, **when** The operator presses F4 again and the delete fails with a database error other than SQLCODE -532, **then** The delete is marked as failed, the information message is 'Changes unsuccessful', and the error shown starts with 'Delete failed with message:', followed by the SQL code and the database message (TTRDM-C19-AC-07)
 
 ## Requirements
 

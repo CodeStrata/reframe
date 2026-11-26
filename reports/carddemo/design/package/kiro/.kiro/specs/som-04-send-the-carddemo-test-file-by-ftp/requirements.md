@@ -6,7 +6,7 @@ User Access Control · System Operations and Maintenance · runs as scheduled jo
 
 ## Introduction
 
-Operations sends the CardDemo test file to a remote FTP folder to prove the outbound file-transfer path works: it signs on as 'carddemousr' and delivers the file as text named 'welcome.txt' into '/ftpfolder'. It must deliver the file under the right name and in text mode, and must never leave the transfer session open. The sign-on details should come from managed secrets, not be written into the job.
+Is an operations job that sends the CardDemo test file to a remote FTP folder, to prove that outbound file transfer works. It is for operations administrators, not end users. It must deliver the file as text to '/ftpfolder' under the name 'welcome.txt' on the configured server, and must keep the sign-on credentials out of the job definition.
 
 **User story:** As an operations administrator, I want the CardDemo test dataset sent to the remote FTP folder, so that the file transfer path can be exercised.
 

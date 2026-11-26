@@ -10,7 +10,7 @@
 
 As a staff user, I want the system to find the account and card for a new transaction from either the account ID or the card number, so that the transaction is recorded against the right card.
 
-Before a new transaction is checked further, finds the account and card it belongs to from either the account ID or the card number, using the card cross-reference. When an account ID is given, the card linked to it replaces any typed card number. A transaction must never be saved against an account or card that was not found, or when either field is blank or non-numeric.
+Finds the account and card for a new transaction from either the account ID or the card number, using the card cross-reference. When an account ID is given, the card linked to it replaces any typed card number. The capability must never record a transaction against an account or card that is not in the cross-reference. Each failure has its exact message, for example 'Account ID NOT found...' or 'Card Number must be Numeric...'.
 
 **Acceptance scenarios:**
 

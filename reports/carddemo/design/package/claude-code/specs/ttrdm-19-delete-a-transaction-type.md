@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Lets an administrator delete an obsolete transaction type in two steps: F4 asks for confirmation and a second F4 deletes it. It must delete only the code originally fetched for display, never a code typed since. It must refuse the delete while other records still refer to the type. F12 cancels without deleting anything.
+An administrator deletes a transaction type in two steps: F4 asks for confirmation, and a second F4 deletes the type that was originally fetched. F12 cancels the delete. A type that other records still refer to must never be deleted, and the delete must never act on a code typed after the record was fetched.
 
 **User story:** As an administrator, I want to delete a transaction type after confirming it, so that obsolete transaction types are removed without accidental loss.
 
@@ -38,14 +38,14 @@ Lets an administrator delete an obsolete transaction type in two steps: F4 asks 
 #### Acceptance criteria
 
 1. If the confirmed delete is refused because other records still refer to the transaction type (SQLCODE -532), then the system shall not delete it and shall show an error starting 'Please delete associated child records first:' followed by the SQL code and database message. (rules TTRDM-BR-148)
-2. GIVEN Transaction type '01' is on screen, other records still refer to it, and a delete is waiting for confirmation WHEN The operator presses F4 to confirm and the database refuses the delete with SQLCODE -532 THEN Transaction type '01' remains in the transaction type table, and the error shown starts with 'Please delete associated child records first:' followed by the SQL code and the database message (TTRDM-C19-AC-06; TTRDM-BR-148)
+2. GIVEN Transaction type '01' is shown, other records still refer to it, and the operator has pressed F4 once (delete awaiting confirmation) WHEN The operator presses F4 again and the database refuses the delete (SQLCODE -532) THEN Transaction type '01' is still in the transaction type table, and the error shown starts with 'Please delete associated child records first:', followed by the SQL code and the database message (TTRDM-C19-AC-06; TTRDM-BR-148)
 
 ### Requirement 5: TTRDM-REQ-F-137 (error handling)
 
 #### Acceptance criteria
 
 1. If the confirmed delete fails for any other database reason, then the system shall mark the delete as failed, show 'Changes unsuccessful' as the information message, and show an error starting 'Delete failed with message:' followed by the SQL code and database message. (rules TTRDM-BR-149)
-2. GIVEN A transaction type is on screen and a delete is waiting for confirmation WHEN The operator presses F4 to confirm and the delete fails with a database error other than SQLCODE -532 THEN The delete is marked as failed, the information message is 'Changes unsuccessful', and the error shown starts with 'Delete failed with message:' followed by the SQL code and the database message (TTRDM-C19-AC-07; TTRDM-BR-149)
+2. GIVEN A transaction type is shown and its delete is awaiting confirmation WHEN The operator presses F4 again and the delete fails with a database error other than SQLCODE -532 THEN The delete is marked as failed, the information message is 'Changes unsuccessful', and the error shown starts with 'Delete failed with message:', followed by the SQL code and the database message (TTRDM-C19-AC-07; TTRDM-BR-149)
 
 ### Requirement 6: TTRDM-REQ-F-138 (business rule)
 
@@ -63,17 +63,24 @@ Lets an administrator delete an obsolete transaction type in two steps: F4 asks 
 
 ## Screens and components
 
-### Transaction type (S-TRANTYPE-EDIT)
+### Transaction types (S-TRANTYPE-LIST)
 
-Look up a transaction type by code to change its description or delete it, or add a new type when the code is not on file; each save or delete is confirmed and can be cancelled.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
+
+Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Transaction types | **data table** | Type code and description in code order, 20 rows a page. Row actions: Edit description in place (a labelled field; Enter opens a dialog showing old and new description), Open (full edit screen) and Delete (a dialog naming the code and description). Changing a filter cancels an edit in progress. Outcomes: 'Highlighted row was updated', 'Highlighted row deleted', 'Please delete associated child records first'. Empty state: 'No records found for this search condition. Use Add transaction type to create the first one.' | In-place description: 'Transaction Desc must be supplied. Enter a description.' or 'Transaction Desc can have numbers or alphabets only. Remove other characters.'; unchanged: 'No change detected with respect to values fetched.' Row actions replace action codes, so 'Action code selected is invalid' and 'Please select only 1 action' cannot occur. If a filter or the row changes while a dialog is open, the dialog closes and nothing changes. | S-TRANTYPE-EDIT |  |
+
+### Add or change a transaction type (S-TRANTYPE-EDIT)
+
+Add a new transaction type or change an existing one's description in one step: enter the code, see its description or start a new one if it is not on file, then save. Replaces the F5 create, Enter check and F5 confirm sequence; delete is the Delete row action on the list.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-EDIT`. Replaces the legacy screens CTRTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Delete | button | Available only when a stored type is shown; opens the delete confirmation |  |  | TTRDM-REQ-F-133 |
-| Delete this transaction type? | dialog | Shows code and description; Delete removes it, Cancel shows 'Delete was cancelled' and keeps it. Focus starts on Cancel. |  |  | TTRDM-REQ-F-134, TTRDM-REQ-F-138 |
-| Result | message | Success: 'Changes saved.' / 'Transaction type 07 added.' / 'Transaction type 07 deleted.', then ready for a new code. Blocked: 'This transaction type is still used by other records and cannot be deleted.' Busy: 'Someone else is changing this record. Try again.' Other: 'The change failed: <reason>. Try again.' |  |  | TTRDM-REQ-F-135, TTRDM-REQ-F-136, TTRDM-REQ-F-137, TTRDM-REQ-F-139 |
 
 
 ## Data models

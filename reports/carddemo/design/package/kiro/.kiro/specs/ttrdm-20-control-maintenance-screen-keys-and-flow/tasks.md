@@ -16,16 +16,11 @@
   - _Requirements: TTRDM-REQ-F-144_
   - _Rules: TTRDM-BR-156_
   - _After: TTRDM-C20-T1_
-- [ ] 4. TTRDM-C20-T4 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
+- [ ] 4. TTRDM-C20-T4 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - button "Find"
-  - button "Add as new type"
-  - button "Save": Actions not available in the current step are disabled rather than rejected (legacy 'Invalid key pressed').
-  - button "Delete"
-  - button "Cancel"
-  - message "Result"
-  - _Requirements: TTRDM-REQ-F-140, TTRDM-REQ-F-141, TTRDM-REQ-F-142, TTRDM-REQ-F-143, TTRDM-REQ-F-144_
-  - _Rules: TTRDM-BR-152, TTRDM-BR-153, TTRDM-BR-154, TTRDM-BR-155, TTRDM-BR-156_
+  - **primary button** "Save transaction type": Code and description match what is stored (ignoring case and surrounding spaces): 'No change detected with respect to values fetched.'
+  - _Requirements: TTRDM-REQ-F-140, TTRDM-REQ-F-141, TTRDM-REQ-F-142_
+  - _Rules: TTRDM-BR-152, TTRDM-BR-153, TTRDM-BR-154_
   - _After: TTRDM-C20-T2, TTRDM-C20-T3_
 - [ ] 5. TTRDM-C20-T5 [test-generation] Write a test for every acceptance criterion
   - 7 acceptance criteria, each a test named by its ID.

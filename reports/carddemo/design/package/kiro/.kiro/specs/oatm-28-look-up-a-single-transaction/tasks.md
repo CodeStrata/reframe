@@ -18,9 +18,9 @@
   - _After: OATM-C28-T1_
 - [ ] 4. OATM-C28-T4 [ui-modernization] Build the screen Transaction (S-TRANSACTION-VIEW)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-VIEW.
-  - search "Transaction ID": Required: 'Tran ID can NOT be empty...'; must exist: 'Transaction ID NOT found...'.
-  - _Requirements: OATM-REQ-F-227_
-  - _Rules: OATM-BR-240_
+  - **lookup field** "Transaction ID": Blank: 'Tran ID can NOT be empty...' - enter a transaction ID. Not found: 'Transaction ID NOT found...' - check the ID or find it in Transactions.
+  - _Requirements: OATM-REQ-F-226, OATM-REQ-F-227_
+  - _Rules: OATM-BR-239, OATM-BR-240_
   - _After: OATM-C28-T2, OATM-C28-T3_
 - [ ] 5. OATM-C28-T5 [test-generation] Write a test for every acceptance criterion
   - 2 acceptance criteria, each a test named by its ID.

@@ -10,7 +10,7 @@
 
 As a card operations user, I want to press PF5 on an authorization to report fraud or remove a fraud mark, so that suspected fraudulent authorizations are flagged consistently in the authorization record and the fraud register.
 
-Lets a card operations user mark a pending authorization as fraud, or remove a fraud mark, with one action on the detail screen. The fraud register and the authorization record must change together or not at all: a partial update where one says fraud and the other does not must never be left behind. The user must be told clearly whether the authorization was marked fraud, had fraud removed, or the change was rolled back.
+Lets a card operations user mark a pending authorization as fraud, or remove that mark, with a single action on the detail screen. The change is recorded in two places, the authorization itself and the fraud register, and they must never disagree: both are saved together or neither is. The user is told plainly whether the authorization was marked or cleared, or why the change failed.
 
 **Acceptance scenarios:**
 
@@ -28,9 +28,9 @@ Lets a card operations user mark a pending authorization as fraud, or remove a f
 12. **Given** fraud update status: F; fraud program message: UPDT ERROR DB2: CODE:-911, STATE: 40001, **when** the fraud update program completes but reports failure, **then** The change is rolled back and that message is shown. (CAFM-C15-AC-12)
 13. **Given** link result: not NORMAL, **when** the link to the fraud update program does not complete normally, **then** The change is rolled back and no message is shown. (CAFM-C15-AC-13)
 14. **Given** key pressed: PF5, **when** a PF5 fraud action finishes, **then** The detail screen is shown again for the same authorization, with the result message. (CAFM-C15-AC-14)
-15. **Given** the detail screen shows a selected authorization for a known account number and customer number, and the fraud action to request is 'F', **when** the user presses PF5, **then** the fraud update receives the whole authorization record, the account number, the customer number and the fraud action 'F' (CAFM-C15-AC-15)
-16. **Given** today's date is 25 November 2026 and the user presses PF5 on a selected authorization, **when** the fraud update returns the authorization record, **then** the record's fraud report date is 11/25/26, that date is saved on the pending authorization and the detail screen shows it next to the fraud flag (CAFM-C15-AC-16)
-17. **Given** the user presses PF5, the fraud update reports success 'S', and replacing the pending authorization detail returns status 'AJ' (not blank or 'FW'), **when** the system saves the updated authorization detail, **then** both the fraud register change and the authorization detail change are rolled back, the error flag is set, and ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by AJ is shown (CAFM-C15-AC-17)
+15. **Given** a selected authorization with fraud flag blank, for account 00000000123 and customer 000000456, **when** the user presses PF5, **then** the fraud update service receives the whole authorization record, account number 00000000123, customer number 000000456 and fraud action 'F' (CAFM-C15-AC-15)
+16. **Given** today's date is 26 November 2026 and a selected authorization not marked fraud, **when** the user presses PF5 and the fraud update succeeds, **then** the authorization record returned by the fraud update carries the fraud report date 11/26/26, that date is saved on the pending authorization, and the screen shows the flag F, '-', and 11/26/26 (CAFM-C15-AC-16)
+17. **Given** a selected authorization marked fraud ('F'), the fraud update program reports success ('S'), and the replace of the authorization detail returns a status other than blank or 'FW', for example 'AI', **when** the user presses PF5, **then** both the fraud register change and the authorization detail change are rolled back, the error flag is set, the message ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by AI is shown, and the stored authorization keeps fraud flag 'F' (CAFM-C15-AC-17)
 
 ## Requirements
 

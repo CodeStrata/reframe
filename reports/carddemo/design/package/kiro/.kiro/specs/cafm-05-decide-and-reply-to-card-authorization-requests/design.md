@@ -4,7 +4,7 @@
 
 ## Overview
 
-The decision and reply step for card authorizations. It approves or declines each request against available credit (credit limit minus balance, taken from the pending summary when there is one, or else from the account) and sends the reply to the payment network in real time. It must never approve an amount strictly greater than the available credit, and a decline always carries response '05' with approved amount 0.
+Approves or declines each card authorization request in real time against the account's available credit, and sends the answer back to the card payment network. Available credit is the credit limit minus the credit balance, taken from the pending-authorization summary when there is one and from the account otherwise. A request is declined only when the amount is strictly greater than that. A decline must always reply '05' with approved amount 0, and an approval '00' with the full amount.
 
 Runs as online.
 
@@ -254,7 +254,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-060: Send each reply as a one-off, non-persistent message to the reply address named in the request, with the request's correlation id and a short time-to-live (expiry 50, which is 5 seconds in MQ's tenths of a second). This way stale replies expire instead of piling up. If the send fails, log critical error 'M004'.
+- CAFM-BR-060: Publish each authorization reply once to the reply queue the requester named, carrying the request's correlation id. Send it non-persistent with a short expiry (50, in tenths of a second, so 5 seconds), so stale answers are dropped. If publishing fails, log critical error 'M004'.
 
 ## Open questions
 

@@ -10,7 +10,7 @@
 
 As an administrator, I want to filter the transaction type list by type code and by description text, so that I can find the types I need quickly.
 
-Lets administrators narrow the transaction type list by an exact two-digit type code and by text contained in the description. A blank or '00' code filter, or a blank description filter, means no filter. A non-numeric code filter must be rejected with 'TYPE CODE FILTER,IF SUPPLIED MUST BE A 2 DIGIT NUMBER', and changing either filter must restart paging from the first page.
+Administrators narrow the transaction type list by an exact two-digit type code and/or by text the description contains. A blank, zero or '00' type code means no filter; a non-numeric one is rejected with a clear message. Changing a filter must restart paging from page 1 and must never let a pending update or delete go through against a different result set.
 
 **Acceptance scenarios:**
 
@@ -25,7 +25,7 @@ Lets administrators narrow the transaction type list by an exact two-digit type 
 9. **Given** Description filter: (blank), **when** the description filter is left blank, **then** All transaction types are listed, subject to any type code filter (TTRDM-C04-AC-09)
 10. **Given** previous description filter: Pay; new description filter: Pay, **when** the description filter entered differs from the one used for the previous screen (blank and blank count as the same), **then** Paging position is kept (TTRDM-C04-AC-10)
 11. **Given** type code filter: AB, **when** no delete or update has just completed and the type code filter or the description filter is in error, **then** Error 'TYPE CODE FILTER,IF SUPPLIED MUST BE A 2 DIGIT NUMBER' with a blank information line (TTRDM-C04-AC-11)
-12. **Given** transaction types '01' 'Purchase', '02' 'Payment' and '05' 'Refund of Purchase' exist, and the type code filter is blank, **when** the administrator enters ' Purchase ' in the description filter and presses Enter, **then** only types '01' and '05' are listed, paged and counted (descriptions containing 'Purchase', with the spaces trimmed off the filter), and type '02' does not appear (TTRDM-C04-AC-12)
+12. **Given** The transaction types include 'Purchase', 'Retail Purchase' and 'Payment', and the type code filter is blank, **when** The user enters ' Purchase ' (with surrounding spaces) in the description filter and submits, **then** The list, its paging and its record count include only the types whose description contains 'Purchase' ('Purchase' and 'Retail Purchase'), and 'Payment' is not shown (TTRDM-C04-AC-12)
 
 ## Requirements
 

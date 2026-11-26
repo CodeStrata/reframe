@@ -4,7 +4,7 @@
 
 ## Overview
 
-A batch job for operations that fills or rebuilds the pending authorization database from a summary file and a detail file. All summaries are loaded first, then each detail is attached to the summary with the same account ID; details with a non-numeric or unknown account are skipped. An unexpected insert failure must stop the load with return code 16 so a broken load is never reported as done.
+A batch job that loads pending authorization summaries and then their details from files into the pending authorization database, to populate or rebuild it. Each detail must end up under the summary for its account; details with a non-numeric or unknown account are skipped, details already present are left unchanged, and any other insert failure stops the load with a failure code.
 
 Runs as scheduled job.
 
@@ -64,9 +64,9 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-172: Needs a scheduled load job that takes two input files, the summary file (AWS.M2.CARDDEMO.PAUTDB.ROOT.FILEO) and the detail file (AWS.M2.CARDDEMO.PAUTDB.CHILD.FILEO), and inserts their contents into the live pending authorization store while it stays available to other users.
-- CAFM-BR-173: The load runs in two passes: the whole summary file to its end, then the whole detail file to its end. Details are never processed before all summaries are in, so each detail can find its parent.
-- CAFM-BR-174: Same two-pass order: details are attached to their summary by account ID only after every summary has been loaded. In a relational model this is the parent table loaded before the child table, with the account ID as the foreign key.
+- CAFM-BR-172: A batch load job that takes two input files, a summary file and a detail file, and inserts their records into the pending authorization store while online use continues (it must not need exclusive access to the store).
+- CAFM-BR-173: The load runs in two phases: read the whole summary file and insert every summary, and only then read the detail file. This order guarantees each detail's parent summary already exists when the detail is inserted.
+- CAFM-BR-174: Each detail is attached to its summary by account id: look up the summary by account id (a keyed lookup) and insert the detail under it, for example as a child row with a foreign key to the summary. A detail whose summary cannot be found is skipped, not loaded as an orphan.
 
 ## Open questions
 

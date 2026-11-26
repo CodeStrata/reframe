@@ -4,22 +4,30 @@
 
 ## Overview
 
-Lets the operator confirm validated changes and saves them to the account and customer records, but only if nobody else has changed those records since they were fetched. Only the keys allowed at each stage take effect; anything else is treated as Enter. It must never overwrite another user's update, and the legacy save places the account group into the stored ZIP position, which the new design must deliberately decide whether to keep.
+Lets the operator confirm validated changes and saves them to the account and customer records. The save goes through only if nobody else has changed those records since they were shown. It must never overwrite another user's update. Every confirmed value, including the account group, must be saved to its own field and never into another field.
 
 Runs as online. Journeys: J02.
 
 ## Screens and components
 
+### Account (S-ACCOUNT-VIEW)
+
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
+
+Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Update account (S-ACCOUNT-EDIT)
 
-Fetch an account, change its account and customer details in one form, see every error at its field, and save both records together only after reviewing the changes.
+Change an account's and its customer's details after confirming the caller. Each field is checked as it is left and again on save; every failing field shows its own message and a summary lists them all. Save asks for confirmation, listing each change from old to new value. Tab order: account and status, dates, amounts, customer identity, name and address, contact, then Save changes.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-EDIT`. Replaces the legacy screens CACTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Save these changes? | dialog | Each changed field with its old and new value; all fields are locked while it is open |  |  | OATM-REQ-F-059 |
-| Save changes | button | Saves the account and customer together, or neither | If the stored record changed since it was fetched: 'Record changed by some one else. Please review' and nothing is saved. |  | OATM-REQ-F-060 |
+| Save changes | **primary button** | Runs every check; with no change shows 'No change detected with respect to values fetched.' and saves nothing; when all checks pass, a confirmation dialog lists each change (old to new) with Confirm and Cancel; success shows 'Changes committed to database' and the account returns to view | If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved. |  | OATM-REQ-F-059, OATM-REQ-F-060, OATM-REQ-F-061 |
 
 
 ## Data models
@@ -137,7 +145,7 @@ None.
 
 ## Design notes
 
-- OATM-BR-060: The legacy save writes the account from a layout without a ZIP field, so the entered group lands in the stored ZIP position (offsets 103-112) and the group field gets unset filler. The new account store should have distinct group and ZIP columns; whether to reproduce this shift for data compatibility (e.g. while the legacy file is still read by other jobs) or correct it is a decision to record, and any migration must account for existing records with the group in the ZIP position.
+- OATM-BR-060: This is a layout defect in the legacy program: it writes the account through a layout that has no ZIP field, so the account group lands in the ZIP position and the group field gets filler. The new account record must keep ZIP and account group as separate named fields and save each confirmed value to its own field. The acceptance criterion above only records the legacy result for reconciliation. The business owner must decide whether to keep it before anyone treats it as required. Data migration should expect ZIP values on rewritten accounts that are really group IDs.
 
 ## Open questions
 

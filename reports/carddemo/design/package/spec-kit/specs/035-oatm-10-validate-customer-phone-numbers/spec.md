@@ -10,7 +10,7 @@
 
 As an operator, I want any phone number I enter checked as a North American number, so that only valid contact numbers are saved while phones stay optional.
 
-Checks each customer phone number the operator enters as a North American number: area code from the list of general-purpose codes, then a 3-digit prefix and a 4-digit line number, none of them zero. Phones are optional, so a fully blank number is accepted. Every failing part is flagged, but only the first message is shown.
+Checks each customer phone number the operator enters as a North American number. The area code must be a listed general-purpose code, the prefix 3 non-zero digits and the line number 4 non-zero digits. A phone number left fully blank is optional and accepted. A partly entered or malformed number must never be saved. Each part is checked and flagged, but only the first message is shown.
 
 **Acceptance scenarios:**
 
@@ -20,13 +20,13 @@ Checks each customer phone number the operator enters as a North American number
 4. **Given** Phone 1: (212) 555-1234, **when** a supplied numeric, non-zero area code is not one of the listed North American general-purpose area codes (410 codes between '201' and '989', not every number in that range), **then** Area code accepted (OATM-C10-AC-04)
 5. **Given** Phone 1: (212) 555-1234, **when** a supplied prefix is 000, **then** Prefix accepted (OATM-C10-AC-05)
 6. **Given** Phone 1: (212) 555-1234, **when** a supplied line number is 0000, **then** Phone number 1 accepted (OATM-C10-AC-06)
-7. **Given** a changed account where Phone Number 1 has area code '2A1', prefix '555' and line number '1234', **when** the phone number is validated, **then** an input error is flagged with 'Phone Number 1: Area code must be A 3 digit number.' and the prefix is still checked (OATM-C10-AC-07)
-8. **Given** a changed account where Phone Number 2 has area code '000', prefix '555' and line number '1234', **when** the phone number is validated, **then** an input error is flagged with 'Phone Number 2: Area code cannot be zero' and the prefix is still checked (OATM-C10-AC-08)
-9. **Given** a changed account where Phone Number 1 has area code '212', a blank prefix and line number '1234', **when** the phone number is validated, **then** an input error is flagged with 'Phone Number 1: Prefix code must be supplied.' and the line number is still checked (OATM-C10-AC-09)
-10. **Given** a changed account where Phone Number 1 has area code '212', prefix '5X5' and line number '1234', **when** the phone number is validated, **then** an input error is flagged with 'Phone Number 1: Prefix code must be A 3 digit number.' and the line number is still checked (OATM-C10-AC-10)
-11. **Given** a changed account where Phone Number 2 has area code '212', prefix '555' and the line number left blank, **when** the phone number is validated, **then** an input error is flagged with 'Phone Number 2: Line number code must be supplied.' (OATM-C10-AC-11)
-12. **Given** a changed account where Phone Number 1 has area code '212', prefix '555' and line number '12B4', **when** the phone number is validated, **then** an input error is flagged with 'Phone Number 1: Line number code must be A 4 digit number.' (OATM-C10-AC-12)
-13. **Given** a changed account where no earlier error is set and Phone Number 1 has area code '000', prefix '000' and line number '0000', **when** the phone number is validated, **then** the area code, prefix and line number are all flagged in error, and only the message 'Phone Number 1: Area code cannot be zero' is shown (OATM-C10-AC-13)
+7. **Given** an account is shown for update with changes, **when** the operator enters Phone Number 1 as area code '2A1', prefix '555', line '1234' and submits, **then** an input error is flagged with 'Phone Number 1: Area code must be A 3 digit number.' and the prefix is still checked (OATM-C10-AC-07)
+8. **Given** an account is shown for update with changes, **when** the operator enters Phone Number 2 as area code '000', prefix '555', line '1234' and submits, **then** an input error is flagged with 'Phone Number 2: Area code cannot be zero' and the prefix is still checked (OATM-C10-AC-08)
+9. **Given** an account is shown for update with changes, **when** the operator enters Phone Number 1 with area code '212', the prefix blank and line '1234', and submits, **then** an input error is flagged with 'Phone Number 1: Prefix code must be supplied.' and the line number is still checked (OATM-C10-AC-09)
+10. **Given** an account is shown for update with changes, **when** the operator enters Phone Number 1 as area code '212', prefix '5X5', line '1234' and submits, **then** an input error is flagged with 'Phone Number 1: Prefix code must be A 3 digit number.' and the line number is still checked (OATM-C10-AC-10)
+11. **Given** an account is shown for update with changes, **when** the operator enters Phone Number 2 as area code '212', prefix '555' with the line number blank, and submits, **then** an input error is flagged with 'Phone Number 2: Line number code must be supplied.' (OATM-C10-AC-11)
+12. **Given** an account is shown for update with changes, **when** the operator enters Phone Number 1 as area code '212', prefix '555', line '12B4' and submits, **then** an input error is flagged with 'Phone Number 1: Line number code must be A 4 digit number.' (OATM-C10-AC-12)
+13. **Given** an account is shown for update with changes, **when** the operator enters Phone Number 1 as area code '000', prefix '5X5', line '12B4' and submits, **then** the area code, prefix and line number are all flagged in error, but the screen shows only 'Phone Number 1: Area code cannot be zero' (OATM-C10-AC-13)
 
 ## Requirements
 

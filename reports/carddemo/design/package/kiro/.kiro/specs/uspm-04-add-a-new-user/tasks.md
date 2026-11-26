@@ -17,19 +17,18 @@
   - _Rules: USPM-BR-055_
   - _After: USPM-C04-T1_
 - [ ] 4. USPM-C04-T4 [api] Build the services behind the screens
-  - USPM-BR-051: Build one user record from the five validated fields and insert it keyed on User ID, with a uniqueness constraint on that key. The insert must fail, not overwrite, when the key already exists, so that the 'User ID already exist...' path can be detected.
+  - USPM-BR-051: Map the five entered fields onto a new user record keyed by User ID and insert it into the user store as a create-only operation. The insert must fail with a distinct 'duplicate key' result when the User ID already exists, so the screen can tell 'already exists' apart from other failures.
   - _Requirements: USPM-REQ-F-046_
   - _Rules: USPM-BR-051_
   - _After: USPM-C04-T1, USPM-C04-T2, USPM-C04-T3_
 - [ ] 5. USPM-C04-T5 [ui-modernization] Build the screen Add user (S-USER-ADD)
   - To the prototype: ui-reference/index.html#/S-USER-ADD.
-  - form "New user"
-  - text "First name": Required: 'First Name can NOT be empty...'
-  - text "Last name": Required: 'Last Name can NOT be empty...'
-  - text "User ID": Required: 'User ID can NOT be empty...'. Already used: 'User ID already exist...'
-  - password "Password": Required: 'Password can NOT be empty...'
-  - radio "User type": Required: 'User Type can NOT be empty...'; only Admin or Regular user can be chosen
-  - message "Result": An unsupported action shows 'Invalid key pressed. Please see below...'
+  - **lookup field** "First name": Blank: 'First Name can NOT be empty...'
+  - **lookup field** "Last name": Blank: 'Last Name can NOT be empty...'
+  - **lookup field** "User ID": Blank: 'User ID can NOT be empty...' Already used: 'User ID already exist...'; nothing is added and the existing user is not changed.
+  - **lookup field** "Password": Blank: 'Password can NOT be empty...'
+  - **lookup field** "User type": None chosen: 'User Type can NOT be empty...'
+  - **primary button** "Add user": Checks First name, Last name, User ID, Password and User type in that order. Every blank field is listed in an error summary at the top, each linked to its field, and nothing is added until all are filled. Any other failure: 'Unable to Add User...', with focus on First name.
   - _Requirements: USPM-REQ-F-039, USPM-REQ-F-040, USPM-REQ-F-041, USPM-REQ-F-042, USPM-REQ-F-043, USPM-REQ-F-044, USPM-REQ-F-045, USPM-REQ-F-046, USPM-REQ-N-002, USPM-REQ-F-047, USPM-REQ-F-048, USPM-REQ-F-049, USPM-REQ-F-050_
   - _Rules: USPM-BR-044, USPM-BR-045, USPM-BR-046, USPM-BR-047, USPM-BR-048, USPM-BR-049, USPM-BR-050, USPM-BR-051, USPM-BR-052, USPM-BR-053, USPM-BR-054, USPM-BR-055, USPM-BR-056_
   - _After: USPM-C04-T2, USPM-C04-T3, USPM-C04-T4_

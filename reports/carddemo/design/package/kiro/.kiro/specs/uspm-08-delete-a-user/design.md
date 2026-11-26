@@ -4,15 +4,15 @@
 
 ## Overview
 
-Lets an administrator look up a user and delete them from the user security file, so that they can no longer sign on. Delete acts at once on the User ID in the field, with no separate confirmation and no prior lookup needed, so the screen must show the user's details before delete is offered and must report the outcome clearly. As in the legacy system, the program itself does not check that the signed-on user is an administrator.
+Lets an administrator look up a user and delete them from the user security file, so that the person can no longer sign on. Deletion happens on PF5 for whatever User ID is in the field, with no separate confirmation and no role check inside the screen. It must never delete a user other than the one whose ID is shown, and it must never delete anything when the User ID is blank.
 
-Runs as online. Journeys: J20.
+Runs as online. Journeys: J17.
 
 ## Screens and components
 
 ### Sign in (S-SIGN-IN)
 
-Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+Sign in to CardDemo with a user ID and password. Administrators and regular users both land on Home, which shows the functions their role allows.
 
 Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
 
@@ -21,7 +21,7 @@ Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COS
 
 ### Home (S-HOME)
 
-One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+Landing page after sign-in. It lists every function the signed-in role may use as links, and replaces the numbered Main Menu, the Admin Menu and the typed option number.
 
 Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
 
@@ -30,7 +30,7 @@ Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1
 
 ### Users (S-USER-LIST)
 
-Find users and act on them: search by User ID, page through a table of users, and edit or delete a user from its row; add a new user from here.
+Find a user and act on them. A searchable, paged table of all users has Edit and Delete actions on each row, plus Add user. It replaces the typed U and D selection codes and the F7 and F8 paging keys.
 
 Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens COUSR0A.
 
@@ -39,20 +39,25 @@ Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens C
 
 ### Delete user (S-USER-DELETE)
 
-Check a user's name and type and delete them so they can no longer sign in; deletion is confirmed in a dialog (new).
+Remove a user who should no longer have access. The screen shows who will be deleted and asks for confirmation; the confirmation is new, because the legacy deleted on PF5 without asking.
 
 Prototype: `ui-reference/index.html#/S-USER-DELETE`. Replaces the legacy screens COUSR3A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Delete user | page | Requires a signed-in administrator session; a user chosen in the list is loaded straight away, otherwise focus is on User ID |  |  | USPM-REQ-F-076, USPM-REQ-F-077, USPM-REQ-F-078, USPM-REQ-F-079 |
-| User ID | search | User ID to look up, up to 8 characters | Required: 'User ID can NOT be empty...'. Unknown: 'User ID NOT found...' |  | USPM-REQ-F-081, USPM-REQ-F-082, USPM-REQ-F-086, USPM-REQ-F-087 |
-| Find | button |  |  |  | USPM-REQ-F-080 |
-| Clear | button |  |  |  | USPM-REQ-F-090 |
-| Delete user | button | Enabled once a user is loaded; opens the confirmation |  |  | USPM-REQ-F-084 |
-| Delete this user? | dialog | New: User ID and name, with Delete and Cancel; focus starts on Cancel |  |  | USPM-REQ-F-085 |
-| Back to users | link |  |  | S-USER-LIST | USPM-REQ-F-089 |
-| Result | message | Success: 'User <id> has been deleted ...'; failure: 'Unable to lookup User...' or 'Unable to Update User...' |  |  | USPM-REQ-F-083, USPM-REQ-F-088 |
+| User ID | **lookup field** | The user ID. Opened from Users, it is filled in and the user is looked up straight away. Opened from the navigation, it is blank and has focus. Enter or Find loads the user; changing the ID clears the details. | Blank: 'User ID can NOT be empty...' Not on file: 'User ID NOT found...' Read failure: 'Unable to lookup User...'. |  | USPM-REQ-F-078, USPM-REQ-F-079, USPM-REQ-F-081, USPM-REQ-F-082, USPM-REQ-F-083, USPM-REQ-F-090 |
+| User to delete | **summary card** | The user ID, first name, last name and user type (Admin or User) of the user found. The Delete user button replaces the legacy prompt 'Press PF5 key to delete this user ...'. |  |  | USPM-REQ-F-080 |
+| Delete user | **primary button** | Enabled only once a user is found. It opens a confirmation dialog: 'Delete user <id>, <first name> <last name> (<type>)? They will no longer be able to sign in.' Confirming deletes the user and returns to Users with 'User <id> has been deleted ...'. | No user found: 'User ID can NOT be empty...' or 'User ID NOT found...', and nothing is deleted or attempted. Delete failure: 'Unable to Update User...'. | S-USER-LIST | USPM-REQ-F-084, USPM-REQ-F-085, USPM-REQ-F-086, USPM-REQ-F-087, USPM-REQ-F-088, USPM-REQ-F-089 |
+
+### CardDemo header and navigation (S-APP-HEADER)
+
+New, shared by every screen: shows the application and page title, the signed-in user, today's date and the time once, with the way back to the main menu. It replaces the transaction, program, date, time and title lines that every 3270 screen repeated.
+
+Prototype: `ui-reference/index.html#/S-APP-HEADER`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Navigation | **data table** | The functions the signed-in role may use, as one list of links grouped Account, Card, Transaction, Bill payment and Reports. Administrators also get User administration (Users, Add user) and Transaction types. The current screen is marked. Esc goes back one screen, to the screen that opened this one or to Home. | Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home. | S-HOME | USPM-REQ-F-076, USPM-REQ-F-077 |
 
 
 ## Data models

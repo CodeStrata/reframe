@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Lets the operator confirm validated changes and saves them to the account and customer records, but only if nobody else has changed those records since they were fetched. Only the keys allowed at each stage take effect; anything else is treated as Enter. It must never overwrite another user's update, and the legacy save places the account group into the stored ZIP position, which the new design must deliberately decide whether to keep.
+Lets the operator confirm validated changes and saves them to the account and customer records. The save goes through only if nobody else has changed those records since they were shown. It must never overwrite another user's update. Every confirmed value, including the account group, must be saved to its own field and never into another field.
 
 **User story:** As an operator, I want to confirm validated changes and have them saved only if nobody else has changed the record meanwhile, so that I do not overwrite another user's update.
 
@@ -35,4 +35,4 @@ Lets the operator confirm validated changes and saves them to the account and cu
 #### Acceptance criteria
 
 1. When a confirmed account update is saved, the system shall rewrite the account record from a layout that has no ZIP field, so that the entered account group ID goes into the stored ZIP position (offsets 103-112) and the stored group-ID position is overwritten with whatever the unset filler area holds. (rules OATM-BR-060)
-2. GIVEN a fetched account whose changes are validated and confirmed, with the account group entered as 'GOLD' WHEN the account record is rewritten on save THEN the value 'GOLD' is stored in the account record's ZIP position (offsets 103-112), and the stored group-ID position holds whatever the unset filler area contained rather than 'GOLD' (OATM-C06-AC-07; OATM-BR-060)
+2. GIVEN account 00000000099 has stored ZIP and account group values, and the operator has changed the account group to 'GOLDGROUP1' and confirmed the update WHEN the update is saved THEN legacy behaviour to reconcile against: the stored ZIP position (offsets 103-112) holds 'GOLDGROUP1', and the stored group-ID position holds the content of the unset filler area instead of the entered group (OATM-C06-AC-07; OATM-BR-060)

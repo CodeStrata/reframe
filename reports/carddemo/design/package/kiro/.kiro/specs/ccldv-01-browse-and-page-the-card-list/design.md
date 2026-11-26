@@ -4,45 +4,41 @@
 
 ## Overview
 
-Lets card operations staff browse every credit card seven at a time, paging forward and back, so they can find the card they want to view or update. Each row shows the card number, its account and whether it is active. It must never skip or repeat a card between pages, and it must always tell the user correctly when there are no more pages forward or back.
+Card operations users browse the credit cards seven to a page and move forward and back through the list to find the card they want to view or update. Each row shows the card number, account number and active status. The list must never skip or repeat cards between pages, must say when there are no more pages, and must start again from the first card whenever the user comes in from the menu or returns from card detail or card update.
 
-Runs as online. Journeys: J07, J09.
+Runs as online. Journeys: J07, J08.
 
 ## Screens and components
 
 ### Cards (S-CARD-LIST)
 
-Browse and filter credit cards by account and card number, and open a card to view or edit it from its row.
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Apply filters | button | Applies the filters and returns the table to its first page |  |  | CCLDV-REQ-F-001, CCLDV-REQ-F-003, CCLDV-REQ-F-011 |
-| Clear filters | button | Empties both filters and shows all cards from the first card |  |  | CCLDV-REQ-F-001 |
-| Problems with the filters | message | Error summary at the top of the form listing each filter error, each linked to its field; field errors also shown under the field and announced to screen readers; the table is left unchanged |  |  |  |
-| Cards | table | Columns: account number, card number, status (Active / Inactive). Pages of cards in card-number order with Previous and Next page controls and the page number; Previous is disabled on page 1 and Next on the last page. |  |  | CCLDV-REQ-F-004, CCLDV-REQ-F-005, CCLDV-REQ-F-006, CCLDV-REQ-F-007, CCLDV-REQ-F-008, CCLDV-REQ-F-010, CCLDV-REQ-F-012, CCLDV-REQ-F-013, CCLDV-REQ-F-014, CCLDV-REQ-F-015, CCLDV-REQ-F-016, CCLDV-REQ-F-017, CCLDV-REQ-F-018, CCLDV-REQ-F-019 |
-| No cards found | message | Information: 'No cards match these filters. Change or clear the filters.' when the first page is empty |  |  | CCLDV-REQ-F-009 |
+| Cards found | **data table** | Account number, card number and status of each matching card, 20 rows a page; the row opens the card's details, where it can be viewed and changed. Empty state: 'No records found for this search condition. Check the account or card number.' | Each row is its own link and only one opens at a time, so no selection code is typed and 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' and 'INVALID ACTION CODE' cannot occur | S-CARD-DETAIL | CCLDV-REQ-F-001, CCLDV-REQ-F-009 |
+| Card status | **status badge** | Active (green) or Inactive (grey) with the word, in each row |  |  | CCLDV-REQ-F-004 |
 
-### Card (S-CARD-DETAIL)
+### Card details (S-CARD-DETAIL)
 
-Find a card by account and card number, see its embossed name, expiry date and active status, and edit those details with a confirmation before saving. Replaces the separate view and update screens: the same card is found, shown and edited in one place.
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
 
 Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Back to cards | link | Shown when the card was opened from the card list; returns to the list where it was left |  | S-CARD-LIST | CCLDV-REQ-F-003, CCLDV-REQ-F-020 |
 
 ### Application header and navigation (S-APP-SHELL)
 
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
 
 Prototype: `ui-reference/index.html#/S-APP-SHELL`.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Cards | link |  |  | S-CARD-LIST | CCLDV-REQ-F-001, CCLDV-REQ-F-002 |
+| Cards | **data table** | Navigation entry for the card list; also the way back from card details |  | S-CARD-LIST | CCLDV-REQ-F-020 |
 
 
 ## Data models
@@ -146,9 +142,9 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CCLDV-BR-002: Arriving at the list from the menu or back from card detail or card update starts a fresh browse: the stored first and last card positions are cleared, the page is set to 1, the 'last page shown' marker is cleared, and nothing left in the form from before is read as input.
-- CCLDV-BR-017: The browse state kept between requests must hold the first card of each page shown, so that after paging back the next-page marker is 'Y' and a forward page returns to exactly the page the user left. A keyset or cursor over card number is enough; no offset counting is needed.
-- CCLDV-BR-018: The per-user browse state carries a 'last page already shown' marker that is cleared on every action except page-forward. It is what tells the first page-forward on the last page apart from a repeated one.
+- CCLDV-BR-002: When the list is opened fresh (from the main menu, or on return from card detail or card update), start a new list session: no saved first or last card positions, page number 1, last-page-shown false. Ignore any form or filter input sent with that request.
+- CCLDV-BR-017: When paging back, set the session's 'has next page' to true and save the first card number of the page being left as the start of the next page, so the next forward page request goes back to exactly that page.
+- CCLDV-BR-018: Keep a 'last page already shown' flag in the list session. Clear it on every user action except next page, so that only two next-page requests in a row on the last page lead to the 'no more pages' message.
 
 ## Open questions
 

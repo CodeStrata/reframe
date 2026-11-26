@@ -10,7 +10,7 @@
 
 As a card issuer, I want every decided authorization for a known card recorded against the account's pending-authorization summary and as a detail record, so that approved and declined totals and balances are kept current for later matching and review.
 
-Records every decided authorization for a known card, both in the account's pending authorization summary (counts, totals, limits, balances) and as a detail record with match status 'P' or 'D' and a blank fraud flag. These records drive later matching, review and purging. They must stay consistent: approved counts and amounts must only reflect approved authorizations, and nothing is recorded for unknown cards.
+Records every decided authorization for a known card against the account's pending-authorization summary and as a detail record, so approved and declined counts, totals and balances stay current for matching and fraud review. Approvals add to the approved count, approved total and credit balance. Each detail is stored with match status 'P' or 'D' and a blank fraud flag. A failure to save must be logged as a critical error ('I003' or 'I004').
 
 **Acceptance scenarios:**
 

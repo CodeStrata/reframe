@@ -10,7 +10,7 @@
 
 As an operations administrator, I want the FTP test file backed up and the backup copied on by a follow-on job, so that copies of the test file are kept.
 
-Operations backs up the FTP test file to its backup copy, then starts a follow-on job that copies the backup on to a second copy. This keeps spare copies of the test file. Every record must be copied in full, and the follow-on copy must only start after the backup step.
+Is a pair of operations jobs that back up the FTP test file and then copy the backup on, the first job starting the second. It is for operations administrators. Every record must be copied unchanged, and the follow-on copy must run only after the backup has been written.
 
 **Acceptance scenarios:**
 

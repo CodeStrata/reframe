@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Controls how the account update screen moves between its steps: a blank search on first arrival, checking entries on each submit, and a fresh start after a save has completed or failed. It is for operators maintaining accounts. It must never act on PF5 unless validated changes are waiting for confirmation, and never on PF12 unless account details have been fetched.
+Controls the steps of the account update screen for operators: ask for an account, show its details, check the changes, ask for confirmation, then save. Each key press must lead to exactly one well-defined next step. Confirm (PF5) must only work while validated changes are waiting to be confirmed, and after any save, successful or not, the screen must start afresh rather than carry stale data into the next update.
 
 **User story:** As an operator, I want the account update screen to respond predictably to my keys and to start afresh when appropriate, so that I always know which step of the update I am in.
 

@@ -18,19 +18,17 @@ Runs as online.
 
 ### Cards (S-CARD-LIST)
 
-Browse and filter credit cards by account and card number, and open a card to view or edit it from its row.
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Problems with the filters | message | Error summary at the top of the form listing each filter error, each linked to its field; field errors also shown under the field and announced to screen readers; the table is left unchanged |  |  | CCLDV-REQ-F-031 |
-| View | button | Opens the card of this row; one card is opened at a time, so no selection code is typed | Only one card can be opened at a time, so the legacy errors 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' and 'INVALID ACTION CODE' cannot occur. | S-CARD-DETAIL | CCLDV-REQ-F-028, CCLDV-REQ-F-029, CCLDV-REQ-F-030, CCLDV-REQ-F-032 |
-| Edit | button | Opens the card of this row ready to edit its name, status and expiry date |  | S-CARD-DETAIL | CCLDV-REQ-F-028, CCLDV-REQ-F-029, CCLDV-REQ-F-030, CCLDV-REQ-F-033 |
+| Cards found | **data table** | Account number, card number and status of each matching card, 20 rows a page; the row opens the card's details, where it can be viewed and changed. Empty state: 'No records found for this search condition. Check the account or card number.' | Each row is its own link and only one opens at a time, so no selection code is typed and 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' and 'INVALID ACTION CODE' cannot occur | S-CARD-DETAIL | CCLDV-REQ-F-028, CCLDV-REQ-F-029, CCLDV-REQ-F-032, CCLDV-REQ-F-033 |
 
-### Card (S-CARD-DETAIL)
+### Card details (S-CARD-DETAIL)
 
-Find a card by account and card number, see its embossed name, expiry date and active status, and edit those details with a confirmation before saving. Replaces the separate view and update screens: the same card is found, shown and edited in one place.
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
 
 Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
 

@@ -10,7 +10,7 @@
 
 As an administrator, I want to open the User Update screen and look up a user by User ID, so that I can see that user's stored details before changing them.
 
-Opens the User Update screen for an administrator. If a user was picked on the user list, that user is looked up straight away; otherwise the screen opens empty for a User ID to be entered. It must send anyone without a session to sign-on, show the stored details or a clear not-found or lookup-failure message, and let the administrator clear the screen or leave without saving.
+Opens the User Update screen for an administrator, either straight from the user list with the selected user already looked up, or empty. It then shows the stored first name, last name, password and user type for the User ID they enter. It must send anyone without a session to sign-on, and it must show 'User ID NOT found...' rather than stale details when the user does not exist.
 
 **Acceptance scenarios:**
 

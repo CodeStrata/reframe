@@ -4,7 +4,7 @@
 
 ## Overview
 
-Error handling for authorization processing, for operations analysts. Every error is written to the central error log. A warning lets processing continue, but a critical error releases the database and queue and ends the task. The processor must never keep going after a critical error, and requests not yet read must stay on the queue for a later run.
+Makes authorization processing errors traceable for operations analysts. Every error is written to the log. A warning lets processing continue, but a critical error stops the task safely, releasing the database and the request queue. Unread requests must never be lost: they stay on the queue for the next run.
 
 Runs as online.
 

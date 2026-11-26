@@ -17,16 +17,15 @@
   - _Rules: OATM-BR-059_
   - _After: OATM-C06-T1_
 - [ ] 4. OATM-C06-T4 [api] Build the services behind the screens
-  - OATM-BR-060: The legacy save writes the account from a layout without a ZIP field, so the entered group lands in the stored ZIP position (offsets 103-112) and the group field gets unset filler. The new account store should have distinct group and ZIP columns; whether to reproduce this shift for data compatibility (e.g. while the legacy file is still read by other jobs) or correct it is a decision to record, and any migration must account for existing records with the group in the ZIP position.
+  - OATM-BR-060: This is a layout defect in the legacy program: it writes the account through a layout that has no ZIP field, so the account group lands in the ZIP position and the group field gets filler. The new account record must keep ZIP and account group as separate named fields and save each confirmed value to its own field. The acceptance criterion above only records the legacy result for reconciliation. The business owner must decide whether to keep it before anyone treats it as required. Data migration should expect ZIP values on rewritten accounts that are really group IDs.
   - _Requirements: OATM-REQ-F-061_
   - _Rules: OATM-BR-060_
   - _After: OATM-C06-T1, OATM-C06-T2, OATM-C06-T3_
 - [ ] 5. OATM-C06-T5 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
   - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
-  - dialog "Save these changes?"
-  - button "Save changes": If the stored record changed since it was fetched: 'Record changed by some one else. Please review' and nothing is saved.
-  - _Requirements: OATM-REQ-F-059, OATM-REQ-F-060_
-  - _Rules: OATM-BR-058, OATM-BR-059_
+  - **primary button** "Save changes": If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved.
+  - _Requirements: OATM-REQ-F-059, OATM-REQ-F-060, OATM-REQ-F-061_
+  - _Rules: OATM-BR-058, OATM-BR-059, OATM-BR-060_
   - _After: OATM-C06-T2, OATM-C06-T3, OATM-C06-T4_
 - [ ] 6. OATM-C06-T6 [test-generation] Write a test for every acceptance criterion
   - 7 acceptance criteria, each a test named by its ID.

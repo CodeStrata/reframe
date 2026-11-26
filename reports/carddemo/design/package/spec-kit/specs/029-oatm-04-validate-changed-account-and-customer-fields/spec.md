@@ -10,7 +10,7 @@
 
 As an operator, I want every changed account and customer field checked before I can confirm, so that only valid details are saved.
 
-Checks every account and customer field once the operator has changed a fetched account, and only moves the update to awaiting confirmation when all checks pass. Amounts must be present and valid currency numbers but may be negative or zero. It must never let an invalid field through to confirmation, and shows only the first error found.
+Checks every changed account and customer field before the operator may confirm the update: flags, dates, amounts, SSN, FICO score, names and address. Changes may be confirmed only when every check passes. Invalid details must never be saved, and only the first error found is shown.
 
 **Acceptance scenarios:**
 
@@ -28,10 +28,10 @@ Checks every account and customer field once the operator has changed a fetched 
 12. **Given** state: ZZ, **when** Account Update validation runs, **then** Rejected with ': is not a valid state code' (OATM-C04-AC-12)
 13. **Given** EFT account id: 12345, **when** Account Update validation runs, **then** Rejected because 10 digits are required (OATM-C04-AC-13)
 14. **Given** all changed fields: valid, **when** all field checks pass, **then** Stage 'N'; the screen prompts 'Changes validated.Press F5 to save' (OATM-C04-AC-14)
-15. **Given** a fetched account is shown and the operator changes a field and clears the Credit Limit (or enters '*'), **when** the changes are validated, **then** the input is rejected with the message 'Credit Limit must be supplied.' (OATM-C04-AC-15)
-16. **Given** a fetched account is shown, the credit limit is valid and the operator leaves Cash Credit Limit blank, **when** the changes are validated, **then** the input is rejected with the message 'Cash Credit Limit must be supplied.' (OATM-C04-AC-16)
-17. **Given** a fetched account is shown and the operator enters 'ABC' as the Current Balance, **when** the changes are validated, **then** the input is rejected with the message 'Current Balance is not valid' (OATM-C04-AC-17)
-18. **Given** a fetched account is shown and the operator enters '12x.50' as the current cycle debit, **when** the changes are validated, **then** the input is rejected with the message 'Current Cycle Debit Limit is not valid' (OATM-C04-AC-18)
+15. **Given** an account is shown for update and the operator has changed a field, **when** the operator clears the Credit Limit (or enters '*') and submits, **then** the change is rejected with 'Credit Limit must be supplied.' and the update does not move to awaiting confirmation (OATM-C04-AC-15)
+16. **Given** an account is shown for update and the operator has changed a field, **when** the operator leaves the Cash Credit Limit blank and submits, **then** the change is rejected with 'Cash Credit Limit must be supplied.' (OATM-C04-AC-16)
+17. **Given** an account is shown for update, **when** the operator enters 'ABC' as the Current Balance and submits, **then** the change is rejected with 'Current Balance is not valid' (OATM-C04-AC-17)
+18. **Given** an account is shown for update, **when** the operator enters '12x.50' as the current cycle credit and submits, **then** the change is rejected with 'Current Cycle Credit Limit is not valid'; an invalid current cycle debit is rejected the same way with 'Current Cycle Debit Limit is not valid' (OATM-C04-AC-18)
 
 ## Requirements
 

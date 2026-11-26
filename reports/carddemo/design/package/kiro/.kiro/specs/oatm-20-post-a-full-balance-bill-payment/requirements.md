@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Posts a confirmed bill payment as a new transaction for the full current balance, clears the account balance to zero, and gives the cardholder the new transaction ID as proof. The payment is numbered one above the highest existing transaction ID. As the legacy system behaves, the balance is still cleared even when the payment transaction could not be written, so the build team must decide explicitly whether to keep that.
+Posts a confirmed online bill payment. It records a type '02', category 2 transaction for the full current balance under the next transaction ID, clears the account balance to zero and gives the cardholder the transaction ID as proof. It must never charge a different amount than the balance or reuse a transaction ID. Note that the legacy system clears the balance even when the payment record cannot be written, so the team must decide whether to keep that or make the two steps all-or-nothing.
 
 **User story:** As a cardholder, I want my confirmed payment recorded as a transaction for the full balance and my account balance cleared, so that my account is paid off and I get a transaction ID as proof.
 
@@ -71,7 +71,7 @@ Posts a confirmed bill payment as a new transaction for the full current balance
 #### Acceptance criteria
 
 1. When the bill payment transaction is written successfully, the system shall clear the account ID, balance and confirmation fields and show in green 'Payment successful. Your Transaction ID is <new ID>.'. (rules OATM-BR-175)
-2. GIVEN A cardholder has confirmed a bill payment with 'Y' on account 00000000001 and the new payment transaction 0000000000000124 is written successfully WHEN The Bill Payment screen is shown again THEN The account ID, balance and confirmation fields are empty and the message 'Payment successful. Your Transaction ID is 0000000000000124.' is shown in green (OATM-C20-AC-15; OATM-BR-175)
+2. GIVEN A cardholder confirmed with 'Y' a payment on an account with a balance above zero, and the highest existing transaction ID is 0000000000000041 WHEN The payment transaction 0000000000000042 is written successfully THEN The account ID, balance and confirmation fields are cleared and the message 'Payment successful. Your Transaction ID is 0000000000000042.' is shown in green (OATM-C20-AC-15; OATM-BR-175)
 
 ### Requirement 9: OATM-REQ-F-168 (error handling)
 

@@ -4,49 +4,23 @@
 
 ## Overview
 
-Lets a card operations user open one pending authorization from an account's list and see all of it: card, date and time, approved amount, expiry, transaction and merchant details, and fraud status. It must always show the authorization that was selected for that account, with dates, times and amounts formatted exactly. When the account or selection is invalid, or the data cannot be read, it must show blank fields instead of stale or partial data.
+Lets a card operations user open one pending authorization picked from an account's list and see all of it: card, date and time, amount, expiry, transaction and merchant details, and fraud status. It must always show the authorization that was picked, under the right account, with dates, times and amounts formatted exactly as stated. When the account or selection is missing or a read fails, it must show blank fields rather than another authorization's data.
 
-Runs as online. Journeys: J14, J15.
+Runs as online. Journeys: J12, J13.
 
 ## Screens and components
 
-### Pending authorizations (S-PENDING-AUTHS)
+### Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
 
-Look up an account and see its customer, limits, balances and approved/declined totals together with a paged table of its pending authorizations; open any authorization from its row.
+Look up an account and see everything on one screen: the customer, limits and balances, pending authorization totals, the authorizations in a paged table, and the selected authorization's full details. Fraud can be reported or cleared without leaving the list.
 
-Prototype: `ui-reference/index.html#/S-PENDING-AUTHS`. Replaces the legacy screens COPAU0A.
-
-| Component | Type | Shows | Checks | Goes to | Requirements |
-|---|---|---|---|---|---|
-
-### Authorization details (S-AUTH-DETAIL)
-
-Review one pending authorization — card, amount, response and reason, POS, merchant and fraud status — move to the account's next authorization, and mark or clear fraud on it.
-
-Prototype: `ui-reference/index.html#/S-AUTH-DETAIL`. Replaces the legacy screens COPAU1A.
+Prototype: `ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS`. Replaces the legacy screens COPAU0A, COPAU1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Authorization could not be shown | message | Error or information when the authorization cannot be read; detail fields stay blank | If the account is not numeric or no authorization is selected, details are left blank and the user is sent back to choose an authorization from the list. System errors: ' System error while reading Auth Summary: Code:<code>', ' System error while reading Auth Details: Code:<code>', ' System error while reading next Auth: Code:<code>'. | S-PENDING-AUTHS | CAFM-REQ-F-121, CAFM-REQ-F-122, CAFM-REQ-F-123, CAFM-REQ-F-124, CAFM-REQ-F-125, CAFM-REQ-F-126 |
-| Card number | display | Card number |  |  | CAFM-REQ-F-116 |
-| Date | display | Original authorization date as MM/DD/YY |  |  | CAFM-REQ-F-116 |
-| Time | display | Original authorization time as HH:MM:SS |  |  | CAFM-REQ-F-116 |
-| Amount | display | Approved amount, right-aligned, two decimals, leading '-' when negative |  |  | CAFM-REQ-F-117 |
-| Authorization code | display | Authorization ID code |  |  | CAFM-REQ-F-119 |
-| Card expiry | display | Expiry as MM/YY |  |  | CAFM-REQ-F-118 |
-| Fraud status | display | 'Fraud confirmed' or 'Fraud removed' with the report date when flagged F or R; otherwise 'Not reported' |  |  | CAFM-REQ-F-120 |
-| POS entry mode | display | POS entry mode |  |  | CAFM-REQ-F-119 |
-| Source | display | Message source |  |  | CAFM-REQ-F-119 |
-| Merchant category code | display | MCC |  |  | CAFM-REQ-F-119 |
-| Authorization type | display | Authorization type |  |  | CAFM-REQ-F-119 |
-| Transaction ID | display | Transaction ID |  |  | CAFM-REQ-F-119 |
-| Match status | display | Match status, in words |  |  | CAFM-REQ-F-119 |
-| Merchant name | display | Merchant name |  |  | CAFM-REQ-F-119 |
-| Merchant ID | display | Merchant ID |  |  | CAFM-REQ-F-119 |
-| City | display | Merchant city |  |  | CAFM-REQ-F-119 |
-| State | display | Merchant state |  |  | CAFM-REQ-F-119 |
-| ZIP | display | Merchant ZIP |  |  | CAFM-REQ-F-119 |
-| Refresh | button | Re-reads and redisplays the selected authorization (also done on opening) |  |  | CAFM-REQ-F-115 |
+| Authorization | **summary card** | Card number, date (26 Nov 2026), time (HH:MM:SS), amount right-aligned with two decimals and a leading '-' when negative, decline reason as '<code> - <description>' ('9999 - ERROR' when the code is unknown), authorization code, POS entry mode, source, merchant category code, card expiry (MM/YY), authorization type, transaction ID and match status. Read afresh each time a row opens. With no row selected the panel says 'Select an authorization to see its details.' | Not read: 'System error while reading Auth Summary: Code <code>' or 'System error while reading Auth Details: Code <code>' - reopen the authorization, and report the code if it repeats. The detail fields stay blank when the account ID is not numeric, no authorization is selected, or a read failed. |  | CAFM-REQ-F-115, CAFM-REQ-F-116, CAFM-REQ-F-117, CAFM-REQ-F-118, CAFM-REQ-F-119, CAFM-REQ-F-121, CAFM-REQ-F-122, CAFM-REQ-F-123, CAFM-REQ-F-124, CAFM-REQ-F-125, CAFM-REQ-F-126 |
+| Merchant | **summary card** | Merchant name, merchant ID, city, state, ZIP |  |  | CAFM-REQ-F-119 |
+| Fraud status | **status badge** | Fraud reported (red) with the report date, Fraud removed (grey) with the date, or Not reported (grey), always with the word |  |  | CAFM-REQ-F-120 |
 
 
 ## Data models
@@ -110,7 +84,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-131: Retrieval is a two-step keyed lookup: first fetch the account's pending authorization summary by account id, and only if it exists fetch the authorization detail belonging to that account whose key equals the selected authorization key. A detail must never be returned without its parent summary, and lookup by key alone (ignoring the account) is not allowed. 'Not found' at either step is a normal outcome, not an error.
+- CAFM-BR-131: Retrieval is two keyed lookups, one after the other: first the account's pending authorization summary by account id, then, only if that is found, the authorization detail under that account by the selected authorization key. The new store needs the account to own its authorizations (for example a summary keyed by account id with details keyed by account id plus authorization key), so a detail can never be fetched for an account that has no summary. A missing summary or detail is treated as 'nothing to show', not as an error.
 
 ## Open questions
 

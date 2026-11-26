@@ -6,7 +6,7 @@ User Access Control · User Security Profile Management · runs as online · ris
 
 ## Introduction
 
-Lets an administrator mark a user on the list with 'U' to open the update screen or 'D' to open the delete screen for that user. Lower case is also accepted. Only the first marked row counts. Any other code is rejected with a message and opens no screen.
+Lets an administrator mark one user on the list with 'U' to open the update screen or 'D' to open the delete screen for that user. Only the first marked row counts, and any other code is rejected with a message. It must never open an update or delete screen for a user the administrator did not mark, or for a code other than U/D.
 
 **User story:** As an administrator, I want to mark a user on the list with an action code, so that I am taken to the update or delete screen for that user.
 

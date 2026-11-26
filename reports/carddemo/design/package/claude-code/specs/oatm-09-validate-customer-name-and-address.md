@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Checks the customer's names, address line 1, city, state, ZIP and country when the operator changes details, including that the state is a valid US state code and matches the ZIP prefix. Middle name and address line 2 are optional. It must never save a missing required name or address part, non-letter characters in names, or a state and ZIP that do not belong together.
+Checks customer names and address when the operator changes account or customer details. First name, last name, city, state and country are required and may contain letters and spaces only. Address line 1 is required. The state must be a valid US state code, the ZIP must be 5 non-zero digits, and the two must go together. A missing, malformed or inconsistent name or address must never be saved.
 
 **User story:** As an operator, I want customer names and address details checked when I change them, so that only well-formed and consistent names and addresses are saved.
 
@@ -25,8 +25,8 @@ Checks the customer's names, address line 1, city, state, ZIP and country when t
 #### Acceptance criteria
 
 1. If the first name, last name, city, state or country is not supplied after the operator changes account or customer details, then the system shall reject the input with '<field> must be supplied.' (for example 'First Name must be supplied.') and mark the field blank ('B'). (rules OATM-BR-076)
-2. GIVEN a fetched account is shown and the operator changes details and clears the First Name WHEN the changes are validated THEN the input is rejected with 'First Name must be supplied.' and the First Name field is marked blank ('B') (OATM-C09-AC-12; OATM-BR-076)
-3. GIVEN a fetched account is shown, all earlier fields are valid, and the operator enters '*' as the City WHEN the changes are validated THEN the input is rejected with 'City must be supplied.' and the City field is marked blank ('B') (OATM-C09-AC-13; OATM-BR-076)
+2. GIVEN an account is shown for update and the operator has changed a field WHEN the operator clears the First Name (or enters '*') and submits THEN the input is rejected with 'First Name must be supplied.' and the first name is flagged blank ('B') (OATM-C09-AC-12; OATM-BR-076)
+3. GIVEN an account is shown for update and the operator has changed a field WHEN the operator leaves the City blank and submits THEN the input is rejected with 'City must be supplied.' and the city is flagged blank ('B') (OATM-C09-AC-13; OATM-BR-076)
 
 ### Requirement 3: OATM-REQ-F-075 (business rule)
 
@@ -63,9 +63,9 @@ Checks the customer's names, address line 1, city, state, ZIP and country when t
 #### Acceptance criteria
 
 1. If the ZIP code (5 positions) is blank, not all digits, or zero, then the system shall reject it with 'ZIP must be supplied.' (flag 'B'), '<field> must be all numeric.' (flag '0') or '<field> must not be zero.' (flag '0') respectively. (rules OATM-BR-082)
-2. GIVEN a changed account where all earlier fields are valid and the ZIP is blank WHEN the changes are validated THEN the input is rejected with 'ZIP must be supplied.' and the ZIP is flagged 'B' (OATM-C09-AC-14; OATM-BR-082)
-3. GIVEN a changed account where all earlier fields are valid and the ZIP is '12A45' WHEN the changes are validated THEN the input is rejected with '<field> must be all numeric.' naming the ZIP field and the ZIP is flagged '0' (OATM-C09-AC-15; OATM-BR-082)
-4. GIVEN a changed account where all earlier fields are valid and the ZIP is '00000' WHEN the changes are validated THEN the input is rejected with '<field> must not be zero.' naming the ZIP field and the ZIP is flagged '0' (OATM-C09-AC-16; OATM-BR-082)
+2. GIVEN an account is shown for update with changes WHEN the operator leaves the ZIP blank and submits THEN the input is rejected with 'ZIP must be supplied.' and the ZIP is flagged 'B' (OATM-C09-AC-14; OATM-BR-082)
+3. GIVEN an account is shown for update with changes WHEN the operator enters ZIP '12A45' and submits THEN the input is rejected with 'ZIP must be all numeric.' and the ZIP is flagged '0' (OATM-C09-AC-15; OATM-BR-082)
+4. GIVEN an account is shown for update with changes WHEN the operator enters ZIP '00000' and submits THEN the input is rejected with 'ZIP must not be zero.' and the ZIP is flagged '0' (OATM-C09-AC-16; OATM-BR-082)
 
 ### Requirement 8: OATM-REQ-F-080 (business rule)
 
@@ -84,22 +84,25 @@ Checks the customer's names, address line 1, city, state, ZIP and country when t
 
 ## Screens and components
 
+### Account (S-ACCOUNT-VIEW)
+
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
+
+Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Update account (S-ACCOUNT-EDIT)
 
-Fetch an account, change its account and customer details in one form, see every error at its field, and save both records together only after reviewing the changes.
+Change an account's and its customer's details after confirming the caller. Each field is checked as it is left and again on save; every failing field shows its own message and a summary lists them all. Save asks for confirmation, listing each change from old to new value. Tab order: account and status, dates, amounts, customer identity, name and address, contact, then Save changes.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-EDIT`. Replaces the legacy screens CACTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| First name | text |  | Required: 'First Name must be supplied.'; letters and spaces only: 'First Name can have alphabets only.'. |  | OATM-REQ-F-073, OATM-REQ-F-074 |
-| Middle name (optional) | text |  | Optional; letters and spaces only: 'Middle Name can have alphabets only.'. |  | OATM-REQ-F-076 |
-| Last name | text |  | Required: 'Last Name must be supplied.'; letters and spaces only: 'Last Name can have alphabets only.'. |  | OATM-REQ-F-074, OATM-REQ-F-075 |
-| Address line 1 | text |  | Required: 'Address Line 1 must be supplied.' |  | OATM-REQ-F-077 |
-| City | text |  | Required: 'City must be supplied.'; letters and spaces only: 'City can have alphabets only.'. |  | OATM-REQ-F-074, OATM-REQ-F-075 |
-| State | select | US state codes | Required: 'State must be supplied.'; letters and spaces only: 'State can have alphabets only.'. Must be a US state code: 'State: is not a valid state code'; must match the ZIP code: 'Invalid zip code for state'. |  | OATM-REQ-F-078, OATM-REQ-F-081 |
-| ZIP code | text |  | Required: 'Zip must be supplied.'; 5 digits: 'Zip must be all numeric.'; not zero: 'Zip must not be zero.'; its first two digits must belong to the chosen state: 'Invalid zip code for state'. |  | OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081 |
-| EFT account ID | text |  | Required: 'EFT Account Id must be supplied.'; 10 digits: 'EFT Account Id must be all numeric.'; not zero: 'EFT Account Id must not be zero.' |  |  |
+| Name and address | **summary card** | First name, Middle name (optional), Last name; Address line 1, Address line 2 (optional); City; State (a choice of US state codes); ZIP; Country | '<field> must be supplied.' for First Name, Last Name, City, State, Country and Address Line 1; '<field> can have alphabets only.' for names, city, state and country; 'Middle Name can have alphabets only.'; 'State: is not a valid state code'; ZIP: 'ZIP must be supplied.', must be all numeric, 5 digits and not zero; 'Invalid zip code for state' - check the state and ZIP together. |  | OATM-REQ-F-073, OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081 |
+| Phone and payments | **summary card** | Phone 1 and Phone 2 (optional), each as labelled Area code, Prefix and Line number; EFT account ID; Primary card holder as a choice of Yes or No | A phone may be left wholly blank; otherwise '<Phone Number 1 or 2>: Area code must be supplied.', ': Area code must be A 3 digit number.', ': Area code cannot be zero', ': Not valid North America general purpose area code' (from the list of general-purpose codes), ': Prefix code must be supplied.', ': Prefix code must be A 3 digit number.', ': Prefix code cannot be zero', ': Line number code must be supplied.', ': Line number code must be A 4 digit number.', ': Line number code cannot be zero'. EFT account ID: 'EFT Account Id must be supplied.', all numeric, 10 digits, not zero. Primary card holder: 'Primary Card Holder must be supplied.' and must be Yes or No ('must be Y or N.'). |  |  |
 
 
 ## Data models
@@ -237,8 +240,8 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- OATM-BR-074: Input binding for first, middle and last name, address lines 1 and 2, city and EFT account id: blank or '*' becomes null; otherwise the value is the proposed new value. The city maps to the customer's third address line in the stored record.
-- OATM-BR-075: Input binding for state and ZIP: blank or '*' becomes null (empty); otherwise the entered value goes to the state and ZIP validators.
+- OATM-BR-074: Treat blank or '*' entries for first, middle and last name, address lines 1 and 2, city and EFT account id as absent (null); otherwise they are the proposed values. The city goes into the customer's third address line, so map the City field to that address field.
+- OATM-BR-075: Treat blank or '*' state and ZIP entries as absent (empty); otherwise keep the entered value for the state-code, ZIP and state/ZIP-prefix checks. Those checks need reference tables of valid US state codes and of valid state plus two-digit ZIP prefix combinations.
 
 ## Open questions
 

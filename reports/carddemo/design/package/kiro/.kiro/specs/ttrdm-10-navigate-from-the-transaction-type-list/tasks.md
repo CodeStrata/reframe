@@ -12,24 +12,18 @@
   - _After: TTRDM-C10-T1_
 - [ ] 3. TTRDM-C10-T3 [ui-modernization] Build the screen Transaction types (S-TRANTYPE-LIST)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-LIST.
-  - button "Add transaction type"
+  - **primary button** "Add transaction type"
   - _Requirements: TTRDM-REQ-F-079_
   - _Rules: TTRDM-BR-088_
   - _After: TTRDM-C10-T2_
-- [ ] 4. TTRDM-C10-T4 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - link "Back to transaction types"
-  - _Requirements: TTRDM-REQ-F-078_
-  - _Rules: TTRDM-BR-087_
-  - _After: TTRDM-C10-T2_
-- [ ] 5. TTRDM-C10-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+- [ ] 4. TTRDM-C10-T4 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - nav "Main navigation"
+  - **data table** "Transaction types"
   - _Requirements: TTRDM-REQ-F-078_
   - _Rules: TTRDM-BR-087_
   - _After: TTRDM-C10-T2_
-- [ ] 6. TTRDM-C10-T6 [test-generation] Write a test for every acceptance criterion
+- [ ] 5. TTRDM-C10-T5 [test-generation] Write a test for every acceptance criterion
   - 2 acceptance criteria, each a test named by its ID.
   - _Requirements: TTRDM-REQ-F-078, TTRDM-REQ-F-079_
   - _Criteria: TTRDM-C10-AC-01, TTRDM-C10-AC-02_
-  - _After: TTRDM-C10-T1, TTRDM-C10-T2, TTRDM-C10-T3, TTRDM-C10-T4, TTRDM-C10-T5_
+  - _After: TTRDM-C10-T1, TTRDM-C10-T2, TTRDM-C10-T3, TTRDM-C10-T4_

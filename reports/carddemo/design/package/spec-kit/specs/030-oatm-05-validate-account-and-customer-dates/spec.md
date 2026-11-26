@@ -10,7 +10,7 @@
 
 As an operator, I want the open, expiry, reissue and birth dates checked part by part and as real calendar dates, so that impossible dates are never saved.
 
-Checks the open, expiry, reissue and birth dates part by part and then as real calendar dates whenever the operator changes account details. Each message names the date it concerns and only the first error is shown. Impossible dates such as 31 April, 30 February or 29 February in a non-leap year must never be saved.
+Checks the account open, expiry and reissue dates and the customer's date of birth, part by part and then as real calendar dates, whenever the operator changes account or customer details. Impossible dates (such as 31 April, 30 February or 29 February in a non-leap year) and years outside 19xx/20xx must never be saved. Each problem is reported with the date's name in the message.
 
 **Acceptance scenarios:**
 
@@ -21,17 +21,14 @@ Checks the open, expiry, reissue and birth dates part by part and then as real c
 5. **Given** Expiry Date: 2024-13-01, **when** any of the year, month or day of a date has failed its check, **then** The month error is raised and the date service is not called. (OATM-C05-AC-05)
 6. **Given** Open Date: 2024-02-29; Date service severity: 0, **when** a date passes all the earlier checks, **then** The date is accepted. (OATM-C05-AC-06)
 7. **Given** Date of Birth: a date the date service rejects, **when** the date service rejects a date, **then** The error message is set, but the date counts as valid, so the future-birth-date check still runs on it. (OATM-C05-AC-07)
-8. **Given** a changed account where the Open Date year is blank, month is 13 and day is 01, **when** the dates are validated, **then** the date is rejected with 'Open Date : Year must be supplied.' and the month and day are still checked, so the month is also flagged in error (OATM-C05-AC-08)
-9. **Given** a changed account where the Expiry Date year is entered as '20A5', **when** the dates are validated, **then** the date is rejected with 'Expiry Date must be 4 digit number.' (OATM-C05-AC-09)
-10. **Given** a changed account where the Reissue Date year is 2024, month is blank and day is 15, **when** the dates are validated, **then** the date is rejected with 'Reissue Date : Month must be supplied.' (OATM-C05-AC-10)
-11. **Given** a changed account where the Open Date is year 2024, month 13, day 01, **when** the dates are validated, **then** the date is rejected with 'Open Date: Month must be a number between 1 and 12.' (OATM-C05-AC-11)
-12. **Given** a changed account where the Open Date month is entered as 'AB', **when** the dates are validated, **then** the date is rejected with 'Open Date: Month must be a number between 1 and 12.' (OATM-C05-AC-12)
-13. **Given** a changed account where the Date of Birth is year 1980, month 06 and day blank, **when** the dates are validated, **then** the date is rejected with 'Date of Birth : Day must be supplied.' (OATM-C05-AC-13)
-14. **Given** a changed account where the Expiry Date is year 2026, month 05, day 32, **when** the dates are validated, **then** the date is rejected with 'Expiry Date:day must be a number between 1 and 31.' (OATM-C05-AC-14)
-15. **Given** a changed account where the Expiry Date day is entered as 'XX', **when** the dates are validated, **then** the date is rejected with 'Expiry Date:day must be a number between 1 and 31.' (OATM-C05-AC-15)
-16. **Given** a changed account where the Open Date is year 2024, month 04, day 31, **when** the dates are validated, **then** the date is rejected with 'Open Date:Cannot have 31 days in this month.' and no further checks are made on the Open Date (OATM-C05-AC-16)
-17. **Given** a changed account where the Open Date is year 2024, month 07, day 31, **when** the dates are validated, **then** the 31-day check does not reject the Open Date (OATM-C05-AC-17)
-18. **Given** a changed account where the Reissue Date is year 2024, month 02, day 30, **when** the dates are validated, **then** the date is rejected with 'Reissue Date:Cannot have 30 days in this month.' and no further checks are made on the Reissue Date (OATM-C05-AC-18)
+8. **Given** an account is shown for update with changes, **when** the operator leaves the Open Date year blank, enters month '13' and day '05', and submits, **then** the date is rejected with 'Open Date : Year must be supplied.', and the month and day are still checked, so the month is also flagged in error (OATM-C05-AC-08)
+9. **Given** an account is shown for update with changes, **when** the operator enters Expiry Date year '25' and submits, **then** the date is rejected with 'Expiry Date must be 4 digit number.' (OATM-C05-AC-09)
+10. **Given** an account is shown for update with changes, **when** the operator enters Reissue Date year '2024', leaves the month blank, and submits, **then** the date is rejected with 'Reissue Date : Month must be supplied.' (OATM-C05-AC-10)
+11. **Given** an account is shown for update with changes, **when** the operator enters Open Date 2024 / 13 / 01 and submits, **then** the date is rejected with 'Open Date: Month must be a number between 1 and 12.' (OATM-C05-AC-11)
+12. **Given** an account is shown for update with changes, **when** the operator enters Expiry Date 2026 / 05 with the day blank and submits, **then** the date is rejected with 'Expiry Date : Day must be supplied.' (OATM-C05-AC-12)
+13. **Given** an account is shown for update with changes, **when** the operator enters Open Date 2024 / 05 / 32 and submits (or day 'AB'), **then** the date is rejected with 'Open Date:day must be a number between 1 and 31.' (OATM-C05-AC-13)
+14. **Given** an account is shown for update with changes, **when** the operator enters Reissue Date 2024 / 04 / 31 and submits, **then** the date is rejected with 'Reissue Date:Cannot have 31 days in this month.' and no further check is made on that date (OATM-C05-AC-14)
+15. **Given** an account is shown for update with changes, **when** the operator enters Open Date 2024 / 02 / 30 and submits, **then** the date is rejected with 'Open Date:Cannot have 30 days in this month.' and no further check is made on that date (OATM-C05-AC-15)
 
 ## Requirements
 

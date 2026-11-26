@@ -4,49 +4,32 @@
 
 ## Overview
 
-Lets card operations staff find a card for update, either by entering an account and card number or by arriving with a card picked in the card list, and shows its stored embossed name, status and expiry. The values read at this point are kept as the card's original details, which later saves are checked against. It must reject missing or invalid keys with the exact messages and must report a card that is not found or a card file that cannot be read.
+Before making any change, card operations users find a card for update, either by entering its account and card number or by arriving with a card selected from the card list. The update screen then shows the card's stored embossed name, status and expiry. The search keys are validated with exact messages. The card is read by card number alone, and the values first shown are kept as the original details. Those originals must be captured exactly, because later change detection and the save's check for someone else's changes depend on them.
 
-Runs as online. Journeys: J09, J10.
+Runs as online. Journeys: J08.
 
 ## Screens and components
 
 ### Cards (S-CARD-LIST)
 
-Browse and filter credit cards by account and card number, and open a card to view or edit it from its row.
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Card (S-CARD-DETAIL)
+### Card details (S-CARD-DETAIL)
 
-Find a card by account and card number, see its embossed name, expiry date and active status, and edit those details with a confirmation before saving. Replaces the separate view and update screens: the same card is found, shown and edited in one place.
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
 
 Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Find a card | form | Account number and card number. Prefilled and read-only (with a Change link) when the card was opened from the card list; empty on a fresh start. |  |  | CCLDV-REQ-F-061, CCLDV-REQ-F-062, CCLDV-REQ-F-063, CCLDV-REQ-F-064, CCLDV-REQ-F-077 |
-| Account number | text | 11-digit account number | Required; must be an 11-digit number other than all zeros. Messages: 'Enter the account number.' (blank or zeros; legacy 'Account number not provided'), 'Account number must be an 11-digit number.' (not numeric). When both numbers are missing: 'Enter the account number and card number.' (legacy 'No input received'). Only the search fields are checked until a card is found. |  | CCLDV-REQ-F-065, CCLDV-REQ-F-066, CCLDV-REQ-F-067, CCLDV-REQ-F-068, CCLDV-REQ-F-069 |
-| Card number | text | 16-digit card number | Required; must be a 16-digit number other than all zeros. Messages: 'Enter the card number.' (blank or zeros; legacy 'Card number not provided'), 'Card number must be a 16-digit number.' (not numeric) |  | CCLDV-REQ-F-065, CCLDV-REQ-F-070, CCLDV-REQ-F-071 |
-| Find card | button | Looks the card up by card number and shows its details; an edit in progress must be saved or discarded first |  |  | CCLDV-REQ-F-072, CCLDV-REQ-F-075 |
-| Card not found | message | Error: 'No card was found with this card number. Check the numbers and try again.' with both fields marked; or 'The card could not be read. Try again or contact support.' on a file error | Card number must exist on the card file: 'No card was found with this card number. Check the numbers and try again.' (legacy 'Did not find cards for this search condition') |  | CCLDV-REQ-F-073, CCLDV-REQ-F-074 |
-| Name on card | display | Embossed name |  |  | CCLDV-REQ-F-076 |
-| Status | display | Active or Inactive, as text with a badge (not colour alone) |  |  | CCLDV-REQ-F-076 |
-| Expiry date | display | Expiry month and year as MM/YYYY |  |  | CCLDV-REQ-F-076 |
-| Edit card | button | Turns the card details into the edit form prefilled with the stored values; shown once a card is found; opened directly by the card list Edit action |  |  | CCLDV-REQ-F-076, CCLDV-REQ-F-077 |
-| Edit card | form | Name on card, status, expiry month and expiry year in that tab order, prefilled with the stored values. Saving checks every field, shows each error beside its field, then asks for confirmation. | Something must change (ignoring upper/lower case): 'No changes to save. The details match the stored values.' (legacy 'No change detected with respect to values fetched.') Errors are reported in the order name, status, expiry month, expiry year. |  | CCLDV-REQ-F-066 |
-
-### Application header and navigation (S-APP-SHELL)
-
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
-
-Prototype: `ui-reference/index.html#/S-APP-SHELL`.
-
-| Component | Type | Shows | Checks | Goes to | Requirements |
-|---|---|---|---|---|---|
-| Find a card by number | link |  |  | S-CARD-DETAIL | CCLDV-REQ-F-061, CCLDV-REQ-F-062 |
+| Account number | **lookup field** | Account number, 11 digits; filled in and read-only when opened from the card list | Required, an 11-digit number other than zeros: 'Account number not provided. Enter the 11-digit account number.' or 'Account filter, if supplied, must be an 11 digit number. Enter digits only.' Both fields empty: 'No input received. Enter the account and card number.' Account is checked before card, and focus moves to the first field in error. |  | CCLDV-REQ-F-064 |
+| Card number | **lookup field** | Card number, 16 digits; filled in and read-only when opened from the card list; the card is found by its number | Required, a 16-digit number other than zeros: 'Card number not provided. Enter the 16-digit card number.' or 'Card ID filter, if supplied, must be a 16 digit number. Enter digits only.' No card with that number: 'Did not find cards for this search condition. Check the card number.' |  | CCLDV-REQ-F-073 |
+| Card | **summary card** | Account number and card number of the card found, with 'Displaying requested details' |  |  | CCLDV-REQ-F-077 |
 
 
 ## Data models
@@ -183,9 +166,9 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CCLDV-BR-067: The account number input treats '*' or blank as 'not supplied'. Any other value is used both as the account to search on and as the account carried forward with the edit. The new form should keep the two meanings separate in its model, even though one field fills both.
-- CCLDV-BR-068: The card number input treats '*' or blank as 'not supplied'. Any other value is used both as the lookup key (a keyed lookup of the card by card number) and as the card number carried forward with the edit.
-- CCLDV-BR-081: When the card is found, the server keeps a snapshot of the original values for the length of the edit: the embossed name in upper case, the expiry year, month and day split from the stored date (YYYY-MM-DD), the active status and the CVV code. This snapshot is the baseline for the 'no change' check and for spotting that someone else changed the card before the save (optimistic concurrency), so it must be held on the server and not trusted from the browser.
+- CCLDV-BR-067: Normalise the account number input: '*' or blank means 'not supplied' (null). Any other value is used both as the account to search by and as the account number held for the update.
+- CCLDV-BR-068: Normalise the card number input: '*' or blank means 'not supplied' (null). Any other value is used both as the card number to look up and as the card number held for the update.
+- CCLDV-BR-081: When the card is loaded, keep a snapshot of the original values in the update session: embossed name in upper case, expiry year, month and day split from the stored expiry date (characters 1-4, 6-7 and 9-10), active status and CVV. Use this snapshot for no-change detection and to check at save time whether someone else has changed the card.
 
 ## Open questions
 

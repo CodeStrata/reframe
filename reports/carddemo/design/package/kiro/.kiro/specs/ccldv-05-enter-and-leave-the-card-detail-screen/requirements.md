@@ -6,7 +6,7 @@ Customer Data Setup · Credit Card List Detail View and Update · runs as online
 
 ## Introduction
 
-Controls how users arrive at and leave the card detail screen: from the menu it opens an empty search, and from the card list it opens straight on the selected card. Leaving with PF3 returns the user to the screen they came from, or to the main menu. It must never carry stale card selections from an earlier session into a fresh entry.
+This capability controls how a card operations user enters and leaves the card detail screen. Coming from the menu, the user gets an empty search prompt. Coming from the card list, the chosen card is shown at once. PF3 always returns the user to where they came from, or to the main menu if nothing is recorded. The screen must never carry stale card or session details over from an earlier visit, and on exit it must tell the next screen that it is a fresh entry.
 
 **User story:** As a card operations user, I want the card detail screen to open with the right card or an empty search and to return me to where I came from, so that I can move between the menu, the card list and card details without losing my place.
 

@@ -6,7 +6,7 @@ User Access Control · System Operations and Maintenance · runs as scheduled jo
 
 ## Introduction
 
-Security administration adds transaction CT02 to the CARD access profile, so only users allowed under that profile can run it. The result of the change must be recorded in the job output for audit. The change must never miss CT02, never put it in the wrong profile, and never go unrecorded.
+Is a security administration step that puts the CT02 online function under the CARD access profile, so only users granted that profile can run it. It is for security administrators. It must add CT02 to the CARD profile and record the result for audit, and must never leave CT02 reachable outside that profile.
 
 **User story:** As a security administrator, I want transaction CT02 added to the CARD transaction profile, so that access to it is controlled by the card security profile.
 

@@ -10,7 +10,7 @@
 
 As an operator, I want the SSN, date of birth and FICO score checked when I change customer details, so that only plausible identity and credit data is saved.
 
-Checks the customer's Social Security Number, date of birth and FICO score when the operator changes details. The SSN must be in three supplied, numeric, non-zero parts with an allowed first group, the birth date must be before today, and the FICO score must be between 300 and 850. Implausible identity or credit data must never be saved.
+Checks the customer's Social Security Number, date of birth and FICO credit score when the operator changes customer details. The SSN must have valid, non-zero parts and must not start with 000, 666 or 900-999. The date of birth must be in the past. The FICO score must be three digits between 300 and 850. Implausible identity or credit data must never be saved.
 
 **Acceptance scenarios:**
 
@@ -19,14 +19,13 @@ Checks the customer's Social Security Number, date of birth and FICO score when 
 3. **Given** SSN: 123-45-6789, **when** the first three SSN characters are numeric and equal 666 or fall between 900 and 999, **then** Accepted. (OATM-C11-AC-03)
 4. **Given** Today: 2026-11-23; Date of birth: 1980-05-14, **when** a valid calendar date of birth is today or later, **then** Accepted. (OATM-C11-AC-04)
 5. **Given** FICO score: 300, **when** a numeric, non-zero FICO score is below 300 or above 850, **then** Accepted (OATM-C11-AC-05)
-6. **Given** a changed account where the operator enters '*' as the first three SSN characters, **when** the SSN is validated, **then** the first part is treated as not supplied and rejected with 'SSN: First 3 chars must be supplied.' (OATM-C11-AC-06)
-7. **Given** a changed account where the operator enters SSN parts '123', '45' and '6789', **when** the changes are captured, **then** '123', '45' and '6789' are taken as the proposed SSN parts (OATM-C11-AC-07)
-8. **Given** a changed account where the SSN is '123', blank, '6789', **when** the SSN is validated, **then** the input is rejected with 'SSN 4th & 5th chars must be supplied.' (OATM-C11-AC-08)
-9. **Given** a changed account where the SSN is '123', '4A', '6789', **when** the SSN is validated, **then** the input is rejected with 'SSN 4th & 5th chars must be all numeric.' (OATM-C11-AC-09)
-10. **Given** a changed account where the SSN is '123', '45', '0000', **when** the SSN is validated, **then** the input is rejected with 'SSN Last 4 chars must not be zero.' (OATM-C11-AC-10)
-11. **Given** a changed account where the FICO score is left blank or entered as '*', **when** the FICO score is validated, **then** it is treated as not supplied and rejected with 'FICO Score must be supplied.' (OATM-C11-AC-11)
-12. **Given** a changed account where the FICO score is entered as '7A0', **when** the FICO score is validated, **then** it is rejected with 'FICO Score must be all numeric.' (OATM-C11-AC-12)
-13. **Given** a changed account where the FICO score is entered as '000', **when** the FICO score is validated, **then** it is rejected with 'FICO Score must not be zero.' (OATM-C11-AC-13)
+6. **Given** an account is shown for update with the stored SSN 123-45-6789, **when** the operator enters '*' in the first SSN part, leaves the 4th-5th part blank, enters '6789' as the last part, and submits, **then** the first and 4th-5th parts are treated as not supplied and the last part '6789' is taken as the proposed value (OATM-C11-AC-06)
+7. **Given** an account is shown for update with changes and the first three SSN characters are '123', **when** the operator leaves the SSN 4th and 5th characters blank and submits, **then** the input is rejected with a message that starts 'SSN 4th & 5th chars' and ends 'must be supplied.' (OATM-C11-AC-07)
+8. **Given** an account is shown for update with changes and the first three SSN characters are '123', **when** the operator enters '45' as the 4th-5th characters and '12A4' as the last 4 characters, and submits, **then** the input is rejected with a message that starts 'SSN Last 4 chars' and ends 'must be all numeric.' (OATM-C11-AC-08)
+9. **Given** an account is shown for update with changes and the first three SSN characters are '123', **when** the operator enters '00' as the 4th-5th characters and submits, **then** the input is rejected with a message that starts 'SSN 4th & 5th chars' and ends 'must not be zero.' (OATM-C11-AC-09)
+10. **Given** an account is shown for update with changes, **when** the operator clears the FICO score (or enters '*') and submits, **then** the FICO score is treated as not supplied and the input is rejected with 'FICO Score must be supplied.' (OATM-C11-AC-10)
+11. **Given** an account is shown for update with changes, **when** the operator enters FICO score '7A0' and submits, **then** the input is rejected with 'FICO Score must be all numeric.' (OATM-C11-AC-11)
+12. **Given** an account is shown for update with changes, **when** the operator enters FICO score '000' and submits, **then** the input is rejected with 'FICO Score must not be zero.' (OATM-C11-AC-12)
 
 ## Requirements
 

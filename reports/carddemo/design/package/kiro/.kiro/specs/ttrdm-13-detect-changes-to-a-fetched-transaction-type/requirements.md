@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-When an administrator presses Enter on a transaction type they fetched, the maintenance screen checks whether the type code or description has actually changed. If nothing has changed, it says so and does not offer a save. The comparison must ignore upper/lower case and leading or trailing spaces, so a record that differs only in case or spacing is never treated as changed and saved again.
+When an administrator presses Enter on a fetched transaction type, the maintenance screen compares the type code and description with the values fetched, ignoring case and surrounding spaces, and decides whether anything has changed. If nothing has changed it says so and offers no save. It must never treat a record that differs only in case or spacing as changed, and it must never re-validate changes that are already validated or already saved.
 
 **User story:** As an administrator, I want the maintenance screen to tell me when I have not changed anything, so that I do not save a record that is the same as the one on file.
 

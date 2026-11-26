@@ -12,24 +12,18 @@
   - _Rules: TTRDM-BR-120_
   - _After: TTRDM-C15-T1_
 - [ ] 3. TTRDM-C15-T3 [api] Build the services behind the screens
-  - TTRDM-BR-119: The exit action has to close any open database transaction with a commit before it navigates. The target is the calling screen recorded in the user's session, or the Admin menu when none is recorded. The new application needs a session-held 'return to' value and a default route to the Admin menu.
+  - TTRDM-BR-119: On exit, the new application must commit or close any open database transaction for the session before navigating. It then redirects to the return route stored in the session, falling back to the Admin menu route when none is stored. No unit of work may be left open across the navigation.
   - _Requirements: TTRDM-REQ-F-106_
   - _Rules: TTRDM-BR-119_
   - _After: TTRDM-C15-T1, TTRDM-C15-T2_
-- [ ] 4. TTRDM-C15-T4 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
-  - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - link "Back to transaction types"
-  - _Requirements: TTRDM-REQ-F-106, TTRDM-REQ-F-107_
-  - _Rules: TTRDM-BR-119, TTRDM-BR-120_
-  - _After: TTRDM-C15-T2, TTRDM-C15-T3_
-- [ ] 5. TTRDM-C15-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+- [ ] 4. TTRDM-C15-T4 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
   - To the prototype: ui-reference/index.html#/S-APP-SHELL.
-  - link "Maintain a transaction type"
-  - _Requirements: TTRDM-REQ-F-107_
-  - _Rules: TTRDM-BR-120_
+  - **data table** "Transaction types"
+  - _Requirements: TTRDM-REQ-F-106_
+  - _Rules: TTRDM-BR-119_
   - _After: TTRDM-C15-T2, TTRDM-C15-T3_
-- [ ] 6. TTRDM-C15-T6 [test-generation] Write a test for every acceptance criterion
+- [ ] 5. TTRDM-C15-T5 [test-generation] Write a test for every acceptance criterion
   - 3 acceptance criteria, each a test named by its ID.
   - _Requirements: TTRDM-REQ-F-106, TTRDM-REQ-F-107_
   - _Criteria: TTRDM-C15-AC-01, TTRDM-C15-AC-02, TTRDM-C15-AC-03_
-  - _After: TTRDM-C15-T1, TTRDM-C15-T2, TTRDM-C15-T3, TTRDM-C15-T4, TTRDM-C15-T5_
+  - _After: TTRDM-C15-T1, TTRDM-C15-T2, TTRDM-C15-T3, TTRDM-C15-T4_

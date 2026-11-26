@@ -18,23 +18,31 @@ Runs as online.
 
 ### Cards (S-CARD-LIST)
 
-Browse and filter credit cards by account and card number, and open a card to view or edit it from its row.
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Card (S-CARD-DETAIL)
+### Card details (S-CARD-DETAIL)
 
-Find a card by account and card number, see its embossed name, expiry date and active status, and edit those details with a confirmation before saving. Replaces the separate view and update screens: the same card is found, shown and edited in one place.
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
 
 Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Back to cards | link | Shown when the card was opened from the card list; returns to the list where it was left |  | S-CARD-LIST | CCLDV-REQ-F-100, CCLDV-REQ-F-101, CCLDV-REQ-F-102 |
-| Save result | message | Success: 'Changes saved.' with the card shown read-only. Conflict: 'This card was changed by someone else since you opened it. The latest details are shown; make your changes again.' Failure: 'The changes could not be saved. Try again.' |  |  | CCLDV-REQ-F-103 |
+
+### Application header and navigation (S-APP-SHELL)
+
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
+
+Prototype: `ui-reference/index.html#/S-APP-SHELL`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Cards | **data table** | Navigation entry for the card list; also the way back from card details |  | S-CARD-LIST | CCLDV-REQ-F-100 |
 
 
 ## Data model
@@ -79,8 +87,8 @@ Record `CARD-RECORD`:
 
 ## Design notes
 
-- CCLDV-BR-118: When leaving card update to go back to the card list, the selected account and card numbers are cleared from the shared navigation state, so the list does not reopen on, or reselect, the card just edited.
-- CCLDV-BR-119: On exit the shared navigation state records card update as the screen that sent the user, sets the user type to regular user, and tells the destination to treat this as a first entry, so it starts clean.
+- CCLDV-BR-118: When card update returns to the card list, clear the selected account and card numbers from the shared navigation context, so the list starts without a stale selection.
+- CCLDV-BR-119: On leaving card update, update the shared navigation context: sender = card update, user type = regular user, and mark the next screen's entry as a first entry so it starts fresh.
 
 ## Decision tables
 

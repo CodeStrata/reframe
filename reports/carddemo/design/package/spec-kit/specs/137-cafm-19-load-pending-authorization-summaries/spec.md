@@ -10,13 +10,13 @@
 
 As an operations analyst, I want to load pending authorization summaries from the summary file into the pending authorization database, so that each account's pending authorization summary is available without overwriting a summary already held.
 
-Loads each account's pending authorization summary from the summary file into the database for operations. A summary already held for an account must be left unchanged, never overwritten. Any other insert failure must stop the load with return code 16.
+Loads pending authorization summaries from the summary file into the pending authorization database, one per account. It must never overwrite a summary already held for an account: it reports it and moves on. Any other insert failure stops the load with a failure code.
 
 **Acceptance scenarios:**
 
 1. **Given** summary record account: 00000012345; already in database: no, **when** summary load runs, **then** The summary is inserted and 'ROOT INSERT SUCCESS' is displayed. (CAFM-C19-AC-01)
 2. **Given** summary record account: 00000012345; already in database: yes (status 'II'), **when** a summary insert returns 'II' because that account's summary is already in the database, **then** 'ROOT SEGMENT ALREADY IN DB' is displayed; the stored summary is not changed; the next record is read. (CAFM-C19-AC-02)
-3. **Given** a record read from the summary file, and inserting it as a pending authorization summary returns status 'AI' (not blank or 'II'), **when** the summary load inserts that record, **then** 'ROOT INSERT FAILED :' is displayed with AI, 'IMS LOAD ABENDING ...' is displayed, and the load stops with return code 16 (CAFM-C19-AC-03)
+3. **Given** a summary record for account 00000000123 whose insert returns a status other than blank or 'II', for example 'AI', **when** the summary load inserts it, **then** 'ROOT INSERT FAILED :' is displayed with AI, 'IMS LOAD ABENDING ...' is displayed, and the load stops with return code 16 without inserting further records (CAFM-C19-AC-03)
 
 ## Requirements
 

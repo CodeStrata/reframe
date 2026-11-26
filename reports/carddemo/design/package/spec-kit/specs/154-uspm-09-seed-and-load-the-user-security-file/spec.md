@@ -10,7 +10,7 @@
 
 As a system operator, I want to build the user security file from a staged seed list of users, so that CardDemo has administrator and regular user accounts to sign on with.
 
-Builds the user security store from a fixed seed list, so that a fresh CardDemo installation has accounts to sign on with: administrators ADMIN001-ADMIN005 (type 'A') and regular users USER0001-USER0005 (type 'U'), all with password 'PASSWORD'. It must replace any earlier store completely rather than merge into it, and it must not leave a half-built staging set behind after a failure.
+A setup job, run by operators, that builds the user security store from a fixed seed list. The list has ten accounts: administrators ADMIN001-ADMIN005 (type 'A') and regular users USER0001-USER0005 (type 'U'), all with password 'PASSWORD'. It must replace the store completely with exactly these seed records, and it must not leave a half-built staging set behind when a step fails.
 
 **Acceptance scenarios:**
 

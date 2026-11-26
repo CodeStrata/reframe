@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-Lets a card operations user move around the authorization detail screen: step to the next pending authorization of the same account, go back to the pending authorization list, or refresh the current one. It must stay within the same account when stepping forward and keep the current selection when there is nothing further. It must never show details from a failed read.
+Lets a card operations user move through an account's pending authorizations one at a time from the detail screen: step to the next one, go back to the list, or refresh the current one. It must stay inside the same account, never lose the current selection when there is no next authorization, and never show part-filled details when the next read fails.
 
 **User story:** As a card operations user, I want to use function keys on the authorization detail screen to move to the next authorization or return to the list, so that I can work through an account's pending authorizations.
 
@@ -46,7 +46,7 @@ Lets a card operations user move around the authorization detail screen: step to
 #### Acceptance criteria
 
 1. If reading the next authorization fails with any database status other than success, not found or end of data, then the system shall flag an error, show ' System error while reading next Auth: Code:' followed by the status code, and not fill in the authorization details. (rules CAFM-BR-140)
-2. GIVEN an authorization is selected on the detail screen and reading the next authorization of the account returns database status 'AJ' (not success, not found or end of data) WHEN the user presses PF8 THEN an error is flagged, the message ' System error while reading next Auth: Code:' followed by AJ is shown, and the authorization detail fields are not filled in (CAFM-C14-AC-08; CAFM-BR-140)
+2. GIVEN the detail screen shows a selected authorization for an account, and reading the next authorization under that account returns a database status other than success, not found or end of data, for example 'AI' WHEN the user presses PF8 THEN an error is flagged, the message ' System error while reading next Auth: Code:' followed by AI is shown, and the authorization detail fields are not filled in (CAFM-C14-AC-08; CAFM-BR-140)
 
 ### Requirement 6: CAFM-REQ-F-132 (business rule)
 

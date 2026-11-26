@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Lets administrators change a transaction type's description directly on a list row marked 'U', with checks before anything is saved. A changed description must be supplied and may hold only letters, digits and spaces. An unchanged one is reported as 'No change detected with respect to database values.'. The screen must never save, or appear to accept, a description that failed these checks.
+On the transaction type list an administrator can mark one row 'U' and type a new description in place. The description is checked before anything is saved: it must be supplied, must actually differ from the stored one (ignoring case and surrounding spaces), and may hold only letters, digits and spaces. The screen must never save an invalid or unchanged description, and must show the user exactly which field is wrong.
 
 **User story:** As an administrator, I want to mark a listed transaction type for update or delete and change its description on the list screen, so that I can correct reference data online with clear validation feedback.
 
@@ -47,7 +47,7 @@ Lets administrators change a transaction type's description directly on a list r
 #### Acceptance criteria
 
 1. If a changed description is not entered (blank or '*'), then the system shall reject the input and show 'Transaction Desc must be supplied.', unless an earlier message has already been set. (rules TTRDM-BR-052)
-2. GIVEN row 3 shows type '02' with stored description 'Payment', and no other message has been set WHEN the administrator marks row 3 'U', clears its description to blank (or types '*') and presses Enter THEN the input is rejected, the message 'Transaction Desc must be supplied.' is shown and nothing is saved (TTRDM-C05-AC-12; TTRDM-BR-052)
+2. GIVEN Transaction type '01' is shown on the list with stored description 'Purchase' and no other message has been set WHEN The user marks the row for '01' with 'U', clears its description (or enters only '*') and presses Enter THEN The input is rejected, nothing is saved, and the message 'Transaction Desc must be supplied.' is shown (TTRDM-C05-AC-12; TTRDM-BR-052)
 
 ### Requirement 6: TTRDM-REQ-F-046 (business rule)
 
@@ -68,7 +68,7 @@ Lets administrators change a transaction type's description directly on a list r
 #### Acceptance criteria
 
 1. When a row is marked 'U' as the only valid action on the screen and the operator has typed a description that differs from the stored one and is not blank, the system shall show the operator's typed description on that row instead of the stored description. (rules TTRDM-BR-055)
-2. GIVEN row 2 shows type '01' with stored description 'Purchase', and no other row has an action WHEN the administrator marks row 2 'U', types 'Retail Purchase' as its description and presses Enter THEN row 2 shows 'Retail Purchase' rather than 'Purchase' when the page is shown again (TTRDM-C05-AC-13; TTRDM-BR-055)
+2. GIVEN Transaction type '01' is shown on the list with stored description 'Purchase' WHEN The user marks only the row for '01' with 'U', types 'Retail Purchase' as its description and presses Enter THEN The redisplayed row for '01' shows 'Retail Purchase', not the stored 'Purchase' (TTRDM-C05-AC-13; TTRDM-BR-055)
 
 ### Requirement 9: TTRDM-REQ-F-049 (formatting)
 

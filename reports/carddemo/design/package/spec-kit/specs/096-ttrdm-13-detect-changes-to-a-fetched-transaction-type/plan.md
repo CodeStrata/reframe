@@ -16,15 +16,24 @@ Runs as online.
 
 ## Screens
 
-### Transaction type (S-TRANTYPE-EDIT)
+### Transaction types (S-TRANTYPE-LIST)
 
-Look up a transaction type by code to change its description or delete it, or add a new type when the code is not on file; each save or delete is confirmed and can be cancelled.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
+
+Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
+### Add or change a transaction type (S-TRANTYPE-EDIT)
+
+Add a new transaction type or change an existing one's description in one step: enter the code, see its description or start a new one if it is not on file, then save. Replaces the F5 create, Enter check and F5 confirm sequence; delete is the Delete row action on the list.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-EDIT`. Replaces the legacy screens CTRTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| No changes | message | Information: 'No changes to save. The description matches the stored value.' | Description must differ from the stored value (ignoring case and surrounding spaces): 'No changes to save.' (legacy 'No change detected with respect to values fetched.') |  | TTRDM-REQ-F-100, TTRDM-REQ-F-101, TTRDM-REQ-F-102 |
+| Save transaction type | **primary button** | Checks and saves in one step, adding the type if the code is new or changing its description, then returns to the list; enabled only after a code is searched and something changed, which replaces 'Invalid key pressed'. Results: 'Changes committed to database'; 'Could not lock record for update' with 'Changes unsuccessful'. Esc cancels and returns to the list. | Code and description match what is stored (ignoring case and surrounding spaces): 'No change detected with respect to values fetched.' | S-TRANTYPE-LIST | TTRDM-REQ-F-100, TTRDM-REQ-F-101 |
 
 
 ## Data model
@@ -54,7 +63,7 @@ Record `ABEND-DATA`:
 
 ## Design notes
 
-- TTRDM-BR-115: The screen's workflow state has to be kept for each user session on the server. When Enter arrives while the changes are already validated and waiting for confirmation, or already saved, the handler must skip description validation and leave the state as it is. It must not re-run the edits or change state just because the screen was submitted again.
+- TTRDM-BR-115: The maintenance screen needs an explicit edit state that is kept between requests, either in the server-side session or in a signed token sent with the form. Change detection and description checks run only in the editing states. In 'validated, awaiting confirmation' (N) and 'committed' (C) they are skipped and the state is carried over unchanged, so pressing Enter again cannot reset or re-validate a pending save.
 
 ## Decision tables
 

@@ -18,10 +18,9 @@
   - _After: OATM-C33-T1_
 - [ ] 4. OATM-C33-T4 [ui-modernization] Build the screen Add transaction (S-TRANSACTION-ADD)
   - To the prototype: ui-reference/index.html#/S-TRANSACTION-ADD.
-  - dialog "Add this transaction?"
-  - message "Result"
-  - _Requirements: OATM-REQ-F-277, OATM-REQ-F-278, OATM-REQ-F-282, OATM-REQ-F-283_
-  - _Rules: OATM-BR-293, OATM-BR-294, OATM-BR-298, OATM-BR-299_
+  - **primary button** "Add transaction": The dialog offers only Add or Cancel, replacing the typed confirmation and its messages 'Confirm to add this transaction...' and 'Invalid value. Valid values are (Y/N)...'. If the ID already exists: 'Tran ID already exist...'; other failures: 'Unable to Add Transaction...'.
+  - _Requirements: OATM-REQ-F-277, OATM-REQ-F-278, OATM-REQ-F-279, OATM-REQ-F-280, OATM-REQ-F-281, OATM-REQ-F-282, OATM-REQ-F-283, OATM-REQ-N-015_
+  - _Rules: OATM-BR-293, OATM-BR-294, OATM-BR-295, OATM-BR-296, OATM-BR-297, OATM-BR-298, OATM-BR-299, OATM-BR-300_
   - _After: OATM-C33-T2, OATM-C33-T3_
 - [ ] 5. OATM-C33-T5 [test-generation] Write a test for every acceptance criterion
   - 9 acceptance criteria, each a test named by its ID.

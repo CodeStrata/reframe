@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Lets an operator change the details of a fetched account. Every field is checked, and the changes are saved only when the operator confirms them with PF5. Unchanged or invalid submissions must never be saved, and the operator must always see the outcome: committed, a lock failure, an update failure, or a record that someone else changed meanwhile.
+Lets an operator change an account's and its customer's details. Every changed value is checked, and a save happens only after the operator explicitly confirms with PF5. Changes that fail a check, or that are not confirmed, must never be saved. The operator must always be told whether there was nothing to change, whether the changes were validated, or whether the save was committed or failed.
 
 **User story:** As an operator, I want my changes to account details checked and then saved only when I confirm them with PF5, so that only validated changes reach the account record and I know whether the save succeeded.
 

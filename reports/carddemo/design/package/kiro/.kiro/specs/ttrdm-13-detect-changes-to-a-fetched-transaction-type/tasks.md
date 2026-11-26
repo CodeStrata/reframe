@@ -11,11 +11,11 @@
   - _Requirements: TTRDM-REQ-F-100, TTRDM-REQ-F-101, TTRDM-REQ-F-102_
   - _Rules: TTRDM-BR-112, TTRDM-BR-113, TTRDM-BR-114, TTRDM-BR-115_
   - _After: TTRDM-C13-T1_
-- [ ] 3. TTRDM-C13-T3 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
+- [ ] 3. TTRDM-C13-T3 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - message "No changes": Description must differ from the stored value (ignoring case and surrounding spaces): 'No changes to save.' (legacy 'No change detected with respect to values fetched.')
-  - _Requirements: TTRDM-REQ-F-100, TTRDM-REQ-F-101, TTRDM-REQ-F-102_
-  - _Rules: TTRDM-BR-112, TTRDM-BR-113, TTRDM-BR-114, TTRDM-BR-115_
+  - **primary button** "Save transaction type": Code and description match what is stored (ignoring case and surrounding spaces): 'No change detected with respect to values fetched.'
+  - _Requirements: TTRDM-REQ-F-100, TTRDM-REQ-F-101_
+  - _Rules: TTRDM-BR-112, TTRDM-BR-113, TTRDM-BR-114_
   - _After: TTRDM-C13-T2_
 - [ ] 4. TTRDM-C13-T4 [test-generation] Write a test for every acceptance criterion
   - 6 acceptance criteria, each a test named by its ID.

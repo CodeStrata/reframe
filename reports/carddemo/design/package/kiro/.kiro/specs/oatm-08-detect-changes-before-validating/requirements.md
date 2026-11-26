@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Compares what the operator entered against the values fetched and runs field checks only when something has actually changed and the update is not already awaiting confirmation or saved. Text is compared ignoring case and surrounding spaces; numbers, dates and codes exactly. It must never re-validate or save unchanged details, and shows 'No change detected with respect to values fetched.' instead.
+Compares what the operator entered with the values fetched for the account, ignoring upper or lower case, and runs the field checks only when something has actually changed. If nothing changed, it says 'No change detected with respect to values fetched.' and does not validate or save anything. It must never save or re-validate unchanged details. When several fields fail, it flags all of them but shows only the first message.
 
 **User story:** As an operator, I want the system to check my entries only when I have actually changed something, so that unchanged details are not re-validated or saved.
 

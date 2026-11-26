@@ -4,7 +4,7 @@
 
 ## Overview
 
-Lets an operator ask for a monthly or a yearly transaction report and works out the report period from today's date: the current calendar month, or January 1 to December 31 of the current year. It must never submit a period that does not match the option chosen.
+Works out the date range of a Monthly or Yearly transaction report for the operator. Monthly runs from the first to the last day of the current month, and Yearly from January 1 to December 31 of the current year. It then submits the report job. The period must always be calculated from the current date, never typed in by hand or carried over from an earlier request.
 
 Runs as online. Journeys: J06.
 
@@ -12,13 +12,13 @@ Runs as online. Journeys: J06.
 
 ### Transaction reports (S-REPORT-REQUEST)
 
-Choose a monthly, yearly or custom period and submit the transaction report for printing after confirming.
+Submit a monthly, yearly or custom-period transaction report for printing. The report type is a single choice, the custom dates appear only for Custom, and submission is confirmed in a dialog. Tab order: report type, start date, end date, Submit report.
 
 Prototype: `ui-reference/index.html#/S-REPORT-REQUEST`. Replaces the legacy screens CORPT0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Report period | radio | Monthly (this month), Yearly (this year) or Custom; one choice only | Required: 'Select a report type to print report...'. |  | OATM-REQ-F-171, OATM-REQ-F-172 |
+| Report type | **summary card** | One choice of Monthly (current month), Yearly (current year) or Custom (dates below); the derived period is shown beside Monthly and Yearly, e.g. 01 Nov 2026 to 30 Nov 2026 | None chosen: 'Select a report type to print report...' - choose Monthly, Yearly or Custom. |  | OATM-REQ-F-171, OATM-REQ-F-172 |
 
 
 ## Data models

@@ -10,7 +10,7 @@
 
 As an administrator, I want the maintenance screen to show the right values and guidance message for where I am in the process, so that I know what to do next.
 
-Makes the maintenance screen show the right values and guidance message for each step, such as 'Enter transaction type to be maintained' or 'Update transaction type details shown.'. In states where the stored record is being reviewed or has just been deleted, it must show the values on file; in states where the administrator is editing, it must show what they entered. It must never show typed values as if they were the values on file.
+The add/change transaction type screen shows the right values and guidance message for each step: asking for a code, editing a found type, confirming a save, or after a delete. Where the record was just read, deleted or a change cancelled, it must show the values stored on file, not stale typed values; while the user is entering changes, it must keep what they typed.
 
 **Acceptance scenarios:**
 
@@ -25,7 +25,7 @@ Makes the maintenance screen show the right values and guidance message for each
 9. **Given** Maintenance state after editing: 'N', **when** the entered details have failed validation ('E') or have passed validation and are waiting for F5 confirmation ('N'), **then** The state stays 'N' and the screen shows 'Changes validated.Press F5 to save'. (TTRDM-C12-AC-09)
 10. **Given** Key pressed: Enter; Maintenance state: 'S' (record shown); Description changed: yes, **when** a key press is not an exit, a first entry, a delete, save or cancel step handled on its own, or a key not allowed in the current state, **then** The input is read and validated, and the screen is redisplayed asking for confirmation with 'Changes validated.Press F5 to save'. (TTRDM-C12-AC-10)
 11. **Given** Key pressed: Enter; Maintenance state: not fetched; Entered code: '01', **when** a key press matches none of the specific key-and-state steps, **then** The input is validated and the record for '01' is looked up and shown. (TTRDM-C12-AC-11)
-12. **Given** type '01' is stored with description 'Purchase', the screen is past its first entry, and the administrator has typed 'Purch@se' in the description, which was marked in error, **when** the screen is redisplayed in state record shown ('S'), awaiting delete confirmation ('9'), delete failed ('6'), delete done ('7') or update cancelled ('B'), **then** the screen shows code '01' and description 'Purchase' as stored, the typed 'Purch@se' is discarded and the description error mark is cleared (TTRDM-C12-AC-12)
+12. **Given** Transaction type '01' is stored with description 'Purchase', the user has typed 'Retail Purchase' in the description, which was marked in error, and the screen is in the update-cancelled state ('B'), **when** The maintenance screen is redisplayed, **then** The screen shows code '01' and description 'Purchase' as stored, the typed 'Retail Purchase' is discarded and the description error mark is cleared; the same holds in the record-shown ('S'), awaiting-delete-confirmation ('9'), delete-failed ('6') and delete-done ('7') states (TTRDM-C12-AC-12)
 
 ## Requirements
 

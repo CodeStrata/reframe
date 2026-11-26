@@ -17,14 +17,14 @@
   - _Rules: USPM-BR-060_
   - _After: USPM-C05-T1_
 - [ ] 4. USPM-C05-T4 [api] Build the services behind the screens
-  - USPM-BR-059: Clear the displayed name, password and type, then read the user by its User ID key. Hold the record for update, with optimistic concurrency (a version check) or a short row lock, so that a later save applies to the record that was read.
+  - USPM-BR-059: For a non-blank User ID, clear the detail fields, then fetch that user by its key from the user store. Read it so that a later save in the same flow can update that record safely, for example with optimistic concurrency (a version or the read values).
   - _Requirements: USPM-REQ-F-052_
   - _Rules: USPM-BR-059_
   - _After: USPM-C05-T1, USPM-C05-T2, USPM-C05-T3_
 - [ ] 5. USPM-C05-T5 [ui-modernization] Build the screen Update user (S-USER-EDIT)
   - To the prototype: ui-reference/index.html#/S-USER-EDIT.
-  - search "User ID": Required: 'User ID can NOT be empty...'. Unknown: 'User ID NOT found...' and the details stay empty
-  - button "Find"
+  - **lookup field** "User ID": Blank: 'User ID can NOT be empty...' Not on file: 'User ID NOT found...', and the details stay blank. Read failure: 'Unable to lookup User...'.
+  - **primary button** "Save changes": Checks User ID, First name, Last name, Password and User type in that order. Every blank field is listed in an error summary, each linked to its field, and nothing is saved; leaving the screen never hides these messages. Nothing changed: 'Please modify to update ...' User no longer on file: 'User ID NOT found...', and no save is tried. Any other failure: 'Unable to Update User...'.
   - _Requirements: USPM-REQ-F-051, USPM-REQ-F-052, USPM-REQ-F-053_
   - _Rules: USPM-BR-057, USPM-BR-058, USPM-BR-059, USPM-BR-060_
   - _After: USPM-C05-T2, USPM-C05-T3, USPM-C05-T4_

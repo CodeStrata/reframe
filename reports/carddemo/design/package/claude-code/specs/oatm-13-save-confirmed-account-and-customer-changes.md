@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Saves an operator's confirmed changes to an account and its customer as one unit of work: the account record first, then the customer record. It must never leave the two out of step. If either record cannot be locked, or either save fails, nothing is kept and the operator is told the changes were unsuccessful.
+Saves an operator's confirmed changes to an account and its customer as one unit of work: first the account record, then the customer record. It must never leave the two out of step. If either record cannot be locked, if someone else changed either one since it was shown, or if either save fails, nothing may be kept, and the operator must be told the update did not go through.
 
 **User story:** As an operator, I want my confirmed changes saved to both the account and customer records together, so that the two records never end up out of step.
 
@@ -33,7 +33,7 @@ Saves an operator's confirmed changes to an account and its customer as one unit
 #### Acceptance criteria
 
 1. When both records are locked and neither was changed by someone else since it was shown, the system shall rewrite the account master (ACCTDAT) with the new status, balance, limits, cycle credit and debit, group and the open, expiry and reissue dates as YYYY-MM-DD. (rules OATM-BR-111)
-2. GIVEN An operator has validated changes to account 00000000001 (new status 'Y', current balance 1500.00, credit limit 5000.00, cash credit limit 1000.00, cycle credit 200.00, cycle debit 300.00, group 'GOLD', open date 2020-01-15, expiry date 2027-01-31, reissue date 2025-01-31), and both the account and the customer records are locked and unchanged by anyone else since they were shown WHEN The operator confirms with PF5 THEN The account master record for 00000000001 is rewritten with exactly those status, balance, limit, cycle credit and debit and group values, and its open, expiry and reissue dates are stored as '2020-01-15', '2027-01-31' and '2025-01-31' (YYYY-MM-DD) (OATM-C13-AC-07; OATM-BR-111)
+2. GIVEN An operator has validated changes to account 00000012345 (status, current balance, credit limit, cash credit limit, cycle credit and debit, group, and open, expiry and reissue dates entered as year, month and day). Both the account and customer records are locked and neither has changed since they were shown WHEN The operator confirms with PF5 THEN The account record is saved with the new status, balance, limits, cycle credit and debit, group, and with the open, expiry and reissue dates stored as YYYY-MM-DD (for example 2025-03-01) (OATM-C13-AC-07; OATM-BR-111)
 
 ### Requirement 4: OATM-REQ-F-110 (error handling)
 
@@ -47,7 +47,7 @@ Saves an operator's confirmed changes to an account and its customer as one unit
 #### Acceptance criteria
 
 1. When the account rewrite succeeds, the system shall rewrite the customer master (CUSTDAT) with the new name, address, phones formatted as '(aaa)bbb-cccc', SSN, government ID, date of birth as YYYY-MM-DD, EFT account, primary holder indicator and FICO score. (rules OATM-BR-113)
-2. GIVEN The account rewrite for a confirmed change has succeeded, and the operator's changes to the linked customer include phone area 212, prefix 555, line 1234, date of birth 1985-03-07, plus new name, address, SSN, government ID, EFT account, primary holder indicator 'Y' and FICO score 720 WHEN The account update goes on to save the customer THEN The customer master record is rewritten with the new name, address, SSN, government ID, EFT account, primary holder indicator 'Y' and FICO score 720, the phone is stored as '(212)555-1234' and the date of birth as '1985-03-07' (OATM-C13-AC-08; OATM-BR-113)
+2. GIVEN The account record of a confirmed update has just been saved, and the operator entered phone number 1 as area 212, prefix 555 and line 0100 and date of birth as 1980, 07, 15 WHEN The system saves the customer record THEN The customer record holds the new name, address, SSN, government ID, EFT account, primary holder indicator and FICO score, phone number 1 is stored as '(212)555-0100' and date of birth as '1980-07-15' (OATM-C13-AC-08; OATM-BR-113)
 
 ### Requirement 6: OATM-REQ-N-004 (error handling)
 
@@ -72,16 +72,24 @@ Saves an operator's confirmed changes to an account and its customer as one unit
 
 ## Screens and components
 
+### Account (S-ACCOUNT-VIEW)
+
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
+
+Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Update account (S-ACCOUNT-EDIT)
 
-Fetch an account, change its account and customer details in one form, see every error at its field, and save both records together only after reviewing the changes.
+Change an account's and its customer's details after confirming the caller. Each field is checked as it is left and again on save; every failing field shows its own message and a summary lists them all. Save asks for confirmation, listing each change from old to new value. Tab order: account and status, dates, amounts, customer identity, name and address, contact, then Save changes.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-EDIT`. Replaces the legacy screens CACTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Save changes | button | Saves the account and customer together, or neither | If the stored record changed since it was fetched: 'Record changed by some one else. Please review' and nothing is saved. |  | OATM-REQ-F-107, OATM-REQ-N-004 |
-| Save result | message | Success: 'Changes committed to database'; failure: 'Changes unsuccessful. Please try again' or 'Update of record failed'; the next submit starts a new search |  |  | OATM-REQ-F-112, OATM-REQ-F-113 |
+| Save changes | **primary button** | Runs every check; with no change shows 'No change detected with respect to values fetched.' and saves nothing; when all checks pass, a confirmation dialog lists each change (old to new) with Confirm and Cancel; success shows 'Changes committed to database' and the account returns to view | If no value differs: 'No change detected with respect to values fetched.' If the record was changed by someone else since it was fetched: 'Record changed by some one else. Please review' and the latest values are shown. If a lock or update fails: 'Changes unsuccessful. Please try again'; nothing is half-saved. |  | OATM-REQ-F-107, OATM-REQ-F-108, OATM-REQ-F-109, OATM-REQ-F-110, OATM-REQ-F-111, OATM-REQ-F-112, OATM-REQ-F-113, OATM-REQ-N-004 |
 
 
 ## Data models

@@ -10,7 +10,7 @@
 
 As an operator, I want my confirmed changes saved to both the account and customer records together, so that the two records never end up out of step.
 
-Saves an operator's confirmed changes to an account and its customer as one unit of work: the account record first, then the customer record. It must never leave the two out of step. If either record cannot be locked, or either save fails, nothing is kept and the operator is told the changes were unsuccessful.
+Saves an operator's confirmed changes to an account and its customer as one unit of work: first the account record, then the customer record. It must never leave the two out of step. If either record cannot be locked, if someone else changed either one since it was shown, or if either save fails, nothing may be kept, and the operator must be told the update did not go through.
 
 **Acceptance scenarios:**
 
@@ -20,8 +20,8 @@ Saves an operator's confirmed changes to an account and its customer as one unit
 4. **Given** Account rewrite: succeeds; Customer rewrite: fails, **when** the customer rewrite fails, **then** Account change is rolled back; 'Update of record failed' is shown. (OATM-C13-AC-04)
 5. **Given** Account rewrite: succeeds; Customer rewrite: succeeds, **when** both rewrites succeed, **then** Update confirmed as successful. (OATM-C13-AC-05)
 6. **Given** save outcome: account locked by another task, **when** a save fails because the account could not be locked ('L') or the update failed ('F'), **then** State 'L'; message 'Changes unsuccessful. Please try again' (OATM-C13-AC-06)
-7. **Given** An operator has validated changes to account 00000000001 (new status 'Y', current balance 1500.00, credit limit 5000.00, cash credit limit 1000.00, cycle credit 200.00, cycle debit 300.00, group 'GOLD', open date 2020-01-15, expiry date 2027-01-31, reissue date 2025-01-31), and both the account and the customer records are locked and unchanged by anyone else since they were shown, **when** The operator confirms with PF5, **then** The account master record for 00000000001 is rewritten with exactly those status, balance, limit, cycle credit and debit and group values, and its open, expiry and reissue dates are stored as '2020-01-15', '2027-01-31' and '2025-01-31' (YYYY-MM-DD) (OATM-C13-AC-07)
-8. **Given** The account rewrite for a confirmed change has succeeded, and the operator's changes to the linked customer include phone area 212, prefix 555, line 1234, date of birth 1985-03-07, plus new name, address, SSN, government ID, EFT account, primary holder indicator 'Y' and FICO score 720, **when** The account update goes on to save the customer, **then** The customer master record is rewritten with the new name, address, SSN, government ID, EFT account, primary holder indicator 'Y' and FICO score 720, the phone is stored as '(212)555-1234' and the date of birth as '1985-03-07' (OATM-C13-AC-08)
+7. **Given** An operator has validated changes to account 00000012345 (status, current balance, credit limit, cash credit limit, cycle credit and debit, group, and open, expiry and reissue dates entered as year, month and day). Both the account and customer records are locked and neither has changed since they were shown, **when** The operator confirms with PF5, **then** The account record is saved with the new status, balance, limits, cycle credit and debit, group, and with the open, expiry and reissue dates stored as YYYY-MM-DD (for example 2025-03-01) (OATM-C13-AC-07)
+8. **Given** The account record of a confirmed update has just been saved, and the operator entered phone number 1 as area 212, prefix 555 and line 0100 and date of birth as 1980, 07, 15, **when** The system saves the customer record, **then** The customer record holds the new name, address, SSN, government ID, EFT account, primary holder indicator and FICO score, phone number 1 is stored as '(212)555-0100' and date of birth as '1980-07-15' (OATM-C13-AC-08)
 
 ## Requirements
 

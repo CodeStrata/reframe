@@ -18,30 +18,26 @@ Runs as online.
 
 ### Cards (S-CARD-LIST)
 
-Browse and filter credit cards by account and card number, and open a card to view or edit it from its row.
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Card (S-CARD-DETAIL)
+### Card details (S-CARD-DETAIL)
 
-Find a card by account and card number, see its embossed name, expiry date and active status, and edit those details with a confirmation before saving. Replaces the separate view and update screens: the same card is found, shown and edited in one place.
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
 
 Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Edit card | form | Name on card, status, expiry month and expiry year in that tab order, prefilled with the stored values. Saving checks every field, shows each error beside its field, then asks for confirmation. | Something must change (ignoring upper/lower case): 'No changes to save. The details match the stored values.' (legacy 'No change detected with respect to values fetched.') Errors are reported in the order name, status, expiry month, expiry year. |  | CCLDV-REQ-F-078, CCLDV-REQ-F-079, CCLDV-REQ-F-080, CCLDV-REQ-F-081, CCLDV-REQ-F-088, CCLDV-REQ-F-089, CCLDV-REQ-F-091, CCLDV-REQ-F-092 |
-| Name on card | text | Embossed name, up to 50 characters | Required; letters and spaces only. Messages: 'Enter the name on the card.' (legacy 'Card name not provided'), 'Name on card can only contain letters and spaces.' (legacy 'Card name can only contain alphabets and spaces') |  | CCLDV-REQ-F-082, CCLDV-REQ-F-083 |
-| Status | radio | Active (Y) or Inactive (N) | One must be chosen: 'Choose whether the card is active or inactive.' (legacy 'Card Active Status must be Y or N') |  | CCLDV-REQ-F-084 |
-| Expiry month | select | Months 01 to 12 | Required; 1 to 12. Message: 'Card expiry month must be between 1 and 12.' |  | CCLDV-REQ-F-085, CCLDV-REQ-F-087 |
-| Expiry year | number | Four-digit year | Required; 1950 to 2099. Message: 'Enter an expiry year between 1950 and 2099.' (legacy 'Invalid card expiry year') |  | CCLDV-REQ-F-086, CCLDV-REQ-F-087 |
-| Fix the highlighted fields | message | Error summary listing each failing field with what to fix, each linked to its field; focus moves to the summary |  |  | CCLDV-REQ-F-088, CCLDV-REQ-F-089 |
-| Save changes | button | Checks the changes and, when they pass, opens the confirmation dialog; nothing is written until confirmed |  |  | CCLDV-REQ-F-081, CCLDV-REQ-F-090, CCLDV-REQ-F-091 |
-| Discard changes | button | Drops the unsaved edits and shows the stored card details again, re-read from the file |  |  |  |
-| Save changes to this card? | dialog | Lists each changed value as old and new; Save writes the card, Go back returns to the form with the edits kept. Focus moves into the dialog and returns to Save changes on close. |  |  | CCLDV-REQ-F-090 |
+| Name on card | **summary card** | Embossed name, up to 50 characters, editable | Required, letters and spaces only: 'Card name not provided. Enter the name as it should appear on the card.' or 'Card name can only contain alphabets and spaces. Remove digits and symbols.' |  | CCLDV-REQ-F-082, CCLDV-REQ-F-083 |
+| Card active | **summary card** | Active or Inactive, chosen with two labelled radio buttons instead of typing Y or N | One must be chosen; 'Card Active Status must be Y or N' becomes 'Choose Active or Inactive.' |  | CCLDV-REQ-F-084 |
+| Expiry month | **summary card** | Expiry month, chosen from the months January to December; the stored expiry day is kept | 'Card expiry month must be between 1 and 12. Choose the month printed on the card.' |  | CCLDV-REQ-F-085, CCLDV-REQ-F-079 |
+| Expiry year | **summary card** | Four-digit expiry year | 'Invalid card expiry year. Enter a year from 1950 to 2099.' |  | CCLDV-REQ-F-086 |
+| Save card | **primary button** | Checks name, status, expiry month and expiry year, shows each failing field's message beside it with a summary at the top, and saves when all pass; enabled once a card is found. Results: 'Changes committed to database'; 'Record changed by some one else. Please review' with the stored values reloaded; 'Could not lock record for update' or 'Update of record failed' with 'Changes unsuccessful. Please try again'. Esc discards unsaved edits. | Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year. |  | CCLDV-REQ-F-080, CCLDV-REQ-F-088, CCLDV-REQ-F-090 |
 
 
 ## Data model
@@ -86,12 +82,12 @@ Record `CARD-RECORD`:
 
 ## Design notes
 
-- CCLDV-BR-085: When the edit form is submitted, an embossed name, active status, expiry month or expiry year entered as '*' or left blank counts as 'not supplied', and any other entry is the proposed new value. Map this once in the form-to-model step so the checks only see a value or 'not supplied'.
-- CCLDV-BR-086: An embossed name entered as '*' or left blank is read as 'not supplied'. Any other text is the proposed new name, which the name check then validates.
-- CCLDV-BR-087: An active status entered as '*' or left blank is read as 'not supplied', so the status check reports it as missing rather than as an invalid value.
-- CCLDV-BR-088: An expiry month or expiry year entered as '*' or left blank is read as 'not supplied'. Any other entry is the proposed new value, which the month and year range checks then validate.
-- CCLDV-BR-089: The expiry day is not editable and is not given the '*' or blank treatment. The new application should carry the original expiry day through unchanged instead of reading it back from the form.
-- CCLDV-BR-090: The expiry day saved with the card is the day held for the edit, unchanged, joined with the new year and month. Take it from the server-side original snapshot, not from a hidden form field, so it cannot be altered.
+- CCLDV-BR-085: Normalise the editable card fields on submit: an embossed name, active status, expiry month or expiry year entered as '*' or left blank becomes 'not supplied' (null). Any other entry becomes the new value.
+- CCLDV-BR-086: Embossed name input: '*' or blank becomes 'not supplied'. Otherwise the entered text is the new embossed name, passed to the name check.
+- CCLDV-BR-087: Active status input: '*' or blank becomes 'not supplied', which the status check then rejects as not Y or N.
+- CCLDV-BR-088: Expiry month and expiry year inputs: '*' or blank becomes 'not supplied'. Otherwise the entered value is the new month or year, passed to the range checks.
+- CCLDV-BR-089: The expiry day is not normalised or validated. Carry it through exactly as the screen returns it. The screen shows the original expiry day, so in practice the stored day is kept.
+- CCLDV-BR-090: When building the expiry date to save, use the expiry day as returned by the screen, unchanged, together with the validated new year and month.
 
 ## Decision tables
 

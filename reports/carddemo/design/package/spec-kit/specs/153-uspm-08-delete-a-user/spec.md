@@ -10,7 +10,7 @@
 
 As an administrator, I want to look up a user and delete them from the user security file, so that people who should no longer use CardDemo lose their access.
 
-Lets an administrator look up a user and delete them from the user security file, so that they can no longer sign on. Delete acts at once on the User ID in the field, with no separate confirmation and no prior lookup needed, so the screen must show the user's details before delete is offered and must report the outcome clearly. As in the legacy system, the program itself does not check that the signed-on user is an administrator.
+Lets an administrator look up a user and delete them from the user security file, so that the person can no longer sign on. Deletion happens on PF5 for whatever User ID is in the field, with no separate confirmation and no role check inside the screen. It must never delete a user other than the one whose ID is shown, and it must never delete anything when the User ID is blank.
 
 **Acceptance scenarios:**
 
@@ -26,10 +26,10 @@ Lets an administrator look up a user and delete them from the user security file
 10. **Given** Key pressed: PF3; Calling program: COUSR00C, **when** an administrator presses PF3 on the Delete User screen, **then** The user list screen (COUSR00C) is shown again (USPM-C08-AC-10)
 11. **Given** Key pressed: PF3; Calling program: (blank), **when** an administrator presses PF3 on the Delete User screen, **then** The admin menu (COADM01C) is shown (USPM-C08-AC-11)
 12. **Given** User ID: JDOE0001; Key: PF4, **when** the administrator presses PF4, **then** All fields are blank; cursor in User ID (USPM-C08-AC-12)
-13. **Given** the administrator marked user 'USER0002' with 'D' on the User List screen, **when** the User Delete screen opens for the first time, **then** the User ID field contains 'USER0002' and the user is looked up straight away, showing that user's details or the lookup error (USPM-C08-AC-13)
-14. **Given** user 'USER0003' exists in the user security file with first name, last name and user type 'U', **when** the administrator enters 'USER0003' on the User Delete screen and presses Enter, **then** the user's first name, last name and user type 'U' are shown with the message 'Press PF5 key to delete this user ...' in neutral colour (USPM-C08-AC-14)
-15. **Given** user 'USER0004' exists and the administrator has typed 'USER0004' into the User ID field without pressing Enter first, **when** the administrator presses PF5, **then** user 'USER0004' is deleted with no lookup step and no confirmation prompt first (USPM-C08-AC-15)
-16. **Given** user 'USER0005' exists in the user security file, **when** the administrator presses PF5 with 'USER0005' in the User ID field, **then** the record is read for update and deleted, the User ID, name and type fields are cleared, and 'User USER0005 has been deleted ...' is shown in green. A later lookup of 'USER0005' finds no user. (USPM-C08-AC-16)
+13. **Given** the administrator marked user 'USER0003' with 'D' on the User List screen, **when** the User Delete screen opens for the first time, **then** the User ID field holds 'USER0003' and the user is looked up straight away, showing that user's details, or the lookup error if the lookup fails (USPM-C08-AC-13)
+14. **Given** user 'USER0003' exists in the user security file, **when** the administrator enters User ID 'USER0003' on the User Delete screen and presses Enter, **then** that user's first name, last name and user type are shown with the message 'Press PF5 key to delete this user ...' in neutral colour (USPM-C08-AC-14)
+15. **Given** user 'USER0004' exists and the administrator has typed 'USER0004' into the User ID field without pressing Enter first, **when** the administrator presses PF5, **then** user 'USER0004' is deleted with no separate confirmation step (USPM-C08-AC-15)
+16. **Given** user 'USER0003' exists in the user security file, **when** the administrator presses PF5 with User ID 'USER0003', **then** the record for 'USER0003' is removed from the user security file, the User ID, name and type fields are cleared, and 'User USER0003 has been deleted ...' is shown in green (USPM-C08-AC-16)
 
 ## Requirements
 

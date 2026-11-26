@@ -7,7 +7,7 @@
   - _Requirements: TTRDM-REQ-F-146_
   - _Rules: TTRDM-BR-158_
 - [ ] 2. TTRDM-C21-T2 [api] Build the scheduled job
-  - TTRDM-BR-157: The new application needs a batch job, run on demand or on a schedule, that reads a maintenance request file without locking it and applies the requests to the transaction type table. It must write a run log that operations can read after the job.
+  - TTRDM-BR-157: A scheduled or on-demand batch job that reads a request file without taking it exclusively. It connects to the reference data database with the application's own credentials and applies each request to the transaction types table. It writes a per-run log of messages that operations can review. The subsystem and plan names have no counterpart: they become the job's database connection configuration.
   - _Requirements: TTRDM-REQ-F-145_
   - _Rules: TTRDM-BR-157_
   - _After: TTRDM-C21-T1_

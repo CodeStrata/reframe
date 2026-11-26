@@ -10,7 +10,7 @@
 
 As an operations user, I want to create the backup generations for transaction type, category and disclosure group reference data, so that earlier versions of the reference data can be kept.
 
-Sets up the backup history for the transaction type, transaction category and disclosure group reference data, and takes the first backup of each, so earlier versions can be recovered. At most five transaction type backups are kept, and the oldest is removed when a sixth is added. A backup must only be taken if the steps before it succeeded.
+A one-time setup job for operations that creates the backup history for the transaction type, transaction category and disclosure group reference data, and stores a first backup copy of each. Each backup runs only when the earlier steps succeeded, and the transaction type history keeps at most five copies.
 
 **Acceptance scenarios:**
 

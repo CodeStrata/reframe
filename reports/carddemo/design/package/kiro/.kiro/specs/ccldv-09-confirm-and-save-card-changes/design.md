@@ -4,35 +4,30 @@
 
 ## Overview
 
-Saves validated card changes only after the operator confirms them with PF5, and lets them drop unsaved edits with PF12. Before writing, it locks the card and checks it still matches what was fetched. It must never overwrite a card that someone else changed in the meantime, and must never save without confirmation.
+After the changes pass the checks, the card operations user confirms them with PF5, and only then is the card record saved. PF12 discards unsaved edits and reloads the card. The save must never overwrite changes someone else made since the card was shown. If the stored card has changed, or it cannot be locked or rewritten, nothing is written and the user is told with the exact message.
 
-Runs as online. Journeys: J09, J10.
+Runs as online. Journeys: J08.
 
 ## Screens and components
 
 ### Cards (S-CARD-LIST)
 
-Browse and filter credit cards by account and card number, and open a card to view or edit it from its row.
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Card (S-CARD-DETAIL)
+### Card details (S-CARD-DETAIL)
 
-Find a card by account and card number, see its embossed name, expiry date and active status, and edit those details with a confirmation before saving. Replaces the separate view and update screens: the same card is found, shown and edited in one place.
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
 
 Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Edit card | button | Turns the card details into the edit form prefilled with the stored values; shown once a card is found; opened directly by the card list Edit action |  |  | CCLDV-REQ-F-093 |
-| Edit card | form | Name on card, status, expiry month and expiry year in that tab order, prefilled with the stored values. Saving checks every field, shows each error beside its field, then asks for confirmation. | Something must change (ignoring upper/lower case): 'No changes to save. The details match the stored values.' (legacy 'No change detected with respect to values fetched.') Errors are reported in the order name, status, expiry month, expiry year. |  | CCLDV-REQ-F-093 |
-| Save changes | button | Checks the changes and, when they pass, opens the confirmation dialog; nothing is written until confirmed |  |  | CCLDV-REQ-F-095 |
-| Discard changes | button | Drops the unsaved edits and shows the stored card details again, re-read from the file |  |  | CCLDV-REQ-F-094 |
-| Save changes to this card? | dialog | Lists each changed value as old and new; Save writes the card, Go back returns to the form with the edits kept. Focus moves into the dialog and returns to Save changes on close. |  |  | CCLDV-REQ-F-095, CCLDV-REQ-F-099 |
-| Save result | message | Success: 'Changes saved.' with the card shown read-only. Conflict: 'This card was changed by someone else since you opened it. The latest details are shown; make your changes again.' Failure: 'The changes could not be saved. Try again.' |  |  | CCLDV-REQ-F-096, CCLDV-REQ-F-097, CCLDV-REQ-F-098, CCLDV-REQ-F-099 |
+| Save card | **primary button** | Checks name, status, expiry month and expiry year, shows each failing field's message beside it with a summary at the top, and saves when all pass; enabled once a card is found. Results: 'Changes committed to database'; 'Record changed by some one else. Please review' with the stored values reloaded; 'Could not lock record for update' or 'Update of record failed' with 'Changes unsuccessful. Please try again'. Esc discards unsaved edits. | Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year. |  | CCLDV-REQ-F-094, CCLDV-REQ-F-096, CCLDV-REQ-F-097, CCLDV-REQ-F-098, CCLDV-REQ-F-099 |
 
 
 ## Data models

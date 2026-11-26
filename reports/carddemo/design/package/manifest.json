@@ -836,7 +836,7 @@
     "DTPR-C15-T5",
     "DTPR-C15-T6"
    ],
-   "hash": "310f79a48acadd7e"
+   "hash": "ec89de22ac6f3eaf"
   },
   "DTPR-C16": {
    "title": "Run the transaction report job",
@@ -861,9 +861,10 @@
     "DTPR-C16-T2",
     "DTPR-C16-T3",
     "DTPR-C16-T4",
-    "DTPR-C16-T5"
+    "DTPR-C16-T5",
+    "DTPR-C16-T6"
    ],
-   "hash": "ca84d1ef29b44d92"
+   "hash": "5bceebd2aecd927d"
   },
   "DTPR-C17": {
    "title": "Print the daily transaction report with totals",
@@ -947,13 +948,12 @@
     "OATM-C01-AC-06": "2a8d1b813952987d",
     "OATM-C01-AC-07": "7687d68555e1c4d0",
     "OATM-C01-AC-08": "fe7f39e6708c543d",
-    "OATM-C01-AC-09": "194acad0d40120dd",
-    "OATM-C01-AC-10": "1ea251d246ea7f32",
-    "OATM-C01-AC-11": "8ff1c7d9ce41bd91",
-    "OATM-C01-AC-12": "24f142ac64507a1d",
-    "OATM-C01-AC-13": "d12ee4116de33cd7",
-    "OATM-C01-AC-14": "7704b654ec6ca17d",
-    "OATM-C01-AC-15": "b7c9f7671ad5ee8c"
+    "OATM-C01-AC-09": "d1e2476c255c9c10",
+    "OATM-C01-AC-10": "174f0b5b244fd402",
+    "OATM-C01-AC-11": "bb18810413d721c8",
+    "OATM-C01-AC-12": "50432e88e4bcfef4",
+    "OATM-C01-AC-13": "b31b0652c734dd94",
+    "OATM-C01-AC-14": "57f9c6d9cb6c6a0e"
    },
    "tasks": [
     "OATM-C01-T1",
@@ -964,7 +964,7 @@
     "OATM-C01-T6",
     "OATM-C01-T7"
    ],
-   "hash": "9e0dfac10681ba54"
+   "hash": "95a9b54f8f5511ff"
   },
   "OATM-C02": {
    "title": "View account and customer details for update",
@@ -1020,7 +1020,7 @@
     "OATM-C02-T4",
     "OATM-C02-T5"
    ],
-   "hash": "0de890567a97e4a0"
+   "hash": "a04139641dc2aaea"
   },
   "OATM-C03": {
    "title": "Capture entered changes",
@@ -1069,7 +1069,7 @@
     "OATM-C03-T4",
     "OATM-C03-T5"
    ],
-   "hash": "9904e20959d43087"
+   "hash": "185a9fc40f71b718"
   },
   "OATM-C04": {
    "title": "Validate changed account and customer fields",
@@ -1116,10 +1116,10 @@
     "OATM-C04-AC-12": "09051f436376c8ec",
     "OATM-C04-AC-13": "5fb7ded14d0e2e90",
     "OATM-C04-AC-14": "49755381ce2a1ebc",
-    "OATM-C04-AC-15": "6beb5b2559ec6d38",
-    "OATM-C04-AC-16": "f5392ff32fa54380",
-    "OATM-C04-AC-17": "e256438eed3fde3f",
-    "OATM-C04-AC-18": "c75795ae3a14f7df"
+    "OATM-C04-AC-15": "f6caf993e0b6d872",
+    "OATM-C04-AC-16": "b260e87522eb4c3b",
+    "OATM-C04-AC-17": "94a42d9991ab534f",
+    "OATM-C04-AC-18": "03c97d01f062cc77"
    },
    "tasks": [
     "OATM-C04-T1",
@@ -1128,7 +1128,7 @@
     "OATM-C04-T4",
     "OATM-C04-T5"
    ],
-   "hash": "1820d600846afd66"
+   "hash": "3ef6000e9e451646"
   },
   "OATM-C05": {
    "title": "Validate account and customer dates",
@@ -1173,17 +1173,14 @@
     "OATM-C05-AC-05": "9521c0e253347b3c",
     "OATM-C05-AC-06": "d2d2ca7bb6b4a575",
     "OATM-C05-AC-07": "00a0001756e28c75",
-    "OATM-C05-AC-08": "f76d366faf348e3a",
-    "OATM-C05-AC-09": "9e4bb4fc5d5fd020",
-    "OATM-C05-AC-10": "44b5b1a91f406ea7",
-    "OATM-C05-AC-11": "d9004662ea6fca8a",
-    "OATM-C05-AC-12": "1e334811a455ded2",
-    "OATM-C05-AC-13": "c8e76887846865a1",
-    "OATM-C05-AC-14": "765b887e273520dd",
-    "OATM-C05-AC-15": "a156bfcd3f18714b",
-    "OATM-C05-AC-16": "ac92ab41d7ed7b21",
-    "OATM-C05-AC-17": "6c54c1301af3858f",
-    "OATM-C05-AC-18": "8526ef20915a4b3f"
+    "OATM-C05-AC-08": "e78790d348d07253",
+    "OATM-C05-AC-09": "cf4dd9b5c0bcc5fe",
+    "OATM-C05-AC-10": "6a133971a73ebb26",
+    "OATM-C05-AC-11": "5f49e81fe6f08491",
+    "OATM-C05-AC-12": "e935996d9276f816",
+    "OATM-C05-AC-13": "48afeed7e3d2b52b",
+    "OATM-C05-AC-14": "7503ebdf9ea2c88a",
+    "OATM-C05-AC-15": "91d24d092b8555b0"
    },
    "tasks": [
     "OATM-C05-T1",
@@ -1193,7 +1190,7 @@
     "OATM-C05-T5",
     "OATM-C05-T6"
    ],
-   "hash": "bbbcb4e5909c21e0"
+   "hash": "ade129c0fe300c41"
   },
   "OATM-C06": {
    "title": "Confirm and save the account update",
@@ -1215,7 +1212,7 @@
     "OATM-C06-AC-04": "18af26b6addb93e9",
     "OATM-C06-AC-05": "e3aa34dc731973ae",
     "OATM-C06-AC-06": "c195ff490130fbd2",
-    "OATM-C06-AC-07": "2e1d476fb0b781ef"
+    "OATM-C06-AC-07": "155f9b09c5a67c00"
    },
    "tasks": [
     "OATM-C06-T1",
@@ -1226,7 +1223,7 @@
     "OATM-C06-T6",
     "OATM-C06-T7"
    ],
-   "hash": "b61f065683e5aab0"
+   "hash": "73c536319e038e19"
   },
   "OATM-C07": {
    "title": "Select an account to update",
@@ -1257,8 +1254,8 @@
     "OATM-C07-AC-07": "7ca034c71d37f197",
     "OATM-C07-AC-08": "513dae80732cbb30",
     "OATM-C07-AC-09": "1ad139c01cbc495a",
-    "OATM-C07-AC-10": "e9832e546c301419",
-    "OATM-C07-AC-11": "0088df358312cf2d"
+    "OATM-C07-AC-10": "511d1055cd1615ec",
+    "OATM-C07-AC-11": "f8b3765944607694"
    },
    "tasks": [
     "OATM-C07-T1",
@@ -1268,7 +1265,7 @@
     "OATM-C07-T5",
     "OATM-C07-T6"
    ],
-   "hash": "38aa70c0bb1592b3"
+   "hash": "a7048f18df3c6458"
   },
   "OATM-C08": {
    "title": "Detect changes before validating",
@@ -1307,7 +1304,7 @@
     "OATM-C08-T5",
     "OATM-C08-T6"
    ],
-   "hash": "5faf9d36d6050fc8"
+   "hash": "b5b97df1415e924c"
   },
   "OATM-C09": {
    "title": "Validate customer name and address",
@@ -1348,11 +1345,11 @@
     "OATM-C09-AC-09": "96fe74fd22417476",
     "OATM-C09-AC-10": "1483b6bdf1933fc6",
     "OATM-C09-AC-11": "806b87a9856480ae",
-    "OATM-C09-AC-12": "53fba3deb435cc57",
-    "OATM-C09-AC-13": "023f444ad3b9516e",
-    "OATM-C09-AC-14": "7e09b615944ba432",
-    "OATM-C09-AC-15": "f8d6d7aba5a5cd50",
-    "OATM-C09-AC-16": "70a74a9f1081f133"
+    "OATM-C09-AC-12": "40580953e649a284",
+    "OATM-C09-AC-13": "5c0a0f1f542e2666",
+    "OATM-C09-AC-14": "f2665b9011dc787a",
+    "OATM-C09-AC-15": "cb6b178dc0b0d852",
+    "OATM-C09-AC-16": "521c259d977f5ae5"
    },
    "tasks": [
     "OATM-C09-T1",
@@ -1362,7 +1359,7 @@
     "OATM-C09-T5",
     "OATM-C09-T6"
    ],
-   "hash": "e73ee9412275e514"
+   "hash": "c2e8b71ff0b43eb2"
   },
   "OATM-C10": {
    "title": "Validate customer phone numbers",
@@ -1405,13 +1402,13 @@
     "OATM-C10-AC-04": "04eeb43fab9bda46",
     "OATM-C10-AC-05": "fa33fb803907e781",
     "OATM-C10-AC-06": "7179d87e6f98c6e5",
-    "OATM-C10-AC-07": "4cc577f1a74fedda",
-    "OATM-C10-AC-08": "28edb12f33cc5f93",
-    "OATM-C10-AC-09": "b43e6ad73f393730",
-    "OATM-C10-AC-10": "4f856d6fb8c2edac",
-    "OATM-C10-AC-11": "6d319645884c5a63",
-    "OATM-C10-AC-12": "a6e319ec1fc6c689",
-    "OATM-C10-AC-13": "a610e840907196fa"
+    "OATM-C10-AC-07": "299a43618823da59",
+    "OATM-C10-AC-08": "0d6f7c4c4a534f94",
+    "OATM-C10-AC-09": "ae62b307eb24aa20",
+    "OATM-C10-AC-10": "1618611c18976d5b",
+    "OATM-C10-AC-11": "daca85fa337a911c",
+    "OATM-C10-AC-12": "bb12cfb79fc6c11f",
+    "OATM-C10-AC-13": "531f6a36b10b68a8"
    },
    "tasks": [
     "OATM-C10-T1",
@@ -1422,7 +1419,7 @@
     "OATM-C10-T6",
     "OATM-C10-T7"
    ],
-   "hash": "beb3a163278a006c"
+   "hash": "1690c33d50135bd5"
   },
   "OATM-C11": {
    "title": "Validate identity and credit details",
@@ -1454,14 +1451,13 @@
     "OATM-C11-AC-03": "1b6c37d5998ecdb2",
     "OATM-C11-AC-04": "3b43349fe83ea0be",
     "OATM-C11-AC-05": "d7d18318618d1d77",
-    "OATM-C11-AC-06": "248a50ab0a0a0f7a",
-    "OATM-C11-AC-07": "b42fc498f354f978",
-    "OATM-C11-AC-08": "902f07efa51d74d3",
-    "OATM-C11-AC-09": "84f7fb4e1feebc69",
-    "OATM-C11-AC-10": "d065861e9cc06e3e",
-    "OATM-C11-AC-11": "5a8685776c0ec7ba",
-    "OATM-C11-AC-12": "6c4032014c5e30de",
-    "OATM-C11-AC-13": "63342a258d55dc35"
+    "OATM-C11-AC-06": "d69a49886789d7f1",
+    "OATM-C11-AC-07": "522423202e256727",
+    "OATM-C11-AC-08": "7e0433287b538507",
+    "OATM-C11-AC-09": "31c604f9ba8f33d6",
+    "OATM-C11-AC-10": "c63559cce6ba53fd",
+    "OATM-C11-AC-11": "7962cfdfd17ccbe3",
+    "OATM-C11-AC-12": "b87254d793ac4470"
    },
    "tasks": [
     "OATM-C11-T1",
@@ -1471,7 +1467,7 @@
     "OATM-C11-T5",
     "OATM-C11-T6"
    ],
-   "hash": "134ca7e5a0d412b6"
+   "hash": "db80dd0332455759"
   },
   "OATM-C12": {
    "title": "Validate account flags and EFT account",
@@ -1505,7 +1501,7 @@
     "OATM-C12-T5",
     "OATM-C12-T6"
    ],
-   "hash": "dc25a687de43e164"
+   "hash": "a0876c612df6e770"
   },
   "OATM-C13": {
    "title": "Save confirmed account and customer changes",
@@ -1536,8 +1532,8 @@
     "OATM-C13-AC-04": "e350256aeefa591c",
     "OATM-C13-AC-05": "f01c1ad25431faa3",
     "OATM-C13-AC-06": "9fbb1b18d9ea6d01",
-    "OATM-C13-AC-07": "01febd42dd77969e",
-    "OATM-C13-AC-08": "7633b2dfcdbb3029"
+    "OATM-C13-AC-07": "cc69da2783078acf",
+    "OATM-C13-AC-08": "542244991dd278a4"
    },
    "tasks": [
     "OATM-C13-T1",
@@ -1547,7 +1543,7 @@
     "OATM-C13-T5",
     "OATM-C13-T6"
    ],
-   "hash": "c07236921c7dc894"
+   "hash": "b4e8adf31625427c"
   },
   "OATM-C14": {
    "title": "Navigate the account update screen",
@@ -1577,9 +1573,10 @@
     "OATM-C14-T2",
     "OATM-C14-T3",
     "OATM-C14-T4",
-    "OATM-C14-T5"
+    "OATM-C14-T5",
+    "OATM-C14-T6"
    ],
-   "hash": "55cd77799478b652"
+   "hash": "28cdb5176a442dd0"
   },
   "OATM-C15": {
    "title": "Update account details with validation and confirmation",
@@ -1614,7 +1611,7 @@
     "OATM-C15-T4",
     "OATM-C15-T5"
    ],
-   "hash": "0e8308c3b37a4e51"
+   "hash": "e52db49ec46d37f0"
   },
   "OATM-C16": {
    "title": "Validate and look up an account for viewing",
@@ -1663,11 +1660,13 @@
     "OATM-C16-AC-09": "84d7d3bccae44d76",
     "OATM-C16-AC-10": "80fe2e47a0a3c30c",
     "OATM-C16-AC-11": "1a1d86374370b597",
-    "OATM-C16-AC-12": "32d1bd960be4253a",
-    "OATM-C16-AC-13": "ef441e00332a49bf",
-    "OATM-C16-AC-14": "71cbdab791406b5b",
-    "OATM-C16-AC-15": "8ee1240b32f9ffee",
-    "OATM-C16-AC-16": "1fa307a2fc581efc"
+    "OATM-C16-AC-12": "6d0f61c7a6dab93b",
+    "OATM-C16-AC-13": "79c15b3815acc4a9",
+    "OATM-C16-AC-14": "2a98c598c07ffb5b",
+    "OATM-C16-AC-15": "7c6dc20af5d9541f",
+    "OATM-C16-AC-16": "03ba627e0a6c6dfd",
+    "OATM-C16-AC-17": "8a54079e12079b37",
+    "OATM-C16-AC-18": "9a6816b98ffe94ed"
    },
    "tasks": [
     "OATM-C16-T1",
@@ -1676,9 +1675,10 @@
     "OATM-C16-T4",
     "OATM-C16-T5",
     "OATM-C16-T6",
-    "OATM-C16-T7"
+    "OATM-C16-T7",
+    "OATM-C16-T8"
    ],
-   "hash": "9ea38c1614772380"
+   "hash": "0bcfc06801c329ce"
   },
   "OATM-C17": {
    "title": "Display account and customer details",
@@ -1723,7 +1723,7 @@
     "OATM-C17-T5",
     "OATM-C17-T6"
    ],
-   "hash": "2ec3b79dd3aa90a4"
+   "hash": "126a502e51876131"
   },
   "OATM-C18": {
    "title": "Navigate the account view screen",
@@ -1760,9 +1760,10 @@
     "OATM-C18-T3",
     "OATM-C18-T4",
     "OATM-C18-T5",
-    "OATM-C18-T6"
+    "OATM-C18-T6",
+    "OATM-C18-T7"
    ],
-   "hash": "c62d56206d8921f9"
+   "hash": "f17c5a6e446b0acb"
   },
   "OATM-C19": {
    "title": "Request a bill payment",
@@ -1820,10 +1821,9 @@
     "OATM-C19-T4",
     "OATM-C19-T5",
     "OATM-C19-T6",
-    "OATM-C19-T7",
-    "OATM-C19-T8"
+    "OATM-C19-T7"
    ],
-   "hash": "b7a13f945bdbb877"
+   "hash": "76ec48997c114611"
   },
   "OATM-C20": {
    "title": "Post a full-balance bill payment",
@@ -1871,7 +1871,7 @@
     "OATM-C20-AC-12": "6b8c96cb5d8c436f",
     "OATM-C20-AC-13": "b0329bc63d9db75b",
     "OATM-C20-AC-14": "667849212c8adab3",
-    "OATM-C20-AC-15": "9593ef8fa1791957"
+    "OATM-C20-AC-15": "088963efae661292"
    },
    "tasks": [
     "OATM-C20-T1",
@@ -1882,7 +1882,7 @@
     "OATM-C20-T6",
     "OATM-C20-T7"
    ],
-   "hash": "800684f73102522b"
+   "hash": "dae2bb2f9c1cbf98"
   },
   "OATM-C21": {
    "title": "Set report period for transaction reports",
@@ -1906,7 +1906,7 @@
     "OATM-C21-T3",
     "OATM-C21-T4"
    ],
-   "hash": "80dd153eda546301"
+   "hash": "264e403749cd92f8"
   },
   "OATM-C22": {
    "title": "Reach and move around the transaction report screen",
@@ -1941,7 +1941,7 @@
     "OATM-C22-T6",
     "OATM-C22-T7"
    ],
-   "hash": "9d8a01efa4c24268"
+   "hash": "bf0cde9f2efd1cf6"
   },
   "OATM-C23": {
    "title": "Choose a report type and a valid custom period",
@@ -1992,7 +1992,7 @@
     "OATM-C23-T4",
     "OATM-C23-T5"
    ],
-   "hash": "2e07b632e8bb1cc6"
+   "hash": "ff93f479b9b5abf4"
   },
   "OATM-C24": {
    "title": "Confirm and submit a transaction report for printing",
@@ -2023,11 +2023,11 @@
     "OATM-C24-AC-02": "d2d75a9509e7803a",
     "OATM-C24-AC-03": "7cc4dc9ffe1da847",
     "OATM-C24-AC-04": "e3fcb0dbf728579f",
-    "OATM-C24-AC-05": "5fad8fdddf6bd76b",
-    "OATM-C24-AC-06": "554d6f1cf3e474da",
-    "OATM-C24-AC-07": "e56d7946979cdb11",
-    "OATM-C24-AC-08": "11662dc2f7f0e85d",
-    "OATM-C24-AC-09": "ffd0f0450f2e580c"
+    "OATM-C24-AC-05": "b9ad3b471e45c00b",
+    "OATM-C24-AC-06": "55da3a9327072736",
+    "OATM-C24-AC-07": "2ca70f86e0e95b40",
+    "OATM-C24-AC-08": "33d77ca1d525523e",
+    "OATM-C24-AC-09": "18df508dca529904"
    },
    "tasks": [
     "OATM-C24-T1",
@@ -2037,7 +2037,7 @@
     "OATM-C24-T5",
     "OATM-C24-T6"
    ],
-   "hash": "a14c5c53fa19da68"
+   "hash": "a91f19f1bcac6cec"
   },
   "OATM-C25": {
    "title": "Browse and page through the transaction list",
@@ -2127,7 +2127,8 @@
     "OATM-C25-AC-28": "11124d3169521e60",
     "OATM-C25-AC-29": "da0420bb9243fc99",
     "OATM-C25-AC-30": "ee384f157799ce4d",
-    "OATM-C25-AC-31": "817a1dc6edf22bd0"
+    "OATM-C25-AC-31": "083c6ffea5f47eaa",
+    "OATM-C25-AC-32": "867413623bc771a0"
    },
    "tasks": [
     "OATM-C25-T1",
@@ -2138,7 +2139,7 @@
     "OATM-C25-T6",
     "OATM-C25-T7"
    ],
-   "hash": "04f3a15bc189c642"
+   "hash": "7afdb8ec7edf3b56"
   },
   "OATM-C26": {
    "title": "Select a transaction from the list to view its details",
@@ -2171,7 +2172,7 @@
     "OATM-C26-T5",
     "OATM-C26-T6"
    ],
-   "hash": "f45845760e6fb7c7"
+   "hash": "e81027299c3dd5eb"
   },
   "OATM-C27": {
    "title": "Transaction list access and session handling",
@@ -2206,7 +2207,7 @@
     "OATM-C27-T6",
     "OATM-C27-T7"
    ],
-   "hash": "22b9650479825d19"
+   "hash": "e0c8e53727ea8a0c"
   },
   "OATM-C28": {
    "title": "Look up a single transaction",
@@ -2231,7 +2232,7 @@
     "OATM-C28-T5",
     "OATM-C28-T6"
    ],
-   "hash": "30c2e8257f749515"
+   "hash": "44cce183d3ff0d2b"
   },
   "OATM-C29": {
    "title": "View a single transaction",
@@ -2274,8 +2275,8 @@
     "OATM-C29-AC-09": "aaf525cbbe5bae00",
     "OATM-C29-AC-10": "36f47e4f30da8721",
     "OATM-C29-AC-11": "e46037ee90305793",
-    "OATM-C29-AC-12": "c35c0000a07deb73",
-    "OATM-C29-AC-13": "80bd56f03d72570a"
+    "OATM-C29-AC-12": "44375f408734958b",
+    "OATM-C29-AC-13": "a5fc42681745ffa8"
    },
    "tasks": [
     "OATM-C29-T1",
@@ -2283,9 +2284,11 @@
     "OATM-C29-T3",
     "OATM-C29-T4",
     "OATM-C29-T5",
-    "OATM-C29-T6"
+    "OATM-C29-T6",
+    "OATM-C29-T7",
+    "OATM-C29-T8"
    ],
-   "hash": "ff765ef7acdd6a4f"
+   "hash": "c84f0cb86dcd715f"
   },
   "OATM-C30": {
    "title": "Open and navigate the Add Transaction screen",
@@ -2329,7 +2332,7 @@
     "OATM-C30-T6",
     "OATM-C30-T7"
    ],
-   "hash": "d567b61695dd24a9"
+   "hash": "3397a6357c1455d1"
   },
   "OATM-C31": {
    "title": "Identify the account and card for a new transaction",
@@ -2381,7 +2384,7 @@
     "OATM-C31-T5",
     "OATM-C31-T6"
    ],
-   "hash": "e92c7fcee7414c20"
+   "hash": "2afcffcf7f2e2c3d"
   },
   "OATM-C32": {
    "title": "Validate new transaction details",
@@ -2478,7 +2481,7 @@
     "OATM-C32-T5",
     "OATM-C32-T6"
    ],
-   "hash": "b4f6c92ce77dd651"
+   "hash": "3209fc5433bec22e"
   },
   "OATM-C33": {
    "title": "Record a confirmed new transaction",
@@ -2512,7 +2515,7 @@
     "OATM-C33-AC-06": "4c34044a098dab9b",
     "OATM-C33-AC-07": "d25391e8aea14c88",
     "OATM-C33-AC-08": "af0292ba92798270",
-    "OATM-C33-AC-09": "1290221c85a4a480"
+    "OATM-C33-AC-09": "54dfb08c4786370d"
    },
    "tasks": [
     "OATM-C33-T1",
@@ -2522,7 +2525,7 @@
     "OATM-C33-T5",
     "OATM-C33-T6"
    ],
-   "hash": "3103ea58ce21415d"
+   "hash": "082254560c260dcd"
   },
   "OATM-C34": {
    "title": "Confirm a transaction before it is added",
@@ -2546,7 +2549,7 @@
     "OATM-C34-T3",
     "OATM-C34-T4"
    ],
-   "hash": "cf01b349e17031dd"
+   "hash": "8c7429342e70abb3"
   },
   "OATM-C35": {
    "title": "Validate a date against a format mask",
@@ -2593,16 +2596,16 @@
     "OATM-C35-AC-09": "fe56309593ca20d2",
     "OATM-C35-AC-10": "6b8b389941d43f9f",
     "OATM-C35-AC-11": "ffcd01c5609885ed",
-    "OATM-C35-AC-12": "94d87e399df4b3e8",
-    "OATM-C35-AC-13": "a8a4e1ac3402120d",
-    "OATM-C35-AC-14": "b83af2cc9234702d"
+    "OATM-C35-AC-12": "1bd15e406b0c8fb6",
+    "OATM-C35-AC-13": "2f472374d1c7cb67",
+    "OATM-C35-AC-14": "e3e14cb050575ce4"
    },
    "tasks": [
     "OATM-C35-T1",
     "OATM-C35-T2",
     "OATM-C35-T3"
    ],
-   "hash": "aa14b54d8a8e8055"
+   "hash": "69a083c5966d8f5b"
   },
   "CCLDV-C01": {
    "title": "Browse and page the card list",
@@ -2681,7 +2684,7 @@
     "CCLDV-C01-AC-25": "3786bf0e48d6963f",
     "CCLDV-C01-AC-26": "13de73b619cb9304",
     "CCLDV-C01-AC-27": "21ba414c41ae1586",
-    "CCLDV-C01-AC-28": "e26ace5a47d3d9ba"
+    "CCLDV-C01-AC-28": "074d8ec022252739"
    },
    "tasks": [
     "CCLDV-C01-T1",
@@ -2691,10 +2694,9 @@
     "CCLDV-C01-T5",
     "CCLDV-C01-T6",
     "CCLDV-C01-T7",
-    "CCLDV-C01-T8",
-    "CCLDV-C01-T9"
+    "CCLDV-C01-T8"
    ],
-   "hash": "63952b3107f63de5"
+   "hash": "683075ea988feb30"
   },
   "CCLDV-C02": {
    "title": "Filter the card list by account and card number",
@@ -2737,7 +2739,7 @@
     "CCLDV-C02-T5",
     "CCLDV-C02-T6"
    ],
-   "hash": "e4cd54b493326007"
+   "hash": "b0c14d4f5327c5f4"
   },
   "CCLDV-C03": {
    "title": "Select a card to view or update",
@@ -2773,7 +2775,7 @@
     "CCLDV-C03-T5",
     "CCLDV-C03-T6"
    ],
-   "hash": "3577c89654eb947f"
+   "hash": "75cd6d7bb33549a7"
   },
   "CCLDV-C04": {
    "title": "Search and view card details",
@@ -2856,7 +2858,7 @@
     "CCLDV-C04-AC-30": "cb74f98399f8dd2f",
     "CCLDV-C04-AC-31": "ce77cd64a0d07685",
     "CCLDV-C04-AC-32": "8987d68788a28315",
-    "CCLDV-C04-AC-33": "92d9ccb2e0df007b"
+    "CCLDV-C04-AC-33": "18eac6269a845587"
    },
    "tasks": [
     "CCLDV-C04-T1",
@@ -2866,7 +2868,7 @@
     "CCLDV-C04-T5",
     "CCLDV-C04-T6"
    ],
-   "hash": "ee0cb821aa1fd573"
+   "hash": "64521880fa1507eb"
   },
   "CCLDV-C05": {
    "title": "Enter and leave the card detail screen",
@@ -2905,10 +2907,9 @@
     "CCLDV-C05-T4",
     "CCLDV-C05-T5",
     "CCLDV-C05-T6",
-    "CCLDV-C05-T7",
-    "CCLDV-C05-T8"
+    "CCLDV-C05-T7"
    ],
-   "hash": "53270a6f06eb5db3"
+   "hash": "116b4ba22a9de77a"
   },
   "CCLDV-C06": {
    "title": "Detect unchanged card details on update",
@@ -2932,7 +2933,7 @@
     "CCLDV-C06-T4",
     "CCLDV-C06-T5"
    ],
-   "hash": "0c84ed975ac878db"
+   "hash": "d8c44ea5c6257313"
   },
   "CCLDV-C07": {
    "title": "Find and show a card for update",
@@ -3015,8 +3016,8 @@
     "CCLDV-C07-AC-30": "1841e258142dbcbf",
     "CCLDV-C07-AC-31": "396962a203ee2b8a",
     "CCLDV-C07-AC-32": "169ff3d4c14df686",
-    "CCLDV-C07-AC-33": "83eb37a301a70bb5",
-    "CCLDV-C07-AC-34": "7c6ee6628f03c5b8"
+    "CCLDV-C07-AC-33": "6ec2963080e1bd8a",
+    "CCLDV-C07-AC-34": "cce2f5253084b099"
    },
    "tasks": [
     "CCLDV-C07-T1",
@@ -3025,10 +3026,9 @@
     "CCLDV-C07-T4",
     "CCLDV-C07-T5",
     "CCLDV-C07-T6",
-    "CCLDV-C07-T7",
-    "CCLDV-C07-T8"
+    "CCLDV-C07-T7"
    ],
-   "hash": "64e29888e0606b9c"
+   "hash": "06e3048a723dd7f1"
   },
   "CCLDV-C08": {
    "title": "Edit and validate card details",
@@ -3107,7 +3107,7 @@
     "CCLDV-C08-AC-30": "83655d94238b55de",
     "CCLDV-C08-AC-31": "9c8034ece20ee7e8",
     "CCLDV-C08-AC-32": "9cece86008f379c5",
-    "CCLDV-C08-AC-33": "1beb59abf917889e"
+    "CCLDV-C08-AC-33": "5267b7548e138670"
    },
    "tasks": [
     "CCLDV-C08-T1",
@@ -3118,7 +3118,7 @@
     "CCLDV-C08-T6",
     "CCLDV-C08-T7"
    ],
-   "hash": "ba3572f4ea57ce94"
+   "hash": "33b61685e8afc40a"
   },
   "CCLDV-C09": {
    "title": "Confirm and save card changes",
@@ -3169,7 +3169,7 @@
     "CCLDV-C09-T5",
     "CCLDV-C09-T6"
    ],
-   "hash": "753ef4f89478cb80"
+   "hash": "e569c0ebdf9a4747"
   },
   "CCLDV-C10": {
    "title": "Leave or restart card update",
@@ -3201,7 +3201,7 @@
     "CCLDV-C10-T5",
     "CCLDV-C10-T6"
    ],
-   "hash": "d98703089a6f12ae"
+   "hash": "15381ba4692223f4"
   },
   "CCLDV-C11": {
    "title": "Save card changes",
@@ -3216,7 +3216,7 @@
    },
    "criteria": {
     "CCLDV-C11-AC-01": "e369a70b58e1fb5b",
-    "CCLDV-C11-AC-02": "2cfadc5191baff2d"
+    "CCLDV-C11-AC-02": "7c886157d01820e3"
    },
    "tasks": [
     "CCLDV-C11-T1",
@@ -3226,7 +3226,7 @@
     "CCLDV-C11-T5",
     "CCLDV-C11-T6"
    ],
-   "hash": "e465da6de5bd1e15"
+   "hash": "f16e8c51c4d8b308"
   },
   "CPBM-C01": {
    "title": "Export complete customer profiles for branch migration",
@@ -3640,12 +3640,12 @@
     "TTRDM-C01-AC-08": "3eb173cec3dc967f",
     "TTRDM-C01-AC-09": "4a7b4f16867c1c0d",
     "TTRDM-C01-AC-10": "a0ecb5b7d45489a3",
-    "TTRDM-C01-AC-11": "90fb83cfe999d6df",
-    "TTRDM-C01-AC-12": "a67a6b5809211243",
-    "TTRDM-C01-AC-13": "ba709c855b4bb1d0",
-    "TTRDM-C01-AC-14": "1a7bc6cb6fecad8d",
-    "TTRDM-C01-AC-15": "4ee5d582bc0c0530",
-    "TTRDM-C01-AC-16": "c140c0f67a6e59a0"
+    "TTRDM-C01-AC-11": "7d89dd14a297d194",
+    "TTRDM-C01-AC-12": "f76d332a75115a70",
+    "TTRDM-C01-AC-13": "70dba35efcfda729",
+    "TTRDM-C01-AC-14": "07a44e39f187b2cc",
+    "TTRDM-C01-AC-15": "fc547d603c67fd74",
+    "TTRDM-C01-AC-16": "86816f88f1f149c0"
    },
    "tasks": [
     "TTRDM-C01-T1",
@@ -3653,7 +3653,7 @@
     "TTRDM-C01-T3",
     "TTRDM-C01-T4"
    ],
-   "hash": "f7bf800b6b475725"
+   "hash": "400c9ae860f9da84"
   },
   "TTRDM-C02": {
    "title": "Enter and leave the transaction type list",
@@ -3693,11 +3693,9 @@
     "TTRDM-C02-T2",
     "TTRDM-C02-T3",
     "TTRDM-C02-T4",
-    "TTRDM-C02-T5",
-    "TTRDM-C02-T6",
-    "TTRDM-C02-T7"
+    "TTRDM-C02-T5"
    ],
-   "hash": "533ed9fd247528a8"
+   "hash": "d2e1111a8e545360"
   },
   "TTRDM-C03": {
    "title": "Page through transaction types",
@@ -3767,7 +3765,7 @@
     "TTRDM-C03-T4",
     "TTRDM-C03-T5"
    ],
-   "hash": "5042a6e25bb05cc0"
+   "hash": "81affb5515c1ac93"
   },
   "TTRDM-C04": {
    "title": "Filter the transaction type list",
@@ -3807,7 +3805,7 @@
     "TTRDM-C04-AC-09": "e1ab84252621e44d",
     "TTRDM-C04-AC-10": "53de1327f4bafda7",
     "TTRDM-C04-AC-11": "1ccabb9bfeebdaa8",
-    "TTRDM-C04-AC-12": "2066c6cc7c804c87"
+    "TTRDM-C04-AC-12": "3b2fdd4fd305054c"
    },
    "tasks": [
     "TTRDM-C04-T1",
@@ -3817,7 +3815,7 @@
     "TTRDM-C04-T5",
     "TTRDM-C04-T6"
    ],
-   "hash": "5ec8d505e69d474b"
+   "hash": "3c3465f7da4104c7"
   },
   "TTRDM-C05": {
    "title": "Update transaction type descriptions from the list",
@@ -3860,8 +3858,8 @@
     "TTRDM-C05-AC-09": "0fb87057cd3f56d6",
     "TTRDM-C05-AC-10": "de1768c8341aca26",
     "TTRDM-C05-AC-11": "cc117c7bb3f402d4",
-    "TTRDM-C05-AC-12": "2449f3f40ba56f4f",
-    "TTRDM-C05-AC-13": "181b76ace6b5bb1d"
+    "TTRDM-C05-AC-12": "cb7ae6f40655ac86",
+    "TTRDM-C05-AC-13": "3c1cbb58b6a0dae9"
    },
    "tasks": [
     "TTRDM-C05-T1",
@@ -3871,7 +3869,7 @@
     "TTRDM-C05-T5",
     "TTRDM-C05-T6"
    ],
-   "hash": "a30ababfffceeba3"
+   "hash": "a0d2f6d13fcc442d"
   },
   "TTRDM-C06": {
    "title": "Access to transaction type maintenance",
@@ -3895,7 +3893,7 @@
     "TTRDM-C06-T4",
     "TTRDM-C06-T5"
    ],
-   "hash": "df49c2d53ae514e9"
+   "hash": "f9234b9d8df8f23f"
   },
   "TTRDM-C07": {
    "title": "Filter the transaction type list",
@@ -3916,7 +3914,7 @@
     "TTRDM-C07-AC-01": "a61f89433361d6b3",
     "TTRDM-C07-AC-02": "6579d726fc7d392e",
     "TTRDM-C07-AC-03": "22b36ea3cfc4a505",
-    "TTRDM-C07-AC-04": "40cefe0f1989c82d"
+    "TTRDM-C07-AC-04": "5698b4049a594ce9"
    },
    "tasks": [
     "TTRDM-C07-T1",
@@ -3925,7 +3923,7 @@
     "TTRDM-C07-T4",
     "TTRDM-C07-T5"
    ],
-   "hash": "359bc5806ddb49d5"
+   "hash": "2e2e91df66350217"
   },
   "TTRDM-C08": {
    "title": "Mark a list row for update or delete",
@@ -3974,7 +3972,7 @@
     "TTRDM-C08-T5",
     "TTRDM-C08-T6"
    ],
-   "hash": "16eafe11cd5a6ff7"
+   "hash": "4dcc9f4b997629bf"
   },
   "TTRDM-C09": {
    "title": "Confirm and apply a list update or delete",
@@ -4033,7 +4031,7 @@
     "TTRDM-C09-T4",
     "TTRDM-C09-T5"
    ],
-   "hash": "09f4b41c8a2e4378"
+   "hash": "c0e553f8ffc80b82"
   },
   "TTRDM-C10": {
    "title": "Navigate from the transaction type list",
@@ -4055,10 +4053,9 @@
     "TTRDM-C10-T2",
     "TTRDM-C10-T3",
     "TTRDM-C10-T4",
-    "TTRDM-C10-T5",
-    "TTRDM-C10-T6"
+    "TTRDM-C10-T5"
    ],
-   "hash": "8af6d893fa5e13a1"
+   "hash": "9ad83f3a031af8ac"
   },
   "TTRDM-C11": {
    "title": "Look up a transaction type to maintain",
@@ -4100,10 +4097,10 @@
     "TTRDM-C11-AC-05": "12763c69f0db84bd",
     "TTRDM-C11-AC-06": "0e293ce9c6cc63ae",
     "TTRDM-C11-AC-07": "c3ae6743f28665ab",
-    "TTRDM-C11-AC-08": "eda849567fefd9cf",
-    "TTRDM-C11-AC-09": "9da4d56e3e4b41a2",
-    "TTRDM-C11-AC-10": "f265293e3aad4648",
-    "TTRDM-C11-AC-11": "9f8fad8f8936b9f2"
+    "TTRDM-C11-AC-08": "5c96265b76af45ef",
+    "TTRDM-C11-AC-09": "842351807f6e9968",
+    "TTRDM-C11-AC-10": "1d9c1893e7f4a706",
+    "TTRDM-C11-AC-11": "82f4dfac78118154"
    },
    "tasks": [
     "TTRDM-C11-T1",
@@ -4113,7 +4110,7 @@
     "TTRDM-C11-T5",
     "TTRDM-C11-T6"
    ],
-   "hash": "94410ba87736061f"
+   "hash": "573513ea314a0425"
   },
   "TTRDM-C12": {
    "title": "Show maintenance screen values and messages",
@@ -4153,18 +4150,16 @@
     "TTRDM-C12-AC-09": "8a32034f6555b431",
     "TTRDM-C12-AC-10": "b1da11c728e85669",
     "TTRDM-C12-AC-11": "429e338349087c86",
-    "TTRDM-C12-AC-12": "300e84f9e88c9ac6"
+    "TTRDM-C12-AC-12": "2f4fc4fe9bb6bc5d"
    },
    "tasks": [
     "TTRDM-C12-T1",
     "TTRDM-C12-T2",
     "TTRDM-C12-T3",
     "TTRDM-C12-T4",
-    "TTRDM-C12-T5",
-    "TTRDM-C12-T6",
-    "TTRDM-C12-T7"
+    "TTRDM-C12-T5"
    ],
-   "hash": "e6857d3182a70b8b"
+   "hash": "bd7b2e2bdab9524d"
   },
   "TTRDM-C13": {
    "title": "Detect changes to a fetched transaction type",
@@ -4194,7 +4189,7 @@
     "TTRDM-C13-T3",
     "TTRDM-C13-T4"
    ],
-   "hash": "8cd90bd582fd5c0c"
+   "hash": "2b5f6ecace4f1ecc"
   },
   "TTRDM-C14": {
    "title": "Cancel a pending maintenance change",
@@ -4217,10 +4212,9 @@
    "tasks": [
     "TTRDM-C14-T1",
     "TTRDM-C14-T2",
-    "TTRDM-C14-T3",
-    "TTRDM-C14-T4"
+    "TTRDM-C14-T3"
    ],
-   "hash": "6aef220a38724d5b"
+   "hash": "d7ac91a1d0ce3e74"
   },
   "TTRDM-C15": {
    "title": "Exit the maintenance screen",
@@ -4243,10 +4237,9 @@
     "TTRDM-C15-T2",
     "TTRDM-C15-T3",
     "TTRDM-C15-T4",
-    "TTRDM-C15-T5",
-    "TTRDM-C15-T6"
+    "TTRDM-C15-T5"
    ],
-   "hash": "fe93c53623d0d7ae"
+   "hash": "296913ee79bde569"
   },
   "TTRDM-C16": {
    "title": "Find a transaction type to maintain",
@@ -4282,10 +4275,10 @@
     "TTRDM-C16-AC-06": "b705fa9b803d0796",
     "TTRDM-C16-AC-07": "49b85b76ad9ad778",
     "TTRDM-C16-AC-08": "fd554bb01a0d16e5",
-    "TTRDM-C16-AC-09": "ca87bb138d55607d",
-    "TTRDM-C16-AC-10": "0dfedd5c7d47f670",
-    "TTRDM-C16-AC-11": "d8ef6930bd769ce7",
-    "TTRDM-C16-AC-12": "40ae9b3c85fdf610"
+    "TTRDM-C16-AC-09": "29a4e25c63e82a01",
+    "TTRDM-C16-AC-10": "986669b67549b153",
+    "TTRDM-C16-AC-11": "b5c16169c3c7a405",
+    "TTRDM-C16-AC-12": "185a6dcf5eb0dbf0"
    },
    "tasks": [
     "TTRDM-C16-T1",
@@ -4293,10 +4286,9 @@
     "TTRDM-C16-T3",
     "TTRDM-C16-T4",
     "TTRDM-C16-T5",
-    "TTRDM-C16-T6",
-    "TTRDM-C16-T7"
+    "TTRDM-C16-T6"
    ],
-   "hash": "521b5cceed242966"
+   "hash": "1df0c229b8235cfe"
   },
   "TTRDM-C17": {
    "title": "Change a transaction type description",
@@ -4343,9 +4335,9 @@
     "TTRDM-C17-AC-09": "940a4dd8225cc836",
     "TTRDM-C17-AC-10": "a4114046f79332ad",
     "TTRDM-C17-AC-11": "fd19b8915cf546cb",
-    "TTRDM-C17-AC-12": "52fbdc2241d10fdd",
-    "TTRDM-C17-AC-13": "844af16ab27a87d7",
-    "TTRDM-C17-AC-14": "c7b8fad2d451550e"
+    "TTRDM-C17-AC-12": "61c2252ffffed19d",
+    "TTRDM-C17-AC-13": "9c8136c77cd0238f",
+    "TTRDM-C17-AC-14": "e98bb11d11238a91"
    },
    "tasks": [
     "TTRDM-C17-T1",
@@ -4355,7 +4347,7 @@
     "TTRDM-C17-T5",
     "TTRDM-C17-T6"
    ],
-   "hash": "917b32d60597bef4"
+   "hash": "f4285c2d4a01cd46"
   },
   "TTRDM-C18": {
    "title": "Add a new transaction type",
@@ -4372,8 +4364,8 @@
    },
    "criteria": {
     "TTRDM-C18-AC-01": "0e17855f6428a9f4",
-    "TTRDM-C18-AC-02": "2993caa0767445ee",
-    "TTRDM-C18-AC-03": "80366e8201193505"
+    "TTRDM-C18-AC-02": "82c15576422e1425",
+    "TTRDM-C18-AC-03": "aeb95c49bf2fb92c"
    },
    "tasks": [
     "TTRDM-C18-T1",
@@ -4382,7 +4374,7 @@
     "TTRDM-C18-T4",
     "TTRDM-C18-T5"
    ],
-   "hash": "58caeb6ea90ebb79"
+   "hash": "b2b89f076788693d"
   },
   "TTRDM-C19": {
    "title": "Delete a transaction type",
@@ -4411,8 +4403,8 @@
     "TTRDM-C19-AC-03": "5de6daa125ac253d",
     "TTRDM-C19-AC-04": "789666edf1a29ea9",
     "TTRDM-C19-AC-05": "9e48a200209286cc",
-    "TTRDM-C19-AC-06": "c9d56c11e31d9a46",
-    "TTRDM-C19-AC-07": "c528268611e4ddaf"
+    "TTRDM-C19-AC-06": "0c9271da60071cd1",
+    "TTRDM-C19-AC-07": "04ba12fcc08f8c32"
    },
    "tasks": [
     "TTRDM-C19-T1",
@@ -4421,7 +4413,7 @@
     "TTRDM-C19-T4",
     "TTRDM-C19-T5"
    ],
-   "hash": "722ee7b37692457b"
+   "hash": "1d12c10338ca4ed6"
   },
   "TTRDM-C20": {
    "title": "Control maintenance screen keys and flow",
@@ -4456,7 +4448,7 @@
     "TTRDM-C20-T4",
     "TTRDM-C20-T5"
    ],
-   "hash": "e0c5d57d74c4406b"
+   "hash": "11b3b5c41c9cb625"
   },
   "TTRDM-C21": {
    "title": "Maintain transaction types in batch",
@@ -4471,14 +4463,14 @@
    },
    "criteria": {
     "TTRDM-C21-AC-01": "e86492e68474c16f",
-    "TTRDM-C21-AC-02": "136610e85fe5850a"
+    "TTRDM-C21-AC-02": "f36f48a23272642b"
    },
    "tasks": [
     "TTRDM-C21-T1",
     "TTRDM-C21-T2",
     "TTRDM-C21-T3"
    ],
-   "hash": "20e5ed6943f19f84"
+   "hash": "2d3a6c995c53bb67"
   },
   "TTRDM-C22": {
    "title": "Set up reference data backups",
@@ -4508,7 +4500,7 @@
     "TTRDM-C22-T1",
     "TTRDM-C22-T2"
    ],
-   "hash": "83daadf287cf1553"
+   "hash": "ec3a1d11faab5bdf"
   },
   "TTRDM-C23": {
    "title": "Extract transaction types and categories to files",
@@ -4545,8 +4537,8 @@
     "TTRDM-C23-AC-07": "41410b388e94b58c",
     "TTRDM-C23-AC-08": "ed8677cb4f0f54c5",
     "TTRDM-C23-AC-09": "19f87fbe59726c89",
-    "TTRDM-C23-AC-10": "6277c77d6091c749",
-    "TTRDM-C23-AC-11": "9ba0d13c61b3e780"
+    "TTRDM-C23-AC-10": "a1598c71bad995a8",
+    "TTRDM-C23-AC-11": "1fa4618c0e5d10cf"
    },
    "tasks": [
     "TTRDM-C23-T1",
@@ -4554,7 +4546,7 @@
     "TTRDM-C23-T3",
     "TTRDM-C23-T4"
    ],
-   "hash": "c530f1f0828ca331"
+   "hash": "72201485824bc345"
   },
   "TTRDM-C24": {
    "title": "Load reference data into keyed files",
@@ -4576,7 +4568,7 @@
     "TTRDM-C24-T1",
     "TTRDM-C24-T2"
    ],
-   "hash": "5016b2f810685c91"
+   "hash": "8aa0ad51ae19591f"
   },
   "UP-C01": {
    "title": "Build screen map copybooks",
@@ -4979,7 +4971,7 @@
     "CAFM-C01-AC-15": "1c626925729c0bee",
     "CAFM-C01-AC-16": "1aefdd6d51e78a5b",
     "CAFM-C01-AC-17": "506594f40af94d7c",
-    "CAFM-C01-AC-18": "073ea52f7e2abfbf"
+    "CAFM-C01-AC-18": "3bdfa44b2d1f7764"
    },
    "tasks": [
     "CAFM-C01-T1",
@@ -4989,7 +4981,7 @@
     "CAFM-C01-T5",
     "CAFM-C01-T6"
    ],
-   "hash": "db4bb974b52dc998"
+   "hash": "9f3b9b382e0e9dac"
   },
   "CAFM-C02": {
    "title": "Answer account inquiry requests from the queue",
@@ -5050,9 +5042,9 @@
     "CAFM-C02-AC-15": "4f728cf773ca67d1",
     "CAFM-C02-AC-16": "251e6f1c155e3951",
     "CAFM-C02-AC-17": "d1bd3ad0e43a469c",
-    "CAFM-C02-AC-18": "c70a137e0916f210",
-    "CAFM-C02-AC-19": "a70e5b56f2b7071f",
-    "CAFM-C02-AC-20": "6403533863cdf038"
+    "CAFM-C02-AC-18": "0ecce17fa26ac523",
+    "CAFM-C02-AC-19": "28ead82f28f7e8a7",
+    "CAFM-C02-AC-20": "8a84f4ef3bbc6c28"
    },
    "tasks": [
     "CAFM-C02-T1",
@@ -5062,7 +5054,7 @@
     "CAFM-C02-T5",
     "CAFM-C02-T6"
    ],
-   "hash": "127f282aeac22c9f"
+   "hash": "89c5a5fdd52da189"
   },
   "CAFM-C03": {
    "title": "Answer system date requests from the queue",
@@ -5113,7 +5105,7 @@
     "CAFM-C03-T2",
     "CAFM-C03-T3"
    ],
-   "hash": "09ad76cf171b3726"
+   "hash": "10a4a5cb2bba1198"
   },
   "CAFM-C04": {
    "title": "Receive and prepare card authorization requests",
@@ -5161,7 +5153,7 @@
     "CAFM-C04-AC-12": "61807696741a58fe",
     "CAFM-C04-AC-13": "04cadb0a39622bea",
     "CAFM-C04-AC-14": "2489720b3fd71f28",
-    "CAFM-C04-AC-15": "750446f4e7c151df"
+    "CAFM-C04-AC-15": "9df5c405904bede1"
    },
    "tasks": [
     "CAFM-C04-T1",
@@ -5170,7 +5162,7 @@
     "CAFM-C04-T4",
     "CAFM-C04-T5"
    ],
-   "hash": "10ae5a1fa7a5fa32"
+   "hash": "896f839f66b39a9a"
   },
   "CAFM-C05": {
    "title": "Decide and reply to card authorization requests",
@@ -5204,7 +5196,7 @@
     "CAFM-C05-AC-06": "2fbac09de4f7156d",
     "CAFM-C05-AC-07": "8c0a59e32b8d35ff",
     "CAFM-C05-AC-08": "6b8c4e4863f34a8c",
-    "CAFM-C05-AC-09": "c493e29bed7a0733"
+    "CAFM-C05-AC-09": "18471c91c47deb68"
    },
    "tasks": [
     "CAFM-C05-T1",
@@ -5214,7 +5206,7 @@
     "CAFM-C05-T5",
     "CAFM-C05-T6"
    ],
-   "hash": "5957f874dd459dff"
+   "hash": "d826f4dc3f7277a6"
   },
   "CAFM-C06": {
    "title": "Decide a card authorization request",
@@ -5265,7 +5257,7 @@
     "CAFM-C06-T4",
     "CAFM-C06-T5"
    ],
-   "hash": "a6e0f59d93377186"
+   "hash": "32ddc34821949a65"
   },
   "CAFM-C07": {
    "title": "Record pending authorization summary and detail",
@@ -5317,7 +5309,7 @@
     "CAFM-C07-T5",
     "CAFM-C07-T6"
    ],
-   "hash": "33b0c73bfa02cd00"
+   "hash": "8b57b6279f592069"
   },
   "CAFM-C08": {
    "title": "Log errors and stop on critical failures",
@@ -5340,7 +5332,7 @@
     "CAFM-C08-T3",
     "CAFM-C08-T4"
    ],
-   "hash": "26c2bba6288b0803"
+   "hash": "bab88a4b5e0b1a61"
   },
   "CAFM-C09": {
    "title": "Inquire on an account's pending authorizations",
@@ -5408,12 +5400,12 @@
     "CAFM-C09-AC-16": "4662975cca5aa57f",
     "CAFM-C09-AC-17": "0e60dd543bfdc1d7",
     "CAFM-C09-AC-18": "ef4a13029b24af6e",
-    "CAFM-C09-AC-19": "8ec53c0a7dc53119",
-    "CAFM-C09-AC-20": "292b89d2dee862c7",
-    "CAFM-C09-AC-21": "4cd16890d3d6471a",
-    "CAFM-C09-AC-22": "62dc0abd8df59472",
-    "CAFM-C09-AC-23": "cd76f486c540afa5",
-    "CAFM-C09-AC-24": "c3231e3ffa35d673"
+    "CAFM-C09-AC-19": "e4c94b9aa8121d0b",
+    "CAFM-C09-AC-20": "5811f3e3e1c74e9a",
+    "CAFM-C09-AC-21": "30056425f8719679",
+    "CAFM-C09-AC-22": "c099941dc8ae17ff",
+    "CAFM-C09-AC-23": "fbe243ff8822a0ed",
+    "CAFM-C09-AC-24": "88f7c985effe5cbf"
    },
    "tasks": [
     "CAFM-C09-T1",
@@ -5422,9 +5414,10 @@
     "CAFM-C09-T4",
     "CAFM-C09-T5",
     "CAFM-C09-T6",
-    "CAFM-C09-T7"
+    "CAFM-C09-T7",
+    "CAFM-C09-T8"
    ],
-   "hash": "f4e95be1292b566c"
+   "hash": "c6be077b815d29c0"
   },
   "CAFM-C10": {
    "title": "Page through an account's pending authorizations",
@@ -5464,7 +5457,7 @@
     "CAFM-C10-AC-10": "290852cb80c7b4bb",
     "CAFM-C10-AC-11": "4cfd8152639863a6",
     "CAFM-C10-AC-12": "6660f04590b50d32",
-    "CAFM-C10-AC-13": "1c7c68343570a513"
+    "CAFM-C10-AC-13": "c7a04796e1c3e4e0"
    },
    "tasks": [
     "CAFM-C10-T1",
@@ -5475,7 +5468,7 @@
     "CAFM-C10-T6",
     "CAFM-C10-T7"
    ],
-   "hash": "4be5a74dee3c3730"
+   "hash": "40838125d98dabc8"
   },
   "CAFM-C11": {
    "title": "Select an authorization for detail",
@@ -5503,7 +5496,7 @@
     "CAFM-C11-T4",
     "CAFM-C11-T5"
    ],
-   "hash": "ae2b50be8cd80264"
+   "hash": "450fc4d19d072ebc"
   },
   "CAFM-C12": {
    "title": "View authorization detail and mark fraud",
@@ -5524,7 +5517,7 @@
     "CAFM-C12-AC-03": "6f66c535704acf61",
     "CAFM-C12-AC-04": "33b05ee60a13a579",
     "CAFM-C12-AC-05": "8345714d9b7a86f3",
-    "CAFM-C12-AC-06": "7475d561239e14e1"
+    "CAFM-C12-AC-06": "6a333b3f927147fa"
    },
    "tasks": [
     "CAFM-C12-T1",
@@ -5534,7 +5527,7 @@
     "CAFM-C12-T5",
     "CAFM-C12-T6"
    ],
-   "hash": "57e1a25380ebb446"
+   "hash": "151715c46aa92b83"
   },
   "CAFM-C13": {
    "title": "View pending authorization details",
@@ -5579,12 +5572,12 @@
     "CAFM-C13-AC-07": "f24f48bd2a90f1ff",
     "CAFM-C13-AC-08": "68d4b52f6c9ac515",
     "CAFM-C13-AC-09": "653d354c69666be5",
-    "CAFM-C13-AC-10": "3d0a7ae83833c912",
-    "CAFM-C13-AC-11": "188df8c5e6d840ec",
-    "CAFM-C13-AC-12": "a212fab3fc056b93",
-    "CAFM-C13-AC-13": "9ed5df679060b54e",
-    "CAFM-C13-AC-14": "326f16aa47444aca",
-    "CAFM-C13-AC-15": "a68b5572bc99089a"
+    "CAFM-C13-AC-10": "ee176973123f3ef1",
+    "CAFM-C13-AC-11": "443c44d4086b94f5",
+    "CAFM-C13-AC-12": "8c978f44a0cc2f1d",
+    "CAFM-C13-AC-13": "55a5deab41044ce1",
+    "CAFM-C13-AC-14": "c55d23de49f9b1c2",
+    "CAFM-C13-AC-15": "c4fc6611e9159c5c"
    },
    "tasks": [
     "CAFM-C13-T1",
@@ -5595,7 +5588,7 @@
     "CAFM-C13-T6",
     "CAFM-C13-T7"
    ],
-   "hash": "75921a1235d16541"
+   "hash": "218468a2ecd71fbc"
   },
   "CAFM-C14": {
    "title": "Navigate the authorization detail screen",
@@ -5626,7 +5619,7 @@
     "CAFM-C14-AC-05": "407c46459a3fb4cc",
     "CAFM-C14-AC-06": "b919b21e884bbe6a",
     "CAFM-C14-AC-07": "5b0554e018dc4baf",
-    "CAFM-C14-AC-08": "13f6ad07afb347da"
+    "CAFM-C14-AC-08": "f35c47056cba9af4"
    },
    "tasks": [
     "CAFM-C14-T1",
@@ -5637,7 +5630,7 @@
     "CAFM-C14-T6",
     "CAFM-C14-T7"
    ],
-   "hash": "be251ce9947ff35e"
+   "hash": "e0595e842d4a6e21"
   },
   "CAFM-C15": {
    "title": "Mark or unmark an authorization as fraud",
@@ -5685,9 +5678,9 @@
     "CAFM-C15-AC-12": "899048e1013ea419",
     "CAFM-C15-AC-13": "ed250d3096428434",
     "CAFM-C15-AC-14": "604e458e83d9a09e",
-    "CAFM-C15-AC-15": "613256d0d3f6bd5d",
-    "CAFM-C15-AC-16": "938086bedd7ec0e5",
-    "CAFM-C15-AC-17": "1339968de9231d34"
+    "CAFM-C15-AC-15": "5258a3c2f3cfed01",
+    "CAFM-C15-AC-16": "40db6c747247117a",
+    "CAFM-C15-AC-17": "19e6e67ce890b32b"
    },
    "tasks": [
     "CAFM-C15-T1",
@@ -5698,7 +5691,7 @@
     "CAFM-C15-T6",
     "CAFM-C15-T7"
    ],
-   "hash": "8c661159d38452c0"
+   "hash": "1ef95de1da1f04be"
   },
   "CAFM-C16": {
    "title": "Record fraud action in the fraud register",
@@ -5718,11 +5711,11 @@
     "CAFM-BR-161": "3db73e82c60603f7"
    },
    "criteria": {
-    "CAFM-C16-AC-01": "f3e4952f8b4ecbf6",
-    "CAFM-C16-AC-02": "e39ae5eed24c699b",
-    "CAFM-C16-AC-03": "7c81b431ff51a7ff",
-    "CAFM-C16-AC-04": "6b5b0113f46abe02",
-    "CAFM-C16-AC-05": "46cfbd0916e382d9"
+    "CAFM-C16-AC-01": "1720117a603ee9fd",
+    "CAFM-C16-AC-02": "48139bc323ac5ee2",
+    "CAFM-C16-AC-03": "eaf1d23a404e9147",
+    "CAFM-C16-AC-04": "3886a01d316f58fe",
+    "CAFM-C16-AC-05": "67e78f16cb3046cb"
    },
    "tasks": [
     "CAFM-C16-T1",
@@ -5733,7 +5726,7 @@
     "CAFM-C16-T6",
     "CAFM-C16-T7"
    ],
-   "hash": "6159090955072433"
+   "hash": "2a1e78d69fd6eb29"
   },
   "CAFM-C17": {
    "title": "Unload the pending authorization database",
@@ -5767,11 +5760,11 @@
     "CAFM-C17-AC-03": "4256647198e9ba57",
     "CAFM-C17-AC-04": "9814626715603382",
     "CAFM-C17-AC-05": "e324d138dc455649",
-    "CAFM-C17-AC-06": "27e9b3bfa2af48b7",
-    "CAFM-C17-AC-07": "7be29a8c846dfe75",
-    "CAFM-C17-AC-08": "c89580bd91d998ce",
-    "CAFM-C17-AC-09": "ae3b13ef8c8fba40",
-    "CAFM-C17-AC-10": "9287d90dea9be403"
+    "CAFM-C17-AC-06": "e745d54012c902fe",
+    "CAFM-C17-AC-07": "a3e94f7086947854",
+    "CAFM-C17-AC-08": "b783b24fc5360874",
+    "CAFM-C17-AC-09": "13c17ba987e25ec8",
+    "CAFM-C17-AC-10": "3dacc102f6f987e7"
    },
    "tasks": [
     "CAFM-C17-T1",
@@ -5781,7 +5774,7 @@
     "CAFM-C17-T5",
     "CAFM-C17-T6"
    ],
-   "hash": "d59e05541cfc9dd8"
+   "hash": "522e9a9698e5e2a5"
   },
   "CAFM-C18": {
    "title": "Load pending authorizations into the database",
@@ -5821,7 +5814,7 @@
     "CAFM-C18-AC-09": "fac0c0e573d63bd0",
     "CAFM-C18-AC-10": "3e8790ef7cbfab13",
     "CAFM-C18-AC-11": "f6fcd15853803039",
-    "CAFM-C18-AC-12": "a0d7dd1d54001e64"
+    "CAFM-C18-AC-12": "e8d9a49de8c191f6"
    },
    "tasks": [
     "CAFM-C18-T1",
@@ -5831,7 +5824,7 @@
     "CAFM-C18-T5",
     "CAFM-C18-T6"
    ],
-   "hash": "a0f63def97aa487c"
+   "hash": "621f3cb68c7d9038"
   },
   "CAFM-C19": {
    "title": "Load pending authorization summaries",
@@ -5850,7 +5843,7 @@
    "criteria": {
     "CAFM-C19-AC-01": "dcd9dbc9f347c3ff",
     "CAFM-C19-AC-02": "1c66f26a80f8cf01",
-    "CAFM-C19-AC-03": "7c3788e293473c00"
+    "CAFM-C19-AC-03": "0016df19fe45f19a"
    },
    "tasks": [
     "CAFM-C19-T1",
@@ -5860,7 +5853,7 @@
     "CAFM-C19-T5",
     "CAFM-C19-T6"
    ],
-   "hash": "7a8c935450ff5dc9"
+   "hash": "4fa2bdaed7785583"
   },
   "CAFM-C20": {
    "title": "Unload all pending authorizations",
@@ -5897,9 +5890,9 @@
     "CAFM-C20-AC-05": "8f303981f15f43d3",
     "CAFM-C20-AC-06": "e3f837075076a961",
     "CAFM-C20-AC-07": "77b3ecef9e3e4ced",
-    "CAFM-C20-AC-08": "0e3798c32de0a0cc",
-    "CAFM-C20-AC-09": "50cdf9d3e302a004",
-    "CAFM-C20-AC-10": "6d1bac4ea765f1e4"
+    "CAFM-C20-AC-08": "0af467606de14fa6",
+    "CAFM-C20-AC-09": "0b37b56990e02669",
+    "CAFM-C20-AC-10": "998991bda5f69a0b"
    },
    "tasks": [
     "CAFM-C20-T1",
@@ -5909,7 +5902,7 @@
     "CAFM-C20-T5",
     "CAFM-C20-T6"
    ],
-   "hash": "6a230eee0c338238"
+   "hash": "50e0b0acef38c749"
   },
   "CAFM-C21": {
    "title": "Run the unload jobs and manage unload files",
@@ -5941,8 +5934,8 @@
     "CAFM-C21-AC-06": "553cf1dcb22b3941",
     "CAFM-C21-AC-07": "c52717bb47fd2a4e",
     "CAFM-C21-AC-08": "fa34b5fee0fc4335",
-    "CAFM-C21-AC-09": "6527dca477da6c87",
-    "CAFM-C21-AC-10": "d793532b57f35728"
+    "CAFM-C21-AC-09": "bb741da9635c93bd",
+    "CAFM-C21-AC-10": "d1e21b41c7cb0230"
    },
    "tasks": [
     "CAFM-C21-T1",
@@ -5951,7 +5944,7 @@
     "CAFM-C21-T4",
     "CAFM-C21-T5"
    ],
-   "hash": "a8ecd54b4ed919c6"
+   "hash": "30c48fb29c470c55"
   },
   "SOM-C01": {
    "title": "Register online CardDemo programs and transactions",
@@ -5976,7 +5969,7 @@
     "SOM-C01-T2",
     "SOM-C01-T3"
    ],
-   "hash": "011ec8dd5fcf0edf"
+   "hash": "e02ca3195d1b6ccf"
   },
   "SOM-C02": {
    "title": "Navigate the Admin Menu",
@@ -6018,8 +6011,8 @@
     "SOM-C02-AC-11": "5bc1d5c7c0b4d25b",
     "SOM-C02-AC-12": "7f9879d3928b89be",
     "SOM-C02-AC-13": "de1dd2941e02cabe",
-    "SOM-C02-AC-14": "ea036f014788d7a1",
-    "SOM-C02-AC-15": "194f6fcb3d9e386e"
+    "SOM-C02-AC-14": "9c1e76573d098e57",
+    "SOM-C02-AC-15": "7af2a72cda7d7094"
    },
    "tasks": [
     "SOM-C02-T1",
@@ -6027,9 +6020,10 @@
     "SOM-C02-T3",
     "SOM-C02-T4",
     "SOM-C02-T5",
-    "SOM-C02-T6"
+    "SOM-C02-T6",
+    "SOM-C02-T7"
    ],
-   "hash": "eca632d08443f175"
+   "hash": "0d11585808dc6eb7"
   },
   "SOM-C03": {
    "title": "Navigate the Main Menu with access control",
@@ -6090,8 +6084,8 @@
     "SOM-C03-AC-19": "c6f1a2d61249d0e0",
     "SOM-C03-AC-20": "090aefca5715a69f",
     "SOM-C03-AC-21": "569e5298cd80942e",
-    "SOM-C03-AC-22": "6465f71c824ec61d",
-    "SOM-C03-AC-23": "a76d6a1fdd595b83"
+    "SOM-C03-AC-22": "4cf26d16f221c602",
+    "SOM-C03-AC-23": "6c3ed2413f0193d3"
    },
    "tasks": [
     "SOM-C03-T1",
@@ -6100,9 +6094,10 @@
     "SOM-C03-T4",
     "SOM-C03-T5",
     "SOM-C03-T6",
-    "SOM-C03-T7"
+    "SOM-C03-T7",
+    "SOM-C03-T8"
    ],
-   "hash": "c33dcc03b5970a6e"
+   "hash": "c5069d7aa88ac0f5"
   },
   "SOM-C04": {
    "title": "Send the CardDemo test file by FTP",
@@ -6125,7 +6120,7 @@
     "SOM-C04-T3",
     "SOM-C04-T4"
    ],
-   "hash": "6b661e7bdb304dff"
+   "hash": "f04dca216544183e"
   },
   "SOM-C05": {
    "title": "Back up and distribute the FTP test file",
@@ -6149,7 +6144,7 @@
     "SOM-C05-T1",
     "SOM-C05-T2"
    ],
-   "hash": "0abfde1d1f7beb14"
+   "hash": "38cd894d7532aaca"
   },
   "SOM-C06": {
    "title": "Authorize online transaction under the card security profile",
@@ -6169,7 +6164,7 @@
     "SOM-C06-T3",
     "SOM-C06-T4"
    ],
-   "hash": "9d77ae3ade5451bb"
+   "hash": "cb76bd0942cef28d"
   },
   "USPM-C01": {
    "title": "Sign on to CardDemo",
@@ -6229,7 +6224,7 @@
     "USPM-C01-AC-16": "2afcc882ad18a92a",
     "USPM-C01-AC-17": "7151ccd855b98fd5",
     "USPM-C01-AC-18": "954741fb9e45333f",
-    "USPM-C01-AC-19": "4e9e9805e73c587b"
+    "USPM-C01-AC-19": "4d89fa91cdf6677e"
    },
    "tasks": [
     "USPM-C01-T1",
@@ -6238,9 +6233,11 @@
     "USPM-C01-T4",
     "USPM-C01-T5",
     "USPM-C01-T6",
-    "USPM-C01-T7"
+    "USPM-C01-T7",
+    "USPM-C01-T8",
+    "USPM-C01-T9"
    ],
-   "hash": "a5232789ebabdd64"
+   "hash": "68288cb426a8e9fe"
   },
   "USPM-C02": {
    "title": "Browse the user list",
@@ -6322,9 +6319,10 @@
     "USPM-C02-T4",
     "USPM-C02-T5",
     "USPM-C02-T6",
-    "USPM-C02-T7"
+    "USPM-C02-T7",
+    "USPM-C02-T8"
    ],
-   "hash": "6a9dc0222ccd44f4"
+   "hash": "795184540ee77880"
   },
   "USPM-C03": {
    "title": "Select a user to update or delete",
@@ -6362,7 +6360,7 @@
     "USPM-C03-T5",
     "USPM-C03-T6"
    ],
-   "hash": "585d95eda14f0ced"
+   "hash": "1b19fef60043f668"
   },
   "USPM-C04": {
    "title": "Add a new user",
@@ -6408,9 +6406,9 @@
     "USPM-C04-AC-08": "c05898afaeaced86",
     "USPM-C04-AC-09": "abf5d4654162c92c",
     "USPM-C04-AC-10": "596d77384552e03e",
-    "USPM-C04-AC-11": "cfb3b7587fbd67df",
-    "USPM-C04-AC-12": "7a117a5b8cd65c5b",
-    "USPM-C04-AC-13": "38b785ba5fac3a0e"
+    "USPM-C04-AC-11": "505563cb21b74019",
+    "USPM-C04-AC-12": "b95b9652e1fba572",
+    "USPM-C04-AC-13": "f2a0e00292366437"
    },
    "tasks": [
     "USPM-C04-T1",
@@ -6421,7 +6419,7 @@
     "USPM-C04-T6",
     "USPM-C04-T7"
    ],
-   "hash": "c785826f4a381039"
+   "hash": "8c8106e29d73daf4"
   },
   "USPM-C05": {
    "title": "Look up and update a user",
@@ -6452,7 +6450,7 @@
     "USPM-C05-T6",
     "USPM-C05-T7"
    ],
-   "hash": "31ab813ef3a0a475"
+   "hash": "7a86c7ad8946a12c"
   },
   "USPM-C06": {
    "title": "Open the User Update screen and look up a user",
@@ -6500,9 +6498,10 @@
     "USPM-C06-T3",
     "USPM-C06-T4",
     "USPM-C06-T5",
-    "USPM-C06-T6"
+    "USPM-C06-T6",
+    "USPM-C06-T7"
    ],
-   "hash": "0072a28a5cc71cc1"
+   "hash": "b6dbd896a134d30d"
   },
   "USPM-C07": {
    "title": "Save changes to a user profile",
@@ -6548,7 +6547,7 @@
     "USPM-C07-AC-10": "84f21032c7922a38",
     "USPM-C07-AC-11": "a860c4df82f9c4c1",
     "USPM-C07-AC-12": "235d44354febbbff",
-    "USPM-C07-AC-13": "6238478b5abcb4b0"
+    "USPM-C07-AC-13": "83889cd0c73c7b42"
    },
    "tasks": [
     "USPM-C07-T1",
@@ -6558,7 +6557,7 @@
     "USPM-C07-T5",
     "USPM-C07-T6"
    ],
-   "hash": "c02f42c2a50b0745"
+   "hash": "bb467143ea575547"
   },
   "USPM-C08": {
    "title": "Delete a user",
@@ -6610,10 +6609,10 @@
     "USPM-C08-AC-10": "84cde837f514fc97",
     "USPM-C08-AC-11": "91d963a976882c65",
     "USPM-C08-AC-12": "933c2ce85279fdfd",
-    "USPM-C08-AC-13": "11df985015be2193",
-    "USPM-C08-AC-14": "6737d0ce80c4befa",
-    "USPM-C08-AC-15": "20f74056ae4d5b58",
-    "USPM-C08-AC-16": "97b3972b35c1915d"
+    "USPM-C08-AC-13": "669e27694ac915ed",
+    "USPM-C08-AC-14": "9d365aa861376bed",
+    "USPM-C08-AC-15": "f84d1f02bc0ae557",
+    "USPM-C08-AC-16": "375472d1495c24b5"
    },
    "tasks": [
     "USPM-C08-T1",
@@ -6621,9 +6620,10 @@
     "USPM-C08-T3",
     "USPM-C08-T4",
     "USPM-C08-T5",
-    "USPM-C08-T6"
+    "USPM-C08-T6",
+    "USPM-C08-T7"
    ],
-   "hash": "25ea72333d5dcc78"
+   "hash": "8100e9e53900b56f"
   },
   "USPM-C09": {
    "title": "Seed and load the user security file",
@@ -6665,11 +6665,11 @@
     "USPM-C09-T4",
     "USPM-C09-T5"
    ],
-   "hash": "ca5bdff0eca84468"
+   "hash": "014f4bf3c4b83c03"
   }
  },
- "version": 1,
- "generated_at": "2026-11-26T03:23:14Z",
- "digest": "c9e339659b1acbd6",
+ "version": 2,
+ "generated_at": "2026-11-26T13:56:28Z",
+ "digest": "906845ddb4e53058",
  "problems": []
 }

@@ -6,7 +6,7 @@ Customer Data Setup · Credit Card List Detail View and Update · runs as online
 
 ## Introduction
 
-Lets card operations staff find a card for update, either by entering an account and card number or by arriving with a card picked in the card list, and shows its stored embossed name, status and expiry. The values read at this point are kept as the card's original details, which later saves are checked against. It must reject missing or invalid keys with the exact messages and must report a card that is not found or a card file that cannot be read.
+Before making any change, card operations users find a card for update, either by entering its account and card number or by arriving with a card selected from the card list. The update screen then shows the card's stored embossed name, status and expiry. The search keys are validated with exact messages. The card is read by card number alone, and the values first shown are kept as the original details. Those originals must be captured exactly, because later change detection and the save's check for someone else's changes depend on them.
 
 **User story:** As a card operations user, I want to enter an account number and card number, or arrive with a card selected from the card list, and see that card's stored details, so that I can review the card before changing it.
 
@@ -136,14 +136,14 @@ Lets card operations staff find a card for update, either by entering an account
 #### Acceptance criteria
 
 1. If the card file read fails for any other reason, then the system shall flag an input error and show 'File Error: READ on CARDDAT returned RESP <code>' with the response codes. (rules CCLDV-BR-080)
-2. GIVEN no card has been fetched yet, the operator has entered a valid account number and a valid 16-digit card number, and reading the card file fails for a reason other than 'not found' WHEN the operator submits the card update screen THEN an input error is flagged, no card details are shown for editing, and the message 'File Error: READ on CARDDAT returned RESP <code>' is shown with the response codes of the failed read (CCLDV-C07-AC-33; CCLDV-BR-080)
+2. GIVEN no card has been fetched yet, a valid account number and card number have been entered on the card update screen, and reading the card file will fail with an error other than 'not found' WHEN the operator submits the search THEN an input error is flagged, no card details are shown, and the message reads 'File Error: READ on CARDDAT returned RESP <code>' with the response codes the read returned (CCLDV-C07-AC-33; CCLDV-BR-080)
 
 ### Requirement 15: CCLDV-REQ-F-075 (design note)
 
 #### Acceptance criteria
 
 1. When the requested card is found on the card file, the system shall keep as the card's original details the embossed name converted to upper case, the expiry year, month and day taken from the stored expiry date (positions 1-4, 6-7 and 9-10), the active status and the CVV code. (rules CCLDV-BR-081)
-2. GIVEN the card file holds card 4111111111111111 with embossed name 'john q smith', expiry date '2025-03-31', active status 'Y' and CVV code 123 WHEN the operator looks up that card on the card update screen and it is found THEN the card's original details are kept as embossed name 'JOHN Q SMITH', expiry year '2025' (positions 1-4), expiry month '03' (positions 6-7), expiry day '31' (positions 9-10), active status 'Y' and CVV code 123 (CCLDV-C07-AC-34; CCLDV-BR-081)
+2. GIVEN the card file holds the requested card with embossed name 'John Smith', stored expiry date '2027-08-15', active status 'Y' and a CVV code WHEN the card is found by the card update lookup THEN the original details kept are embossed name 'JOHN SMITH', expiry year '2027' (positions 1-4), expiry month '08' (positions 6-7), expiry day '15' (positions 9-10), active status 'Y' and the card's CVV code (CCLDV-C07-AC-34; CCLDV-BR-081)
 
 ### Requirement 16: CCLDV-REQ-F-076 (formatting)
 

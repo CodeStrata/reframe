@@ -10,7 +10,7 @@
 
 As an operator, I want to enter an account number and see the account and customer details, so that I can review and update them.
 
-Lets the operator enter an 11-digit account number to start an update; until an account is fetched only that number is checked. A valid number triggers the cross-reference, account and customer lookups, and details are shown only when all three are found. A blank, non-numeric or all-zero number must never lead to a lookup.
+Lets the operator choose which account to update by entering its account number. Before any details are fetched, only the account number is checked. It must be an 11-digit non-zero number. It must never look up an account from a missing, non-numeric or all-zero number, and it ignores every other field until an account is shown.
 
 **Acceptance scenarios:**
 
@@ -23,8 +23,8 @@ Lets the operator enter an 11-digit account number to start an update; until an 
 7. **Given** account number: 00000000001; cross-reference, account and customer: all exist, **when** account details are not yet fetched, or the operator presses PF12 to cancel changes, and the account number entered is valid, **then** Details are shown and state becomes 'S' (OATM-C07-AC-07)
 8. **Given** account number: 00000000099; account master record: missing, **when** account details are not yet fetched, or the operator presses PF12 to cancel changes, and the account number entered is valid, **then** Lookup stops with 'Did not find this account in account master file'; details are not shown (OATM-C07-AC-08)
 9. **Given** key: PF12; update state: 'E', **when** account details are not yet fetched, or the operator presses PF12 to cancel changes, and the account number entered is valid, **then** Account is re-read, pending edits are discarded and state returns to 'S' (OATM-C07-AC-09)
-10. **Given** no account details have been fetched yet and the operator enters account number '1234ABC5678', **when** the screen is submitted, **then** the message 'Account Number if supplied must be a 11 digit Non-Zero Number' is shown, the current account number is set to zeros and no account is read (OATM-C07-AC-10)
-11. **Given** no account details have been fetched yet and the operator enters account number '00000000000', **when** the screen is submitted, **then** the message 'Account Number if supplied must be a 11 digit Non-Zero Number' is shown, the current account number is set to zeros and no account is read (OATM-C07-AC-11)
+10. **Given** no account details have been fetched yet, **when** the operator enters account number '1234ABC' and submits, **then** the screen shows 'Account Number if supplied must be a 11 digit Non-Zero Number', the current account number is set to zeros, and no account is read (OATM-C07-AC-10)
+11. **Given** no account details have been fetched yet, **when** the operator enters account number '00000000000' and submits, **then** the screen shows 'Account Number if supplied must be a 11 digit Non-Zero Number', the current account number is set to zeros, and no account is read (OATM-C07-AC-11)
 
 ## Requirements
 

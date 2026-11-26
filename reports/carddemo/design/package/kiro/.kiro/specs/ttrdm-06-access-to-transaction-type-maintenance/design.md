@@ -4,15 +4,15 @@
 
 ## Overview
 
-Records how the legacy transaction type list controls who can change reference data. Started directly, it assumes the user is an administrator (user type 'A'), and it never checks the user type before allowing an update or delete. The new application must not carry that gap forward unknowingly: whether to keep or close it is a decision for security, and changes to transaction types should be restricted to authorised administrators.
+This records how access to transaction type update and delete works today: when the list is started directly with no sign-on context, the user is treated as an administrator, and update or delete is never checked against the user's type. The new application must not copy this gap silently; who may change transaction type reference data needs an explicit decision and enforcement.
 
-Runs as online. Journeys: J11.
+Runs as online. Journeys: J09.
 
 ## Screens and components
 
 ### Transaction types (S-TRANTYPE-LIST)
 
-Find transaction types by code or description, correct a description in place, or delete an obsolete type, confirming each change; start adding a new type.
+Browse and filter transaction types, correct a description in place, or delete an obsolete type, each confirmed in a dialog that repeats what will change; also where a type is found by code to change or delete it. Row actions replace U/D codes and F10; the pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy screens CTRTLIA.
 
@@ -21,13 +21,13 @@ Prototype: `ui-reference/index.html#/S-TRANTYPE-LIST`. Replaces the legacy scree
 
 ### Application header and navigation (S-APP-SHELL)
 
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
 
 Prototype: `ui-reference/index.html#/S-APP-SHELL`.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Transaction types | link |  |  | S-TRANTYPE-LIST | TTRDM-REQ-N-003 |
+| Transaction types | **data table** | Navigation entry for the transaction type list, shown only to administrators; the server checks the administrator role on every list, add, update and delete instead of assuming it |  | S-TRANTYPE-LIST |  |
 
 
 ## Data models

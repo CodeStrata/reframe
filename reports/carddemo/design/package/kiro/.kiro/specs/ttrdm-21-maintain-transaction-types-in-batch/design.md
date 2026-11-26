@@ -4,7 +4,7 @@
 
 ## Overview
 
-Lets operations apply a file of transaction type add, update and delete requests to the transaction type table in one batch run, writing a log of the run. Each line holds one request: an action code ('A', 'U', 'D', or '*' for a comment), a two-digit numeric type code and a description of up to 50 characters. The job must apply each request exactly as the file states and report what it did.
+Operations staff can apply a file of transaction type add, update and delete requests in one batch run instead of keying them in one at a time. Each line of the file carries an action, a two-digit type code and a description, and the run reports its messages in the job output. The run must apply each request exactly as the line states.
 
 Runs as scheduled job.
 
@@ -35,7 +35,7 @@ None.
 
 ## Design notes
 
-- TTRDM-BR-157: The new application needs a batch job, run on demand or on a schedule, that reads a maintenance request file without locking it and applies the requests to the transaction type table. It must write a run log that operations can read after the job.
+- TTRDM-BR-157: A scheduled or on-demand batch job that reads a request file without taking it exclusively. It connects to the reference data database with the application's own credentials and applies each request to the transaction types table. It writes a per-run log of messages that operations can review. The subsystem and plan names have no counterpart: they become the job's database connection configuration.
 
 ## Open questions
 

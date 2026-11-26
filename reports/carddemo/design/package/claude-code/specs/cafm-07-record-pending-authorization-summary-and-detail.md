@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-Records every decided authorization for a known card, both in the account's pending authorization summary (counts, totals, limits, balances) and as a detail record with match status 'P' or 'D' and a blank fraud flag. These records drive later matching, review and purging. They must stay consistent: approved counts and amounts must only reflect approved authorizations, and nothing is recorded for unknown cards.
+Records every decided authorization for a known card against the account's pending-authorization summary and as a detail record, so approved and declined counts, totals and balances stay current for matching and fraud review. Approvals add to the approved count, approved total and credit balance. Each detail is stored with match status 'P' or 'D' and a blank fraud flag. A failure to save must be logged as a critical error ('I003' or 'I004').
 
 **User story:** As a card issuer, I want every decided authorization for a known card recorded against the account's pending-authorization summary and as a detail record, so that approved and declined totals and balances are kept current for later matching and review.
 
@@ -335,8 +335,8 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CAFM-BR-072: Save the pending authorization summary as an upsert keyed by account id: update it when it was found during lookup, or insert a new one when it did not exist. Report a failure as critical error 'I003' 'IMS UPDATE SUMRY FAILED'.
-- CAFM-BR-078: Insert one authorization detail row as a child of the account's summary, built from the request and reply fields listed in the rule, and keyed so details are read newest first. Report a failure as critical error 'I004' 'IMS INSERT DETL FAILED'.
+- CAFM-BR-072: Save the account's summary as an upsert keyed by account id: update it if one was found, insert it if not. Do the save in the same transaction as the detail insert, so the summary and its details cannot drift apart.
+- CAFM-BR-078: Insert the authorization detail as a child of the account's summary (a foreign key to the account summary). It holds the request fields and the reply's authorization id, response code, reason and approved amount, and is keyed newest first for paging and purge.
 
 ## Open questions
 

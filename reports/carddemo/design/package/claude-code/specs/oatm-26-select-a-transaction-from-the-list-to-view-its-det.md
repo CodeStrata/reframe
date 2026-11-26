@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Lets a signed-on user mark one transaction on the list with 'S' (or 's') and open its details on the Transaction View. Only the first marked row, top to bottom, counts. Any other code is rejected with 'Invalid selection. Valid value is S'. A stale earlier selection must never open a transaction the user did not choose.
+Lets a signed-on user mark one row of the transaction list with 'S' and open that transaction's details. Only the first marked row, top to bottom, counts. Any code other than 'S' or 's' is rejected with 'Invalid selection. Valid value is S', and no transaction is ever opened when no row is marked.
 
 **User story:** As a signed-on user, I want to mark a transaction in the list with 'S' and open its details, so that I can look at one transaction closely.
 
@@ -46,17 +46,17 @@ Lets a signed-on user mark one transaction on the list with 'S' (or 's') and ope
 
 ### Transactions (S-TRANSACTION-LIST)
 
-Browse transactions page by page from a chosen ID and open any one with a row action instead of typing S against it.
+Browse transactions in a sortable, paged table or jump to a transaction ID, and open one with Enter or a click instead of typing S beside it. Tab order: search, table, pager, Add transaction.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy screens COTRN0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Transactions | table | Transaction ID, date (MM/DD/YY), description and signed amount; ten rows a page in ID order, all accounts; page number; Previous and Next page controls; row action View opens the transaction | Previous on the first page: 'You are already at the top of the page...'; Next on the last page: 'You are already at the bottom of the page...'. |  | OATM-REQ-F-220 |
+| Transactions | **data table** | Columns Transaction ID, Date (26 Nov 2026), Description, Amount (right-aligned, two decimals), sortable; 20 rows a page with page number and next/previous; the row opens the transaction | Rows open on Enter or click, so there is no selection code to mistype (legacy: 'Invalid selection. Valid value is S'). At the first or last page the previous or next control is disabled and says 'You are already at the top of the page...' / 'You have reached the bottom of the page...'. Empty state: 'No transactions yet. Use Add transaction to record the first one.' | S-TRANSACTION-VIEW | OATM-REQ-F-220, OATM-REQ-F-221, OATM-REQ-F-222, OATM-REQ-F-223 |
 
 ### Transaction (S-TRANSACTION-VIEW)
 
-Show one transaction's card, type, category, source, amount, dates and merchant together, opened from the list or looked up by ID.
+Show one transaction in full with its merchant, opened from the list or by typing its ID. Tab order: transaction ID, details, merchant, Back to transactions.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-VIEW`. Replaces the legacy screens COTRN1A.
 
@@ -128,7 +128,7 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- OATM-BR-233: When a list submission has no row selected, the server must clear any selection code and selected transaction ID held in the session. That way a later step cannot open a transaction from an earlier interaction. The selection lives only for the request that made it.
+- OATM-BR-233: When Enter is submitted with no row marked, discard any selection kept from an earlier request (selection code and selected transaction ID) and simply redisplay the list. A stale selection must never open a transaction.
 
 ## Open questions
 

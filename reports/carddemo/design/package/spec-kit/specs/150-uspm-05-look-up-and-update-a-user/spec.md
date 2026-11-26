@@ -10,7 +10,7 @@
 
 As an administrator, I want to look up an existing user by User ID and save changes to it, so that the user's profile stays correct.
 
-Lets an administrator look up an existing user by User ID on the update screen and save changes to it. A blank User ID must be refused before any lookup, and an unknown User ID must be reported. As in the legacy system, a save against an unknown User ID ends with 'Unable to Update User...'.
+Lets an administrator look up a user by User ID so they can then change it. A blank User ID is refused before any lookup. It must never look up or save against a blank User ID, and it must show the failure when the User ID does not exist.
 
 **Acceptance scenarios:**
 

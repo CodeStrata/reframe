@@ -6,7 +6,7 @@ Customer Data Setup · Credit Card List Detail View and Update · runs as online
 
 ## Introduction
 
-Lets card operations staff enter an account number and a 16-digit card number and see that card's embossed name, expiry month and year, and active status. The card is looked up by card number alone. It must reject missing or non-numeric input with the exact messages, and must say clearly when the card is not found or the card file cannot be read.
+Card operations users enter an account number and a 16-digit card number, or arrive with a card picked from the card list, and see that card's embossed name, expiry month and year, and active status. Each missing or badly formed search field is rejected with its exact message and highlighted. The card is found by card number alone. It is not checked against the account entered, and the new application must keep this behaviour, not quietly tighten it.
 
 **User story:** As a card operations user, I want to enter an account and card number and see that card's details, so that I can check the card's embossed name, expiry and status.
 
@@ -116,7 +116,7 @@ Lets card operations staff enter an account number and a 16-digit card number an
 #### Acceptance criteria
 
 1. If reading the card master fails for any reason other than not found, then the system shall reject the search, show the account in red and show 'File Error: READ on CARDDAT returned RESP <code>,RESP2 <code>'. (rules CCLDV-BR-046)
-2. GIVEN a valid 11-digit account number and a valid 16-digit card number are entered on the card detail screen, and the card master cannot be read for a reason other than 'not found' (for example the file is unavailable) WHEN the user presses Enter THEN the search is rejected, no card details are shown, the account field is shown in red and the error line shows 'File Error: READ on CARDDAT returned RESP <code>,RESP2 <code>' with the two response codes from the failed read (CCLDV-C04-AC-33; CCLDV-BR-046)
+2. GIVEN a valid account number and a valid 16-digit card number have been entered on the card detail screen, and reading the card master will fail with an error other than 'not found' WHEN the card lookup is made THEN the search is rejected, no card details are shown, the account field is shown in red, and the message reads 'File Error: READ on CARDDAT returned RESP <code>,RESP2 <code>' with the two response codes the read returned (CCLDV-C04-AC-33; CCLDV-BR-046)
 
 ### Requirement 15: CCLDV-REQ-F-048 (formatting)
 
@@ -169,31 +169,25 @@ Lets card operations staff enter an account number and a 16-digit card number an
 
 ### Cards (S-CARD-LIST)
 
-Browse and filter credit cards by account and card number, and open a card to view or edit it from its row.
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Card (S-CARD-DETAIL)
+### Card details (S-CARD-DETAIL)
 
-Find a card by account and card number, see its embossed name, expiry date and active status, and edit those details with a confirmation before saving. Replaces the separate view and update screens: the same card is found, shown and edited in one place.
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
 
 Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Find a card | form | Account number and card number. Prefilled and read-only (with a Change link) when the card was opened from the card list; empty on a fresh start. |  |  | CCLDV-REQ-F-042, CCLDV-REQ-F-048, CCLDV-REQ-F-050, CCLDV-REQ-F-051 |
-| Account number | text | 11-digit account number | Required; must be an 11-digit number other than all zeros. Messages: 'Enter the account number.' (blank or zeros; legacy 'Account number not provided'), 'Account number must be an 11-digit number.' (not numeric). When both numbers are missing: 'Enter the account number and card number.' (legacy 'No input received'). Only the search fields are checked until a card is found. |  | CCLDV-REQ-F-034, CCLDV-REQ-F-035, CCLDV-REQ-F-036, CCLDV-REQ-F-037, CCLDV-REQ-F-041, CCLDV-REQ-F-052, CCLDV-REQ-F-053 |
-| Card number | text | 16-digit card number | Required; must be a 16-digit number other than all zeros. Messages: 'Enter the card number.' (blank or zeros; legacy 'Card number not provided'), 'Card number must be a 16-digit number.' (not numeric) |  | CCLDV-REQ-F-034, CCLDV-REQ-F-038, CCLDV-REQ-F-039, CCLDV-REQ-F-040, CCLDV-REQ-F-041, CCLDV-REQ-F-052, CCLDV-REQ-F-053 |
-| Find card | button | Looks the card up by card number and shows its details; an edit in progress must be saved or discarded first |  |  | CCLDV-REQ-F-042, CCLDV-REQ-F-043, CCLDV-REQ-F-044 |
-| Card not found | message | Error: 'No card was found with this card number. Check the numbers and try again.' with both fields marked; or 'The card could not be read. Try again or contact support.' on a file error | Card number must exist on the card file: 'No card was found with this card number. Check the numbers and try again.' (legacy 'Did not find cards for this search condition') |  | CCLDV-REQ-F-046, CCLDV-REQ-F-047, CCLDV-REQ-F-049 |
-| Account number | display | Account the card belongs to |  |  | CCLDV-REQ-F-045 |
-| Card number | display | Card number of the card shown |  |  | CCLDV-REQ-F-045 |
-| Name on card | display | Embossed name |  |  | CCLDV-REQ-F-045 |
-| Status | display | Active or Inactive, as text with a badge (not colour alone) |  |  | CCLDV-REQ-F-045 |
-| Expiry date | display | Expiry month and year as MM/YYYY |  |  | CCLDV-REQ-F-045 |
+| Account number | **lookup field** | Account number, 11 digits; filled in and read-only when opened from the card list | Required, an 11-digit number other than zeros: 'Account number not provided. Enter the 11-digit account number.' or 'Account filter, if supplied, must be an 11 digit number. Enter digits only.' Both fields empty: 'No input received. Enter the account and card number.' Account is checked before card, and focus moves to the first field in error. |  | CCLDV-REQ-F-051, CCLDV-REQ-F-053 |
+| Card number | **lookup field** | Card number, 16 digits; filled in and read-only when opened from the card list; the card is found by its number | Required, a 16-digit number other than zeros: 'Card number not provided. Enter the 16-digit card number.' or 'Card ID filter, if supplied, must be a 16 digit number. Enter digits only.' No card with that number: 'Did not find cards for this search condition. Check the card number.' |  | CCLDV-REQ-F-044, CCLDV-REQ-F-046, CCLDV-REQ-F-047 |
+| Card | **summary card** | Account number and card number of the card found, with 'Displaying requested details' |  |  | CCLDV-REQ-F-045 |
+| Current status | **status badge** | The card's stored status, Active (green) or Inactive (grey), with the word |  |  |  |
 
 
 ## Data models

@@ -12,7 +12,7 @@
   - _After: OATM-C21-T1_
 - [ ] 3. OATM-C21-T3 [ui-modernization] Build the screen Transaction reports (S-REPORT-REQUEST)
   - To the prototype: ui-reference/index.html#/S-REPORT-REQUEST.
-  - radio "Report period": Required: 'Select a report type to print report...'.
+  - **summary card** "Report type": None chosen: 'Select a report type to print report...' - choose Monthly, Yearly or Custom.
   - _Requirements: OATM-REQ-F-171, OATM-REQ-F-172_
   - _Rules: OATM-BR-179, OATM-BR-180_
   - _After: OATM-C21-T2_

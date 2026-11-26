@@ -10,7 +10,7 @@
 
 As an administrator, I want to pick a numbered option from the Admin Menu, so that I am taken to the administration function I need.
 
-The Admin Menu lets administrators pick a numbered option, 1 to 6, to reach the user-security screens (list, add, update and delete users) and the transaction-type maintenance screens. It must check every entry, reject keys and option numbers it does not support with the exact messages, and pass the session on to the chosen screen. Today the menu does not check that the user is an administrator, so the new application must decide on purpose where that admin-only check sits.
+Gives administrators a numbered menu of the user-security and transaction-type maintenance functions and opens the one they choose. It must reject option numbers outside 1–6 and unsupported keys with the exact legacy messages. If a chosen function is missing it must say 'This option is not installed ...' and not fail. Note that the legacy menu does not re-check that the user is an administrator: it relies on sign-on for that.
 
 **Acceptance scenarios:**
 
@@ -27,8 +27,8 @@ The Admin Menu lets administrators pick a numbered option, 1 to 6, to reach the 
 11. **Given** Option entered: 2; Option program: COUSR01C, **when** a selected Admin Menu option's program name starts with 'DUMMY', **then** The 'DUMMY' check does not match; control passes to 'COUSR01C' (SOM-C02-AC-11)
 12. **Given** Session user type (CDEMO-USER-TYPE): U; Option entered: 1, **when** Admin Menu runs, **then** Control passes to 'COUSR00C' without any user-type check in the Admin Menu (SOM-C02-AC-12)
 13. **Given** User signs on with type: A, **when** Admin Menu runs, **then** Sign-on transfers the user to the Admin Menu ('COADM01C'); type 'U' goes to 'COMEN01C' instead (SOM-C02-AC-13)
-14. **Given** the admin option table holds 6 options, **when** the Admin Menu is displayed, **then** 6 option lines are shown, one per line, in order 1 to 6, each written as the option number followed by '. ' and the option name (for example '1. User List (Security)'), and no further option lines are shown (SOM-C02-AC-14)
-15. **Given** an administrator is on the Admin Menu and the program for option 1 is not deployed or registered, **when** they enter option 1 and press Enter, **then** the Admin Menu is shown again with the green message 'This option is not installed ...', which does not include the option name; no screen change happens, and the menu waits for the next entry (SOM-C02-AC-15)
+14. **Given** The admin option table holds 6 options: 1 'User List (Security)', 2 'User Add (Security)', 3 'User Update (Security)', 4 'User Delete (Security)', 5 'Transaction Type List/Update (Db2)', 6 'Transaction Type Maintenance (Db2)', **when** The Admin Menu is displayed, **then** Six option lines are shown, one per line in order 1 to 6, the first reading '1. User List (Security)' and the sixth reading '6. Transaction Type Maintenance (Db2)', each formed as the option number, '. ' and the option name (SOM-C02-AC-14)
+15. **Given** The Admin Menu is displayed and the program behind option 5 is not installed in the running system, **when** The operator enters option 5 and presses Enter, **then** The Admin Menu is redisplayed with the message 'This option is not installed ...' in green, without the option name. No other screen is opened, and the menu waits for the next entry. (SOM-C02-AC-15)
 
 ## Requirements
 

@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Handles reaching and leaving the transaction report screen for signed-on users. Without a session it sends them to sign-on, PF3 returns to the main menu, Enter processes the request, and any other key gets 'Invalid key pressed. Please see below...'. It must never allow report requests outside a valid signed-on session.
+Controls access to the transaction report screen and movement on it. Only a signed-on user may reach it, and a request without a session is sent to sign-on. PF3 returns to the main menu, Enter processes the request, and any other key is rejected with 'Invalid key pressed. Please see below...'. A report must never be requested outside a valid session.
 
 **User story:** As a signed-on user, I want to open the transaction report screen, leave it, and be told when I press a key it does not support, so that I can ask for reports only within a valid session.
 

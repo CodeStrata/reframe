@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-Lets a card operations user mark a pending authorization as fraud, or remove a fraud mark, with one action on the detail screen. The fraud register and the authorization record must change together or not at all: a partial update where one says fraud and the other does not must never be left behind. The user must be told clearly whether the authorization was marked fraud, had fraud removed, or the change was rolled back.
+Lets a card operations user mark a pending authorization as fraud, or remove that mark, with a single action on the detail screen. The change is recorded in two places, the authorization itself and the fraud register, and they must never disagree: both are saved together or neither is. The user is told plainly whether the authorization was marked or cleared, or why the change failed.
 
 **User story:** As a card operations user, I want to press PF5 on an authorization to report fraud or remove a fraud mark, so that suspected fraudulent authorizations are flagged consistently in the authorization record and the fraud register.
 
@@ -38,14 +38,14 @@ Lets a card operations user mark a pending authorization as fraud, or remove a f
 #### Acceptance criteria
 
 1. The system shall send the whole authorization record, the account number, the customer number and the fraud action to the fraud update program (COPAUS2C). (rules CAFM-BR-147)
-2. GIVEN the detail screen shows a selected authorization for a known account number and customer number, and the fraud action to request is 'F' WHEN the user presses PF5 THEN the fraud update receives the whole authorization record, the account number, the customer number and the fraud action 'F' (CAFM-C15-AC-15; CAFM-BR-147)
+2. GIVEN a selected authorization with fraud flag blank, for account 00000000123 and customer 000000456 WHEN the user presses PF5 THEN the fraud update service receives the whole authorization record, account number 00000000123, customer number 000000456 and fraud action 'F' (CAFM-C15-AC-15; CAFM-BR-147)
 
 ### Requirement 4: CAFM-REQ-F-136 (business rule)
 
 #### Acceptance criteria
 
 1. The system shall set the fraud report date on the authorization record returned by the fraud update program to today's date in MM/DD/YY form with separators, which the detail screen then saves on the pending authorization and displays. (rules CAFM-BR-147, CAFM-BR-148)
-2. GIVEN today's date is 25 November 2026 and the user presses PF5 on a selected authorization WHEN the fraud update returns the authorization record THEN the record's fraud report date is 11/25/26, that date is saved on the pending authorization and the detail screen shows it next to the fraud flag (CAFM-C15-AC-16; CAFM-BR-147, CAFM-BR-148)
+2. GIVEN today's date is 26 November 2026 and a selected authorization not marked fraud WHEN the user presses PF5 and the fraud update succeeds THEN the authorization record returned by the fraud update carries the fraud report date 11/26/26, that date is saved on the pending authorization, and the screen shows the flag F, '-', and 11/26/26 (CAFM-C15-AC-16; CAFM-BR-147, CAFM-BR-148)
 
 ### Requirement 5: CAFM-REQ-F-137 (business rule)
 
@@ -71,7 +71,7 @@ Lets a card operations user mark a pending authorization as fraud, or remove a f
 #### Acceptance criteria
 
 1. If the replace of the authorization detail returns any other status, then the system shall roll back both the fraud register change and the authorization detail change, set the error flag and show ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by the database status code. (rules CAFM-BR-152, CAFM-BR-153)
-2. GIVEN the user presses PF5, the fraud update reports success 'S', and replacing the pending authorization detail returns status 'AJ' (not blank or 'FW') WHEN the system saves the updated authorization detail THEN both the fraud register change and the authorization detail change are rolled back, the error flag is set, and ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by AJ is shown (CAFM-C15-AC-17; CAFM-BR-152, CAFM-BR-153)
+2. GIVEN a selected authorization marked fraud ('F'), the fraud update program reports success ('S'), and the replace of the authorization detail returns a status other than blank or 'FW', for example 'AI' WHEN the user presses PF5 THEN both the fraud register change and the authorization detail change are rolled back, the error flag is set, the message ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by AI is shown, and the stored authorization keeps fraud flag 'F' (CAFM-C15-AC-17; CAFM-BR-152, CAFM-BR-153)
 
 ### Requirement 8: CAFM-REQ-F-139 (error handling)
 

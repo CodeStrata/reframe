@@ -4,32 +4,23 @@
 
 ## Overview
 
-The Authorization details screen for fraud analysts. It shows a selected authorization with its response ('A' in green for '00', otherwise 'D' in red) and its reason as code and description. With PF5 the analyst reports the authorization as fraud or withdraws a fraud report. A toggle must always act on a freshly re-read record: 'F' becomes 'R' (remove fraud) and anything else becomes 'F' (report fraud), and the record goes to fraud processing with its account and customer number.
+Shows a fraud analyst one authorization in full: approved 'A' in green or declined 'D' in red, with the decline reason as '<code>-<description>'. One key toggles its fraud mark, reporting the authorization as fraud ('F') or withdrawing the report ('R'), and passes it on to fraud processing. The toggle must always work from the freshly read record. An unknown reason code must show as '9999-ERROR', never blank.
 
-Runs as online. Journeys: J15.
+Runs as online. Journeys: J13.
 
 ## Screens and components
 
-### Pending authorizations (S-PENDING-AUTHS)
+### Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
 
-Look up an account and see its customer, limits, balances and approved/declined totals together with a paged table of its pending authorizations; open any authorization from its row.
+Look up an account and see everything on one screen: the customer, limits and balances, pending authorization totals, the authorizations in a paged table, and the selected authorization's full details. Fraud can be reported or cleared without leaving the list.
 
-Prototype: `ui-reference/index.html#/S-PENDING-AUTHS`. Replaces the legacy screens COPAU0A.
-
-| Component | Type | Shows | Checks | Goes to | Requirements |
-|---|---|---|---|---|---|
-
-### Authorization details (S-AUTH-DETAIL)
-
-Review one pending authorization — card, amount, response and reason, POS, merchant and fraud status — move to the account's next authorization, and mark or clear fraud on it.
-
-Prototype: `ui-reference/index.html#/S-AUTH-DETAIL`. Replaces the legacy screens COPAU1A.
+Prototype: `ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS`. Replaces the legacy screens COPAU0A, COPAU1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Response | display | 'Approved' (green) when response code is '00', otherwise 'Declined' (red); the word is always shown so colour is not the only cue |  |  | CAFM-REQ-F-113 |
-| Reason | display | '<code>-<description>' from the decline reason table, or '9999-ERROR' when the code is not in the table |  |  | CAFM-REQ-F-112 |
-| Mark as fraud / Remove fraud mark | button | Label follows the current state: 'Remove fraud mark' when flagged F, otherwise 'Mark as fraud'; opens a confirmation |  |  | CAFM-REQ-F-114 |
+| Response | **status badge** | Approved (green) when the response code is 00, otherwise Declined (red), always with the word |  |  | CAFM-REQ-F-113 |
+| Authorization | **summary card** | Card number, date (26 Nov 2026), time (HH:MM:SS), amount right-aligned with two decimals and a leading '-' when negative, decline reason as '<code> - <description>' ('9999 - ERROR' when the code is unknown), authorization code, POS entry mode, source, merchant category code, card expiry (MM/YY), authorization type, transaction ID and match status. Read afresh each time a row opens. With no row selected the panel says 'Select an authorization to see its details.' | Not read: 'System error while reading Auth Summary: Code <code>' or 'System error while reading Auth Details: Code <code>' - reopen the authorization, and report the code if it repeats. The detail fields stay blank when the account ID is not numeric, no authorization is selected, or a read failed. |  | CAFM-REQ-F-112 |
+| Report fraud / Remove fraud mark | **primary button** | Reads 'Report fraud' when the authorization is not marked fraud and 'Remove fraud mark' when it is. It opens a confirmation dialog that repeats what will change: the authorization, amount and merchant, and 'Fraud status: Not reported -> Fraud reported, dated today' or the reverse. On success it shows 'Authorization marked as fraud' or 'Fraud mark removed' and redisplays the same authorization with its new fraud status and date. The authorization and the fraud register change together or not at all. | Fraud register update failed: the fraud program's message (for example 'SYSTEM ERROR DB2: CODE <code>') and 'Nothing was changed - try again, and report the code if it repeats.' Authorization save failed: 'System error while FRAUD Tagging, ROLLBACK <code>' and 'Nothing was changed - try again.' Fraud service did not respond: 'The fraud update did not complete. Nothing was changed - try again.' |  | CAFM-REQ-F-114 |
 
 
 ## Data models

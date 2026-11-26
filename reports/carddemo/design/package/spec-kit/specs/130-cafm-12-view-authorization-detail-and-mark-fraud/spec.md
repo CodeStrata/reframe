@@ -10,7 +10,7 @@
 
 As a fraud analyst, I want to see an authorization's details with its decline reason and toggle its fraud mark, so that suspected fraud can be reported or withdrawn.
 
-The Authorization details screen for fraud analysts. It shows a selected authorization with its response ('A' in green for '00', otherwise 'D' in red) and its reason as code and description. With PF5 the analyst reports the authorization as fraud or withdraws a fraud report. A toggle must always act on a freshly re-read record: 'F' becomes 'R' (remove fraud) and anything else becomes 'F' (report fraud), and the record goes to fraud processing with its account and customer number.
+Shows a fraud analyst one authorization in full: approved 'A' in green or declined 'D' in red, with the decline reason as '<code>-<description>'. One key toggles its fraud mark, reporting the authorization as fraud ('F') or withdrawing the report ('R'), and passes it on to fraud processing. The toggle must always work from the freshly read record. An unknown reason code must show as '9999-ERROR', never blank.
 
 **Acceptance scenarios:**
 
@@ -19,7 +19,7 @@ The Authorization details screen for fraud analysts. It shows a selected authori
 3. **Given** fraud flag: F, **when** the user presses PF5 on the selected authorization, **then** Flag becomes 'R' and the fraud processor is asked to remove the fraud report. (CAFM-C12-AC-03)
 4. **Given** fraud flag: blank, **when** the user presses PF5 on the selected authorization, **then** Flag becomes 'F' and the fraud processor is asked to report fraud. (CAFM-C12-AC-04)
 5. **Given** fraud flag: R, **when** the user presses PF5 on the selected authorization, **then** Flag becomes 'F' and the fraud processor is asked to report fraud. (CAFM-C12-AC-05)
-6. **Given** One selected authorization with reason code '3100', which is in the decline reason table as 'INVALID CARD', and another with reason code '7777', which is not in the table, **when** Each is shown on the Authorization details screen, **then** The first shows reason '3100-INVALID CARD' and the second shows reason '9999-ERROR' (CAFM-C12-AC-06)
+6. **Given** One authorization with reason code '4100', which is in the decline reason table, and another with reason code '7777', which is not, **when** Each authorization's details are shown, **then** The first shows its reason as '4100-' followed by that code's description from the decline reason table. The second shows '9999-ERROR'. (CAFM-C12-AC-06)
 
 ## Requirements
 

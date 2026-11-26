@@ -6,7 +6,7 @@ Customer Data Setup · Credit Card List Detail View and Update · runs as online
 
 ## Introduction
 
-Takes the operator out of card update, back to the card list or the main menu, or starts a fresh search after a save has completed or failed. It must never carry the previously selected account and card into the next screen or the next search.
+Card operations users leave card update with PF3 and go back to the screen that called it, or to the main menu if no caller is recorded. If they came from the card list, any key after a completed or failed save takes them back to the list. Otherwise the next action starts a new empty search. The user's selected card must never carry over into the next screen or the next search.
 
 **User story:** As a card operations user, I want to leave card update back to where I came from, or start a new search after a save, so that I can continue my work without stale card selections.
 

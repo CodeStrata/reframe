@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Lets an operator ask for a monthly or a yearly transaction report and works out the report period from today's date: the current calendar month, or January 1 to December 31 of the current year. It must never submit a period that does not match the option chosen.
+Works out the date range of a Monthly or Yearly transaction report for the operator. Monthly runs from the first to the last day of the current month, and Yearly from January 1 to December 31 of the current year. It then submits the report job. The period must always be calculated from the current date, never typed in by hand or carried over from an earlier request.
 
 **User story:** As an operator, I want to pick a monthly or yearly report and have its date range set for me, so that the report job runs over the right period.
 

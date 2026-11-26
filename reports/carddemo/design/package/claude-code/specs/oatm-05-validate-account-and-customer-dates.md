@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Checks the open, expiry, reissue and birth dates part by part and then as real calendar dates whenever the operator changes account details. Each message names the date it concerns and only the first error is shown. Impossible dates such as 31 April, 30 February or 29 February in a non-leap year must never be saved.
+Checks the account open, expiry and reissue dates and the customer's date of birth, part by part and then as real calendar dates, whenever the operator changes account or customer details. Impossible dates (such as 31 April, 30 February or 29 February in a non-leap year) and years outside 19xx/20xx must never be saved. Each problem is reported with the date's name in the message.
 
 **User story:** As an operator, I want the open, expiry, reissue and birth dates checked part by part and as real calendar dates, so that impossible dates are never saved.
 
@@ -24,14 +24,14 @@ Checks the open, expiry, reissue and birth dates part by part and then as real c
 #### Acceptance criteria
 
 1. If the year of a date is blank, then the system shall reject the date with '<date name> : Year must be supplied.' and still go on to check the month and day. (rules OATM-BR-045)
-2. GIVEN a changed account where the Open Date year is blank, month is 13 and day is 01 WHEN the dates are validated THEN the date is rejected with 'Open Date : Year must be supplied.' and the month and day are still checked, so the month is also flagged in error (OATM-C05-AC-08; OATM-BR-045)
+2. GIVEN an account is shown for update with changes WHEN the operator leaves the Open Date year blank, enters month '13' and day '05', and submits THEN the date is rejected with 'Open Date : Year must be supplied.', and the month and day are still checked, so the month is also flagged in error (OATM-C05-AC-08; OATM-BR-045)
 
 ### Requirement 3: OATM-REQ-F-047 (business rule)
 
 #### Acceptance criteria
 
 1. If the year of a date is not a four-digit number, then the system shall reject the date with '<date name> must be 4 digit number.' (rules OATM-BR-046)
-2. GIVEN a changed account where the Expiry Date year is entered as '20A5' WHEN the dates are validated THEN the date is rejected with 'Expiry Date must be 4 digit number.' (OATM-C05-AC-09; OATM-BR-046)
+2. GIVEN an account is shown for update with changes WHEN the operator enters Expiry Date year '25' and submits THEN the date is rejected with 'Expiry Date must be 4 digit number.' (OATM-C05-AC-09; OATM-BR-046)
 
 ### Requirement 4: OATM-REQ-F-048 (business rule)
 
@@ -45,45 +45,42 @@ Checks the open, expiry, reissue and birth dates part by part and then as real c
 #### Acceptance criteria
 
 1. If the month of a date is blank, then the system shall reject the date with '<date name> : Month must be supplied.' (rules OATM-BR-048)
-2. GIVEN a changed account where the Reissue Date year is 2024, month is blank and day is 15 WHEN the dates are validated THEN the date is rejected with 'Reissue Date : Month must be supplied.' (OATM-C05-AC-10; OATM-BR-048)
+2. GIVEN an account is shown for update with changes WHEN the operator enters Reissue Date year '2024', leaves the month blank, and submits THEN the date is rejected with 'Reissue Date : Month must be supplied.' (OATM-C05-AC-10; OATM-BR-048)
 
 ### Requirement 6: OATM-REQ-F-050 (business rule)
 
 #### Acceptance criteria
 
 1. If the month of a date is not a number from 1 to 12, then the system shall reject the date with '<date name>: Month must be a number between 1 and 12.' (rules OATM-BR-049)
-2. GIVEN a changed account where the Open Date is year 2024, month 13, day 01 WHEN the dates are validated THEN the date is rejected with 'Open Date: Month must be a number between 1 and 12.' (OATM-C05-AC-11; OATM-BR-049)
-3. GIVEN a changed account where the Open Date month is entered as 'AB' WHEN the dates are validated THEN the date is rejected with 'Open Date: Month must be a number between 1 and 12.' (OATM-C05-AC-12; OATM-BR-049)
+2. GIVEN an account is shown for update with changes WHEN the operator enters Open Date 2024 / 13 / 01 and submits THEN the date is rejected with 'Open Date: Month must be a number between 1 and 12.' (OATM-C05-AC-11; OATM-BR-049)
 
 ### Requirement 7: OATM-REQ-F-051 (business rule)
 
 #### Acceptance criteria
 
 1. If the day of a date is blank, then the system shall reject the date with '<date name> : Day must be supplied.' (rules OATM-BR-050)
-2. GIVEN a changed account where the Date of Birth is year 1980, month 06 and day blank WHEN the dates are validated THEN the date is rejected with 'Date of Birth : Day must be supplied.' (OATM-C05-AC-13; OATM-BR-050)
+2. GIVEN an account is shown for update with changes WHEN the operator enters Expiry Date 2026 / 05 with the day blank and submits THEN the date is rejected with 'Expiry Date : Day must be supplied.' (OATM-C05-AC-12; OATM-BR-050)
 
 ### Requirement 8: OATM-REQ-F-052 (business rule)
 
 #### Acceptance criteria
 
 1. If the day of a date is not a number or is outside 1 to 31, then the system shall reject the date with '<date name>:day must be a number between 1 and 31.' (rules OATM-BR-051)
-2. GIVEN a changed account where the Expiry Date is year 2026, month 05, day 32 WHEN the dates are validated THEN the date is rejected with 'Expiry Date:day must be a number between 1 and 31.' (OATM-C05-AC-14; OATM-BR-051)
-3. GIVEN a changed account where the Expiry Date day is entered as 'XX' WHEN the dates are validated THEN the date is rejected with 'Expiry Date:day must be a number between 1 and 31.' (OATM-C05-AC-15; OATM-BR-051)
+2. GIVEN an account is shown for update with changes WHEN the operator enters Open Date 2024 / 05 / 32 and submits (or day 'AB') THEN the date is rejected with 'Open Date:day must be a number between 1 and 31.' (OATM-C05-AC-13; OATM-BR-051)
 
 ### Requirement 9: OATM-REQ-F-053 (business rule)
 
 #### Acceptance criteria
 
 1. If the day is 31 and the month is not 1, 3, 5, 7, 8, 10 or 12, then the system shall reject the date with '<date name>:Cannot have 31 days in this month.' and stop checking that date. (rules OATM-BR-052)
-2. GIVEN a changed account where the Open Date is year 2024, month 04, day 31 WHEN the dates are validated THEN the date is rejected with 'Open Date:Cannot have 31 days in this month.' and no further checks are made on the Open Date (OATM-C05-AC-16; OATM-BR-052)
-3. GIVEN a changed account where the Open Date is year 2024, month 07, day 31 WHEN the dates are validated THEN the 31-day check does not reject the Open Date (OATM-C05-AC-17; OATM-BR-052)
+2. GIVEN an account is shown for update with changes WHEN the operator enters Reissue Date 2024 / 04 / 31 and submits THEN the date is rejected with 'Reissue Date:Cannot have 31 days in this month.' and no further check is made on that date (OATM-C05-AC-14; OATM-BR-052)
 
 ### Requirement 10: OATM-REQ-F-054 (business rule)
 
 #### Acceptance criteria
 
 1. If the date is 30 February, then the system shall reject it with '<date name>:Cannot have 30 days in this month.' and stop checking that date. (rules OATM-BR-053)
-2. GIVEN a changed account where the Reissue Date is year 2024, month 02, day 30 WHEN the dates are validated THEN the date is rejected with 'Reissue Date:Cannot have 30 days in this month.' and no further checks are made on the Reissue Date (OATM-C05-AC-18; OATM-BR-053)
+2. GIVEN an account is shown for update with changes WHEN the operator enters Open Date 2024 / 02 / 30 and submits THEN the date is rejected with 'Open Date:Cannot have 30 days in this month.' and no further check is made on that date (OATM-C05-AC-15; OATM-BR-053)
 
 ### Requirement 11: OATM-REQ-F-055 (business rule)
 
@@ -116,18 +113,25 @@ Checks the open, expiry, reissue and birth dates part by part and then as real c
 
 ## Screens and components
 
+### Account (S-ACCOUNT-VIEW)
+
+Look up an account by account number or card number and show its status, balances, limits and dates beside the customer profile on one screen, while the caller waits. Tab order: search, the cards, then Update account.
+
+Prototype: `ui-reference/index.html#/S-ACCOUNT-VIEW`. Replaces the legacy screens CACTVWA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
 ### Update account (S-ACCOUNT-EDIT)
 
-Fetch an account, change its account and customer details in one form, see every error at its field, and save both records together only after reviewing the changes.
+Change an account's and its customer's details after confirming the caller. Each field is checked as it is left and again on save; every failing field shows its own message and a summary lists them all. Save asks for confirmation, listing each change from old to new value. Tab order: account and status, dates, amounts, customer identity, name and address, contact, then Save changes.
 
 Prototype: `ui-reference/index.html#/S-ACCOUNT-EDIT`. Replaces the legacy screens CACTUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Open date | date |  | Year, month and day must all be supplied: 'Open Date : Year must be supplied.', 'Open Date : Month must be supplied.', 'Open Date : Day must be supplied.'. The year must be 4 digits: 'Open Date must be 4 digit number.', starting 19 or 20: 'Open Date : Century is not valid.'. 'Open Date: Month must be a number between 1 and 12.'; 'Open Date:day must be a number between 1 and 31.'; 'Open Date:Cannot have 31 days in this month.'; 'Open Date:Cannot have 30 days in this month.'; 'Open Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Open Date validation error ...'. |  | OATM-REQ-F-045, OATM-REQ-F-046 |
-| Expiry date | date |  | Year, month and day must all be supplied: 'Expiry Date : Year must be supplied.', 'Expiry Date : Month must be supplied.', 'Expiry Date : Day must be supplied.'. The year must be 4 digits: 'Expiry Date must be 4 digit number.', starting 19 or 20: 'Expiry Date : Century is not valid.'. 'Expiry Date: Month must be a number between 1 and 12.'; 'Expiry Date:day must be a number between 1 and 31.'; 'Expiry Date:Cannot have 31 days in this month.'; 'Expiry Date:Cannot have 30 days in this month.'; 'Expiry Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Expiry Date validation error ...'. |  | OATM-REQ-F-045, OATM-REQ-F-046 |
-| Reissue date | date |  | Year, month and day must all be supplied: 'Reissue Date : Year must be supplied.', 'Reissue Date : Month must be supplied.', 'Reissue Date : Day must be supplied.'. The year must be 4 digits: 'Reissue Date must be 4 digit number.', starting 19 or 20: 'Reissue Date : Century is not valid.'. 'Reissue Date: Month must be a number between 1 and 12.'; 'Reissue Date:day must be a number between 1 and 31.'; 'Reissue Date:Cannot have 31 days in this month.'; 'Reissue Date:Cannot have 30 days in this month.'; 'Reissue Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Reissue Date validation error ...'. |  | OATM-REQ-F-045, OATM-REQ-F-046 |
-| Date of birth | date |  | Year, month and day must all be supplied: 'Date of Birth : Year must be supplied.', 'Date of Birth : Month must be supplied.', 'Date of Birth : Day must be supplied.'. The year must be 4 digits: 'Date of Birth must be 4 digit number.', starting 19 or 20: 'Date of Birth : Century is not valid.'. 'Date of Birth: Month must be a number between 1 and 12.'; 'Date of Birth:day must be a number between 1 and 31.'; 'Date of Birth:Cannot have 31 days in this month.'; 'Date of Birth:Cannot have 30 days in this month.'; 'Date of Birth:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Date of Birth validation error ...'. Must be before today: 'Date of Birth:cannot be in the future '. |  |  |
+| Account dates | **summary card** | Opened, Expiry and Reissue dates, each as labelled Day, Month and Year inputs | For each date, in the rule's words: '<date> : Year must be supplied.', '<date> must be 4 digit number.', '<date> : Century is not valid.' (year must start 19 or 20), '<date> : Month must be supplied.', '<date>: Month must be a number between 1 and 12.', '<date> : Day must be supplied.', '<date>:day must be a number between 1 and 31.', '<date>:Cannot have 31 days in this month.', '<date>:Cannot have 30 days in this month.', '<date>:Not a leap year.Cannot have 29 days in this month.', and a final calendar check '<date> validation error'. The message sits under the part to fix. |  | OATM-REQ-F-045, OATM-REQ-F-046, OATM-REQ-F-047, OATM-REQ-F-048, OATM-REQ-F-049, OATM-REQ-F-050, OATM-REQ-F-051, OATM-REQ-F-052, OATM-REQ-F-053, OATM-REQ-F-054, OATM-REQ-F-055, OATM-REQ-F-056, OATM-REQ-F-057, OATM-REQ-F-058 |
+| Customer identity | **summary card** | Customer ID (read-only); SSN as three labelled parts (3-2-4); Date of birth as Day, Month, Year; FICO score; Government-issued ID (optional) | SSN: 'SSN: First 3 chars must be supplied.', 'SSN: First 3 chars must be all numeric.', 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'; the 4th & 5th and last 4 characters must each be supplied, all numeric and non-zero. Date of birth: the date checks above, and 'Date of Birth:cannot be in the future '. FICO: 'FICO Score must be supplied.', 'FICO Score must be all numeric.', 'FICO Score must not be zero.', 'FICO Score: should be between 300 and 850'. |  |  |
 
 
 ## Data models
@@ -287,4 +291,4 @@ None.
 
 ## Testing
 
-Every acceptance criterion in requirements.md is a test named by its ID (18 in all).
+Every acceptance criterion in requirements.md is a test named by its ID (15 in all).

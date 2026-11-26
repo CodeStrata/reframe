@@ -18,7 +18,7 @@
   - _After: DTPR-C15-T1, DTPR-C15-T2_
 - [ ] 4. DTPR-C15-T4 [ui-modernization] Build the screen Transaction reports (S-REPORT-REQUEST)
   - To the prototype: ui-reference/index.html#/S-REPORT-REQUEST.
-  - date "End date": Month, day and year required: 'End Date - Month can NOT be empty...', 'End Date - Day can NOT be empty...', 'End Date - Year can NOT be empty...'; 'End Date - Not a valid Month...'; 'End Date - Not a valid Day...'; 'End Date - Not a valid Year...'; must be a real date: 'End Date - Not a valid date...'.
+  - **primary button** "Submit report": The dialog offers only Submit or Cancel, replacing the typed confirmation and its messages 'Please confirm to print the <report name> report...' and '"<value>" is not a valid value to confirm...'. If the job cannot be queued, the message says the report was not submitted and to try again.
   - _Requirements: DTPR-REQ-F-077_
   - _Rules: DTPR-BR-086_
   - _After: DTPR-C15-T1, DTPR-C15-T2, DTPR-C15-T3_

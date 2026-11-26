@@ -6,7 +6,7 @@ Unclassified · Card Authorization and Fraud Management · runs as online · ris
 
 ## Introduction
 
-Lets customer service operators page forward (PF8) and back (PF7) through an account's pending authorizations five at a time. Each row shows 'A' for approved (response '00') or 'D' for declined, with amount, date, time, transaction id, type and match status. Paging must never skip or repeat authorizations, and the operator sees the stated message at the top or bottom of the list.
+Lets a customer service operator page forward and back through an account's pending authorizations, five at a time, newest first. Each row shows 'A' (approved) or 'D' (declined) with its amount, date, time, transaction id, type and match status. Paging must never skip or repeat an authorization. At either end the operator is told so and the list stays as it is.
 
 **User story:** As a customer service operator, I want to page forward and back through an account's pending authorizations five at a time, with each shown as approved or declined, so that I can review every authorization on the account.
 
@@ -71,4 +71,4 @@ Lets customer service operators page forward (PF8) and back (PF7) through an acc
 #### Acceptance criteria
 
 1. When an authorization is listed, the system shall show its approved amount with a sign and two decimals, its original date held as YYMMDD as MM/DD/YY, and its original time held as HHMMSS as HH:MM:SS, along with transaction id, authorization type and match status. (rules CAFM-BR-113, CAFM-BR-114)
-2. GIVEN A pending authorization with approved amount 150.00, original date '240315' (YYMMDD) and original time '143005' (HHMMSS) WHEN It is listed on the Pending authorizations screen THEN Its row shows the approved amount as 150.00 with a sign and two decimals, the date as '03/15/24' and the time as '14:30:05', along with its transaction id, authorization type and match status (CAFM-C10-AC-13; CAFM-BR-113, CAFM-BR-114)
+2. GIVEN A pending authorization with approved amount 125.50, original date held as '261126', original time held as '143005', and its transaction id, authorization type and match status 'P' WHEN It is listed on the account's authorizations page THEN The row shows the amount as signed with two decimals (125.50), the date as '11/26/26', the time as '14:30:05', and the transaction id, authorization type and match status 'P'. (CAFM-C10-AC-13; CAFM-BR-113, CAFM-BR-114)

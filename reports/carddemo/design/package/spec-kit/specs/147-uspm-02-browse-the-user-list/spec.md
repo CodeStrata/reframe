@@ -10,7 +10,7 @@
 
 As an administrator, I want to page through CardDemo users ten at a time from a chosen User ID, so that I can find the user profile I need to manage.
 
-Gives administrators a list of CardDemo users, ten per page in User ID order. The list can start from a chosen User ID and be paged forward and backward. It must keep the page boundaries and the top and bottom messages correct, so that no user is skipped or shown twice between pages, and it must send anyone without a session back to sign-on.
+Gives administrators a list of CardDemo users, ten per page in User ID order. The list can start from a User ID they type, and they page forward and back with clear messages at the top and bottom. It must always show users in User ID order, page without skipping or repeating users, and send anyone with no session back to sign-on.
 
 **Acceptance scenarios:**
 

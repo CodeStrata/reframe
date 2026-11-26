@@ -18,22 +18,18 @@
   - _Rules: TTRDM-BR-092, TTRDM-BR-093_
   - _After: TTRDM-C11-T1_
 - [ ] 4. TTRDM-C11-T4 [api] Build the services behind the screens
-  - TTRDM-BR-095: Before each lookup by type code, clear the saved 'original' transaction type and the info message in the screen's session state, so that a failed lookup cannot leave the previous type's values behind.
-  - TTRDM-BR-096: Look up the transaction type by its primary key (the two-digit type code). On a hit, set a 'found' flag and keep the code and description as the values on file, used for display and change detection.
-  - TTRDM-BR-097: On a successful lookup, save the stored code and description, at its full stored length, as the 'original' snapshot in session state; later edits are compared against it. When the lookup finds nothing or fails, save no snapshot.
-  - TTRDM-BR-100: In the not-found state, if the same code is submitted again without F5, keep the code and description already in session state and ignore the posted form values, including any typed description, before the code is looked up again.
+  - TTRDM-BR-095: Each lookup starts by clearing the 'original' snapshot and the information message held in the screen's state, so a failed lookup can never leave the previous type's values behind.
+  - TTRDM-BR-096: A keyed read of the transaction type table by its two-digit code. On a hit, return a 'found' result with code and description; the description is used both for display and as the baseline for change detection.
+  - TTRDM-BR-097: Hold the fetched code and description, at their stored length, as an 'original' snapshot in the edit session (or as a version/ETag) to compare against the user's later edits. On not-found or a read error, leave the snapshot empty.
+  - TTRDM-BR-100: In the not-found state, if the same code is submitted again without choosing Add, keep the code and description already held in the edit session and ignore the submitted form values, including any description typed.
   - _Requirements: TTRDM-REQ-F-085, TTRDM-REQ-F-086, TTRDM-REQ-F-087_
   - _Rules: TTRDM-BR-095, TTRDM-BR-096, TTRDM-BR-097_
   - _After: TTRDM-C11-T1, TTRDM-C11-T2, TTRDM-C11-T3_
-- [ ] 5. TTRDM-C11-T5 [ui-modernization] Build the screen Transaction type (S-TRANTYPE-EDIT)
+- [ ] 5. TTRDM-C11-T5 [ui-modernization] Build the screen Add or change a transaction type (S-TRANTYPE-EDIT)
   - To the prototype: ui-reference/index.html#/S-TRANTYPE-EDIT.
-  - form "Find a transaction type"
-  - text "Type code": Required; a number other than zero. Messages: 'Enter a type code.' (legacy 'Tran Type code must be supplied.'), 'Type code must be a number.' (legacy 'Tran Type code must be numeric.'), 'Type code must not be 00.' (legacy 'Tran Type code must not be zero.'). Only the first problem is shown.
-  - button "Find"
-  - message "Type not on file": Code must exist to change or delete: 'No transaction type with this code.' (legacy 'No record found for this key in database')
-  - button "Add as new type"
-  - _Requirements: TTRDM-REQ-F-080, TTRDM-REQ-F-081, TTRDM-REQ-F-082, TTRDM-REQ-F-083, TTRDM-REQ-F-084, TTRDM-REQ-F-085, TTRDM-REQ-F-086, TTRDM-REQ-F-087, TTRDM-REQ-F-088, TTRDM-REQ-F-089, TTRDM-REQ-F-090_
-  - _Rules: TTRDM-BR-089, TTRDM-BR-090, TTRDM-BR-091, TTRDM-BR-092, TTRDM-BR-093, TTRDM-BR-094, TTRDM-BR-095, TTRDM-BR-096, TTRDM-BR-097, TTRDM-BR-098, TTRDM-BR-099, TTRDM-BR-100, TTRDM-BR-101, TTRDM-BR-102_
+  - **lookup field** "Transaction type code": 'Tran Type code must be supplied. Enter a two-digit code.'; 'Tran Type code must be numeric. Enter digits only.'; 'Tran Type code must not be zero. Enter a code from 01 to 99.' Only the first failing check is shown.
+  - _Requirements: TTRDM-REQ-F-080, TTRDM-REQ-F-081, TTRDM-REQ-F-082, TTRDM-REQ-F-088_
+  - _Rules: TTRDM-BR-089, TTRDM-BR-090, TTRDM-BR-091, TTRDM-BR-098_
   - _After: TTRDM-C11-T2, TTRDM-C11-T3, TTRDM-C11-T4_
 - [ ] 6. TTRDM-C11-T6 [test-generation] Write a test for every acceptance criterion
   - 11 acceptance criteria, each a test named by its ID.

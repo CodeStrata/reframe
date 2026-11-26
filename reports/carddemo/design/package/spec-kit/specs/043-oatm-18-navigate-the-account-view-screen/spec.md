@@ -10,7 +10,7 @@
 
 As a user, I want the account view screen to start fresh, accept my input and return me to where I came from with PF3, so that I can move through the application predictably.
 
-Controls how a user enters and leaves the account view screen. It starts fresh on first entry, treats any unsupported key as Enter, and returns to the caller or the main menu on PF3. It must keep track of whether this is a first visit or a return visit and keep the session data between interactions. An unexpected state must end with 'UNEXPECTED DATA SCENARIO' rather than guessing.
+Controls how a user moves on and off the Account View screen. Arriving from the main menu starts a fresh view. Enter, and any unsupported key, runs the lookup. PF3 (or PF15) returns the user to where they came from, or to the main menu if no caller is known. The view must never carry data over from a previous visit, and an unexpected session state must stop processing rather than guess.
 
 **Acceptance scenarios:**
 

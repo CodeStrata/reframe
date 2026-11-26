@@ -4,41 +4,39 @@
 
 ## Overview
 
-Controls how users arrive at and leave the card detail screen: from the menu it opens an empty search, and from the card list it opens straight on the selected card. Leaving with PF3 returns the user to the screen they came from, or to the main menu. It must never carry stale card selections from an earlier session into a fresh entry.
+This capability controls how a card operations user enters and leaves the card detail screen. Coming from the menu, the user gets an empty search prompt. Coming from the card list, the chosen card is shown at once. PF3 always returns the user to where they came from, or to the main menu if nothing is recorded. The screen must never carry stale card or session details over from an earlier visit, and on exit it must tell the next screen that it is a fresh entry.
 
-Runs as online. Journeys: J07, J08.
+Runs as online. Journeys: J07.
 
 ## Screens and components
 
 ### Cards (S-CARD-LIST)
 
-Browse and filter credit cards by account and card number, and open a card to view or edit it from its row.
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
 
 Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
 
-### Card (S-CARD-DETAIL)
+### Card details (S-CARD-DETAIL)
 
-Find a card by account and card number, see its embossed name, expiry date and active status, and edit those details with a confirmation before saving. Replaces the separate view and update screens: the same card is found, shown and edited in one place.
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
 
 Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Back to cards | link | Shown when the card was opened from the card list; returns to the list where it was left |  | S-CARD-LIST | CCLDV-REQ-F-057, CCLDV-REQ-F-058 |
-| Find a card | form | Account number and card number. Prefilled and read-only (with a Change link) when the card was opened from the card list; empty on a fresh start. |  |  | CCLDV-REQ-F-054, CCLDV-REQ-F-055, CCLDV-REQ-F-056, CCLDV-REQ-N-001 |
 
 ### Application header and navigation (S-APP-SHELL)
 
-New: the header and navigation shown once around every screen, replacing the transaction, program, date, time and title lines each 3270 map repeated and the typed option codes of the main menu. Sign-on is required before any screen opens.
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
 
 Prototype: `ui-reference/index.html#/S-APP-SHELL`.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Find a card by number | link |  |  | S-CARD-DETAIL | CCLDV-REQ-F-054, CCLDV-REQ-F-055 |
+| Cards | **data table** | Navigation entry for the card list; also the way back from card details |  | S-CARD-LIST | CCLDV-REQ-F-057 |
 
 
 ## Data models
@@ -120,9 +118,9 @@ Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error
 
 ## Design notes
 
-- CCLDV-BR-053: When the card detail screen is opened with no session state, or opened fresh from the main menu, the user's navigation and selection state (selected account and card, previous screen) is cleared before anything else happens.
-- CCLDV-BR-057: The card detail screen is a stateful form: every response must keep the session state so that the user's next submit is handled as a continuation of the same screen, not a new entry. In a web app this is a normal form post back to the same route, with the session state held on the server.
-- CCLDV-BR-059: On exit the shared navigation state handed to the next screen records card detail as the screen that sent the user, the user type as regular user ('U'), and that the destination should treat this as a first entry, so it starts clean and does not re-process this screen's input.
+- CCLDV-BR-053: When card detail opens with no navigation context, or opens fresh from the main menu, clear the whole shared navigation/session context (selected account, card, caller and last screen) before doing anything else.
+- CCLDV-BR-057: Card detail is a stateful page. Every response it sends keeps the user in the card detail conversation, so the next submit from that page comes back to the card detail handler as a continuation of the same search, not as a fresh entry.
+- CCLDV-BR-059: On leaving card detail, update the shared navigation context: sender = card detail, user type = regular user ('U'), last screen = card detail, and mark the next screen's entry as a first entry so it starts fresh.
 
 ## Open questions
 

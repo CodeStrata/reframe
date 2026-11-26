@@ -10,7 +10,7 @@
 
 As an operator, I want the fetched or entered account and customer values shown with the right fields open for editing, so that I can see what is stored and change only what may be changed.
 
-Shows the operator the fetched or entered account and customer values on the Update account screen, with the right message and only the permitted fields open for editing at each stage of the update. Account number, customer number and country must never be editable, and every field must be locked once changes await confirmation or have been saved.
+Shows the operator the stored account and customer details, or the values they have entered, with the right fields open for editing at each stage of the update. Only editable fields may be opened. Account number, customer number and country stay protected while editing, and every field is locked once changes are waiting for confirmation or saved. The screen must always show the current information and error messages.
 
 **Acceptance scenarios:**
 

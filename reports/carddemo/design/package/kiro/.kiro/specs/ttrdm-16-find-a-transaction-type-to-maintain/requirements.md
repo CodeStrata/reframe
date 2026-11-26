@@ -6,7 +6,7 @@ Customer Data Setup · Transaction Type Reference Data Maintenance · runs as on
 
 ## Introduction
 
-Lets an administrator enter a transaction type code and see that type's details, or learn that it is not on file and can be added. The code must be supplied, numeric and non-zero, and it is padded to two digits (for example 5 becomes 05) before the lookup. An invalid code must never trigger a lookup, and only the first error found is shown.
+An administrator enters a transaction type code to find the type they want to maintain. The code must be supplied, numeric and non-zero, and is normalised to two digits with a leading zero before the lookup. The screen then shows the type's details or reports that it was not found and offers to add it. An invalid code must never trigger a lookup, and only the first error found is shown.
 
 **User story:** As an administrator, I want to enter a transaction type code and see its details, so that I can choose the transaction type I need to maintain.
 
@@ -32,21 +32,21 @@ Lets an administrator enter a transaction type code and see that type's details,
 #### Acceptance criteria
 
 1. If the transaction type code is left blank or entered as '*', then the system shall show 'Tran Type code must be supplied.' and keep waiting for a search code without looking anything up. (rules TTRDM-BR-123)
-2. GIVEN The Transaction Type Maintenance screen is waiting for a transaction type to search for WHEN The operator leaves the transaction type code blank, or enters '*', and presses Enter THEN The screen shows 'Tran Type code must be supplied.', no lookup of the transaction type table is made, and the screen keeps waiting for a search code (TTRDM-C16-AC-09; TTRDM-BR-123)
+2. GIVEN The empty search screen asking 'Enter transaction type to be maintained' WHEN The operator leaves the transaction type code blank, or enters '*', and presses Enter THEN The screen shows 'Tran Type code must be supplied.', no lookup is made against the transaction type table, and the screen keeps waiting for a search code (TTRDM-C16-AC-09; TTRDM-BR-123)
 
 ### Requirement 4: TTRDM-REQ-F-111 (business rule)
 
 #### Acceptance criteria
 
 1. If the transaction type code is supplied but is not a number, then the system shall show 'Tran Type code must be numeric.', mark the search code as invalid and not look anything up. (rules TTRDM-BR-124)
-2. GIVEN The Transaction Type Maintenance screen is waiting for a transaction type to search for WHEN The operator enters the transaction type code 'AB' and presses Enter THEN The screen shows 'Tran Type code must be numeric.', the search code is marked as invalid, and no lookup of the transaction type table is made (TTRDM-C16-AC-10; TTRDM-BR-124)
+2. GIVEN The search screen WHEN The operator enters the transaction type code 'AB' and presses Enter THEN The screen shows 'Tran Type code must be numeric.', the search code is marked as invalid, and no lookup is made (TTRDM-C16-AC-10; TTRDM-BR-124)
 
 ### Requirement 5: TTRDM-REQ-F-112 (business rule)
 
 #### Acceptance criteria
 
 1. If the transaction type code is a number equal to zero, then the system shall show 'Tran Type code must not be zero.', mark the search code as invalid and not look anything up. (rules TTRDM-BR-125)
-2. GIVEN The Transaction Type Maintenance screen is waiting for a transaction type to search for WHEN The operator enters the transaction type code '00' and presses Enter THEN The screen shows 'Tran Type code must not be zero.', the search code is marked as invalid, and no lookup of the transaction type table is made (TTRDM-C16-AC-11; TTRDM-BR-125)
+2. GIVEN The search screen WHEN The operator enters the transaction type code '00' (or '0') and presses Enter THEN The screen shows 'Tran Type code must not be zero.', the search code is marked as invalid, and no lookup is made (TTRDM-C16-AC-11; TTRDM-BR-125)
 
 ### Requirement 6: TTRDM-REQ-F-113 (business rule)
 
@@ -61,7 +61,7 @@ Lets an administrator enter a transaction type code and see that type's details,
 #### Acceptance criteria
 
 1. If more than one check fails on the same entry, then the system shall show only the first error message found. (rules TTRDM-BR-127)
-2. GIVEN The Transaction Type Maintenance screen is waiting for a transaction type to search for WHEN The operator submits an entry on which more than one check fails THEN Exactly one error message is shown, and it is the first error message the checks found; no later error message appears with it (TTRDM-C16-AC-12; TTRDM-BR-127)
+2. GIVEN The search screen, with an entry that fails more than one check WHEN The operator presses Enter THEN Exactly one error message is shown, the one from the first check that failed, and the messages from later failing checks are not shown (TTRDM-C16-AC-12; TTRDM-BR-127)
 
 ### Requirement 8: TTRDM-REQ-F-115 (business rule)
 

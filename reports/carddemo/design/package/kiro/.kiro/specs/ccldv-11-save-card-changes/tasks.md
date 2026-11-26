@@ -16,12 +16,11 @@
   - _Requirements: CCLDV-REQ-F-105_
   - _Rules: CCLDV-BR-122_
   - _After: CCLDV-C11-T1_
-- [ ] 4. CCLDV-C11-T4 [ui-modernization] Build the screen Card (S-CARD-DETAIL)
+- [ ] 4. CCLDV-C11-T4 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
   - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
-  - dialog "Save changes to this card?"
-  - message "Save result"
-  - _Requirements: CCLDV-REQ-F-104, CCLDV-REQ-F-105_
-  - _Rules: CCLDV-BR-121, CCLDV-BR-122_
+  - **primary button** "Save card": Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year.
+  - _Requirements: CCLDV-REQ-F-104_
+  - _Rules: CCLDV-BR-121_
   - _After: CCLDV-C11-T2, CCLDV-C11-T3_
 - [ ] 5. CCLDV-C11-T5 [test-generation] Write a test for every acceptance criterion
   - 2 acceptance criteria, each a test named by its ID.

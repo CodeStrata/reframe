@@ -10,7 +10,7 @@
 
 As a card operations user, I want to see the credit cards seven at a time and page forward and back through them, so that I can find the card I need to view or update.
 
-Lets card operations staff browse every credit card seven at a time, paging forward and back, so they can find the card they want to view or update. Each row shows the card number, its account and whether it is active. It must never skip or repeat a card between pages, and it must always tell the user correctly when there are no more pages forward or back.
+Card operations users browse the credit cards seven to a page and move forward and back through the list to find the card they want to view or update. Each row shows the card number, account number and active status. The list must never skip or repeat cards between pages, must say when there are no more pages, and must start again from the first card whenever the user comes in from the menu or returns from card detail or card update.
 
 **Acceptance scenarios:**
 
@@ -41,7 +41,7 @@ Lets card operations staff browse every credit card seven at a time, paging forw
 25. **Given** key pressed: PF3; CDEMO-FROM-PROGRAM: 'COCRDLIC', **when** the user presses PF3 and the originating program is the card list, **then** Control transfers (XCTL) to 'COMEN01C' with the shared commarea, from-transaction 'CCLI'; the card list ends and the main menu is shown. (CCLDV-C01-AC-25)
 26. **Given** key pressed: PF3; CDEMO-FROM-PROGRAM: 'COMEN01C' (first entry from the menu), **when** the user presses PF3 and the originating program is the card list, **then** No exit; the card list is shown. (CCLDV-C01-AC-26)
 27. **Given** key pressed: ENTER; CDEMO-FROM-PROGRAM: 'COCRDLIC', **when** the user presses PF3 and the originating program is the card list, **then** User stays on the card list; the list is refreshed for the current filter. (CCLDV-C01-AC-27)
-28. **Given** the card list is on its last page and the last page has already been shown once (last-page flag 'shown'), **when** the user presses any key other than PF8 (for example Enter or PF7), **then** the last-page flag is reset to 'not shown', so a later PF8 on the last page is treated as the first time the last page is shown (CCLDV-C01-AC-28)
+28. **Given** the user has pressed PF8 on the last page, so the list has recorded that the last page has been shown, **when** the user presses any key other than PF8, for example Enter or PF7, **then** the last-page flag is reset to 'not shown' (CCLDV-C01-AC-28)
 
 ## Requirements
 

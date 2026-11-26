@@ -6,7 +6,7 @@ Customer Account Self-Service · Online Account and Transaction Management · ru
 
 ## Introduction
 
-Lets cardholders and staff look up one transaction by its Transaction ID and see its full details: card, type, category, source, signed amount, description, timestamps and merchant. It must show the exact stored record and amount sign. A missing ID gets 'Transaction ID NOT found...', and a lookup failure gets 'Unable to lookup Transaction...'. PF3, PF4 and PF5 return, clear or go to the list.
+Shows the full details of one transaction found by its Transaction ID: card, type, category, source, signed amount, description, timestamps and merchant. Cardholders and staff use it to review a charge. It must show the amount with its sign exactly as stored, and say 'Transaction ID NOT found...' or 'Unable to lookup Transaction...' rather than show stale details. PF3 goes back, PF4 clears the screen and PF5 opens the transaction list.
 
 **User story:** As a cardholder or staff user, I want to look up a transaction by its Transaction ID and see its full details, so that I can review what was charged, where and when.
 
@@ -39,14 +39,14 @@ Lets cardholders and staff look up one transaction by its Transaction ID and see
 #### Acceptance criteria
 
 1. When the transaction is found, the system shall show its transaction ID, card number, type code, category code, source, amount (signed), description, original and processed timestamps, and merchant ID, name, city and ZIP. (rules OATM-BR-244)
-2. GIVEN a transaction on file with ID 0000000000000042, its card number, type code, category code, source, amount, description, original and processed timestamps, and merchant ID, name, city and ZIP WHEN the user enters 0000000000000042 on the Transaction View and presses Enter THEN the screen shows that transaction ID, card number, type code, category code, source, signed amount, description, original and processed timestamps, and merchant ID, name, city and ZIP, each matching the stored record (OATM-C29-AC-12; OATM-BR-244)
+2. GIVEN a transaction with ID 0000000000000042 exists on file WHEN the user enters 0000000000000042 on the Transaction View and presses Enter THEN the screen shows that transaction's ID, card number, type code, category code, source, signed amount, description, original timestamp, processed timestamp, merchant ID, merchant name, merchant city and merchant ZIP, each taken from the stored record (OATM-C29-AC-12; OATM-BR-244)
 
 ### Requirement 5: OATM-REQ-F-232 (formatting)
 
 #### Acceptance criteria
 
 1. The system shall show the transaction amount on the Transaction View with a leading sign, 8 digits before the decimal point and 2 after (format +99999999.99). (rules OATM-BR-245)
-2. GIVEN a transaction on file with amount 1234.56 and another with amount -50.00 WHEN each is shown on the Transaction View THEN the amounts are shown as +00001234.56 and -00000050.00 (leading sign, 8 digits before the decimal point, 2 after) (OATM-C29-AC-13; OATM-BR-245)
+2. GIVEN a transaction with amount 1234.50 and another with amount -75.00 WHEN each is shown on the Transaction View THEN the amounts are displayed as +00001234.50 and -00000075.00 (leading sign, 8 digits before the decimal point, 2 after) (OATM-C29-AC-13; OATM-BR-245)
 
 ### Requirement 6: OATM-REQ-F-233 (business rule)
 
@@ -95,29 +95,36 @@ Lets cardholders and staff look up one transaction by its Transaction ID and see
 
 ### Transactions (S-TRANSACTION-LIST)
 
-Browse transactions page by page from a chosen ID and open any one with a row action instead of typing S against it.
+Browse transactions in a sortable, paged table or jump to a transaction ID, and open one with Enter or a click instead of typing S beside it. Tab order: search, table, pager, Add transaction.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy screens COTRN0A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
+| Transactions | **data table** | Columns Transaction ID, Date (26 Nov 2026), Description, Amount (right-aligned, two decimals), sortable; 20 rows a page with page number and next/previous; the row opens the transaction | Rows open on Enter or click, so there is no selection code to mistype (legacy: 'Invalid selection. Valid value is S'). At the first or last page the previous or next control is disabled and says 'You are already at the top of the page...' / 'You have reached the bottom of the page...'. Empty state: 'No transactions yet. Use Add transaction to record the first one.' | S-TRANSACTION-VIEW | OATM-REQ-N-011 |
 
 ### Transaction (S-TRANSACTION-VIEW)
 
-Show one transaction's card, type, category, source, amount, dates and merchant together, opened from the list or looked up by ID.
+Show one transaction in full with its merchant, opened from the list or by typing its ID. Tab order: transaction ID, details, merchant, Back to transactions.
 
 Prototype: `ui-reference/index.html#/S-TRANSACTION-VIEW`. Replaces the legacy screens COTRN1A.
 
 | Component | Type | Shows | Checks | Goes to | Requirements |
 |---|---|---|---|---|---|
-| Transaction ID | search | Pre-filled when opened from the list | Required: 'Tran ID can NOT be empty...'; must exist: 'Transaction ID NOT found...'. |  | OATM-REQ-F-229, OATM-REQ-F-233 |
-| Look up | button |  |  |  | OATM-REQ-F-228 |
-| Clear | button |  |  |  | OATM-REQ-F-235 |
-| Lookup error | message | 'Unable to lookup Transaction...' when the file cannot be read |  |  | OATM-REQ-F-237 |
-| Transaction ID | display |  |  |  | OATM-REQ-F-231 |
-| Amount | display | Signed amount, +99999999.99 |  |  | OATM-REQ-F-232 |
-| Back to transactions | link |  |  | S-TRANSACTION-LIST | OATM-REQ-F-236 |
-| Back | link |  |  | S-APP-SHELL | OATM-REQ-F-234 |
+| Transaction ID | **lookup field** | Transaction ID, pre-filled when opened from the list | Blank: 'Tran ID can NOT be empty...' - enter a transaction ID. Not found: 'Transaction ID NOT found...' - check the ID or find it in Transactions. |  | OATM-REQ-F-228, OATM-REQ-F-229, OATM-REQ-F-230, OATM-REQ-F-233, OATM-REQ-F-235 |
+| Transaction | **summary card** | Transaction ID, Card number, Type code, Category code, Source, Description, Amount (signed, right-aligned, two decimals), Original date and Processed date (26 Nov 2026) |  |  | OATM-REQ-F-231, OATM-REQ-F-232 |
+| Merchant | **summary card** | Merchant ID, Name, City, ZIP |  |  | OATM-REQ-F-231 |
+| Back to transactions | **primary button** |  |  | S-TRANSACTION-LIST | OATM-REQ-F-234, OATM-REQ-F-236, OATM-REQ-F-237 |
+
+### Application header and navigation (S-APP-SHELL)
+
+New, shared by every screen: the header and navigation shown once, replacing the transaction, program, date, time and title lines every 3270 screen repeated and the numbered main-menu options. A sign-in is required; with no session the user is sent to sign-in. The navigation carries the account in context, so going from an account to Pay balance, Update account or Add transaction keeps it. Tab order: account search, navigation, then the page.
+
+Prototype: `ui-reference/index.html#/S-APP-SHELL`.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Transactions | **primary button** |  |  | S-TRANSACTION-LIST | OATM-REQ-F-234 |
 
 
 ## Data models
