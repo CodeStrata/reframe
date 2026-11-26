@@ -55,7 +55,7 @@ Reframe creates it the first time a report is uploaded, from a plan checked to o
 | `reframe reports open <project>/<run>` | Downloads that report with your AWS sign-in into `~/.reframe/reports-store/cache/`, and opens it in your browser. |
 | `reframe reports teardown` | Lists the bucket and how many objects it holds from the store's own records, asks for `yes`, and removes the bucket with its contents. |
 
-**A run's three folders (S-15).** The owner's request (26 November 2026): when the work is done, an engineer publishes the whole run to one bucket, with a folder each for the source, the results and the reports. The owner chose the standing bucket over each run's source bucket, which `reframe teardown` deletes, so a run can be published after teardown too.
+**A run's three folders (S-15).** The owner's request (26 November 2026): publishing is optional; when the work is done, an engineer may publish the whole run to one bucket, with a folder each for the source, the results and the reports. The owner chose the standing bucket over each run's source bucket, which `reframe teardown` deletes, so a run can be published after teardown too.
 
 ```text
 reframe-reports-xxxxxxxx/

@@ -116,7 +116,9 @@ This copies the package, cleaned, into an empty folder, in three forms: Kiro, Cl
 reframe design --check ~/handover/<project>
 ```
 
-## 7. Share
+## 7. Share (optional)
+
+Publishing is optional: Reframe uploads or copies nothing unless you run one of these.
 
 ```bash
 reframe publish --to reports/<project>
@@ -128,7 +130,7 @@ This writes a copy of every report, the design and the package, cleaned of your 
 reframe publish --to aws
 ```
 
-This puts the run in one private Reframe bucket in your account, under `<project>/<run>/`: `source/` (the snapshot both tools read), `results/` (what AWS Transform and Claude wrote) and `reports/` (the cleaned copy). Anyone whose AWS sign-in can read the bucket opens it with `reframe reports open <project>`. The bucket outlives teardown, so this works before or after step 8.
+Only if you choose to, this puts the run in one private Reframe bucket in your account, under `<project>/<run>/`: `source/` (the snapshot both tools read), `results/` (what AWS Transform and Claude wrote) and `reports/` (the cleaned copy). Anyone whose AWS sign-in can read the bucket opens it with `reframe reports open <project>`. The bucket outlives teardown, so this works before or after step 8.
 
 ## 8. Remove the AWS resources
 
