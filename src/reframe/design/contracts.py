@@ -33,7 +33,7 @@ STORAGE = {"COMP-3": "packed decimal", "COMPUTATIONAL-3": "packed decimal", "PAC
 # ---- copybooks ---------------------------------------------------------------------------------------------------------
 
 def copybooks(legacy: Path) -> dict[str, Path]:
-    """Data copybooks by name: every .cpy file wherever it is (GenApp keeps them beside the programs), and the files
+    """Data copybooks by name: every .cpy file wherever it is (some codebases keep them beside the programs), and the files
     without an extension in cpy folders. The screen copybooks are left out: those in a cpy-bms folder, and those named
     after a BMS mapset in the snapshot."""
     files = sorted(p for p in legacy.rglob("*") if p.is_file())

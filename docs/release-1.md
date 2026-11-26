@@ -6,7 +6,7 @@ The owner's direction (26 November 2026): release Reframe officially, as version
 
 Someone who finds the repository can, in this order:
 
-1. **see what it makes, with nothing installed:** the CardDemo and GenApp reports, open in the browser;
+1. **see what it makes, with nothing installed:** the CardDemo reports, open in the browser;
 2. **run it on their own code with only Claude:** no AWS account, no AWS Transform;
 3. **add AWS Transform when they have it:** the two assessments side by side, reconciled against the code, as today;
 4. **share the results their way:** a folder, their AWS account or GitHub Pages, each optional.
@@ -44,7 +44,7 @@ The home screen, `reframe status` and the next-step hints say which tools a run 
 | C1-02 The Claude assessment alone | The plugin, C6 and the report run on a Claude-only run; C7 is skipped with its reason |
 | C1-03 Reconciliation from one tool | Pipeline 3 runs with Claude's frame, checks every rule against the code, and writes the same page, SME list and requirements |
 | C1-04 Design and publish | `reframe design` and `reframe publish` work unchanged on a Claude-only run |
-| C1-05 Live on GenApp | A Claude-only run of GenApp, from `reframe run` to the package, with no AWS profile set |
+| C1-05 Live on a second codebase | A Claude-only run of a second, smaller test codebase, from `reframe run` to the package, with no AWS profile set |
 
 ## 3. Publishing to GitHub Pages, optional (S-16, S-17)
 
@@ -59,7 +59,7 @@ reframe publish --to pages --repo <owner>/<name>
 - **A Pages site is public**, on a public repository and on most private ones. Before anything is pushed, Reframe says so, names the repository and the address, and asks the person to type `yes`. With no terminal it refuses.
 - Nothing else changes: publishing stays optional, and `--to <folder>` and `--to aws` are as they are.
 
-**S-17 The demo.** This repository's own Pages site serves `reports/` (CardDemo and GenApp): a GitHub Actions workflow deploys it on every push to `main`. The README's first screen links to it. The demo is optional for anyone forking the repository: the workflow runs only where Pages is turned on.
+**S-17 The demo.** This repository's own Pages site serves `reports/` (CardDemo only: other test codebases are run locally and nothing from them is committed, the owner's decision of 26 November 2026): a GitHub Actions workflow deploys it on every push to `main`. The README's first screen links to it. The demo is optional for anyone forking the repository: the workflow runs only where Pages is turned on.
 
 ## 4. A repository that explains itself (R1-01 to R1-04)
 
@@ -68,13 +68,13 @@ reframe publish --to pages --repo <owner>/<name>
 | R1-01 README | The first screen says what Reframe is, who it is for and what it makes. It shows badges (CI, release, Python, license), the live demo, and a five-minute quick start for Claude only and for both tools. The detail moves to `docs/` (guides per pipeline), so the README is about 150 lines and every link resolves |
 | R1-02 Package metadata | `pyproject.toml` has version 1.0.0, a current description, project URLs, classifiers and the license. `uv tool install git+https://github.com/sknampally/reframe` installs it |
 | R1-03 Contributing | `CONTRIBUTING.md` (set-up, tests, the change-control flow), `CHANGELOG.md` (0.3.0 to 1.0.0), bug and feature issue templates, and `SECURITY.md` kept |
-| R1-04 A clean machine | On a fresh macOS user account and in a Linux container: install from GitHub, then `reframe --help`, `reframe setup` (its checks), a Claude-only run of GenApp, and `reframe publish --to <folder>` |
+| R1-04 A clean machine | On a fresh macOS user account and in a Linux container: install from GitHub, then `reframe --help`, `reframe setup` (its checks), a Claude-only run of the second test codebase, and `reframe publish --to <folder>` |
 
 ### Results (R1-04, 26 November 2026)
 
 - **Linux:** a clean `python:3.12-slim` container, with the built wheel.
   - It installs, and `--version` and `--help` work.
-  - `reframe publish` of the GenApp run writes all 453 pages.
+  - `reframe publish` of the second codebase's run writes all 453 pages, to a local folder.
   - 351 of 360 offline tests pass. The 9 that error call `git`, which the slim image lacks; Git is one of Reframe's prerequisites.
 - **macOS:**
   - `uv tool install "git+https://github.com/sknampally/reframe@<branch>"` into an empty tool folder installs 1.0.0, with `--tools` and `--to pages`.
@@ -87,8 +87,10 @@ reframe publish --to pages --repo <owner>/<name>
 From the CLI only, each from `reframe run` to `reframe publish` and teardown, without any stop that needs a fix in the code:
 
 - CardDemo with both tools, from its GitHub URL;
-- GenApp with both tools, from its ZIP file;
-- GenApp with Claude only (C1-05).
+- the second test codebase with both tools, from its ZIP file;
+- the second test codebase with Claude only (C1-05).
+
+Only CardDemo's results are published. The second codebase's runs are kept locally.
 
 Each run's time, agent count and cost are recorded in the plan. A stop because of a usage limit or an expired sign-in is fine: `reframe resume` must carry on without repeating work. Any other stop is fixed, and that run is repeated.
 

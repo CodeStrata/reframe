@@ -70,7 +70,7 @@ For a small fix, an issue and a pull request are enough.
 - **Plain words.** Commands, messages and pages say what happens in words a business reader understands. Say it once, and don't invent jargon.
 - **Nothing outward without a record.** Every change Reframe makes outside the run folder has an intent, a receipt and a way to settle it after a crash. Anything that deletes, or makes something public, asks for a typed `yes` first.
 - **Model output is labelled.** Pages say what a model wrote and what Reframe checked.
-- **No secrets, no client data.** Read [SECURITY.md](SECURITY.md) before you attach logs, screenshots or examples. Use the public samples (CardDemo, GenApp) or clearly labelled synthetic data.
+- **No secrets, no client data.** Read [SECURITY.md](SECURITY.md) before you attach logs, screenshots or examples. Use a public sample such as CardDemo, or clearly labelled synthetic data, and attach only what Reframe wrote, not the sample's own source.
 
 ## Pull requests
 

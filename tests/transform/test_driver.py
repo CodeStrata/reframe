@@ -26,7 +26,7 @@ READINESS = ("**Readiness Summary for Your Reimagine Selection:**\n\nYou have se
              "2. **Switch selection** to different business domains or functions\n"
              "3. **Drop unassigned programs** and reimagine only the 3 business functions in the named domains\n\n"
              "Please reply with your choice.")
-# A name that is both a business domain and a business function, in the three wordings AWS used on GenApp on 25 November 2026.
+# A name that is both a business domain and a business function, in the three wordings AWS used on a test run on 25 November 2026.
 CLASH_BARE = ('I need you to decide between these two options for "Web Service Interface Generation":\n\n'
               "1. **domain Web Service Interface Generation** \u2014 reimagine all business functions in that domain\n"
               "2. **function Web Service Interface Generation** \u2014 reimagine only that one business function\n\n"
@@ -182,7 +182,7 @@ class DriverTest(unittest.TestCase):
         self.assertEqual(self.folder.load("question.json")["id"], "m4")
 
     def test_name_clash_answered_with_the_domain(self):
-        # GenApp, 25 November 2026: the selection named business domain "Web Service Interface Generation", which is also a
+        # A test run, 25 November 2026: the selection named business domain "Web Service Interface Generation", which is also a
         # business function's name. AWS asked which was meant; Reframe left it waiting, the stall rule submitted the review
         # form over it, and the run looped (selection, the same question) until the owner answered "domain".
         d, waiting = self.readiness_after_catalog(menu=CLASH_PREFER)

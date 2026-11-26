@@ -307,7 +307,7 @@ reframe reconcile --context ~/carddemo-context   # the next round combines them:
 reframe export --to xlsx --context ~/carddemo-context --open
 ```
 
-On GenApp (run 8e5a08, 25 November 2026) it wrote 417 requirements, 446 business rules, 224 decision table rows and 190 SME questions in under two seconds.
+On a second test codebase (run 8e5a08, 25 November 2026) it wrote 417 requirements, 446 business rules, 224 decision table rows and 190 SME questions in under two seconds.
 
 **On CardDemo** (run fa1f61, 24 November 2026), the estimate was 113 batches, 29 to 87 minutes and $56 to $130 at API prices. The run used about $67 at API prices. It decided 431 units with evidence that all exists in the snapshot and covered all 1,111 input rules. It wrote 1,204 recommended rules, 1,153 requirements and an SME list of 313 questions (from 349) with 187 possible defects. Run again with one more answered question, it decided 5 units again in 2 batches and kept 426. On the Claude subscription a full run can reach the five-hour usage limit; it stops with the reason, and `reframe resume` continues where it stopped.
 
@@ -416,7 +416,7 @@ reframe publish --to pages --repo my-org/reframe-reports
 
 This is optional too. It puts the cleaned copy on the repository's `gh-pages` branch under `<project>/<run>/`, with a front page listing every published run, using your own `git` and `gh` sign-in, and turns Pages on if it is off. **A Pages site is public**, on a public repository and on most private ones, so Reframe first names the repository and the address, says so, and pushes only after you type `yes`.
 
-**Try it without running anything:** [CardDemo](https://sknampally.github.io/reframe/carddemo/) and [GenApp](https://sknampally.github.io/reframe/genapp/) are published copies of full runs on two open-source mainframe samples, AWS's CardDemo and IBM's GenApp: both assessments, the reconciliation, the design with its prototype, and the AI-DLC package. They are also in this repository under `reports/`: clone it and open `reports/<project>/index.html` in a browser.
+**Try it without running anything:** [CardDemo](https://sknampally.github.io/reframe/carddemo/) is a published copy of a full run on AWS's open-source mainframe sample: both assessments, the reconciliation, the design with its prototype, and the AI-DLC package. It is also in this repository under `reports/`: clone it and open `reports/carddemo/index.html` in a browser.
 
 ## Code layout
 

@@ -45,7 +45,7 @@ The first release for anyone to try: with Claude only, or with Claude and AWS Tr
 - Every run lives in `<workspace>/.reframe/<project>/<run>/`, with `inputs/` for added context and `outputs/` for what Reframe makes.
 - `reframe publish --to aws` uploads the run's `source/`, `results/` and cleaned `reports/` to the standing private bucket. Publishing is optional.
 - `reframe publish --to pages` publishes the cleaned copy to a GitHub Pages site, after a typed yes to a warning that the site is public.
-- The example reports (CardDemo and GenApp) are on this repository's Pages site.
+- The CardDemo example reports are on this repository's Pages site.
 
 **The repository**
 - A shorter README, the full guide in `docs/guide.md`, CONTRIBUTING, this changelog and issue templates.

@@ -11,14 +11,16 @@ Read on 26 November 2026 from GitHub's metadata (languages, file trees, licences
 | Codebase | What it is | Size | Licence | Usable |
 |---|---|---|---|---|
 | [aws-samples/aws-mainframe-modernization-carddemo](https://github.com/aws-samples/aws-mainframe-modernization-carddemo) | The baseline: credit cards, CICS, batch, VSAM, with IMS, DB2 and MQ extensions | 44 COBOL programs, 62 copybooks, 55 JCL, 21 BMS maps; 2.2 MB of COBOL | Apache-2.0 | Yes (done) |
-| [cicsdev/cics-genapp](https://github.com/cicsdev/cics-genapp) | IBM's general insurance sample, CICS and DB2 | 31 programs, 13 copybooks, 29 JCL, 1 BMS; 0.4 MB | EPL-2.0 | Yes (done) |
-| [IBM/Bank-of-Z](https://github.com/IBM/Bank-of-Z) | A hybrid banking sample, CICS or IMS by customer, z/OS Connect | 45 programs, 96 copybooks, 17 assembler; 1.3 MB of COBOL | Apache-2.0 | Yes |
+| [cicsdev/cics-genapp](https://github.com/cicsdev/cics-genapp) | IBM's general insurance sample, CICS and DB2 | 31 programs, 13 copybooks, 29 JCL, 1 BMS; 0.4 MB | EPL-2.0 | Yes, for local tests |
+| [IBM/Bank-of-Z](https://github.com/IBM/Bank-of-Z) | A hybrid banking sample, CICS or IMS by customer, z/OS Connect | 45 programs, 96 copybooks, 17 assembler; 1.3 MB of COBOL | Apache-2.0 | Yes, for local tests |
 | [navikt/DSF](https://github.com/navikt/DSF) | *Det Sentrale Folketrygdsystemet*, Norway's national insurance system, in production for 51 years (1967 to 2018) | 1,473 PL/I files, 48 MB: about 20 times CardDemo's source | MIT | Yes, once Reframe reads PL/I |
 | [RocketSoftwareCOBOLandMainframe/BankDemo](https://github.com/RocketSoftwareCOBOLandMainframe/BankDemo) | Rocket's banking demo, CICS, IMS, JCL | 82 programs, 83 copybooks | Internal demonstration with Rocket products only | No |
 | [sentientsergio/COBOL-Legacy-Benchmark-Suite](https://github.com/sentientsergio/COBOL-Legacy-Benchmark-Suite) | A portfolio-management system written for benchmarking LLM translation | 42 programs | None stated | No |
 | [etalab/taxe-fonciere](https://github.com/etalab/taxe-fonciere) | France's property-tax computation | 6 programs, 17 copybooks | CeCILL-2.1 | Yes, but small |
 
 Every other public COBOL repository with stars is a course, a tool, a parser or a toy.
+
+**Published or local** (the owner, 26 November 2026): only CardDemo's reports are published in this repository. Every other codebase here is for testing: it is run locally, and nothing from it (reports, packages, excerpts) is committed. The licences above would allow publishing with attribution; the owner chose not to.
 
 ## Two paths
 
