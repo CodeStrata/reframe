@@ -121,7 +121,7 @@ The figures are from live runs and are recorded in [docs/acceptance.md](docs/acc
 
 Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) says how to set up, run the offline tests and propose a change, and [SECURITY.md](SECURITY.md) how to report a problem privately. What has changed in each release is in [CHANGELOG.md](CHANGELOG.md).
 
-**Later:** a replacement order from the specifications, real legacy outputs under GnuCOBOL, backlog export to Jira and Azure DevOps, and proving it on a larger codebase and on Amazon Bedrock ([docs/plan.md](docs/plan.md)).
+**Later:** a replacement order from the specifications, real legacy outputs under GnuCOBOL, and proving it on a larger codebase and on Amazon Bedrock ([docs/plan.md](docs/plan.md)).
 
 ## License
 

@@ -15,6 +15,9 @@ What changed in each release. Releases are tagged on `main`; the stories behind 
 - The reconciliation and the design check a Bedrock sign-in against the run's profile; before, `--auth bedrock` always failed their preflight.
 - Estimates say who is billed, and `reframe publish` replaces an API key it finds.
 
+**Exports**
+- `reframe export --to jira` and `--to azure-devops` write the design's backlog as each tool's CSV import file: epics, features (Azure DevOps) and a story per capability, with its requirements, rules, open questions and acceptance criteria, all with the AI-DLC package's IDs.
+
 **Evidence**
 - `python -m reframe.reconcile.expert` gives the accuracy audit's sample to a mainframe expert, blind, as one page and a CSV to fill in, and reads their verdicts back: their accuracy figures, their agreement with each judge and with the audit, and the rules they call wrong.
 - The larger-codebase spike (SC-01) compares the public candidates, their sizes and licences, with cost estimates for the owner's choice.

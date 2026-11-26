@@ -239,9 +239,12 @@ def reconcile(args) -> int:
 
 
 def export(args) -> int:
-    """`reframe export --to xlsx` (docs/sharing.md, section 7): the reconciled results as one workbook; runs nothing."""
+    """`reframe export --to xlsx` (docs/sharing.md, section 7): the reconciled results as one workbook; `--to jira` or
+    `--to azure-devops` (section 8): the design's backlog as that tool's CSV import file. Runs nothing."""
     from reframe.core import ui
     from reframe.report import export as exporter
+    if args.to in ("jira", "azure-devops"):
+        return _export_backlog(args)
     try:
         folder = find_run(args.run)
         given = args.context or (folder.state.get("reconcile") or {}).get("context")
@@ -261,6 +264,30 @@ def export(args) -> int:
     else:
         ui.hint("no context folder: the workbook has no reviewers' marks")
     ui.ok(f"Workbook: {value['path']}")
+    if args.open:
+        subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(value["path"])], check=False)
+    return 0
+
+
+def _export_backlog(args) -> int:
+    from reframe.core import ui
+    from reframe.report import backlog
+    try:
+        folder = find_run(args.run)
+        if args.context:
+            raise Stop(Outcome.REFUSED, "--context adds reviewers' marks to the xlsx workbook; a backlog is built from the design's final specifications")
+        value = backlog.export(folder, args.to, Path(args.out).expanduser().resolve() if args.out else None)
+    except Stop as stop:
+        return _fail(stop)
+    c = value["counts"]
+    ui.section(f"Run {folder.root.name} · backlog for {value['tool']}")
+    rows = [["Epics", str(c["epics"])]] + ([["Features", str(c["features"])]] if args.to == "azure-devops" else []) + [
+        ["Stories", f"{c['stories']} ({c['final']} final)"], ["Requirements", str(c["requirements"])], ["Acceptance criteria", str(c["criteria"])]]
+    ui.table(["Item", "Count"], rows)
+    ui.ok(f"Import file: {value['path']}")
+    ui.hint("Import it with " + ("Jira's CSV import; map Issue ID and Parent so the stories join their epics, and Acceptance Criteria to your field "
+                                 "for it (the description holds them too)." if args.to == "jira" else
+                                 "Azure DevOps's Import work items (Boards, Queries); the Title 1 to 3 columns make the hierarchy."))
     if args.open:
         subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(value["path"])], check=False)
     return 0

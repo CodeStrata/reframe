@@ -139,3 +139,35 @@ Requirements, business rules, capabilities and open questions also carry two rev
 **Kept safe.** Every cell is written as text, never as a formula, so a value that starts with `=` stays text. Every cell is cleaned as `reframe publish` cleans its copy (account ID, ARNs, S3 locations, IDs, e-mail addresses, local paths, the AWS profile); if anything is left, nothing is written and the sheet and row are named. The file is written with the standard library, so Reframe gains no dependency.
 
 **Not read back.** The workbook is for reading and planning. Answers go in the SME list CSV (`reconcile/questions.csv`) and marks in the page's review downloads, which `reframe reconcile --context` reads; About says so.
+
+## 8. The design as a backlog (S-13)
+
+Teams plan the build in Jira or Azure DevOps. `reframe export --to jira` and `reframe export --to azure-devops` write the design's capabilities as that tool's CSV import file, so nobody types the backlog in again.
+
+| Command | What it does |
+|---|---|
+| `reframe export --to jira` | Writes `outputs/design/<project>-<run>-jira.csv` |
+| `reframe export --to azure-devops` | Writes `outputs/design/<project>-<run>-azure-devops.csv` |
+| `--out <file or folder>` | Writes it there instead; a folder, made if need be, gets the same file name |
+
+It needs the design's final specifications (`reframe design`), not only the reconciliation. The specifications already hold the acceptance criteria, written in Given/When/Then from the rules' worked examples (pipeline 4, D6), and the backlog keeps the AI-DLC package's IDs. A story, its requirements, rules, criteria and golden cases are named the same in the backlog, the package and the golden datasets. (Updated 26 November 2026 from "written from the rules": the specifications are where the criteria are written, so the backlog takes them from there.) It runs nothing, uses no AWS and no Claude, and needs no credentials: a person imports the file.
+
+| Tool | Rows | Linked by |
+|---|---|---|
+| Jira | An Epic per business function, then a Story per capability | `Issue ID` and `Parent` (each story's epic), mapped at import |
+| Azure DevOps | An Epic per domain, a Feature per business function, a User Story per capability | The `Title 1`, `Title 2` and `Title 3` columns, as Azure DevOps's import builds a hierarchy |
+
+**A story** has:
+- **Title:** the capability's ID and title.
+- **Description:** the user story, and whether it is final or draft (draft: confirm it with the owner before building). Then the requirements and the business rules, each with its ID and class, and the open questions. Then the traceability: the package folder, the run key, how it runs, its risk and what it touches, and its golden dataset.
+- **Acceptance criteria:** each with its ID and the rules it checks. For Jira they are a column to map to your field, and in the description too; for Azure DevOps they go in the Acceptance Criteria field.
+- **Priority and tags:** priority comes from the capability's risk. Labels (Jira) or tags (Azure DevOps) are `reframe`, the status, `risk-<level>`, and the domain or the function's code.
+
+Jira's text is in its wiki markup; Azure DevOps's fields are HTML, escaped. A cell that starts with `=`, `+`, `-` or `@` gets a leading space, so a spreadsheet that opens the file does not run it. Every cell is cleaned as `reframe publish` cleans its copy; if anything is left, nothing is written.
+
+**On CardDemo** (run fa1f61, on a copy, 26 November 2026), each file took under a second:
+- **Jira:** 11 epics and 154 stories (52 final).
+- **Azure DevOps:** 5 epics, 11 features and 154 user stories.
+- **Both:** 1,136 requirements and 1,503 acceptance criteria.
+
+The largest cell is 23,659 characters, within Jira's limit of 32,767 for a text field.
