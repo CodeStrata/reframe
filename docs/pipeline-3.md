@@ -449,3 +449,22 @@ A unit's count of removed examples is kept on its first rule only. So in 115 uni
 **Round 4** estimated 1 batch for 1 unit and decided only the disputed unit again, keeping 430. The unit agreed in full kept its round 3 decision word for word. Only the marked function's requirements were written again: its 7 capabilities became 8 (the one asked about was split in two), 36 requirements became 41, and the requirement marked *Needs change* kept its text, since its rules (a sort step with no screen) do not support the comment. The other 34 were reworded although nobody marked them. Both sign-offs show in `reframe status` and on the page.
 
 **Open after P3-20.** The owner settles the nine audit items. Two changes follow from the figures: keep the unmarked requirements of a function that is written again word for word while their rules are unchanged, so reviewers' earlier marks still apply; and keep the count of removed examples on each rule.
+
+### 8.13 A mainframe expert's own check (SC-06)
+
+The audit's judges are Claude steps, and the owner settles where they differ, so the 91% says how often Claude agrees with Claude. SC-06 gives the same sample to a person who knows mainframe code, and measures the audit against them.
+
+**Command:** `python -m reframe.reconcile.expert pack <empty folder> [--run <run>]`, then `python -m reframe.reconcile.expert read <verdicts.csv> --expert <name>`. Neither calls a model.
+
+- **The sample:** the audit's own, when the run has one, so the expert's verdicts can be set beside the judges'. Without one, a sample is drawn the same way (`--size`, `--seed`).
+- **Blind:** the pack shows each rule, its program and its cited lines, with two lines of context and the cited lines marked, and a unit's possible-defect note once. It never shows how a rule was decided, its kind, its confidence, the two tools' own rules or the judges' answers.
+- **The pack:** `index.html`, one page with no scripts that opens anywhere. `verdicts.csv` to fill in: verdict (`correct`, `minor`, `wrong` or `unsure`, as the judges answer), defect, comment and the lines read. Also `README.md` with the same definitions the judges get, and `pack.json` naming the snapshot. It is cleaned as `reframe publish` cleans a copy, because it goes outside the team. A folder that is not empty is refused, so a filled-in sheet is never overwritten.
+- **Reading it back:** every row is checked first, and a sheet with a bad value is refused whole, naming each bad row. The figures go to `reconcile/audit/expert-<name>.json`:
+  - the expert's share of correct, and of correct or minor, recommended rules;
+  - the rejections they uphold;
+  - their agreement with each judge and with the audit's final verdicts;
+  - every item where they differ from the audit, with its kind and confidence;
+  - the rules they call wrong, with their comments.
+- **What it tells us:** whether 91% holds when a person judges, and whether the errors sit in the lower confidence levels (section 8.5).
+
+**On CardDemo** (run fa1f61, 26 November 2026, on a copy): the pack holds the audit's 76 items, 27 of them with a possible-defect note, in a 590 KB page, and cleaning left nothing behind. The expert's verdicts are for the owner to arrange.
