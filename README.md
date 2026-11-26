@@ -447,14 +447,14 @@ Run the tests from a checkout:
 python -m unittest discover -s tests -t .
 ```
 
-## Next
+## Later
 
-Next, in this order, in [docs/plan.md](docs/plan.md):
+Reframe is complete for its four pipelines: the two assessments, the reconciliation and the design. These are kept for later, in [docs/plan.md](docs/plan.md):
 
-1. **The design's live acceptance (P4-10):** a second round on CardDemo with a design system, a persona and a prototype review, checked to change only what it should.
-2. **Golden datasets and the replacement order (P4-11, P4-12):** equivalence tests from the worked examples, and the order to replace capabilities by risk.
-3. **Exports:** backlog items with acceptance criteria for Jira or Azure DevOps (requirements to a spreadsheet is built: `reframe export --to xlsx`).
-4. **Proving it at scale:** a larger codebase, then Claude on Amazon Bedrock.
+- **Golden datasets and the replacement order (P4-11, P4-12):** equivalence tests from the worked examples, and the order to replace capabilities by risk.
+- **Real legacy outputs (P4-13):** a spike running the COBOL under GnuCOBOL to record what it really prints.
+- **Backlog export (S-13):** backlog items with acceptance criteria for Jira or Azure DevOps (requirements to a spreadsheet is built: `reframe export --to xlsx`).
+- **Proving it at scale:** a larger codebase, then Claude on Amazon Bedrock.
 
 Earlier work stays in the repository's history: the build before this rebuild ends at commit `000b816`, and releases are tagged on `main`: `v0.3.0`, the first, and `v0.4.0`, the three pipelines (AWS Transform assessment, Claude assessment and reconciliation).
 
