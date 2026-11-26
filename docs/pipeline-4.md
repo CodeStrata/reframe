@@ -126,6 +126,15 @@ The steps follow the UI guardrails from the research behind part 2 of the reconc
 - **Checks:** every validation rule is shown, and no check failed.
 - **Links pass:** the domains ran in parallel, so the menu domain first guessed other domains' screen ids. Reframe now merges screens of one id that replace no legacy screen (the shell) into one shared screen. It then asks a domain that links to screens nobody designed once more, giving it every other domain's screens.
 
+**Per screen** (added 25 November 2026, from the research's UI modernization template), each modern screen also records what the design step does not yet carry:
+- the role who uses it;
+- the data it depends on: the files, tables and copybooks its legacy programs read and write;
+- the services it will call, by name;
+- the legacy screen's pain points the design removes, such as typed option codes, paging keys or errors shown one at a time;
+- test scenarios for user acceptance: one per journey step, written from the worked examples.
+
+It already records its purpose, fields, validations, rules and the programs behind it. One more guardrail joins the four above: every screen is checked with the people who use it, in the prototype, before it is final.
+
 **Checked:** no legacy field is left unmapped and none is mapped twice; every component is from the design system; every key cited exists; every rule of kind *validation* that a screen's program applies is shown by a component of that screen.
 
 ### D5 Prototype (P4-06)
@@ -151,14 +160,24 @@ Per capability, one model step writes the parts that need words, and Reframe ass
 | Acceptance criteria | Given/When/Then written from the worked examples, each citing its rule; the same criteria S-13 exports |
 | Open questions | The SME list's open entries for the capability's rules |
 
+Each specification also carries (added 25 November 2026, from the research's business-rule template):
+- **Decision tables:** the capability's decision tables from the reconciliation (P3-23), each row citing its rule, and the combinations no rule covers listed as gaps for an SME.
+- **Classes:** each rule and requirement classed as a *business rule*, *formatting*, *error handling*, *side effect* or *historical artifact*, taken from the rule's kind (P3-21): business, validation and compliance rules are business rules; display is formatting; error handling stays; side effect stays; leftover is a historical artifact; technical steps go to the design notes. The forward build keeps business rules exactly, may restyle formatting, and asks before carrying a historical artifact.
+
 A capability in a signed-off function is **final**; every other one is **draft**, marked so in the specification, the page and the package. **Checked:** every requirement, rule, screen and copybook cited exists; every requirement of the capability is in its specification.
 
 ### D7 Package (P4-08)
 
-Written by Reframe from D6, in `outputs/design/package/v<round>/`, in two forms:
+Written by Reframe from D6, in `outputs/design/package/v<round>/`, in three forms:
 
 - **Kiro:** `.kiro/specs/<capability>/requirements.md` (EARS requirements and acceptance criteria), `design.md` (screens, components, data contracts, the flow) and `tasks.md` (build tasks, each citing requirement and rule IDs); `.kiro/steering/product.md`, `tech.md` (from the target stack and `target-architecture.md`) and `structure.md`.
 - **Claude Code:** `CLAUDE.md` (the product, the stack, the conventions and how to use the specs), `specs/<capability>.md`, `tasks.md`, and the prototype in `ui-reference/` as the UI to build to.
+- **Spec Kit** (added 25 November 2026):
+  - **The constitution:** `.specify/memory/constitution.md`, with the non-negotiables. The legacy source is read-only; data is synthetic only, with no personal data; every item keeps its requirement and rule IDs; the target stack; final versus draft; and the order of replacement (P4-12).
+  - **Per capability:** `specs/<capability>/spec.md`, `plan.md` and `tasks.md`.
+  - **Role files:** `.claude/agents/<role>.md` for business rules, UI modernization, data, API, test generation (the golden datasets, P4-11) and compliance, each with its template and guardrails.
+
+  Each task names the role that does it.
 
 Every requirement, rule, acceptance criterion and task keeps its ID, so the forward build stays traceable to the legacy source. Draft capabilities are marked draft. `CHANGES.md` says what changed since the last version. **Checked:** by loading the Claude Code form into Claude Code in a scratch folder and building one journey (*Sign in* on CardDemo) on the target stack, recording whether it builds and which acceptance criteria pass.
 
@@ -175,12 +194,33 @@ Each part is kept with a hash of what it was made from, as in pipeline 3. A new 
 | The reconciliation (a new round of pipeline 3) | The journeys, screens, specifications and package parts of the functions whose requirements or rules changed |
 | The target stack or `target-architecture.md` | Data contract types, screen specifications' component notes, the package |
 | The design system | The modern screens' components and the prototype |
+| `style-reference/` | The modern screens, the prototype and the package's conventions |
 | `personas.md` | The journeys' roles, and what follows from them |
 | Prototype marks | The marked screens and components; *Agree* keeps them |
 | `decisions.md` | Whatever the decisions name |
 | A sign-off | That function's capabilities become final |
 
 Each round writes `design/changes-<round>.md`: what changed, why, and what was kept, and the package's `CHANGES.md` from it.
+
+### D10 Golden datasets and equivalence tests (P4-11)
+
+Per capability, Reframe writes a golden dataset from the worked examples and decision tables: cases the new system must answer as the legacy one does. Each case has:
+- a dataset ID and its capability;
+- the legacy source it comes from, and the rule it covers;
+- the input and the expected output;
+- whether it is an edge case;
+- the service or screen it is run against;
+- the comparison method and tolerance.
+
+Comparisons are exact for money, dates, status codes, IDs and counts, and a difference in formatting (padding, case, an edited amount's layout) is reported apart from a difference in business behaviour. The datasets go into the package as test fixtures with the test-generation role's tasks. Until P4-13 captures real legacy outputs, the expected outputs come from the rules and say so: equivalence is then asserted from the rules, not proven against the running legacy system.
+
+### D11 Risk and replacement order (P4-12)
+
+Each capability already has a risk (P3-24) and touches a list of things (money, card data, personal data, security, audit, record updates, reporting only). Reframe orders the capabilities for replacement: low risk and read-only first (reporting, inquiry screens), then updates, and money, security and adjudication last. Within that order, a capability that shares data stores or screens with another follows it. The order is shown on the design page and written into the package's constitution and tasks, each with its reason.
+
+### D12 Spike: real legacy outputs (P4-13, low priority)
+
+Whether real outputs can be captured from the legacy programs without a mainframe: the batch programs compiled and run under GnuCOBOL on the golden datasets' inputs, with the files they read built from the copybooks. CICS screens are out of reach this way. The spike records which CardDemo batch programs compile and run, what they need (files, sort, utilities), and whether their outputs can replace the rules' expected outputs in D10.
 
 ## 5. Design context
 
@@ -190,6 +230,7 @@ Read from the context folder, by name:
 |---|---|
 | `target-architecture.md` | Detail of the target: versions, services, integration, non-functional requirements |
 | `design-system/tokens.json` and `design-system/components.md` | Replace Reframe's own design tokens (colour, type, spacing) and component list. Without them, Reframe's own plain, accessible set is used |
+| `style-reference/` | The house's own examples to follow: screenshots or pages of existing applications, and code samples. The modern screens follow their look and patterns where the design system does not say, and the package's steering and constitution carry the code conventions |
 | `personas.md` | Who uses the system and what they need |
 | `decisions.md` | Decisions to follow, one per heading |
 | Prototype review downloads | Marks and journey sign-offs on the prototype |
@@ -227,7 +268,7 @@ On CardDemo run fa1f61, from the CLI only, with no AWS resources:
 |---|---|
 | The target stack, and where it comes from | **The engineer gives it**, in the guided command or with `--stack`; Reframe never defaults one. `target-architecture.md` adds detail. |
 | Which functions go final | Signed-off functions are final; every other function is included and marked draft |
-| The default design system | Reframe's own plain, accessible set, drawn with no outside files; `design-system/` in the context folder replaces it |
+| The default design system | Reframe's own plain, accessible set, drawn with no outside files; `design-system/` in the context folder replaces it. *Proposed addition for the owner's agreement (25 November 2026, from the research):* a `style-reference/` folder of house screens and code samples, which the screens and the package follow where the design system is silent |
 | The name | *The design*, run with `reframe design` |
 
 ## 10. Stories
@@ -244,3 +285,6 @@ On CardDemo run fa1f61, from the CLI only, with no AWS resources:
 | P4-08 The AI-DLC package | 4 D7 |
 | P4-09 Rounds with more context | 4 D9 |
 | P4-10 Live acceptance and README | 8 |
+| P4-11 Golden datasets and equivalence tests | 4 D10 |
+| P4-12 Risk and replacement order | 4 D11 |
+| P4-13 Spike: real legacy outputs under GnuCOBOL | 4 D12 |
