@@ -54,7 +54,7 @@ def preflight(folder: RunFolder, context: Path | None, auth: str = "subscription
         raise Stop(Outcome.REFUSED, f"the context folder {context} does not exist")
     if claude_check is None:
         from reframe.claude import preflight as claude_preflight
-        claude_check = lambda: claude_preflight.check(auth)  # noqa: E731
+        claude_check = lambda: claude_preflight.check(auth, aws_identity=claude_preflight.run_identity(folder) if auth == "bedrock" else None)  # noqa: E731
     report = claude_check()
     if not report.ok:
         signin = any(not c.ok and "sign-in" in c.name for c in report.checks)

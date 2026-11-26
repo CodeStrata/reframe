@@ -57,14 +57,29 @@ Each stage records an intent before it starts and a receipt when it ends, in the
 Checked before anything runs, each failure stopping with the exact fix:
 
 - pipeline 1's snapshot and AWS resources exist (its stages 1 and 2 are done), and the run is not torn down;
-- Claude Code is installed and signed in for the chosen way:
-  - **subscription** (default): the person's own Claude Code sign-in;
-  - **bedrock**: Claude Code's Amazon Bedrock settings (`CLAUDE_CODE_USE_BEDROCK=1` and the run's region), either with the run's AWS profile (its exported short-lived credentials, as Terraform gets them) or with a Bedrock API key the person has set in their environment (`AWS_BEARER_TOKEN_BEDROCK`). Reframe passes the key through to Claude Code and never writes it anywhere. A model chosen with `ANTHROPIC_MODEL` is passed on.
+- Claude Code is installed and signed in for the chosen way (section 4.1).
 - the plugin, at the version Reframe pins: Reframe fetches the plugin's folder from Anthropic's plugin repository at one pinned commit into `~/.reframe/tools/code-modernization/` and loads it with `claude --plugin-dir`, so every run uses the same plugin whatever the marketplace holds, and nothing is installed into the person's Claude Code settings;
 - `python3` 3.8 or later, which the plugin's scripts need;
 - the plugin's usage counts are turned off for Reframe's runs (`CODE_MODERNIZATION_TELEMETRY=0`): Reframe does not need them.
 
 The guided setup offers to install or sign in to anything missing, only on a yes, as in pipeline 1.
+
+### 4.1 How Claude signs in
+
+The same three ways for every step that runs Claude: the Claude assessment, the reconciliation and the design. `--auth` on `reframe run`, `reframe claude`, `reframe reconcile` and `reframe design` chooses one, and the guided run asks. A sign-in is checked with no call to a model.
+
+| `--auth` | What Claude Code is given | Billed | Checked before a step |
+|---|---|---|---|
+| `subscription` (default) | Its own sign-in (`claude auth login`) | On the person's Claude subscription, within its usage limits | `claude auth status` says signed in, first party |
+| `api-key` (SC-04) | `ANTHROPIC_API_KEY`, and `ANTHROPIC_BASE_URL` when set (a company's gateway), from the shell that runs Reframe | To the API key, at API prices | The variable is set |
+| `bedrock` | `CLAUDE_CODE_USE_BEDROCK=1` and the run's region, with the run's AWS profile (its exported short-lived credentials, as Terraform gets them) or a Bedrock API key in `AWS_BEARER_TOKEN_BEDROCK` | To the AWS account | The profile signs in (STS), or the Bedrock API key is set |
+
+- **Keys are never written.** Reframe reads a key from the environment and puts it only in the environment of the Claude Code process it starts. The run folder records the way (`auth`), never a key. A copy that `reframe publish` cleans has any `sk-ant-` key replaced, and the check before writing names one if it is left.
+- **One way at a time.** The environment is built from nothing, so an `ANTHROPIC_API_KEY` in the shell does not override the subscription, and the subscription is not used when another way is chosen.
+- **A model** chosen with `ANTHROPIC_MODEL` (on Bedrock, an inference profile ID) is passed on, whatever the way.
+- **Bedrock on a Claude-only run** (SC-05): `reframe run --tools claude --auth bedrock --profile <profile> --region <region>` records the profile and region for Bedrock only. The run creates no AWS resources and has nothing to tear down. With `AWS_BEARER_TOKEN_BEDROCK` set, no profile is needed. Without either, the Claude assessment stops at once with this fix.
+- **The estimate** says who is billed: on the subscription, to the API key, or to the AWS account.
+- **Live acceptance** of Bedrock (SC-03) waits for the owner's security clearance for the codebase. The API-key way is checked offline, then in a live run on the owner's yes.
 
 ### How Claude Code is run
 

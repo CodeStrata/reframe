@@ -44,9 +44,11 @@ def run(args) -> int:
     if not args.source:
         from reframe.core import guide
         return guide.run(args)
+    auth = getattr(args, "auth", None) or "subscription"
     if getattr(args, "tools", "both") == "claude":
         return start_claude_only(source=args.source, ref=args.ref, mode=args.mode, project=args.project, foreground=args.foreground,
-                                 max_agents=getattr(args, "max_agents", None))
+                                 max_agents=getattr(args, "max_agents", None), auth=auth,
+                                 profile=args.profile if auth == "bedrock" else None, region=args.region if auth == "bedrock" else None)
     from reframe.core.setup import load_config
     saved = load_config()
     profile = args.profile or saved.get("profile")
@@ -55,7 +57,7 @@ def run(args) -> int:
     both = getattr(args, "tools", "both") == "both"  # the Claude assessment alongside, as the guided run offers by default
     return start(source=args.source, profile=profile, ref=args.ref, mode=args.mode, region=args.region or saved.get("region") or "us-east-1",
                  project=args.project, graph=args.graph, terraform=args.terraform, foreground=args.foreground,
-                 claude={"auth": "subscription", "max_agents": getattr(args, "max_agents", None)} if both else None)
+                 claude={"auth": auth, "max_agents": getattr(args, "max_agents", None)} if both else None)
 
 
 def start(*, source: str, profile: str, ref: str | None, mode: str, region: str, project: str | None, graph: str | None,
@@ -101,8 +103,9 @@ def start(*, source: str, profile: str, ref: str | None, mode: str, region: str,
 
 
 def start_claude_only(*, source: str, ref: str | None, mode: str, project: str | None, foreground: bool,
-                      max_agents: int | None = None) -> int:
-    """A Claude-only run (docs/release-1.md, section 2): the snapshot and the Claude assessment, in one worker, with no AWS."""
+                      max_agents: int | None = None, auth: str = "subscription", profile: str | None = None, region: str | None = None) -> int:
+    """A Claude-only run (docs/release-1.md, section 2): the snapshot and the Claude assessment, in one worker, with no AWS resources.
+    With Amazon Bedrock, the AWS profile (or a Bedrock API key) is used to sign Claude in, and for nothing else."""
     from reframe.claude import pipeline as claude_pipeline
     from reframe.core import pipeline, ui
     from reframe.source.snapshot import kind
@@ -113,10 +116,13 @@ def start_claude_only(*, source: str, ref: str | None, mode: str, project: str |
         folder = new_run(project)
     except (Stop, ReframeError) as error:
         return _fail(error if isinstance(error, Stop) else Stop(Outcome.REFUSED, str(error)))
-    folder.update(tools="claude", project=project, source=source, ref=ref, mode=mode, started_at=iso(), stage="snapshot", status="RUNNING")
-    claude_pipeline.request(pipeline.Context.load(folder), auth="subscription", max_agents=max_agents, mode=mode)
+    folder.update(tools="claude", project=project, source=source, ref=ref, mode=mode, started_at=iso(), stage="snapshot", status="RUNNING",
+                  **({"profile": profile, "region": region or "us-east-1"} if profile else {}))
+    claude_pipeline.request(pipeline.Context.load(folder), auth=auth, max_agents=max_agents, mode=mode)
     ui.section(f"Run {folder.root.name} · Claude only")
-    ui.hint(f"{project} · {mode} mode · no AWS · run folder {folder.root}")
+    signin = {"subscription": "your Claude subscription", "api-key": "your Anthropic API key",
+              "bedrock": f"Amazon Bedrock{' with profile ' + profile if profile else ''}"}[auth]
+    ui.hint(f"{project} · {mode} mode · Claude signs in with {signin} · no AWS resources · run folder {folder.root}")
     if foreground:
         return worker(type("Args", (), {"folder": str(folder.root), "task": "claude"})())
     pid = _start_worker(folder, "claude")
@@ -285,7 +291,7 @@ def design(args) -> int:
         if not args.plan:
             from reframe.claude import preflight
             from reframe.reconcile.pipeline import claude_code
-            report = preflight.check(args.auth)
+            report = preflight.check(args.auth, aws_identity=preflight.run_identity(folder) if args.auth == "bedrock" else None)
             if not report.ok:
                 raise Stop(Outcome.REFUSED, report.problems())
             claude = claude_code(folder, args.auth)

@@ -63,12 +63,14 @@ class ClaudeOnlyTest(unittest.TestCase):
         self.assertTrue(folder.exists("snapshot.json"))
         self.assertEqual((folder.state["status"], folder.state["claude"]["status"]), (Outcome.REFUSED.value, Outcome.REFUSED.value))
 
-    def test_bedrock_needs_a_run_with_aws(self):
+    def test_bedrock_on_a_claude_only_run_needs_an_aws_sign_in(self):
         folder, _, _ = self.start()
         ctx = pipeline.Context.load(folder)
         claude_pipeline.update(ctx, auth="bedrock")
-        with self.assertRaisesRegex(Stop, "needs a run with AWS"):
-            claude_pipeline.work(ctx)
+        with mock.patch.dict(os.environ, {}, clear=False) as env:
+            env.pop("AWS_BEARER_TOKEN_BEDROCK", None)
+            with self.assertRaisesRegex(Stop, "--auth bedrock --profile <profile>"):
+                claude_pipeline.work(ctx)
 
     def test_the_graph_stays_a_file(self):
         folder, _, _ = self.start()

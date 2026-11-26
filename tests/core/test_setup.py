@@ -128,7 +128,8 @@ class PrerequisitesTest(unittest.TestCase):
             self.assertEqual(guide.run(type("Args", (), {})()), 0)
         sign.assert_not_called()
         pre.assert_called_once_with(MAC, "claude")
-        start.assert_called_once_with(source="/src/genapp.zip", ref=None, mode="autonomous", project="genapp", foreground=False, max_agents=600)
+        start.assert_called_once_with(source="/src/genapp.zip", ref=None, mode="autonomous", project="genapp", foreground=False, max_agents=600,
+                                      auth="subscription")
 
 
 if __name__ == "__main__":

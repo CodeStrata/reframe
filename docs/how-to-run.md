@@ -20,7 +20,7 @@ reframe setup --tools claude
 reframe setup
 ```
 
-- **Claude only** (`--tools claude`) needs Git, [Claude Code](https://docs.anthropic.com/en/docs/claude-code) signed in with your Claude subscription, and the code-modernization plugin, which Reframe fetches. You don't need an AWS account.
+- **Claude only** (`--tools claude`) needs Git, [Claude Code](https://docs.anthropic.com/en/docs/claude-code), and the code-modernization plugin, which Reframe fetches. You don't need an AWS account. Claude signs in with your Claude subscription by default; `--auth api-key` uses `ANTHROPIC_API_KEY` instead, and `--auth bedrock --profile <profile>` uses Amazon Bedrock.
 - **Both tools** also need an AWS account with AWS Transform. `reframe setup` checks the AWS CLI, Terraform and the AWS Transform MCP server, offers to install what is missing, and signs you in to AWS (`aws sso login`).
 
 To work on Reframe itself, install a clone instead: `uv tool install --reinstall --editable <clone>`.

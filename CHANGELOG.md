@@ -9,6 +9,12 @@ What changed in each release. Releases are tagged on `main`; the stories behind 
 - CI lints with ruff, type-checks with mypy and fails below 80% line coverage, with the checkers pinned in the `dev` extra.
 - The drivers of both assessments and the command handlers are tested stage by stage.
 
+**Signing in**
+- `--auth api-key` signs Claude in with an Anthropic API key (`ANTHROPIC_API_KEY`, and `ANTHROPIC_BASE_URL` for a gateway), on every command that runs Claude and in the guided run. The key is passed to Claude Code and never written.
+- Amazon Bedrock on a Claude-only run: `--auth bedrock --profile <profile>` uses the profile for Bedrock only, with no AWS resources; a Bedrock API key needs no profile.
+- The reconciliation and the design check a Bedrock sign-in against the run's profile; before, `--auth bedrock` always failed their preflight.
+- Estimates say who is billed, and `reframe publish` replaces an API key it finds.
+
 **The design (pipeline 4)**
 - Golden datasets (P4-11): per capability, the cases the new system must answer as the legacy one does, from the worked examples and the decision-table rows, in `golden/` in every form of the package. `golden/compare.py` compares a new system's answers and reports formatting apart from business differences. Until legacy outputs are captured, the expected outputs come from the rules.
 

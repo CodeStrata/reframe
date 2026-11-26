@@ -109,11 +109,14 @@ Assess mainframe source with AWS Transform and Claude, or with Claude only (--to
 | `--foreground` | run in this terminal instead of a background worker |
 | `--tools both\|claude\|aws` | both: AWS Transform and Claude, side by side (needs an AWS account); claude: Claude only, with no AWS at all; aws: AWS Transform only (reframe claude adds Claude later) |
 | `--max-agents <max_agents>` | the agent limit for Claude's rule extraction (default 600; use 650 or more for CardDemo) |
+| `--auth subscription\|api-key\|bedrock` | how Claude signs in: your Claude subscription (default), an Anthropic API key in ANTHROPIC_API_KEY, or Amazon Bedrock (with --tools claude, --profile and --region are used for Bedrock only) |
 
 ```bash
 reframe run                                             # guided: asks for everything it needs
 reframe run --source https://github.com/<owner>/<repo>  # a GitHub repository, latest commit
 reframe run --tools claude --source app.zip             # Claude only, with no AWS: the assessment, then reframe reconcile and reframe design
+reframe run --tools claude --auth api-key --source app.zip   # Claude only, billed to ANTHROPIC_API_KEY
+reframe run --tools claude --auth bedrock --profile bedrock-dev --region us-west-2 --source app.zip   # Claude on Bedrock; no AWS resources
 reframe run --source ~/code/app --ref release-1         # a local Git checkout, at a branch, tag or commit
 reframe run --source app.zip --mode interactive         # a ZIP file; you answer AWS's questions with reframe answer
 ```
@@ -206,7 +209,7 @@ The Claude assessment: assess the same snapshot with Claude's code-modernization
 | Option | What it does |
 |---|---|
 | `--run <run>` | the run to act on (default: the latest run) |
-| `--auth subscription\|bedrock` | how Claude signs in: your Claude subscription (default) or Amazon Bedrock with the run's AWS profile |
+| `--auth subscription\|api-key\|bedrock` | how Claude signs in: your Claude subscription (default), an Anthropic API key in ANTHROPIC_API_KEY, or Amazon Bedrock with the run's AWS profile or AWS_BEARER_TOKEN_BEDROCK |
 | `--max-agents <max_agents>` | the agent limit for rule extraction (default: 600) |
 | `--mode autonomous\|interactive` | default: the run's mode |
 | `--graph-load yes\|no` | load Claude's graph into the cluster (default: yes on a graph the run created, no on an existing cluster) |
@@ -225,7 +228,7 @@ The reconciliation: decide every rule the two assessments do not agree on (with 
 |---|---|
 | `--run <run>` | the run to act on (default: the latest run) |
 | `--context <context>` | a folder of context: documents (Markdown, text, PDF, Word), review downloads (JSON or CSV, with sign-offs) and answered questions |
-| `--auth subscription\|bedrock` | how Claude signs in (default: as for the Claude assessment) |
+| `--auth subscription\|api-key\|bedrock` | how Claude signs in (default: as for the Claude assessment) |
 | `--max-batches <max_batches>` | the limit for the decisions; Reframe stops and asks above it (default: 120) |
 | `--foreground` | run in this terminal instead of a background worker |
 | `--open` | open the reconciliation page instead of running |
@@ -286,7 +289,7 @@ The design (pipeline 4): legacy and modern screens, journeys, the clickable prot
 | `--form kiro\|claude-code\|spec-kit\|all` | with `--package`: which form (default: all) |
 | `--check <copy>` | list the placeholders left in a copy of the package; runs nothing |
 | `--open` | open the design page when done |
-| `--auth subscription\|bedrock` | how Claude signs in (default: your subscription) |
+| `--auth subscription\|api-key\|bedrock` | how Claude signs in: subscription (default), api-key (ANTHROPIC_API_KEY) or bedrock |
 
 ```bash
 reframe design                                    # a design round on the latest run: only what new context touches is redone

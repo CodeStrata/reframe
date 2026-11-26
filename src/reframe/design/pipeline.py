@@ -311,7 +311,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--context", help="the design context folder; remembered for later rounds")
     parser.add_argument("--stack", help='the target stack, "<front end>; <back end>; <data>"')
     parser.add_argument("--plan", action="store_true", help="say what a round would redo, and why, without a model step")
-    parser.add_argument("--auth", choices=("subscription", "bedrock"), default="subscription")
+    parser.add_argument("--auth", choices=("subscription", "api-key", "bedrock"), default="subscription")
     args = parser.parse_args(argv)
     folder = find_run(args.run)
     context = Path(args.context).expanduser() if args.context else None

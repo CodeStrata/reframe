@@ -272,7 +272,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m reframe.design.journeys", description="User journeys from the screens (P4-04)")
     parser.add_argument("--run", help="the run (default: the latest run)")
     parser.add_argument("--context", help="a folder with personas.md")
-    parser.add_argument("--auth", choices=("subscription", "bedrock"), default="subscription")
+    parser.add_argument("--auth", choices=("subscription", "api-key", "bedrock"), default="subscription")
     args = parser.parse_args(argv)
     folder = find_run(args.run)
     if (folder.state.get("reconcile") or {}).get("status") != "DONE":
