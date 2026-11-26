@@ -16,6 +16,7 @@ What changed in each release. Releases are tagged on `main`; the stories behind 
 - Estimates say who is billed, and `reframe publish` replaces an API key it finds.
 
 **Evidence**
+- `python -m reframe.reconcile.expert` gives the accuracy audit's sample to a mainframe expert, blind, as one page and a CSV to fill in, and reads their verdicts back: their accuracy figures, their agreement with each judge and with the audit, and the rules they call wrong.
 - The larger-codebase spike (SC-01) compares the public candidates, their sizes and licences, with cost estimates for the owner's choice.
 
 **The design (pipeline 4)**

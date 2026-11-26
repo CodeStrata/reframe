@@ -7,6 +7,7 @@ owner settles the item in reconcile/audit/settle.csv. The figures go to reconcil
     python -m reframe.reconcile.audit [--run <run>] [--size 60] [--seed 1] [--judge label=model ...]
 
 Everything is kept in reconcile/audit/: running it again reuses the sample and every judgment already made.
+A mainframe expert can check the same sample, blind: python -m reframe.reconcile.expert (section 8.13).
 """
 
 from __future__ import annotations
