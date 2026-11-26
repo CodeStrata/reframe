@@ -92,7 +92,7 @@ reframe report --open
 
 ### Run without questions
 
-When the prerequisites are set up (for example after `reframe setup`, or on a build machine), give the source and Reframe asks nothing. The profile and region default to the ones you saved:
+When the prerequisites are set up (for example after `reframe setup`, or on a build machine), give the source and Reframe asks nothing. It runs both assessments, as the guided run does by default; add `--tools aws` for AWS Transform alone, or `--tools claude` for Claude alone. The profile and region default to the ones you saved:
 
 ```bash
 reframe run --source https://github.com/aws-samples/aws-mainframe-modernization-carddemo

@@ -70,6 +70,18 @@ reframe publish --to pages --repo <owner>/<name>
 | R1-03 Contributing | `CONTRIBUTING.md` (set-up, tests, the change-control flow), `CHANGELOG.md` (0.3.0 to 1.0.0), bug and feature issue templates, and `SECURITY.md` kept |
 | R1-04 A clean machine | On a fresh macOS user account and in a Linux container: install from GitHub, then `reframe --help`, `reframe setup` (its checks), a Claude-only run of GenApp, and `reframe publish --to <folder>` |
 
+### Results (R1-04, 26 November 2026)
+
+- **Linux:** a clean `python:3.12-slim` container, with the built wheel.
+  - It installs, and `--version` and `--help` work.
+  - `reframe publish` of the GenApp run writes all 453 pages.
+  - 351 of 360 offline tests pass. The 9 that error call `git`, which the slim image lacks; Git is one of Reframe's prerequisites.
+- **macOS:**
+  - `uv tool install "git+https://github.com/sknampally/reframe@<branch>"` into an empty tool folder installs 1.0.0, with `--tools` and `--to pages`.
+  - The wheel installs in a clean virtual environment and finds its templates.
+  - A fresh user account was not made: that needs the Mac's administrator. CI's macOS jobs, with Python 3.10 to 3.13, run the tests on a clean runner instead.
+- **Found and fixed:** `reframe run --source …` with the default `--tools both` started AWS Transform only, because only the guided run added Claude. It now starts both, and `--tools aws` keeps the old behaviour.
+
 ## 5. Acceptance before the release (A1-01)
 
 From the CLI only, each from `reframe run` to `reframe publish` and teardown, without any stop that needs a fix in the code:

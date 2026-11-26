@@ -52,8 +52,10 @@ def run(args) -> int:
     profile = args.profile or saved.get("profile")
     if not profile:
         return _fail(Stop(Outcome.REFUSED, "no AWS profile: pass --profile, or run reframe setup once to choose and save one"))
+    both = getattr(args, "tools", "both") == "both"  # the Claude assessment alongside, as the guided run offers by default
     return start(source=args.source, profile=profile, ref=args.ref, mode=args.mode, region=args.region or saved.get("region") or "us-east-1",
-                 project=args.project, graph=args.graph, terraform=args.terraform, foreground=args.foreground)
+                 project=args.project, graph=args.graph, terraform=args.terraform, foreground=args.foreground,
+                 claude={"auth": "subscription", "max_agents": getattr(args, "max_agents", None)} if both else None)
 
 
 def start(*, source: str, profile: str, ref: str | None, mode: str, region: str, project: str | None, graph: str | None,

@@ -60,9 +60,10 @@ def parser() -> argparse.ArgumentParser:
                      "(default: interactive mode asks; autonomous mode creates a new graph)")
     run.add_argument("--terraform", help="the Terraform binary to use (default: REFRAME_TERRAFORM, then the one Reframe installed, then terraform on PATH)")
     run.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
-    run.add_argument("--tools", choices=("both", "claude"), default="both",
-                     help="both: AWS Transform and Claude (needs an AWS account); claude: Claude only, with no AWS at all")
-    run.add_argument("--max-agents", type=int, help="with --tools claude: the agent limit for Claude's rule extraction (default 600)")
+    run.add_argument("--tools", choices=("both", "claude", "aws"), default="both",
+                     help="both: AWS Transform and Claude, side by side (needs an AWS account); claude: Claude only, with no AWS at all; aws: "
+                          "AWS Transform only (reframe claude adds Claude later)")
+    run.add_argument("--max-agents", type=int, help="the agent limit for Claude's rule extraction (default 600; use 650 or more for CardDemo)")
 
     setup = command("setup", "Check and set up the prerequisites and the AWS sign-in, without starting a run")
     setup.add_argument("--tools", choices=("both", "claude"), default="both",

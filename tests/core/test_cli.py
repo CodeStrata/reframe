@@ -35,6 +35,16 @@ class CliTest(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn("reframe setup", err.getvalue())
 
+    def test_run_with_source_starts_both_tools_unless_told_otherwise(self):
+        from unittest import mock
+        from reframe.core import commands
+        with mock.patch("reframe.core.setup.load_config", return_value={"profile": "p", "region": "us-east-1"}), \
+                mock.patch.object(commands, "start", return_value=0) as start:
+            cli.main(["run", "--source", "/src/app", "--max-agents", "650"])
+            cli.main(["run", "--source", "/src/app", "--tools", "aws"])
+        self.assertEqual(start.call_args_list[0].kwargs["claude"], {"auth": "subscription", "max_agents": 650})
+        self.assertIsNone(start.call_args_list[1].kwargs["claude"])
+
     def test_no_command_without_a_terminal_prints_help(self):
         from unittest import mock
         with mock.patch("reframe.core.ui.interactive", return_value=False), contextlib.redirect_stdout(io.StringIO()) as out:

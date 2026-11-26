@@ -107,8 +107,8 @@ Assess mainframe source with AWS Transform and Claude, or with Claude only (--to
 | `--graph <graph>` | new, existing (choose from a list) or the name of an existing Neptune cluster (default: interactive mode asks; autonomous mode creates a new graph) |
 | `--terraform <terraform>` | the Terraform binary to use (default: REFRAME_TERRAFORM, then the one Reframe installed, then terraform on PATH) |
 | `--foreground` | run in this terminal instead of a background worker |
-| `--tools both\|claude` | both: AWS Transform and Claude (needs an AWS account); claude: Claude only, with no AWS at all |
-| `--max-agents <max_agents>` | with --tools claude: the agent limit for Claude's rule extraction (default 600) |
+| `--tools both\|claude\|aws` | both: AWS Transform and Claude, side by side (needs an AWS account); claude: Claude only, with no AWS at all; aws: AWS Transform only (reframe claude adds Claude later) |
+| `--max-agents <max_agents>` | the agent limit for Claude's rule extraction (default 600; use 650 or more for CardDemo) |
 
 ```bash
 reframe run                                             # guided: asks for everything it needs
