@@ -54,7 +54,7 @@ reframe export --to xlsx                  # the reconciled results as one Excel 
 reframe design --plan                     # the design: what a round would redo, with no Claude step
 reframe design --open                     # run a design round, then open the design page
 reframe design --package <empty folder>   # the AI-DLC package, cleaned, for the forward build
-reframe publish --to aws                  # a cleaned copy in your account's private reports bucket
+reframe publish --to aws                  # the run's source, results and reports in your account's private bucket
 reframe reports open <project>           # open the project's latest published copy with your AWS sign-in
 reframe teardown                          # remove the run's AWS resources, after you type yes
 ```
@@ -294,12 +294,12 @@ Copy a run's reports, cleaned of the AWS account's identifiers, into a folder ot
 | Option | What it does |
 |---|---|
 | `--run <run>` | the run to act on (default: the latest run) |
-| `--to <to>` | a folder to write the copy into (for example reports/carddemo), or aws to upload it to the private reports bucket in your AWS account |
+| `--to <to>` | a folder to write the copy into (for example reports/carddemo), or aws to upload the run (source/, results/ and the cleaned reports/) to the private Reframe bucket in your AWS account |
 | `--profile <profile>` | for --to aws: the AWS profile (default: the one saved by reframe setup) |
 | `--region <region>` | for --to aws: the AWS region (default: the saved one, then us-east-1) |
 
 ```bash
-reframe publish --to aws                # upload to the private reports bucket in your AWS account
+reframe publish --to aws                # upload the run's source, results and reports to the private bucket in your AWS account
 reframe publish --to reports/my-system  # write the copy into a folder
 ```
 

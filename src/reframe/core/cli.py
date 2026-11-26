@@ -137,7 +137,7 @@ def parser() -> argparse.ArgumentParser:
     publish = command("publish", "Copy a run's reports, cleaned of the AWS account's identifiers, into a folder others can open")
     _run_option(publish)
     publish.add_argument("--to", required=True, help="a folder to write the copy into (for example reports/carddemo), or aws to upload it to "
-                         "the private reports bucket in your AWS account")
+                         "the private Reframe bucket in your AWS account, with the run's source and results")
     publish.add_argument("--profile", help="for --to aws: the AWS profile (default: the one saved by reframe setup)")
     publish.add_argument("--region", help="for --to aws: the AWS region (default: the saved one, then us-east-1)")
 

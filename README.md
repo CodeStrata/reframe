@@ -393,7 +393,19 @@ Before anything is written, Reframe removes the AWS account ID, ARNs, S3 locatio
 reframe publish --to aws
 ```
 
-This uploads the cleaned copy to a private bucket in your account: encrypted, versioned, with no public access, refusing any request not over TLS. Reframe creates the bucket the first time, with its own Terraform state in `~/.reframe/reports-store`. Only someone whose AWS sign-in may read the bucket can open the reports; there is no public address.
+This uploads the run to a private bucket in your account: encrypted, versioned, with no public access, refusing any request not over TLS. Reframe creates the bucket the first time, with its own Terraform state in `~/.reframe/reports-store`, and keeps one per account and region for every project. Only someone whose AWS sign-in may read the bucket can open what is in it; there is no public address.
+
+```text
+reframe-reports-xxxxxxxx/
+  <project>/<run>/
+    source/       <sha>.zip, the snapshot both tools read, and source.json (its checksum, files and origin)
+    results/
+      aws/        what AWS Transform wrote, as Reframe retrieved it
+      claude/     what Claude's code-modernization plugin wrote
+    reports/      the cleaned copy: every report, the design and the AI-DLC package, and report.zip
+```
+
+`source/` and `results/` are the run's own files, not cleaned. Anyone who can read the bucket can read the source code and the raw results, so give read access only to people who may see the code. The bucket is apart from every run, so `reframe teardown` leaves it and what is in it; publish after teardown as well as before.
 
 ```bash
 reframe reports
@@ -409,7 +421,7 @@ reframe reports download carddemo --to ~/reframe-reports/carddemo
 
 `reframe reports` lists what is published. `reframe reports open <project>` downloads the project's latest report with your AWS sign-in and opens it in your browser; `--run <run>` picks an older one. `reframe reports download` saves it in a folder instead, to keep or send on. These work on any computer whose AWS sign-in can read the bucket: Reframe finds the bucket by its tags, so the person who published only needs to tell you the project's name.
 
-**Without Reframe:** every published report also has one file, `<project>/<run>/report.zip`. Sign in to the AWS console, open the `reframe-reports-…` bucket in S3, download that file, unzip it and open `index.html`.
+**Without Reframe:** every published report also has one file, `<project>/<run>/reports/report.zip`. Sign in to the AWS console, open the `reframe-reports-…` bucket in S3, download that file, unzip it and open `index.html`.
 
 `reframe reports teardown` removes the bucket and everything in it, after you consent to the list. Only the computer that published can do this.
 

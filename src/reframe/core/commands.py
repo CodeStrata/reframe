@@ -464,16 +464,19 @@ def publish(args) -> int:
         with tempfile.TemporaryDirectory() as scratch:
             copy = Path(scratch) / "copy"
             manifest = make(folder, copy)
-            prefix = store.upload(copy, str(manifest["project"]), str(manifest["run"]))
+            prefix = store.upload(copy, str(manifest["project"]), str(manifest["run"]), folder)
     except Stop as stop:
         return _fail(stop)
     except NotSent as error:
         return _fail(Stop(Outcome.WAITING_SIGNIN, f"{error}. Sign in with aws sso login, then run it again"))
-    say(f"Published {len(manifest['files'])} pages to the private reports bucket in your AWS account, under {prefix}\n"
-        f"Anyone who can sign in to the account and read the bucket can now:\n"
+    what = {"source/": "the snapshot both tools read", "results/": "what AWS Transform and Claude's plugin wrote",
+            "reports/": f"{len(manifest['files'])} pages, cleaned, with report.zip"}
+    say(f"Published the run to the private Reframe bucket in your AWS account, under {prefix}:\n"
+        + "".join(f"  {prefix}{key:<10} {what[key]}\n" for key in ("source/", "results/", "reports/") if key in store.sent)
+        + f"Anyone who can sign in to the account and read the bucket can now:\n"
         f"  open the project's latest report:  reframe reports open {manifest['project']}\n"
         f"  save this one in a folder:         reframe reports download {prefix.rstrip('/')} --to <folder>\n"
-        f"  without Reframe:                   download {prefix}report.zip from the bucket in the S3 console\n")
+        f"  without Reframe:                   download {prefix}reports/report.zip from the bucket in the S3 console\n")
     return 0
 
 

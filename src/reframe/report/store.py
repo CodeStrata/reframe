@@ -1,4 +1,8 @@
-"""The published reports in a private S3 bucket, opened with an AWS sign-in (docs/sharing.md, section 4; S-03, S-04).
+"""The published runs in a private S3 bucket, opened with an AWS sign-in (docs/sharing.md, section 4; S-03, S-04, S-15).
+
+Each published run sits under <project>/<run>/ in three folders: source/ (the snapshot both tools read), results/ (what
+AWS Transform and Claude's plugin wrote, as Reframe retrieved it) and reports/ (the cleaned copy, with report.zip). The
+bucket is one per account and region, apart from any run, so reframe teardown leaves it and what is in it.
 
 The store has its own folder, ~/.reframe/reports-store, with the same records a run has: the Terraform root `reports`
 with its local state, an intent and receipt for every change, and the teardown consent. Nothing is public: a reader
@@ -10,6 +14,7 @@ from __future__ import annotations
 import getpass
 import hashlib
 import json
+import re
 import secrets
 import string
 import subprocess
@@ -26,6 +31,7 @@ from reframe.core.shell import Aws, SigninExpired
 ROOT = "reports"
 TAGS = {"ManagedBy": "reframe", "ReframeStore": "reports"}  # set on the bucket by the reports root's default tags
 PREFIX = "reframe-reports-"
+REPORT_MANIFEST = re.compile(r"^[^/]+/[^/]+/(reports/)?manifest\.json$")  # reports/ since S-15; at the run's top before it
 
 
 def store_folder() -> RunFolder:
@@ -130,20 +136,34 @@ class Store:
         self.folder.event("reports_store_ready")
         return self.bucket
 
-    def upload(self, copy: Path, project: str, run: str) -> str:
+    def upload(self, copy: Path, project: str, run: str, folder: RunFolder | None = None) -> str:
+        """The cleaned copy to <project>/<run>/reports/, and, given the run folder, its source and the tools' results."""
         bucket = self.ensure()
         prefix = f"{project}/{run}/"
         digest = hashlib.sha256((copy / "manifest.json").read_bytes()).hexdigest()[:16]
+        pieces = run_pieces(folder) if folder else []
+
+        def cp(source: Path, key: str, *more: str) -> None:
+            self.aws.write("s3", "cp", str(source), f"s3://{bucket}/{key}", *more, "--sse", "AES256", "--only-show-errors", timeout=1800)
 
         def send() -> dict[str, Any]:
+            sent = {}
             with tempfile.TemporaryDirectory() as scratch:
+                for key, source in pieces:
+                    cp(source, prefix + key, *(("--recursive",) if source.is_dir() else ()))
+                    sent[key] = source.resolve().relative_to(folder.root.resolve()).as_posix()
+                if folder and folder.exists("snapshot.json"):
+                    note = Path(scratch) / "source.json"
+                    note.write_text(json.dumps(source_note(folder.load("snapshot.json")), indent=2))
+                    cp(note, prefix + "source/source.json")
                 archive = zipped(copy, Path(scratch) / "report.zip", f"{project}-{run}")
-                self.aws.write("s3", "cp", str(copy), f"s3://{bucket}/{prefix}", "--recursive", "--sse", "AES256", "--only-show-errors", timeout=1800)
-                self.aws.write("s3", "cp", str(archive), f"s3://{bucket}/{prefix}report.zip", "--sse", "AES256", "--only-show-errors", timeout=1800)
-            return {"zip": f"{prefix}report.zip"}
+                cp(copy, prefix + "reports/", "--recursive")
+                cp(archive, prefix + "reports/report.zip")
+            return {"zip": f"{prefix}reports/report.zip", "sent": sent}
 
-        self.changes.apply(f"upload-{project}-{run}-{digest}", "s3 cp --recursive, and report.zip",
-                           {"bucket": bucket, "prefix": prefix, "manifest": digest}, send)
+        self.sent = sorted({k.split("/")[0] + "/" for k, _ in pieces} | {"reports/"})
+        self.changes.apply(f"publish-{project}-{run}-{digest}", "s3 cp: source, results, reports and report.zip",
+                           {"bucket": bucket, "prefix": prefix, "manifest": digest, "pieces": [k for k, _ in pieces]}, send)
         self.folder.event("report_uploaded", project=project, run=run)
         return prefix
 
@@ -152,11 +172,13 @@ class Store:
         keys = self.aws.read("s3api", "list-objects-v2", "--bucket", bucket, "--query", "Contents[?ends_with(Key, 'manifest.json')].[Key,LastModified]")
         found = []
         for key, modified in keys or []:
+            if not REPORT_MANIFEST.match(key):  # the tools' results hold manifests of their own
+                continue
             with tempfile.TemporaryDirectory() as scratch:
                 target = Path(scratch) / "manifest.json"
                 self.aws.read("s3api", "get-object", "--bucket", bucket, "--key", key, str(target))
                 manifest = json.loads(target.read_text())
-            found.append({"path": key.rsplit("/", 1)[0], "project": manifest.get("project"), "run": manifest.get("run"),
+            found.append({"path": "/".join(key.split("/")[:2]), "project": manifest.get("project"), "run": manifest.get("run"),
                           "commit": manifest.get("commit"), "published_at": manifest.get("published_at") or modified})
         return sorted(found, key=lambda r: str(r["published_at"]), reverse=True)
 
@@ -182,7 +204,11 @@ class Store:
         bucket = self.reading_bucket()
         target = target or self.folder.path(f"cache/{path.strip('/')}")
         target.mkdir(parents=True, exist_ok=True)
-        self.aws.read("s3", "sync", f"s3://{bucket}/{path.strip('/')}/", str(target), "--exclude", "report.zip", "--only-show-errors", timeout=1800)
+        path = path.strip("/")
+        self.aws.read("s3", "sync", f"s3://{bucket}/{path}/reports/", str(target), "--exclude", "report.zip", "--only-show-errors", timeout=1800)
+        if not (target / "index.html").exists():  # published before S-15, with the pages at <project>/<run>/
+            self.aws.read("s3", "sync", f"s3://{bucket}/{path}/", str(target), "--exclude", "report.zip", "--exclude", "source/*",
+                          "--exclude", "results/*", "--exclude", "reports/*", "--only-show-errors", timeout=1800)
         if not (target / "index.html").exists():
             raise Stop(Outcome.REFUSED, f"{path} is not a published report in the bucket; reframe reports lists them")
         return target / "index.html"
@@ -204,9 +230,9 @@ class Store:
         if bucket:
             listed = self.aws.read("s3api", "list-object-versions", "--bucket", bucket, "--query", "length(Versions || `[]`)")
             count = int(listed or 0)
-        say(f"Reframe will delete the reports bucket {bucket} with its {count} stored object versions, and these settings, all created by "
-            "Reframe for the published reports:\n\n" + "".join(f"  {n:>2}. {i['type']}  {i.get('name') or i['address']}\n" for n, i in enumerate(items, 1)))
-        answer = prompt(f"Type yes to delete the bucket and every report in it, or anything else to keep it: ").strip()
+        say(f"Reframe will delete the reports bucket {bucket} with its {count} stored object versions (every published run's source, "
+            "results and reports), and these settings, all created by Reframe for the published runs:\n\n" + "".join(f"  {n:>2}. {i['type']}  {i.get('name') or i['address']}\n" for n, i in enumerate(items, 1)))
+        answer = prompt(f"Type yes to delete the bucket and everything published in it, or anything else to keep it: ").strip()
         if answer != "yes":
             say("Nothing was deleted.\n")
             return False
@@ -222,6 +248,28 @@ class Store:
                     self.folder.rename(f"changes/{step}.{kind}.json", f"changes/{step}.{kind}-done-{stamp}.json")
         self.folder.update(torn_down=iso(), bucket_name=None)
         return True
+
+
+def run_pieces(folder: RunFolder) -> list[tuple[str, Path]]:
+    """What a run adds beside its reports (S-15): the snapshot, and each tool's results as Reframe retrieved them. These are
+    the run's own files, not cleaned: the bucket is private to the account."""
+    snapshot = folder.load("snapshot.json", {}) if folder.exists("snapshot.json") else {}
+    pieces = []
+    archive = folder.path(snapshot.get("archive") or "source/archive.zip")
+    if archive.is_file():
+        pieces.append((f"source/{str(snapshot.get('sha256') or 'source')[:16]}.zip", archive))
+    for key, name in (("results/aws/", "outputs/aws"), ("results/claude/", "claude")):
+        if folder.path(name).is_dir() and any(f.is_file() for f in folder.path(name).rglob("*")):
+            pieces.append((key, folder.path(name)))
+    return pieces
+
+
+def source_note(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """What the source is, without the owner's local path: a GitHub URL is kept, a folder or file on their computer is not."""
+    origin = str(snapshot.get("source") or "")
+    return {"sha256": snapshot.get("sha256"), "form": snapshot.get("form"), "files": snapshot.get("files"), "bytes": snapshot.get("bytes"),
+            "commit": snapshot.get("commit"), "ref": snapshot.get("ref"),
+            "source": origin if origin.startswith(("https://", "http://", "git@")) else Path(origin).name or None}
 
 
 def zipped(copy: Path, archive: Path, folder: str) -> Path:
