@@ -16,12 +16,18 @@ criterion and task has a short ID that stays the same from version to version (d
 back to the run's keys and the source lines. Build tasks are made per capability, each for a role and citing the
 requirements and rules it implements; every requirement is in a task. Draft capabilities are marked draft everywhere.
 
+What only the engineer's team can give (the target stack's detail, the house conventions, the stack-specific steps of
+the Claude Code skills in `.claude/skills/`, each role's *On this stack*) is left as `[FILL IN: ...]` placeholders, and
+START-HERE.md, in the package and in each form, says how to make it ready for forward engineering (handover.py).
+
 A new version is written only when the package changes; CHANGES.md says what changed since the last. Reframe checks
 every version: every ID of every specification is in every form, every task cites a requirement, every draft is marked.
 
-    python -m reframe.design.package [--run <run>] [--context <folder>] [--out <folder> [--form kiro|claude-code|spec-kit|all]]
+    python -m reframe.design.package [--run <run>] [--context <folder>] [--out <empty folder> [--form kiro|claude-code|spec-kit|all]]
+    python -m reframe.design.package --check <copy>
 
-`--out` copies the latest version into a folder, cleaned as `reframe publish` cleans its copy.
+`--out` copies the latest version into an empty folder, cleaned as `reframe publish` cleans its copy. `--check` lists the
+placeholders left in a copy, and its draft capabilities.
 """
 
 from __future__ import annotations
@@ -35,6 +41,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from reframe.design import handover
 from reframe.design.specs import SPECS, STACK
 
 FOLDER = "outputs/design/package"
@@ -302,13 +309,7 @@ def task_lines(s: dict[str, Any], ts: list[dict[str, Any]], checkbox: str = "- [
 
 
 def stack_md(stack: dict[str, Any] | None, architecture: str) -> str:
-    if stack:
-        head = (f"- Front end: {stack.get('front_end') or 'not given'}\n- Back end: {stack.get('back_end') or 'not given'}\n- Data: {stack.get('data') or 'not given'}\n\n"
-                f"Given by {stack.get('given_by', 'the engineer')} on {str(stack.get('at', ''))[:10]}.")
-    else:
-        head = ("**Not given yet.** The engineer gives the target stack (`reframe design --stack \"<front end>; <back end>; <data>\"`); Reframe never "
-                "chooses one. Until then, build nothing that depends on it; the data contracts show neutral types.")
-    return head + (f"\n\n### Target architecture\n\n{architecture.strip()}" if architecture.strip() else "")
+    return handover.stack_section(stack, architecture)
 
 
 # ---- the forms ---------------------------------------------------------------------------------------------------------
@@ -365,7 +366,8 @@ def speckit_spec(s: dict[str, Any]) -> str:
 
 def speckit_plan(s: dict[str, Any], books: dict[str, Any], stack: dict[str, Any] | None) -> str:
     return "\n".join([
-        f"# Implementation plan: {s['title']} ({s['id']})", "", status_line(s), "", "## Technical context", "", stack_md(stack, ""), "",
+        f"# Implementation plan: {s['title']} ({s['id']})", "", status_line(s), "", "## Technical context", "",
+        "As in the constitution's *Technical context* (.specify/memory/constitution.md)" + (f": {stack['stack']}." if stack else "; the target stack is not given yet."), "",
         f"Runs as {s['runs_as']}.", "", "## Constitution check", "", "- The legacy source is read-only; data is synthetic only.",
         "- Every requirement, rule and criterion keeps its ID in code and tests.", f"- This capability is {s['status']}.", "",
         "## Screens", "", screens_md(s), "", "## Data model", "", contracts_md(s, books), "", "## Design notes", "", notes_md(s), "",
@@ -387,7 +389,8 @@ def role_md(role: str) -> str:
     return "\n".join(["---", f"name: {role}", f"description: {what}", "---", "", f"You are the {name.lower()} role in the forward build of a modernized mainframe application.",
                       "", what, "", "## Template", "", "For each task you take: read the task's requirements, rules and criteria by ID in the specification; "
                       "do the work; name the IDs you implemented; list what you could not do and why.", "", "## Guardrails", ""]
-                     + [f"- {r}" for r in rules] + ["- The legacy source is read-only. Use synthetic data only.", "- A draft capability is confirmed with the owner before it is built.", ""])
+                     + [f"- {r}" for r in rules] + ["- The legacy source is read-only. Use synthetic data only.", "- A draft capability is confirmed with the owner before it is built.", ""]
+                     + handover.role_fill(role))
 
 
 def product_md(specs: list[dict[str, Any]], journeys: list[dict[str, Any]], project: str, personas: str, decisions: str) -> str:
@@ -448,7 +451,7 @@ def traceability_md(specs: list[dict[str, Any]], ts: dict[str, list[dict[str, An
 
 
 def write(root: Path, specs: list[dict[str, Any]], books: dict[str, Any], stack: dict[str, Any] | None, journeys: list[dict[str, Any]],
-          prototype: Path | None, project: str, context: dict[str, str]) -> dict[str, list[dict[str, Any]]]:
+          prototype: Path | None, project: str, context: dict[str, str], programs: dict[str, list[str]] | None = None) -> dict[str, list[dict[str, Any]]]:
     """Every form of the package under root. Returns the tasks by capability."""
     ts = {s["id"]: tasks(s) for s in specs}
     contracts = "# Data contracts\n\nThe copybooks the capabilities' programs copy, as typed records, read from the legacy source.\n\n" + \
@@ -457,14 +460,23 @@ def write(root: Path, specs: list[dict[str, Any]], books: dict[str, Any], stack:
     product = product_md(specs, journeys, project, context.get("personas", ""), context.get("decisions", ""))
     tech = "# Tech\n\n## Target stack\n\n" + stack_md(stack, context.get("architecture", "")) + "\n"
     files: dict[str, str] = {}
+    known = handover.facts(specs, journeys, programs or {})
+    files["START-HERE.md"] = handover.start_here(known, project, stack, None)
     for form in FORMS:
+        files[f"{form}/START-HERE.md"] = handover.start_here(known, project, stack, form)
         files[f"{form}/data-contracts.md"] = contracts
         files[f"{form}/traceability.md"] = trace
+    house = "# House conventions\n\nWhat your team builds to. Reframe cannot know these; fill them in.\n\n" + handover.house() + "\n\n## From the design\n\n" + \
+        "\n".join(conventions()) + "\n"
+    for name in handover.SKILLS:
+        files[f"claude-code/.claude/skills/{name}/SKILL.md"] = handover.skill(name, "specs/<capability>.md", "tasks.md")
+        files[f"spec-kit/.claude/skills/{name}/SKILL.md"] = handover.skill(name, "specs/<nnn-capability>/spec.md and plan.md", "specs/<nnn-capability>/tasks.md")
     # Kiro
     steer = "---\ninclusion: always\n---\n\n"
     files["kiro/.kiro/steering/product.md"] = steer + product
     files["kiro/.kiro/steering/tech.md"] = steer + tech
     files["kiro/.kiro/steering/structure.md"] = steer + structure_md(specs)
+    files["kiro/.kiro/steering/house-conventions.md"] = steer + house
     for s in specs:
         base = f"kiro/.kiro/specs/{s['folder']}"
         files[f"{base}/requirements.md"] = requirements_md(s)
@@ -476,7 +488,9 @@ def write(root: Path, specs: list[dict[str, Any]], books: dict[str, Any], stack:
         f"# {project}, modernized", "", "Build the modernized application from the specifications here. Each capability's specification is in `specs/`; "
         "the build tasks, each for a role, are in `tasks.md`; the prototype in `ui-reference/index.html` is the UI to build to; the data contracts are in "
         "`data-contracts.md`; `traceability.md` takes every ID back to the legacy source.", "", "## Target stack", "", stack_md(stack, context.get("architecture", "")), "",
-        "## Conventions", ""] + conventions() + ["", "## Capabilities", "", index, ""])
+        "## Conventions", ""] + conventions() + ["", "## House conventions", "", handover.house(), "",
+        "## Skills", "", "In `.claude/skills/`: " + ", ".join(f"`{n}`" for n in handover.SKILLS) + ". Fill in their placeholders first; START-HERE.md says how.", "",
+        "## Capabilities", "", index, ""])
     files["claude-code/tasks.md"] = "# Tasks\n\nBuild final capabilities first. Each task names its role and the IDs it implements.\n\n" + "\n\n".join(
         f"## {s['id']} {md(s['title'])} ({s['status']})\n\n" + "\n".join(task_lines(s, ts[s["id"]])) for s in specs) + "\n"
     for s in specs:
@@ -493,7 +507,8 @@ def write(root: Path, specs: list[dict[str, Any]], books: dict[str, Any], stack:
         "5. Final capabilities (signed off) are built to as written; draft ones are confirmed with the owner first.",
         "6. Order of replacement: final capabilities first; the risk-ranked order (P4-12) will replace this when it exists.",
         "7. A business rule is kept exactly; a historical artifact is carried only after asking.", "", "## Roles", ""]
-        + [f"- `{r}`: {ROLES[r][1]}" for r in ROLES] + ["", "## Conventions", ""] + conventions()) + "\n"
+        + [f"- `{r}`: {ROLES[r][1]}" for r in ROLES] + ["", "## Technical context", "", handover.technical_context(stack), "",
+                                                         "## House conventions", "", handover.house(), "", "## Conventions", ""] + conventions()) + "\n"
     for role in ROLES:
         files[f"spec-kit/.claude/agents/{role}.md"] = role_md(role)
     for n, s in enumerate(specs, 1):
@@ -611,7 +626,9 @@ def run(folder, context: Path | None = None) -> dict[str, Any]:
     latest = folder.path(f"{FOLDER}/v{have[-1]}") if have else None
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp) / "package"
-        ts = write(root, specs, books, stack, journeys, prototype, project, read_context(context))
+        inventory = (folder.load("design/screens.json") or {}).get("screens") or []
+        programs = {s["map"]: [p["name"] for p in s.get("programs") or []] for s in inventory}
+        ts = write(root, specs, books, stack, journeys, prototype, project, read_context(context), programs)
         problems = check(root, specs, ts)
         made = manifest(specs, ts, stack)
         same = latest is not None and (latest / "manifest.json").is_file() and json.loads((latest / "manifest.json").read_text()).get("digest") == digest(root)
@@ -641,6 +658,8 @@ def copy_out(folder, target: Path, form: str = "all") -> dict[str, Any]:
     if not have:
         raise ValueError("write the package first")
     source = folder.path(f"{FOLDER}/v{have[-1]}")
+    if target.exists() and any(target.iterdir()):
+        return {"written": 0, "left": [f"{target} is not empty: copy into an empty folder, so no filled-in file is overwritten"]}
     cleaner = Cleaner(folder)
     chosen = FORMS if form == "all" else (form,)
     planned, left = {}, []
@@ -670,7 +689,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--context", help="a folder with target-architecture.md, personas.md and decisions.md")
     parser.add_argument("--out", help="copy the latest version, cleaned, into this folder")
     parser.add_argument("--form", choices=FORMS + ("all",), default="all")
+    parser.add_argument("--check", help="list the placeholders left in a copy of the package, and its draft capabilities")
     args = parser.parse_args(argv)
+    if args.check:
+        found = handover.readiness(Path(args.check).expanduser())
+        print(json.dumps({**found, "files": {k: v[:5] for k, v in list(found["files"].items())[:40]}}, indent=1))
+        return 0 if found["ready"] else 1
     folder = find_run(args.run)
     value = run(folder, Path(args.context).expanduser() if args.context else None)
     if args.out:

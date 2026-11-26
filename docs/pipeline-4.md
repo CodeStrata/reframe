@@ -205,17 +205,20 @@ Written by Reframe from D6, in `outputs/design/package/v<round>/`, in three form
 
   Each task names the role that does it.
 
-Every requirement, rule, acceptance criterion and task keeps its ID, so the forward build stays traceable to the legacy source. Draft capabilities are marked draft. `CHANGES.md` says what changed since the last version. **Checked:** by loading the Claude Code form into Claude Code in a scratch folder and building one journey (*Sign in* on CardDemo) on the target stack, recording whether it builds and which acceptance criteria pass.
+Every requirement, rule, acceptance criterion and task keeps its ID, so the forward build stays traceable to the legacy source. Draft capabilities are marked draft. `CHANGES.md` says what changed since the last version. **Proved by the engineer** (the owner's decision of 26 November 2026, section 9): once they have given the stack and filled in the placeholders, they build *Sign in* from the Claude Code form in a scratch repository and record which acceptance criteria pass; START-HERE.md step 6.
 
 **Command:** `python -m reframe.design.package [--run <run>] [--context <folder>] [--out <folder> [--form kiro|claude-code|spec-kit|all]]` writes `outputs/design/package/v<n>/` with the three forms, `CHANGES.md` and `manifest.json`, with no model.
 - **IDs:** each function gets a short code from its name (Online Account and Transaction Management is `OATM`). Requirements are `OATM-REQ-F-123`, rules `OATM-BR-004`, capabilities `OATM-C16`, criteria `OATM-C16-AC-03` and tasks `OATM-C16-T2`. The codes and rule numbers are kept in `design/package-ids.json`, so an ID never changes between versions; a new rule gets the next number. Every form has `traceability.md`, which takes each ID back to the run's keys and the source lines, and `data-contracts.md`.
 - **Tasks**, per capability, each for a role and citing what it implements: model the data (*data*), the business rules (*business rules*), the errors and messages (*business rules*), the services or scheduled job with the design notes (*API*), one per screen to the prototype (*UI modernization*), a test per acceptance criterion (*test generation*), and a review where the capability touches money, card data, personal data, security or audit (*compliance*). Every requirement is in an implementing task.
 - **Versions:** a new version only when a file changes. `CHANGES.md` names, by ID, the capabilities added, removed or now final, and the requirements, rules and criteria added, removed or changed, and a changed stack.
 - **Context:** `target-architecture.md` joins the stack in `tech.md` and `CLAUDE.md`; `personas.md` and `decisions.md` join `product.md`.
-- **`--out`:** copies the latest version cleaned as `reframe publish` cleans its copy; if anything is left, nothing is written.
+- **`--out`:** copies the latest version into an empty folder, cleaned as `reframe publish` cleans its copy; if anything is left, or the folder is not empty, nothing is written, so a filled-in copy is never overwritten.
+- **What the engineer fills in** (`handover.py`): what only their team can give is left as `[FILL IN: <what>]` where it belongs. That covers the target stack and its detail (versions, build, testing, hosting, security, integration, non-functional needs), the house conventions (coding standards, naming, error handling and logging, style reference, review, definition of done), Spec Kit's technical context in the constitution, an *On this stack* section in each role file, and four Claude Code skill templates in `.claude/skills/`: `build-capability`, `write-acceptance-tests`, `model-data-contract` and `build-screen`, whose stack-specific steps are placeholders. A given stack and a context folder's `target-architecture.md` fill their parts.
+- **START-HERE.md**, in the package and in each form, takes the engineer to a package ready for forward engineering: copy it; give the stack; fill in the placeholders; settle what is still open (the draft capabilities by function, the open SME questions, the decision table gaps and the historical artifacts, by ID); check what is left; prove it by building *Sign in* (the capabilities whose rules come from the sign-on screen's programs); then build final capabilities first.
+- **`--check <copy>`** lists the placeholders left in a copy, by file, and its draft capabilities; it is ready when none is left.
 - **Checked by Reframe:** every requirement, rule, criterion and task ID of every specification is in each form's own files (not only in `traceability.md`); every task cites a requirement; every requirement is in an implementing task; every draft is marked.
 
-**On CardDemo** (26 November 2026), in 2 seconds: 1,100 files, 13 MB with the prototype. The 154 capabilities (52 final) have 820 tasks: 222 business rules, 118 data, 114 API, 99 UI modernization, 154 test generation and 113 compliance. No check failed. A cleaned copy left nothing behind. The build check (*Sign in* from the Claude Code form) waits for the engineer's target stack.
+**On CardDemo** (26 November 2026), in 2 seconds: 1,113 files, 13 MB with the prototype. The 154 capabilities (52 final) have 820 tasks: 222 business rules, 118 data, 114 API, 99 UI modernization, 154 test generation and 113 compliance. No check failed. A cleaned copy left nothing behind. A copy has 85 placeholders in 18 files and 102 draft capabilities left; the *Sign in* slice is USPM-C01 *Sign on to CardDemo*, 19 criteria, still draft.
 
 ### D8 Design page (P4-07, P4-10)
 
@@ -294,7 +297,7 @@ On CardDemo run fa1f61, from the CLI only, with no AWS resources:
 - every screen is in a journey or listed unused with its reason; every legacy field is mapped once;
 - the prototype covers every modern screen, and every journey can be clicked from start to end;
 - every capability has a specification whose citations Reframe checked; signed-off functions are final and the rest draft;
-- the Claude Code form builds *Sign in* on the target stack, with its acceptance criteria recorded;
+- the package carries the placeholders and START-HERE.md, and `--check` lists what is left (the *Sign in* build is the engineer's proof, after they give the stack);
 - a second round, adding a design system, one persona and a prototype download with a *Needs change*, redoes only what those touch and writes what changed;
 - the README and `docs/cli.md` describe pipeline 4 from the tested commands.
 
@@ -306,6 +309,7 @@ On CardDemo run fa1f61, from the CLI only, with no AWS resources:
 | Which functions go final | Signed-off functions are final; every other function is included and marked draft |
 | The default design system | Reframe's own plain, accessible set, drawn with no outside files; `design-system/` in the context folder replaces it. *Proposed addition for the owner's agreement (25 November 2026, from the research):* a `style-reference/` folder of house screens and code samples, which the screens and the package follow where the design system is silent |
 | The name | *The design*, run with `reframe design` |
+| The target stack and the forward build (26 November 2026) | **The engineer's input.** Reframe leaves templates (skills, roles, steering, technical context) with placeholders, and instructions (START-HERE.md) for making the package ready for forward engineering; the *Sign in* build check is the engineer's step, not Reframe's |
 
 ## 10. Stories
 

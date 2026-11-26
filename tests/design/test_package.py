@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from reframe.design import package, specs
+from reframe.design import handover, package, specs
 from tests.design.test_specs import MENU, SpecsTest, written
 
 
@@ -89,6 +89,41 @@ class PackageTest(SpecsTest):
             self.assertTrue((Path(out) / "kiro/.kiro/steering/product.md").is_file())
             self.assertFalse((Path(out) / "claude-code").exists())
             self.assertNotIn(str(Path.home()), (Path(out) / "kiro/traceability.md").read_text())
+
+
+    def test_placeholders_skills_and_the_guide_until_ready(self):
+        value = package.run(self.folder)
+        root = Path(value["path"])
+        guide = (root / "START-HERE.md").read_text()
+        for expected in ("The stack is not given yet.", "**Draft capabilities:** 1 of 2", "  - View accounts: 1 draft", "**SME questions:** 1 open",
+                         "**Decision table gaps:** 1", "SIG-C01 Sign on", "python -m reframe.design.package --check <your copy>"):
+            self.assertIn(expected, guide)
+        self.assertNotIn("VA-C01 View an account (", guide)  # the proof slice is the sign-on's programs only
+        for form in package.FORMS:
+            self.assertTrue((root / form / "START-HERE.md").is_file(), form)
+        for name in handover.SKILLS:
+            skill = (root / f"claude-code/.claude/skills/{name}/SKILL.md").read_text()
+            self.assertTrue(skill.startswith(f"---\nname: {name}\n"), name)
+            self.assertIn("[FILL IN:", skill)
+        self.assertIn("## On this stack", (root / "spec-kit/.claude/agents/data.md").read_text())
+        self.assertIn("- **Language and version:** [FILL IN: language and version]", (root / "spec-kit/.specify/memory/constitution.md").read_text())
+        self.assertIn("- Coding standards: [FILL IN: style guide, linters and formatters]", (root / "kiro/.kiro/steering/house-conventions.md").read_text())
+        with tempfile.TemporaryDirectory() as out:
+            self.assertEqual(package.copy_out(self.folder, Path(out), "claude-code")["left"], [])
+            found = handover.readiness(Path(out))
+            self.assertFalse(found["ready"])
+            self.assertIn("claude-code/CLAUDE.md", found["files"])
+            self.assertEqual(found["drafts"], ["VA-C01"])
+            for p in Path(out).rglob("*.md"):  # the engineer fills everything in
+                p.write_text(handover.FILL.sub("filled", p.read_text()))
+            self.assertTrue(handover.readiness(Path(out))["ready"])
+            again = package.copy_out(self.folder, Path(out), "all")  # never over the filled-in copy
+            self.assertEqual(again["written"], 0)
+            self.assertIn("is not empty", again["left"][0])
+        specs.stack_of(self.folder, "React; Java 21; PostgreSQL")
+        given = Path(package.run(self.folder)["path"])
+        self.assertIn("- Back end: Java 21", (given / "claude-code/CLAUDE.md").read_text())
+        self.assertIn("The stack is given: React; Java 21; PostgreSQL.", (given / "START-HERE.md").read_text())
 
 
 if __name__ == "__main__":
