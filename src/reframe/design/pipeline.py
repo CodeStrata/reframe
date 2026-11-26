@@ -59,7 +59,9 @@ def _sha(path: Path) -> str:
 
 def decisions_of(text: str) -> list[dict[str, str]]:
     """decisions.md as one decision per heading (any level), with its text."""
-    found, title, body = [], "", []
+    found: list[dict[str, str]] = []
+    title = ""
+    body: list[str] = []
     for line in text.splitlines():
         m = re.match(r"^#{1,6}\s+(.+)$", line)
         if m:

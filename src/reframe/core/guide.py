@@ -229,7 +229,7 @@ def choices(chosen_source: str) -> dict[str, Any]:
     graph = ("new", "existing")[ui.choose("Neptune graph for AWS Transform", [
         ("A new graph for this run", "its own private network; billed until reframe teardown"),
         ("An existing Neptune cluster", "Reframe lists the clusters in the region and checks each; used as it is, never changed")]) - 1]
-    picked = {"mode": mode, "project": project, "graph": graph, "claude": None}
+    picked: dict[str, Any] = {"mode": mode, "project": project, "graph": graph, "claude": None}
     picked["claude"] = claude_choice()
     return picked
 

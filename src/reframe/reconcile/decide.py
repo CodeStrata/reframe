@@ -271,7 +271,7 @@ class Batch:
 
 
 def decide(folder: RunFolder, claude, found: list[dict[str, Any]], context: dict[str, Any], round_: int,
-           progress: Callable[[int, int], None] = lambda done, total: None) -> dict[str, Any]:
+           progress: Callable[[int, int], object] = lambda done, total: None) -> dict[str, Any]:
     """R4 for every unit whose inputs changed since its kept decision. Stops, after the batches already running, on
     Claude's usage limit or a sign-in problem: reframe resume continues with what is left."""
     from reframe.claude.steps import stop_for

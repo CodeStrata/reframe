@@ -31,7 +31,7 @@ dependencies = ["mcp>=2,<3", "PyYAML>=6,<7", "rich>=13,<15"]
 
 [project.optional-dependencies]
 # what CI checks with (the lint job and the coverage floor); pinned so a new release of a checker cannot fail a PR
-dev = ["ruff==0.17.6"]
+dev = ["ruff==0.17.6", "mypy==2.4.1", "types-PyYAML==6.0.12.20261122"]
 
 [project.urls]
 Homepage = "https://github.com/sknampally/reframe"
@@ -60,3 +60,40 @@ select = ["E4", "E7", "E9", "F", "B"]
 # E731 (a lambda given a name) and E741 (a variable named l) are style; B905 (zip without strict=) would change behaviour
 ignore = ["E731", "E741", "B905"]
 
+[tool.mypy]
+python_version = "3.10"
+files = ["src/reframe"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# Modules with type errors still to fix (Q1-03). The list only shrinks: take a module off once it is clean.
+[[tool.mypy.overrides]]
+module = [
+    "reframe.claude.graph",
+    "reframe.claude.load",
+    "reframe.claude.runner",
+    "reframe.claude.steps",
+    "reframe.core.commands",
+    "reframe.core.pipeline",
+    "reframe.core.teardown",
+    "reframe.design.flow",
+    "reframe.design.inventory",
+    "reframe.design.journeys",
+    "reframe.design.package",
+    "reframe.infrastructure.network",
+    "reframe.reconcile.audit",
+    "reframe.reconcile.decide",
+    "reframe.reconcile.inputs",
+    "reframe.reconcile.questions",
+    "reframe.reconcile.requirements",
+    "reframe.report.build",
+    "reframe.report.compare",
+    "reframe.report.store",
+    "reframe.source.s3",
+    "reframe.transform.answers",
+    "reframe.transform.api",
+    "reframe.transform.documents",
+    "reframe.transform.retrieve",
+]
+ignore_errors = true

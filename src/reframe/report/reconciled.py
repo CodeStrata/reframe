@@ -122,7 +122,7 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
         domains.append(domain)
 
     decided = Counter(r["decision"] for r in rules)
-    units = Counter()
+    units: Counter[str] = Counter()
     for d in (folder.load("reconcile/decisions.json", {}) or {}).values():
         units[d.get("decision")] += 1
     snapshot = folder.load("snapshot.json") or {}
