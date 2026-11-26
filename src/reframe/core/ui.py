@@ -19,12 +19,12 @@ from rich.text import Text
 
 console = Console(highlight=False)
 errors = Console(highlight=False, stderr=True)
-STEPS = "Prerequisites  →  Sign in  →  Source  →  AWS Transform and Claude  →  Reconcile  →  Review"
+STEPS = "Prerequisites  →  Sign in  →  Source  →  AWS Transform and Claude  →  Review  →  Reconcile  →  Design  →  Share"
 
 
-def header(subtitle: str = "AWS Transform · Claude · Reconciliation") -> None:
+def header(subtitle: str = "AWS Transform · Claude · Reconciliation · Design") -> None:
     content = Text("REFRAME\n", style="bold bright_cyan")
-    content.append("From mainframe source to requirements and business rules your business can review\n", style="bold white")
+    content.append("From mainframe source to reviewed requirements, business rules and a design to build from\n", style="bold white")
     content.append(STEPS, style="dim")
     console.print(Panel(content, border_style="cyan", padding=(1, 2), subtitle=subtitle))
 

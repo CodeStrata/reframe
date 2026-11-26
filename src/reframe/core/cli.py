@@ -134,7 +134,7 @@ def parser() -> argparse.ArgumentParser:
     _run_option(compare)
     compare.add_argument("--open", action="store_true", help="open the page in the browser")
 
-    publish = command("publish", "Copy a run's reports, cleaned of the AWS account's identifiers, into a folder others can open")
+    publish = command("publish", "Optional: copy a run's reports, cleaned of the AWS account's identifiers, into a folder others can open, or upload the run's source, results and reports to your account's private bucket")
     _run_option(publish)
     publish.add_argument("--to", required=True, help="a folder to write the copy into (for example reports/carddemo), or aws to upload it to "
                          "the private Reframe bucket in your AWS account, with the run's source and results")

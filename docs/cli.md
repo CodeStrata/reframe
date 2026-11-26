@@ -289,7 +289,7 @@ reframe compare --open  # build the comparison page again and open it
 
 ### `reframe publish`
 
-Copy a run's reports, cleaned of the AWS account's identifiers, into a folder others can open.
+Optional: copy a run's reports, cleaned of the AWS account's identifiers, into a folder others can open, or upload the run's source, results and reports to your account's private bucket. Nothing is copied or uploaded unless you run it.
 
 | Option | What it does |
 |---|---|
