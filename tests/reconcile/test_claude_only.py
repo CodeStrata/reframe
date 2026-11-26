@@ -59,6 +59,20 @@ class ClaudeOnlyReconcileTest(InputsTest):
         self.assertIn("This run used Claude's assessment only", page)
         self.assertNotIn("AWS Transform and Claude compared", page)
 
+        # C1-04: the published copy has Claude's review and the reconciliation, and no AWS review or comparison
+        from reframe.report import publish
+        self.folder.save("outputs/claude/model.json", {})
+        self.folder.save("outputs/claude/requirements.json", {})
+        target = self.folder.root.parent / "copy"
+        manifest = publish.publish(self.folder, target)
+        self.assertEqual(sorted(manifest["files"]), ["claude/index.html", "index.html", "reconciled/index.html"])
+        index = (target / "index.html").read_text()
+        self.assertIn("assessed by Claude's code-modernization plugin", index)
+        self.assertIn("Every one of Claude&#x27;s rules checked against the source code", index)
+        self.assertNotIn("AWS Transform", index)
+        self.assertNotIn("../aws/index.html", (target / "claude" / "index.html").read_text())
+        self.assertNotIn("../aws/index.html", (target / "reconciled" / "index.html").read_text())
+
 
 class ClaudeFrameTest(unittest.TestCase):
     def test_claudes_domains_and_functions_with_each_program_where_its_rules_are(self):
