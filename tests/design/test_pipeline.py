@@ -83,6 +83,22 @@ class RoundsTest(SpecsTest):
         self.assertEqual(fourth["unrouted"], ["Branding"])
         self.assertIn("## Decisions that name nothing Reframe knows", self.folder.path("design/changes-4.md").read_text())
 
+    def test_parts_made_before_rounds_learn_their_pieces_in_the_next_round(self):
+        pipeline.run(self.folder, self.claude)
+        for name, key in (("design/journeys.json", "domains"), ("design/modern.json", "domains"), ("design/specs.json", "batches")):
+            saved = json.loads(self.folder.path(name).read_text())
+            for part in (saved.get(key) or {}).values():
+                part.pop("parts", None)  # as on CardDemo, whose parts were made before P4-09
+            self.folder.path(name).write_text(json.dumps(saved))
+        before = len(self.claude.other_calls)
+        pipeline.run(self.folder, self.claude)  # nothing changed: nothing redone, and each kept part's pieces recorded
+        self.assertEqual(len(self.claude.other_calls), before)
+        (self.context / "personas.md").write_text("# Clerk\nA branch clerk.\n")
+        plan = pipeline.run(self.folder, self.claude, self.context, plan_only=True)
+        self.assertEqual({tuple(r["changed"]) for r in plan["stages"]["journeys"]["redone"]}, {("personas",)})  # not "unrecorded"
+        for name, key in (("design/modern.json", "domains"), ("design/specs.json", "batches")):
+            self.assertTrue(all(p.get("parts") for p in json.loads(self.folder.path(name).read_text())[key].values()), name)
+
     def test_decisions_and_marks(self):
         found = pipeline.decisions_of("Intro line\n# One\nUse S-A.\n### Two\nKeep COSGN0A.\n")
         self.assertEqual([d["title"] for d in found], ["Decision", "One", "Two"])

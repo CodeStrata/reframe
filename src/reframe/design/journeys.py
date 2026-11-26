@@ -211,6 +211,8 @@ def run(folder, claude, context: Path | None = None, more=None, plan_only: bool 
         if before.get("hash") != digest or before.get("problems"):
             todo.append((key, data, digest))
             why.append((key, rounds.changed(before or None, rounds.parts(data, METHOD)) if before.get("hash") != digest else ["problems"]))
+        elif before and not before.get("parts") and not plan_only:  # kept, but made before rounds recorded its pieces (P4-10)
+            before["parts"] = rounds.parts(data, METHOD)
     plan = rounds.summary(why, [k for k in by_domain if k not in {t[0] for t in todo}])
     if plan_only:
         return {"round": plan}
