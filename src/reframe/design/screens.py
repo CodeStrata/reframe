@@ -304,7 +304,8 @@ def run(folder, claude, context: Path | None = None, more=None, plan_only: bool 
     kept, log = saved.get("domains") or {}, saved.get("log") or []
     folder_in = places["analysis"] / "reframe" / "design"
     folder_in.mkdir(parents=True, exist_ok=True)
-    lock, stopped, todo, inputs, why = threading.Lock(), [], [], {}, []
+    stopped: list[Any] = []
+    lock, todo, inputs, why = threading.Lock(), [], {}, []
     for key, mine in sorted(by_domain.items()):
         data = domain_input(key, names.get(key, key), mine, screens, flow, journeyed["journeys"], rules, requirements, parts)
         data.update(more(key, data) if more else {})

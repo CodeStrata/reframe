@@ -1,10 +1,9 @@
 import stat
 import tempfile
 import unittest
-from pathlib import Path
 
-from reframe.core.errors import NotSent, Outcome, Rejected, Stop, Uncertain
-from reframe.core.runfolder import Changes, RunFolder, find_run, new_run, project_name
+from reframe.core.errors import NotSent, Outcome, ReframeError, Rejected, Stop, Uncertain
+from reframe.core.runfolder import Changes, find_run, new_run, project_name
 
 
 class RunFolderTest(unittest.TestCase):
@@ -25,7 +24,7 @@ class RunFolderTest(unittest.TestCase):
         self.assertEqual(find_run(self.folder.root.name, self.env).root, self.folder.root)
 
     def test_outside_paths_refused(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(ReframeError):
             self.folder.save("../escape.json", {})
 
     def test_change_runs_once(self):

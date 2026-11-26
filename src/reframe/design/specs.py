@@ -419,7 +419,8 @@ def run(folder, claude, stack: str | None = None, more=None, plan_only: bool = F
     kept, log = saved.get("batches") or {}, saved.get("log") or []
     folder_in = places["analysis"] / "reframe" / "design"
     folder_in.mkdir(parents=True, exist_ok=True)
-    lock, stopped, todo, why = threading.Lock(), [], [], []
+    stopped: list[Any] = []
+    lock, todo, why = threading.Lock(), [], []
     plan = batches(built["specs"])
     for name, mine in plan:
         data = batch_input(mine)

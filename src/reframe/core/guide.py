@@ -70,7 +70,7 @@ def _install(tool: setup.Tool, m: setup.Machine) -> None:
     if tool.optional:
         prompt, default = f"Install {tool.name} now? ({tool.note})", False
     else:
-        prompt, default = f"Run it now?", True
+        prompt, default = "Run it now?", True
     if ui.yes(prompt, default):
         if setup.run_in_terminal(tool.install or ""):
             ui.ok(f"{tool.name}: the install command finished")
@@ -229,7 +229,7 @@ def choices(chosen_source: str) -> dict[str, Any]:
     graph = ("new", "existing")[ui.choose("Neptune graph for AWS Transform", [
         ("A new graph for this run", "its own private network; billed until reframe teardown"),
         ("An existing Neptune cluster", "Reframe lists the clusters in the region and checks each; used as it is, never changed")]) - 1]
-    picked = {"mode": mode, "project": project, "graph": graph, "claude": None}
+    picked: dict[str, Any] = {"mode": mode, "project": project, "graph": graph, "claude": None}
     picked["claude"] = claude_choice()
     return picked
 

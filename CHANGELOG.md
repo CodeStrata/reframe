@@ -2,6 +2,13 @@
 
 What changed in each release. Releases are tagged on `main`; the stories behind each are in [docs/plan.md](docs/plan.md).
 
+## Unreleased
+
+**Code quality**
+- Reframe is classed as Beta.
+- CI lints with ruff, type-checks with mypy and fails below 80% line coverage, with the checkers pinned in the `dev` extra.
+- The drivers of both assessments and the command handlers are tested stage by stage.
+
 ## 1.0.0 (2026)
 
 The first release for anyone to try: with Claude only, or with Claude and AWS Transform.

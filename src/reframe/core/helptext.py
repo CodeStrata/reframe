@@ -89,7 +89,8 @@ def _option(action: argparse.Action) -> str:
         return names
     if action.choices:
         return f"{names} {'|'.join(map(str, action.choices))}"
-    return f"{names} <{(action.metavar or action.dest).lower()}>"
+    metavar = action.metavar if isinstance(action.metavar, str) and action.metavar else action.dest
+    return f"{names} <{metavar.lower()}>"
 
 
 def _options(parser: argparse.ArgumentParser) -> list[tuple[str, str]]:

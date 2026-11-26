@@ -4,7 +4,7 @@ import unittest
 from unittest import mock
 
 from reframe.core.runfolder import new_run
-from reframe.reconcile import confidence, describe, units
+from reframe.reconcile import confidence, describe
 from tests.reconcile.test_decide import FakeClaude
 
 

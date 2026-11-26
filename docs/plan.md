@@ -199,6 +199,18 @@ The owner's direction (26 November 2026): release v1.0.0 so anyone can try Refra
 | A1-01 | End-to-end runs | [release 1.0](release-1.md) | #445 |
 | REL-1 | Release v1.0.0 | [release 1.0](release-1.md) | #446 |
 
+## Credibility: code quality
+
+The owner's direction (26 November 2026): make Reframe credible to someone reading its code. The checks run in CI on every pull request, with the checkers' versions pinned in `pyproject.toml`'s `dev` extra ([CONTRIBUTING](../CONTRIBUTING.md) says how to run them). Epic #449.
+
+| Story | Title | Specification | Done when |
+|---|---|---|---|
+| Q1-01 | Honest status | – | #450 · `pyproject.toml` classes Reframe as Beta (`Development Status :: 4 - Beta`), not Production/Stable |
+| Q1-02 | Lint in CI | [CONTRIBUTING](../CONTRIBUTING.md) | #451 · `ruff check src tests` passes in CI with pyflakes, syntax and bugbear rules. The 51 findings of the first check are fixed: unused imports and names, two dead loads in the design round, loop variables never read, and a test that accepted any exception |
+| Q1-03 | Types in CI | [CONTRIBUTING](../CONTRIBUTING.md) | #452 · `mypy` passes in CI. The modules with type errors still to fix are listed in `pyproject.toml`, and the list only shrinks: 25 of 85 modules at the start, after 13 were fixed |
+| Q1-04 | Tests of the drivers, and a coverage floor | [CONTRIBUTING](../CONTRIBUTING.md) | #453 · The Claude assessment's driver, the AWS Transform assessment's driver and the command handlers are tested stage by stage with fakes, and CI fails below 80% line coverage. At the start: 81% overall; the drivers went from 44%, 38% and 46% to 95%, 93% and 71% |
+| Q1-05 | Split `core/commands.py` | – | #454 · **After the v1.0.0 tag** (the owner, 26 November 2026), so it does not collide with the release's fixes. The 900-line module becomes one module per command group, with the Q1-04 tests passing unchanged |
+
 ## Proving it at scale
 
 After everything above is tested and the owner is satisfied.

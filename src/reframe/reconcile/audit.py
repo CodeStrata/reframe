@@ -231,7 +231,7 @@ def judge(folder: RunFolder, label: str, claude, items: list[dict[str, Any]]) ->
                     folder.save(name, saved)
                 del pending[key]
         with lock:  # failed twice: recorded as unsure
-            for key, item in pending.items():
+            for key in pending:
                 saved["answers"][key] = {"verdict": "unsure", "evidence": "no", "lost": "", "defect": "unsure" if key in with_note else "",
                                          "reason": "The judge's answer failed Reframe's checks twice: " + "; ".join(failed.get(key, ["no answer"])),
                                          "read": [], "attempt": 2, "check_failed": True}

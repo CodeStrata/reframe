@@ -123,7 +123,7 @@ class StoreTest(unittest.TestCase):
 
     def test_teardown_needs_yes_and_a_new_publish_makes_a_new_bucket(self):
         self.store.upload(self.copy("abc123"), "demo", "abc123")
-        state = self.store.folder.path(f"terraform/reports/terraform.tfstate")
+        state = self.store.folder.path("terraform/reports/terraform.tfstate")
         state.parent.mkdir(parents=True, exist_ok=True)
         state.write_text("{}")
         said = []

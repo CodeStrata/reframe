@@ -30,6 +30,30 @@ uv run python -m unittest discover -s tests -t .
 
 Every change comes with tests. Anything that calls AWS, Claude Code, `git` or `gh` is tested against a fake that records the calls. The existing `tests/` folders show how.
 
+## Run the checks
+
+CI also lints, type-checks and holds a coverage floor. The checkers are pinned in the `dev` extra:
+
+```bash
+uv pip install -e ".[dev]"
+```
+
+```bash
+ruff check src tests
+```
+
+```bash
+mypy
+```
+
+```bash
+coverage run -m unittest discover -s tests -t . && coverage report
+```
+
+- **ruff** checks for real faults, not style: pyflakes, syntax errors and bugbear (`[tool.ruff.lint]` in `pyproject.toml`).
+- **mypy** checks every module except those listed under `[[tool.mypy.overrides]]`, which still have type errors to fix. The list only shrinks: when you fix a module, take it off.
+- **coverage** fails below the floor in `[tool.coverage.report]`. Raise the floor when your tests raise coverage; never lower it.
+
 ## How a change is made
 
 Reframe changes in this order. Each step is written down before the next starts:

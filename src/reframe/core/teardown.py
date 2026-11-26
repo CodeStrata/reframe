@@ -52,7 +52,6 @@ def transform_ids(ctx: Context) -> dict[str, Any]:
 
 def inventory(ctx: Context) -> list[dict[str, Any]]:
     from reframe.infrastructure import network
-    state = ctx.state
     items: list[dict[str, Any]] = []
     transform = transform_ids(ctx)
     names = ctx.names()

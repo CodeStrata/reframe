@@ -75,7 +75,7 @@ def _sheet(headers: list[str], rows: list[list[Any]], widths: dict[str, int] | N
     cols = "".join(f'<col min="{i + 1}" max="{i + 1}" width="{widths.get(h) or _width(h, rows, i, 60)}" customWidth="1"/>'
                    for i, h in enumerate(headers))
     last = column(len(headers) - 1)
-    lines = [f'<row r="1">' + "".join(_cell(f"{column(i)}1", h, 1) for i, h in enumerate(headers)) + "</row>"]
+    lines = ['<row r="1">' + "".join(_cell(f"{column(i)}1", h, 1) for i, h in enumerate(headers)) + "</row>"]
     for n, row in enumerate(rows, start=2):
         lines.append(f'<row r="{n}">' + "".join(_cell(f"{column(i)}{n}", v, 2) for i, v in enumerate(row[:len(headers)])) + "</row>")
     view = ('<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>'

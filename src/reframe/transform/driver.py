@@ -220,8 +220,9 @@ class Driver:
             else:
                 self.folder.decide(body.get("title") or "catalog review form", content, reason, task=task_id)
             self.changes.apply(step, "complete_task", {"taskId": task_id, "content": content},
-                               lambda: self.client.change("complete_task", {**self._identity(), "taskId": task_id,
-                                                                            "content": json.dumps(content), "action": "APPROVE"}))
+                               # apply() calls this at once, inside this iteration, so the loop variables are the current ones
+                               lambda: self.client.change("complete_task", {**self._identity(), "taskId": task_id,  # noqa: B023
+                                                                            "content": json.dumps(content), "action": "APPROVE"}))  # noqa: B023
             self.folder.event("catalog_form_submitted", task=task_id, reason=reason)
             self._answered(step)
             pending_now = self.folder.load("question.json")
