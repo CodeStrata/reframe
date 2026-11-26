@@ -147,6 +147,34 @@ class DriverTest(unittest.TestCase):
         self.assertEqual(self.api.sent[-1], self.api.sent[0])  # the same selection, structured against the catalog message
         self.assertEqual(self.api.sent[-1]["origin"], "m2")
 
+    def test_a_selection_refused_as_already_running_is_recovered_once(self):
+        # GenApp, 26 November 2026: after the form, AWS asked for the selection again, refused the same selection as a second
+        # request ("already in progress"), reopened the form, and so on for hours, with no reimagine steps in its plan. Asked in
+        # plain words what was running, it showed its readiness menu again, and Proceed started the plan.
+        from reframe.transform.driver import RECOVERY
+        d, waiting, template = self.stalled_after_catalog()
+        for _ in range(4):
+            self.step(d, waiting)
+        self.assertEqual(len(self.client.changed("complete_task")), 1)
+        self.step(d, waiting, system("m5", "Please select the business function(s) to Re-Imagine before continuing.", "2026-11-21T18:40:00"))
+        self.step(d, waiting, system("m6", "I cannot initiate a new reimagine request. A reimagine workflow is already in progress for "
+                                           "those exact business domains and unassigned programs.", "2026-11-21T18:40:05"))
+        self.assertEqual(self.api.sent[-1]["text"], RECOVERY)  # asked once, in plain words
+        self.client.tasks["t3"] = dict(self.client.tasks["t2"])  # AWS reopens the review form
+        again = snapshot("AWAITING_HUMAN_INPUT", [("Discover business functions", "PENDING_HUMAN_INPUT")],
+                         [{"taskId": "t3", "status": "AWAITING_HUMAN_INPUT", "blockingType": "BLOCKING"}])
+        for _ in range(6):
+            self.step(d, again)
+        self.assertEqual(len(self.client.changed("complete_task")), 1)  # the reopened form is not submitted again
+        self.step(d, again, system("m7", READINESS, "2026-11-21T18:41:00"))
+        self.assertTrue(self.api.sent[-1]["text"].startswith("1") or "Proceed" in self.api.sent[-1]["text"])  # its Proceed
+        sent = len(self.api.sent)
+        self.step(d, again, system("m8", "I cannot initiate a new reimagine request. A reimagine workflow is already in progress.", "2026-11-21T18:42:00"))
+        self.assertEqual(len(self.api.sent), sent)  # a second refusal is not answered by Reframe
+        question = self.folder.load("question.json")
+        self.assertEqual(question["id"], "m8")
+        self.assertIn("AWS Transform console", question["text"])
+
     def readiness_after_catalog(self, mode="autonomous", menu=READINESS):
         d = self.driver(mode)
         d._ensure_job()
