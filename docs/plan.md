@@ -185,16 +185,16 @@ The owner's direction (26 November 2026): release v1.0.0 so anyone can try Refra
 
 | Story | Title | Specification | Issue |
 |---|---|---|---|
-| C1-01 | A run without AWS | [release 1.0](release-1.md) | #434 |
-| C1-02 | The Claude assessment alone | [release 1.0](release-1.md) | #435 |
-| C1-03 | Reconciliation from one tool | [release 1.0](release-1.md) | #436 |
-| C1-04 | Design and publish on a Claude-only run | [release 1.0](release-1.md) | #437 |
+| C1-01 | A run without AWS | [release 1.0](release-1.md) | #434 · Done 26 November 2026: `reframe run --tools claude`, the guided run's first question and `reframe setup --tools claude`; status, home, resume, report, compare and teardown say what applies |
+| C1-02 | The Claude assessment alone | [release 1.0](release-1.md) | #435 · Done 26 November 2026: the Claude worker takes the snapshot; C7 keeps the graph as a file |
+| C1-03 | Reconciliation from one tool | [release 1.0](release-1.md) | #436 · Done 26 November 2026: every rule checked against the code in Claude's frame; the two-tool prompts are unchanged |
+| C1-04 | Design and publish on a Claude-only run | [release 1.0](release-1.md) | #437 · Done 26 November 2026: the design is unchanged; a published copy has no AWS review or comparison |
 | C1-05 | Claude-only live on GenApp | [release 1.0](release-1.md) | #438 |
-| S-16 | Publish to GitHub Pages, optional | [release 1.0](release-1.md) | #439 |
-| S-17 | The demo on GitHub Pages | [release 1.0](release-1.md) | #440 |
-| R1-01 | README for anyone | [release 1.0](release-1.md) | #441 |
-| R1-02 | Package metadata | [release 1.0](release-1.md) | #442 |
-| R1-03 | Contributing | [release 1.0](release-1.md) | #443 |
+| S-16 | Publish to GitHub Pages, optional | [release 1.0](release-1.md) | #439 · Done 26 November 2026: `reframe publish --to pages --repo <owner>/<name>`, after a typed yes |
+| S-17 | The demo on GitHub Pages | [release 1.0](release-1.md) | #440 · Done 26 November 2026: `reports/index.html` and `.github/workflows/pages.yml`; Pages is turned on for the repository at the release |
+| R1-01 | README for anyone | [release 1.0](release-1.md) | #441 · Done 26 November 2026: a 128-line README with badges, the demo and a quick start; the detail in `docs/guide.md` |
+| R1-02 | Package metadata | [release 1.0](release-1.md) | #442 · Done 26 November 2026: 1.0.0 metadata; CI on Linux and macOS, Python 3.10 to 3.13, and a built-package check |
+| R1-03 | Contributing | [release 1.0](release-1.md) | #443 · Done 26 November 2026: CONTRIBUTING.md, CHANGELOG.md, issue templates, SECURITY.md updated |
 | R1-04 | A clean machine | [release 1.0](release-1.md) | #444 |
 | A1-01 | End-to-end runs | [release 1.0](release-1.md) | #445 |
 | REL-1 | Release v1.0.0 | [release 1.0](release-1.md) | #446 |
