@@ -50,6 +50,8 @@ Group this domain's screens into user journeys: the tasks people do with them, f
 - "capabilities": the keys of the capabilities the journey serves, exactly as listed;
 - "requirements": the keys of the requirements the journey exercises, each belonging to one of its capabilities.
 
+If the file lists "decisions", the owner made them: follow each one that applies to this domain.
+
 Every screen of this domain ("screens") must be in at least one journey, or be listed in "unused" with the reason (for example, no link reaches it). Keep journeys few and meaningful: one per task, not one per screen. Answer only with the JSON."""
 
 RETRY = """Your answer failed Reframe's checks. Answer again with the whole JSON, fixing these:
@@ -175,9 +177,11 @@ def problems(answer: dict[str, Any] | None, data: dict[str, Any]) -> list[str]:
 
 # ---- run ---------------------------------------------------------------------------------------------------------------
 
-def run(folder, claude, context: Path | None = None) -> dict[str, Any]:
+def run(folder, claude, context: Path | None = None, more=None, plan_only: bool = False) -> dict[str, Any]:
     """D3 for every domain with screens whose input changed. Stops, after the steps already running, on Claude's usage
-    limit or a sign-in problem; running it again continues with what is left."""
+    limit or a sign-in problem; running it again continues with what is left. `more(key, data)` gives a domain's extra
+    input for a round (the decisions that name it); `plan_only` says what would be redone, and why, without a step."""
+    from reframe.design import rounds
     from reframe.claude.steps import stop_for
     from reframe.claude.workspace import paths
     places = paths(folder)
@@ -198,12 +202,17 @@ def run(folder, claude, context: Path | None = None) -> dict[str, Any]:
     folder_in = places["analysis"] / "reframe" / "design"
     folder_in.mkdir(parents=True, exist_ok=True)
     lock, stopped = threading.Lock(), []
-    todo = []
+    todo, why = [], []
     for key, mine in sorted(by_domain.items()):
         data = domain_input(domains.get(key) or {"name": key, "functions": []}, screens, mine, flow, requirements, personas)
+        data.update(more(key, data) if more else {})
         digest = _hash([data, METHOD])
         if (kept.get(key) or {}).get("hash") != digest:
             todo.append((key, data, digest))
+            why.append((key, rounds.changed(kept.get(key), rounds.parts(data, METHOD))))
+    plan = rounds.summary(why, [k for k in by_domain if k not in {t[0] for t in todo}])
+    if plan_only:
+        return {"round": plan}
 
     def one(item) -> None:
         key, data, digest = item
@@ -232,7 +241,7 @@ def run(folder, claude, context: Path | None = None) -> dict[str, Any]:
             if not wrong:
                 break
         with lock:
-            kept[key] = {"hash": digest, "name": data["domain"]["name"], "screens": [s["screen"] for s in data["screens"]], "attempts": attempts,
+            kept[key] = {"hash": digest, "parts": rounds.parts(data, METHOD), "name": data["domain"]["name"], "screens": [s["screen"] for s in data["screens"]], "attempts": attempts,
                          "journeys": (answer or {}).get("journeys") or [], "unused": (answer or {}).get("unused") or [], "problems": wrong}
             folder.save(FILE, {"domains": kept, "log": log})
 
@@ -248,7 +257,7 @@ def run(folder, claude, context: Path | None = None) -> dict[str, Any]:
              "problems": [f"{d['name']}: {p}" for d in kept.values() for p in d["problems"]],
              "steps": len(todo), "cost_usd": round(sum(x.get("cost_usd") or 0 for x in log), 2)}
     folder.save(FILE, value)
-    return value
+    return {**value, "round": plan}
 
 
 def main(argv: list[str] | None = None) -> int:

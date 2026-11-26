@@ -35,7 +35,7 @@ Model steps write structured results that cite requirements, rules, screens and 
 | `reframe design --context <folder>` | Adds design context (section 5). The folder is remembered for later rounds |
 | `reframe design --max-batches <n>` | Goes ahead with a larger estimate |
 | `reframe design --open` | Opens the design page, with the prototype |
-| `reframe design --package <folder> [--form kiro\|claude-code\|both]` | Copies the latest package into a folder, cleaned as `reframe publish` cleans its copy (default: both forms) |
+| `reframe design --package <folder> [--form kiro\|claude-code\|spec-kit\|all]` | Copies the latest package into a folder, cleaned as `reframe publish` cleans its copy (default: all three forms) |
 | `reframe status`, `reframe resume`, `reframe review`, `reframe publish`, `reframe export` | As today, with the design added: its stage and round, resuming after Claude's usage limit, reading prototype review downloads, including the design page and prototype in a published copy, and S-13's backlog files taking the final specifications when they exist |
 
 **The target stack** is the engineer's input. It is never guessed: the guided command asks, offering common stacks as numbered choices and *something else* typed in, and `reframe design` without a terminal stops and names `--stack`. It is recorded in the run with who gave it and when. A `target-architecture.md` in the context folder adds the detail (versions, services, integration, non-functional requirements); the stack line still comes from the engineer. Changing the stack starts a new round that redoes only what depends on it: the data contracts' types, the screen specifications' component notes, and the package (section 4, stage D9).
@@ -205,7 +205,20 @@ Written by Reframe from D6, in `outputs/design/package/v<round>/`, in three form
 
   Each task names the role that does it.
 
-Every requirement, rule, acceptance criterion and task keeps its ID, so the forward build stays traceable to the legacy source. Draft capabilities are marked draft. `CHANGES.md` says what changed since the last version. **Checked:** by loading the Claude Code form into Claude Code in a scratch folder and building one journey (*Sign in* on CardDemo) on the target stack, recording whether it builds and which acceptance criteria pass.
+Every requirement, rule, acceptance criterion and task keeps its ID, so the forward build stays traceable to the legacy source. Draft capabilities are marked draft. `CHANGES.md` says what changed since the last version. **Proved by the engineer** (the owner's decision of 26 November 2026, section 9): once they have given the stack and filled in the placeholders, they build *Sign in* from the Claude Code form in a scratch repository and record which acceptance criteria pass; START-HERE.md step 6.
+
+**Command:** `python -m reframe.design.package [--run <run>] [--context <folder>] [--out <folder> [--form kiro|claude-code|spec-kit|all]]` writes `outputs/design/package/v<n>/` with the three forms, `CHANGES.md` and `manifest.json`, with no model.
+- **IDs:** each function gets a short code from its name (Online Account and Transaction Management is `OATM`). Requirements are `OATM-REQ-F-123`, rules `OATM-BR-004`, capabilities `OATM-C16`, criteria `OATM-C16-AC-03` and tasks `OATM-C16-T2`. The codes and rule numbers are kept in `design/package-ids.json`, so an ID never changes between versions; a new rule gets the next number. Every form has `traceability.md`, which takes each ID back to the run's keys and the source lines, and `data-contracts.md`.
+- **Tasks**, per capability, each for a role and citing what it implements: model the data (*data*), the business rules (*business rules*), the errors and messages (*business rules*), the services or scheduled job with the design notes (*API*), one per screen to the prototype (*UI modernization*), a test per acceptance criterion (*test generation*), and a review where the capability touches money, card data, personal data, security or audit (*compliance*). Every requirement is in an implementing task.
+- **Versions:** a new version only when a file changes. `CHANGES.md` names, by ID, the capabilities added, removed or now final, and the requirements, rules and criteria added, removed or changed, and a changed stack.
+- **Context:** `target-architecture.md` joins the stack in `tech.md` and `CLAUDE.md`; `personas.md` and `decisions.md` join `product.md`.
+- **`--out`:** copies the latest version into an empty folder, cleaned as `reframe publish` cleans its copy; if anything is left, or the folder is not empty, nothing is written, so a filled-in copy is never overwritten.
+- **What the engineer fills in** (`handover.py`): what only their team can give is left as `[FILL IN: <what>]` where it belongs. That covers the target stack and its detail (versions, build, testing, hosting, security, integration, non-functional needs), the house conventions (coding standards, naming, error handling and logging, style reference, review, definition of done), Spec Kit's technical context in the constitution, an *On this stack* section in each role file, and four Claude Code skill templates in `.claude/skills/`: `build-capability`, `write-acceptance-tests`, `model-data-contract` and `build-screen`, whose stack-specific steps are placeholders. A given stack and a context folder's `target-architecture.md` fill their parts.
+- **START-HERE.md**, in the package and in each form, takes the engineer to a package ready for forward engineering: copy it; give the stack; fill in the placeholders; settle what is still open (the draft capabilities by function, the open SME questions, the decision table gaps and the historical artifacts, by ID); check what is left; prove it by building *Sign in* (the capabilities whose rules come from the sign-on screen's programs); then build final capabilities first.
+- **`--check <copy>`** lists the placeholders left in a copy, by file, and its draft capabilities; it is ready when none is left.
+- **Checked by Reframe:** every requirement, rule, criterion and task ID of every specification is in each form's own files (not only in `traceability.md`); every task cites a requirement; every requirement is in an implementing task; every draft is marked.
+
+**On CardDemo** (26 November 2026), in 2 seconds: 1,113 files, 13 MB with the prototype. The 154 capabilities (52 final) have 820 tasks: 222 business rules, 118 data, 114 API, 99 UI modernization, 154 test generation and 113 compliance. No check failed. A cleaned copy left nothing behind. A copy has 85 placeholders in 18 files and 102 draft capabilities left; the *Sign in* slice is USPM-C01 *Sign on to CardDemo*, 19 criteria, still draft.
 
 ### D8 Design page (P4-07, P4-10)
 
@@ -227,6 +240,14 @@ Each part is kept with a hash of what it was made from, as in pipeline 3. A new 
 | A sign-off | That function's capabilities become final |
 
 Each round writes `design/changes-<round>.md`: what changed, why, and what was kept, and the package's `CHANGES.md` from it.
+
+**Command:** `python -m reframe.design.pipeline [--run <run>] [--context <folder>] [--stack "<front end>; <back end>; <data>"] [--plan]` runs a round: the inventory and the flow, the journeys, the modern screens, the prototype, the final specifications, the design page and the package, in order. The context folder is remembered for later rounds.
+- **Why a part is redone:** each model stage keeps, beside each part's hash, a hash of each piece of its input. A round names the pieces that changed, for example "prototype marks on its screens changed" or "personas.md changed".
+- **Routing:** `personas.md` goes to every domain's journeys. Each decision in `decisions.md` (one per heading) goes only to the journeys, screens and specifications whose legacy or modern screens, functions, capabilities, requirements or rules it names, by name or package ID. A decision that names nothing is listed in the round's changes and goes to the package's product description only. *Needs change* and *Question* marks from the prototype's downloads go to the domain that designed the screen; *Agree* changes nothing. A function signed off in a reconciliation review download is final from that round, with no model step. `style-reference/` goes to every domain's screens and fills the package's style reference. `design-system/tokens.json` sets the prototype's colours and font.
+- **`--plan`** says what a round would redo, and why, with no model step and nothing written. It cannot yet see what a redone part changes downstream.
+- **The package:** a new version only when a file changes, its `CHANGES.md` carrying the round's own account.
+
+**On CardDemo** (26 November 2026): `--plan` with nothing new redoes nothing: 4 journey domains, 4 screen domains and 16 specification batches kept. The tests cover a round with a persona, a *Needs change* mark, an *Agree* and a sign-off: only the marked domain's screens and the journeys are redone, the signed-off capability becomes final with no step, and the package's CHANGES.md says so.
 
 ### D10 Golden datasets and equivalence tests (P4-11)
 
@@ -284,7 +305,7 @@ On CardDemo run fa1f61, from the CLI only, with no AWS resources:
 - every screen is in a journey or listed unused with its reason; every legacy field is mapped once;
 - the prototype covers every modern screen, and every journey can be clicked from start to end;
 - every capability has a specification whose citations Reframe checked; signed-off functions are final and the rest draft;
-- the Claude Code form builds *Sign in* on the target stack, with its acceptance criteria recorded;
+- the package carries the placeholders and START-HERE.md, and `--check` lists what is left (the *Sign in* build is the engineer's proof, after they give the stack);
 - a second round, adding a design system, one persona and a prototype download with a *Needs change*, redoes only what those touch and writes what changed;
 - the README and `docs/cli.md` describe pipeline 4 from the tested commands.
 
@@ -296,6 +317,7 @@ On CardDemo run fa1f61, from the CLI only, with no AWS resources:
 | Which functions go final | Signed-off functions are final; every other function is included and marked draft |
 | The default design system | Reframe's own plain, accessible set, drawn with no outside files; `design-system/` in the context folder replaces it. *Proposed addition for the owner's agreement (25 November 2026, from the research):* a `style-reference/` folder of house screens and code samples, which the screens and the package follow where the design system is silent |
 | The name | *The design*, run with `reframe design` |
+| The target stack and the forward build (26 November 2026) | **The engineer's input.** Reframe leaves templates (skills, roles, steering, technical context) with placeholders, and instructions (START-HERE.md) for making the package ready for forward engineering; the *Sign in* build check is the engineer's step, not Reframe's |
 
 ## 10. Stories
 
