@@ -310,9 +310,10 @@ def run(folder, claude, context: Path | None = None, more=None, plan_only: bool 
         data.update(more(key, data) if more else {})
         digest = _hash([data, METHOD])
         inputs[key] = (data, digest)
-        if (kept.get(key) or {}).get("hash") != digest:
+        before = kept.get(key) or {}
+        if before.get("hash") != digest or before.get("problems"):
             todo.append((key, data, digest))
-            why.append((key, rounds.changed(kept.get(key), rounds.parts(data, METHOD))))
+            why.append((key, rounds.changed(before or None, rounds.parts(data, METHOD)) if before.get("hash") != digest else ["problems"]))
     plan = rounds.summary(why, [k for k in by_domain if k not in {t[0] for t in todo}])
     if plan_only:
         return {"round": plan}

@@ -1,0 +1,1788 @@
+# Tasks
+
+Build final capabilities first. Each task names its role and the IDs it implements.
+
+## ADPLM-C01 Load customer and policy data stores (draft)
+
+- [ ] ADPLM-C01-T1 [api] Build the scheduled job
+  - ADPLM-BR-001: A one-time bulk import step in the environment set-up pipeline. It copies every record from the supplied policy extract into the policy store and depends on the step that creates the store: run the import when that step succeeded (severity 7 or less) or was skipped, and skip it when that step failed with a severity above 7. Report how many records were read and how many were written so the load can be reconciled.
+  - ADPLM-BR-002: The same guarded bulk import for customers. Copy every record from the supplied customer extract into the customer store, but only when the step that creates the store succeeded (severity 7 or less) or did not run. Skip the import when that step failed with a severity above 7. Report the record counts.
+  - _Requirements: ADPLM-REQ-F-001, ADPLM-REQ-F-002, ADPLM-REQ-F-003, ADPLM-REQ-F-004_
+  - _Rules: ADPLM-BR-001, ADPLM-BR-002_
+- [ ] ADPLM-C01-T2 [test-generation] Write a test for every acceptance criterion
+  - 4 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-001, ADPLM-REQ-F-002, ADPLM-REQ-F-003, ADPLM-REQ-F-004_
+  - _Criteria: ADPLM-C01-AC-01, ADPLM-C01-AC-02, ADPLM-C01-AC-03, ADPLM-C01-AC-04_
+  - _After: ADPLM-C01-T1_
+
+## ADPLM-C02 Define online files and transactions (draft)
+
+- [ ] ADPLM-C02-T1 [api] Build the scheduled job
+  - ADPLM-BR-003: Declare the policy store in deployment configuration. It holds 64-character records under a 21-character key and is available as soon as it is first used. The application's data-access role may create, read, browse by key range, update and delete policy records.
+  - ADPLM-BR-004: Declare the customer store in deployment configuration. It holds 82-character records keyed by the 10-digit customer number. The application's data-access role may create, read, browse and update customer records but has no delete permission, so a customer delete is refused by the store itself.
+  - ADPLM-BR-005: This is the same policy-store definition used by another environment's set-up. Keep one shared definition (64-character records, 21-character key, full create/read/browse/update/delete) in configuration that every environment applies, rather than a copy per environment.
+  - ADPLM-BR-006: A duplicate of the shared policy-store definition (64-character records, 21-character key, full maintenance) for the second environment set-up. Apply the same single definition.
+  - ADPLM-BR-007: This is the same customer-store definition for another environment: 82-character records and a 10-character key, with create, read, browse and update allowed and delete not allowed. Use the shared definition so the no-delete restriction cannot differ between environments.
+  - ADPLM-BR-008: A duplicate of the shared customer-store definition (82-character records, 10-character key, delete not allowed) for the second environment set-up. Apply the same single definition.
+  - ADPLM-BR-009: A routing table that maps each entry code to its handler: SSC1 to customer menu (LGTESTC1), SSP1 to LGTESTP1, SSP2 to LGTESTP2, SSP3 to LGTESTP3, SSP4 to LGTESTP4, LGSE to set-up (LGSETUP), LGCF to the customer counter (LGICVS01) and LGPF to the policy counter (LGIPVS01). In the new application these become registered routes or endpoints that run with ordinary user privileges.
+  - ADPLM-BR-010: The same eight-route mapping (SSC1, SSP1 to SSP4, LGSE, LGCF and LGPF to their handlers) for the front-end that users connect to. Keep one route registry shared by the front-end and the services, with no elevated privileges.
+  - ADPLM-BR-011: Deployment must replace the configuration, not add to it. Remove the previous application definitions before applying the new routes, so that a redeploy is repeatable and leaves no stale routes or store definitions behind.
+  - _Requirements: ADPLM-REQ-F-005, ADPLM-REQ-F-006, ADPLM-REQ-F-007, ADPLM-REQ-F-008, ADPLM-REQ-F-009, ADPLM-REQ-F-010, ADPLM-REQ-F-011_
+  - _Rules: ADPLM-BR-003, ADPLM-BR-004, ADPLM-BR-005, ADPLM-BR-006, ADPLM-BR-007, ADPLM-BR-008, ADPLM-BR-009, ADPLM-BR-010, ADPLM-BR-011_
+- [ ] ADPLM-C02-T2 [test-generation] Write a test for every acceptance criterion
+  - 13 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-005, ADPLM-REQ-F-006, ADPLM-REQ-F-007, ADPLM-REQ-F-008, ADPLM-REQ-F-009, ADPLM-REQ-F-010, ADPLM-REQ-F-011_
+  - _Criteria: ADPLM-C02-AC-01, ADPLM-C02-AC-02, ADPLM-C02-AC-03, ADPLM-C02-AC-04, ADPLM-C02-AC-05, ADPLM-C02-AC-06, ADPLM-C02-AC-07, ADPLM-C02-AC-08, ADPLM-C02-AC-09, ADPLM-C02-AC-10, ADPLM-C02-AC-11, ADPLM-C02-AC-12, ADPLM-C02-AC-13_
+  - _After: ADPLM-C02-T1_
+- [ ] ADPLM-C02-T3 [compliance] Review the handling of security
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-005, ADPLM-REQ-F-006, ADPLM-REQ-F-007, ADPLM-REQ-F-008, ADPLM-REQ-F-009, ADPLM-REQ-F-010, ADPLM-REQ-F-011_
+  - _After: ADPLM-C02-T1_
+
+## ADPLM-C03 Provision the insurance database (draft)
+
+- [ ] ADPLM-C03-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-019, ADPLM-REQ-F-020, ADPLM-REQ-F-021_
+  - _Rules: ADPLM-BR-019, ADPLM-BR-020, ADPLM-BR-021_
+- [ ] ADPLM-C03-T2 [api] Build the scheduled job
+  - ADPLM-BR-012: A versioned schema migration creates the customer table (name, date of birth, address, phones, email) and the customer security table (password value, state, password-change count), each with a unique key on customer number. The migration runner stops at the first failed step (severity above 4), so later migrations do not run on a broken schema.
+  - ADPLM-BR-013: A migration creates the policy table (customer, issue and expiry dates, policy type, last-changed timestamp, broker id, broker reference, payment, commission). It has a unique key on policy number and a non-unique index on customer number to support lookups of a customer's policies. It runs only after the earlier migrations succeed.
+  - ADPLM-BR-014: A migration creates the endowment details table, keyed on policy number. A foreign key to the policy table cascades deletes, so deleting a policy removes its endowment details. It runs only after the earlier migrations succeed.
+  - ADPLM-BR-015: A migration creates the house details table, one row per policy: property type, bedrooms, value, house name, house number and postcode. It has a unique key on policy number and a foreign key to the policy. It runs only after the earlier migrations succeed.
+  - ADPLM-BR-016: A migration creates the motor details table, one row per policy: make, model, value, registration, colour, engine size, year of manufacture, premium and accidents. It has a unique key on policy number and a foreign key to the policy. It runs only after the earlier migrations succeed.
+  - ADPLM-BR-017: A migration creates the commercial property table, one row per policy: request, start and renewal dates, address, postcode, location, customer, property type, a peril indicator and premium for each of fire, crime, flood and weather, status and rejection reason. It has a unique key on policy number and a foreign key to the policy. It runs only after the earlier migrations succeed.
+  - ADPLM-BR-018: A migration creates the claim table (claim date, amount paid, claim value, cause, observations) with a unique key on claim number and a foreign key to its policy. It runs only after the earlier migrations succeed.
+  - _Requirements: ADPLM-REQ-F-012, ADPLM-REQ-F-013, ADPLM-REQ-F-014, ADPLM-REQ-F-015, ADPLM-REQ-F-016, ADPLM-REQ-F-017, ADPLM-REQ-F-018_
+  - _Rules: ADPLM-BR-012, ADPLM-BR-013, ADPLM-BR-014, ADPLM-BR-015, ADPLM-BR-016, ADPLM-BR-017, ADPLM-BR-018_
+  - _After: ADPLM-C03-T1_
+- [ ] ADPLM-C03-T3 [test-generation] Write a test for every acceptance criterion
+  - 13 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-012, ADPLM-REQ-F-013, ADPLM-REQ-F-014, ADPLM-REQ-F-015, ADPLM-REQ-F-016, ADPLM-REQ-F-017, ADPLM-REQ-F-018, ADPLM-REQ-F-019, ADPLM-REQ-F-020, ADPLM-REQ-F-021_
+  - _Criteria: ADPLM-C03-AC-01, ADPLM-C03-AC-02, ADPLM-C03-AC-03, ADPLM-C03-AC-04, ADPLM-C03-AC-05, ADPLM-C03-AC-06, ADPLM-C03-AC-07, ADPLM-C03-AC-08, ADPLM-C03-AC-09, ADPLM-C03-AC-10, ADPLM-C03-AC-11, ADPLM-C03-AC-12, ADPLM-C03-AC-13_
+  - _After: ADPLM-C03-T1, ADPLM-C03-T2_
+- [ ] ADPLM-C03-T4 [compliance] Review the handling of money, personal data, security
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-012, ADPLM-REQ-F-013, ADPLM-REQ-F-014, ADPLM-REQ-F-015, ADPLM-REQ-F-016, ADPLM-REQ-F-017, ADPLM-REQ-F-018, ADPLM-REQ-F-019, ADPLM-REQ-F-020, ADPLM-REQ-F-021_
+  - _After: ADPLM-C03-T1, ADPLM-C03-T2_
+
+## ADPLM-C04 Remove dependent records on deletion (draft)
+
+- [ ] ADPLM-C04-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-022, ADPLM-REQ-F-023, ADPLM-REQ-F-024, ADPLM-REQ-F-025_
+  - _Rules: ADPLM-BR-014, ADPLM-BR-022, ADPLM-BR-023, ADPLM-BR-024, ADPLM-BR-025, ADPLM-BR-026, ADPLM-BR-027_
+- [ ] ADPLM-C04-T2 [api] Build the scheduled job
+  - ADPLM-BR-014: Enforce this in the database. A foreign key from endowment details to the policy cascades on delete, so removing a policy removes its endowment row in the same transaction, whichever code path deletes the policy.
+  - _Requirements: ADPLM-REQ-F-022, ADPLM-REQ-F-023, ADPLM-REQ-F-024, ADPLM-REQ-F-025_
+  - _Rules: ADPLM-BR-014, ADPLM-BR-022, ADPLM-BR-023, ADPLM-BR-024, ADPLM-BR-025, ADPLM-BR-026, ADPLM-BR-027_
+  - _After: ADPLM-C04-T1_
+- [ ] ADPLM-C04-T3 [test-generation] Write a test for every acceptance criterion
+  - 8 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-022, ADPLM-REQ-F-023, ADPLM-REQ-F-024, ADPLM-REQ-F-025_
+  - _Criteria: ADPLM-C04-AC-01, ADPLM-C04-AC-02, ADPLM-C04-AC-03, ADPLM-C04-AC-04, ADPLM-C04-AC-05, ADPLM-C04-AC-06, ADPLM-C04-AC-07, ADPLM-C04-AC-08_
+  - _After: ADPLM-C04-T1, ADPLM-C04-T2_
+- [ ] ADPLM-C04-T4 [compliance] Review the handling of personal data, security
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-022, ADPLM-REQ-F-023, ADPLM-REQ-F-024, ADPLM-REQ-F-025_
+  - _After: ADPLM-C04-T1, ADPLM-C04-T2_
+
+## ADPLM-C05 Load sample insurance data (draft)
+
+- [ ] ADPLM-C05-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-027_
+  - _Rules: ADPLM-BR-029_
+- [ ] ADPLM-C05-T2 [api] Build the scheduled job
+  - ADPLM-BR-028: A seed-data script that runs only in demo and test environments. It inserts customers 1 to 10 with explicit customer numbers, so automatic numbering is not used, and stores a single blank (' ') where a house name, phone or email is absent instead of leaving the field null.
+  - ADPLM-BR-030: Seed script for policies 1 to 10, each with an explicit number and linked to its customer. Types: C for 10, 9 and 7; E for 5 and 4; H for 6 and 8; M for 1, 3 and 2. It uses the listed dates, broker id 0, an empty broker reference, payment 0 and commission 0. Run it after the customer seed so the customer links are satisfied.
+  - ADPLM-BR-031: Seed rows for endowment policies 5 and 4 with the listed values: 5 is N/N/N, 'SHEPPA', term 10, 50000, 'Shep'; 4 is Y/Y/N, 'LIONTMR', term 5, 12500, 'J. MORRIS'. Run after the policy seed.
+  - ADPLM-BR-032: Seed rows for house details on policies 6, 7 and 8 with the listed property type, bedrooms, value, name, number and postcode. Run after the policy seed.
+  - ADPLM-BR-033: Seed rows for motor details on policies 1, 3 and 2 with the listed make, model, value, premium, accidents, registration, colour, engine size and year. Run after the policy seed.
+  - ADPLM-BR-034: Seed row for commercial cover on policy 10 ('HURSLEY PARK', 'SO212JN'): fire 3/8000, crime 3/25000, flood 5/2000, weather 4/5000, status 1, and 'ACTIVE' in the rejection reason field, stored exactly as given.
+  - ADPLM-BR-035: Seed row for commercial cover on policy 9 ('TURF MOOR', 'BB104BX'): fire 1/44000, crime 2/25000, flood 3/15000, weather 4/6000, status 1, and 'ACTIVE' in the rejection reason field, stored exactly as given.
+  - _Requirements: ADPLM-REQ-F-026, ADPLM-REQ-F-028, ADPLM-REQ-F-029, ADPLM-REQ-F-030, ADPLM-REQ-F-031, ADPLM-REQ-F-032, ADPLM-REQ-F-033_
+  - _Rules: ADPLM-BR-028, ADPLM-BR-030, ADPLM-BR-031, ADPLM-BR-032, ADPLM-BR-033, ADPLM-BR-034, ADPLM-BR-035_
+  - _After: ADPLM-C05-T1_
+- [ ] ADPLM-C05-T3 [test-generation] Write a test for every acceptance criterion
+  - 13 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-026, ADPLM-REQ-F-027, ADPLM-REQ-F-028, ADPLM-REQ-F-029, ADPLM-REQ-F-030, ADPLM-REQ-F-031, ADPLM-REQ-F-032, ADPLM-REQ-F-033_
+  - _Criteria: ADPLM-C05-AC-01, ADPLM-C05-AC-02, ADPLM-C05-AC-03, ADPLM-C05-AC-04, ADPLM-C05-AC-05, ADPLM-C05-AC-06, ADPLM-C05-AC-07, ADPLM-C05-AC-08, ADPLM-C05-AC-09, ADPLM-C05-AC-10, ADPLM-C05-AC-11, ADPLM-C05-AC-12, ADPLM-C05-AC-13_
+  - _After: ADPLM-C05-T1, ADPLM-C05-T2_
+- [ ] ADPLM-C05-T4 [compliance] Review the handling of money, personal data, security
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-026, ADPLM-REQ-F-027, ADPLM-REQ-F-028, ADPLM-REQ-F-029, ADPLM-REQ-F-030, ADPLM-REQ-F-031, ADPLM-REQ-F-032, ADPLM-REQ-F-033_
+  - _After: ADPLM-C05-T1, ADPLM-C05-T2_
+
+## ADPLM-C06 Prepare monitoring and workload simulation (draft)
+
+- [ ] ADPLM-C06-T1 [api] Build the scheduled job
+  - ADPLM-BR-036: An environment set-up step that initialises the monitoring console's repository with the console and system names and identifiers, daylight saving off, the time zone setting 'B' and a zone offset of 0, and prints a report. In the new application this is provisioning of the monitoring or observability tooling. It runs only when no earlier set-up step failed with a severity above 8.
+  - ADPLM-BR-037: An on-demand load-test job that plays the GENAPP scripted scenarios (initialisation definitions plus message scripts) against the application, with the tool's own automatic logging off and its results and diagnostics sent to the job output. In the new application, use a load-testing tool with the scenario scripts kept in version control.
+  - _Requirements: ADPLM-REQ-F-034, ADPLM-REQ-F-035, ADPLM-REQ-F-036_
+  - _Rules: ADPLM-BR-036, ADPLM-BR-037_
+- [ ] ADPLM-C06-T2 [test-generation] Write a test for every acceptance criterion
+  - 3 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-034, ADPLM-REQ-F-035, ADPLM-REQ-F-036_
+  - _Criteria: ADPLM-C06-AC-01, ADPLM-C06-AC-02, ADPLM-C06-AC-03_
+  - _After: ADPLM-C06-T1_
+
+## ADPLM-C07 Validate and register a new policy (draft)
+
+- [ ] ADPLM-C07-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: ADPLM-REQ-F-037, ADPLM-REQ-F-038, ADPLM-REQ-F-039, ADPLM-REQ-F-040, ADPLM-REQ-F-041, ADPLM-REQ-F-042, ADPLM-REQ-F-043, ADPLM-REQ-F-044, ADPLM-REQ-F-045, ADPLM-REQ-F-046_
+- [ ] ADPLM-C07-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-038, ADPLM-REQ-F-039, ADPLM-REQ-F-040, ADPLM-REQ-F-041, ADPLM-REQ-F-042, ADPLM-REQ-F-043, ADPLM-REQ-F-044, ADPLM-REQ-F-046_
+  - _Rules: ADPLM-BR-039, ADPLM-BR-040, ADPLM-BR-041, ADPLM-BR-042, ADPLM-BR-043, ADPLM-BR-044, ADPLM-BR-045, ADPLM-BR-046, ADPLM-BR-047, ADPLM-BR-048, ADPLM-BR-051_
+  - _After: ADPLM-C07-T1_
+- [ ] ADPLM-C07-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-045_
+  - _Rules: ADPLM-BR-049, ADPLM-BR-050_
+  - _After: ADPLM-C07-T1_
+- [ ] ADPLM-C07-T4 [api] Build the scheduled job
+  - ADPLM-BR-038: Each request has a context object whose result code starts at '00' (success). It carries the request's customer number, which is used both for the policy insert and in any error log entry.
+  - ADPLM-BR-051: Once the database registration finishes without stopping early, pass the full request, including the assigned policy number, to the policy-file writer (LGAPVS01, capability 11) as the next step. A direct service call is enough. The full request is 32,500 bytes in the legacy system, but the new interface needs only the populated request fields.
+  - _Requirements: ADPLM-REQ-F-037_
+  - _Rules: ADPLM-BR-038_
+  - _After: ADPLM-C07-T1, ADPLM-C07-T2, ADPLM-C07-T3_
+- [ ] ADPLM-C07-T5 [test-generation] Write a test for every acceptance criterion
+  - 21 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-037, ADPLM-REQ-F-038, ADPLM-REQ-F-039, ADPLM-REQ-F-040, ADPLM-REQ-F-041, ADPLM-REQ-F-042, ADPLM-REQ-F-043, ADPLM-REQ-F-044, ADPLM-REQ-F-045, ADPLM-REQ-F-046_
+  - _Criteria: ADPLM-C07-AC-01, ADPLM-C07-AC-02, ADPLM-C07-AC-03, ADPLM-C07-AC-04, ADPLM-C07-AC-05, ADPLM-C07-AC-06, ADPLM-C07-AC-07, ADPLM-C07-AC-08, ADPLM-C07-AC-09, ADPLM-C07-AC-10, ADPLM-C07-AC-11, ADPLM-C07-AC-12, ADPLM-C07-AC-13, ADPLM-C07-AC-14, ADPLM-C07-AC-15, ADPLM-C07-AC-16, ADPLM-C07-AC-17, ADPLM-C07-AC-18, ADPLM-C07-AC-19, ADPLM-C07-AC-20, ADPLM-C07-AC-21_
+  - _After: ADPLM-C07-T1, ADPLM-C07-T2, ADPLM-C07-T3, ADPLM-C07-T4_
+- [ ] ADPLM-C07-T6 [compliance] Review the handling of audit, money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-037, ADPLM-REQ-F-038, ADPLM-REQ-F-039, ADPLM-REQ-F-040, ADPLM-REQ-F-041, ADPLM-REQ-F-042, ADPLM-REQ-F-043, ADPLM-REQ-F-044, ADPLM-REQ-F-045, ADPLM-REQ-F-046_
+  - _After: ADPLM-C07-T1, ADPLM-C07-T2, ADPLM-C07-T3, ADPLM-C07-T4_
+
+## ADPLM-C08 Store product details for a new policy (draft)
+
+- [ ] ADPLM-C08-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: ADPLM-REQ-F-047, ADPLM-REQ-F-048, ADPLM-REQ-F-049, ADPLM-REQ-F-050, ADPLM-REQ-F-051, ADPLM-REQ-F-052, ADPLM-REQ-F-053, ADPLM-REQ-F-054_
+- [ ] ADPLM-C08-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-047, ADPLM-REQ-F-048, ADPLM-REQ-F-050, ADPLM-REQ-F-051, ADPLM-REQ-F-052_
+  - _Rules: ADPLM-BR-052, ADPLM-BR-053, ADPLM-BR-055, ADPLM-BR-056, ADPLM-BR-057_
+  - _After: ADPLM-C08-T1_
+- [ ] ADPLM-C08-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-049, ADPLM-REQ-F-054_
+  - _Rules: ADPLM-BR-054, ADPLM-BR-059_
+  - _After: ADPLM-C08-T1_
+- [ ] ADPLM-C08-T4 [api] Build the scheduled job
+  - ADPLM-BR-058: A plain field-to-column mapping for the commercial details: address, postcode, latitude, longitude, customer name, property type, the four perils and premiums, status and rejection reason, stored exactly as supplied. There is no rating engine or status derivation in this step.
+  - _Requirements: ADPLM-REQ-F-053_
+  - _Rules: ADPLM-BR-058_
+  - _After: ADPLM-C08-T1, ADPLM-C08-T2, ADPLM-C08-T3_
+- [ ] ADPLM-C08-T5 [test-generation] Write a test for every acceptance criterion
+  - 9 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-047, ADPLM-REQ-F-048, ADPLM-REQ-F-049, ADPLM-REQ-F-050, ADPLM-REQ-F-051, ADPLM-REQ-F-052, ADPLM-REQ-F-053, ADPLM-REQ-F-054_
+  - _Criteria: ADPLM-C08-AC-01, ADPLM-C08-AC-02, ADPLM-C08-AC-03, ADPLM-C08-AC-04, ADPLM-C08-AC-05, ADPLM-C08-AC-06, ADPLM-C08-AC-07, ADPLM-C08-AC-08, ADPLM-C08-AC-09_
+  - _After: ADPLM-C08-T1, ADPLM-C08-T2, ADPLM-C08-T3, ADPLM-C08-T4_
+- [ ] ADPLM-C08-T6 [compliance] Review the handling of money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-047, ADPLM-REQ-F-048, ADPLM-REQ-F-049, ADPLM-REQ-F-050, ADPLM-REQ-F-051, ADPLM-REQ-F-052, ADPLM-REQ-F-053, ADPLM-REQ-F-054_
+  - _After: ADPLM-C08-T1, ADPLM-C08-T2, ADPLM-C08-T3, ADPLM-C08-T4_
+
+## ADPLM-C09 Log policy add errors (draft)
+
+- [ ] ADPLM-C09-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: ADPLM-REQ-F-055_
+- [ ] ADPLM-C09-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-055_
+  - _Rules: ADPLM-BR-060_
+  - _After: ADPLM-C09-T1_
+- [ ] ADPLM-C09-T3 [api] Build the scheduled job
+  - Expose the rules as the service the screens call.
+  - _Requirements: ADPLM-REQ-F-055_
+  - _Rules: ADPLM-BR-060_
+  - _After: ADPLM-C09-T1, ADPLM-C09-T2_
+- [ ] ADPLM-C09-T4 [test-generation] Write a test for every acceptance criterion
+  - 2 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-055_
+  - _Criteria: ADPLM-C09-AC-01, ADPLM-C09-AC-02_
+  - _After: ADPLM-C09-T1, ADPLM-C09-T2, ADPLM-C09-T3_
+- [ ] ADPLM-C09-T5 [compliance] Review the handling of audit, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-055_
+  - _After: ADPLM-C09-T1, ADPLM-C09-T2, ADPLM-C09-T3_
+
+## ADPLM-C10 Add a policy to the policy database (draft)
+
+- [ ] ADPLM-C10-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: ADPLM-REQ-F-056, ADPLM-REQ-F-057, ADPLM-REQ-F-058, ADPLM-REQ-F-059, ADPLM-REQ-F-060, ADPLM-REQ-F-061_
+- [ ] ADPLM-C10-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-058, ADPLM-REQ-F-060_
+  - _Rules: ADPLM-BR-063, ADPLM-BR-065_
+  - _After: ADPLM-C10-T1_
+- [ ] ADPLM-C10-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-056, ADPLM-REQ-F-061_
+  - _Rules: ADPLM-BR-061, ADPLM-BR-066_
+  - _After: ADPLM-C10-T1_
+- [ ] ADPLM-C10-T4 [api] Build the scheduled job
+  - ADPLM-BR-062: Every request that has data starts with result code '00'. Validation and persistence steps overwrite it only when they fail.
+  - ADPLM-BR-064: The entry service checks only that the 28-character header is present, then passes the whole request to the policy registration service (LGAPDB01). That service does the product-specific length check and the inserts inside a single transaction, and the entry service returns its result to the caller.
+  - _Requirements: ADPLM-REQ-F-057, ADPLM-REQ-F-059_
+  - _Rules: ADPLM-BR-062, ADPLM-BR-064_
+  - _After: ADPLM-C10-T1, ADPLM-C10-T2, ADPLM-C10-T3_
+- [ ] ADPLM-C10-T5 [test-generation] Write a test for every acceptance criterion
+  - 8 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-056, ADPLM-REQ-F-057, ADPLM-REQ-F-058, ADPLM-REQ-F-059, ADPLM-REQ-F-060, ADPLM-REQ-F-061_
+  - _Criteria: ADPLM-C10-AC-01, ADPLM-C10-AC-02, ADPLM-C10-AC-03, ADPLM-C10-AC-04, ADPLM-C10-AC-05, ADPLM-C10-AC-06, ADPLM-C10-AC-07, ADPLM-C10-AC-08_
+  - _After: ADPLM-C10-T1, ADPLM-C10-T2, ADPLM-C10-T3, ADPLM-C10-T4_
+- [ ] ADPLM-C10-T6 [compliance] Review the handling of audit, money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-056, ADPLM-REQ-F-057, ADPLM-REQ-F-058, ADPLM-REQ-F-059, ADPLM-REQ-F-060, ADPLM-REQ-F-061_
+  - _After: ADPLM-C10-T1, ADPLM-C10-T2, ADPLM-C10-T3, ADPLM-C10-T4_
+
+## ADPLM-C11 Record a new policy in the policy file (draft)
+
+- [ ] ADPLM-C11-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: ADPLM-REQ-F-062, ADPLM-REQ-F-063, ADPLM-REQ-F-064, ADPLM-REQ-F-065, ADPLM-REQ-F-066, ADPLM-REQ-F-067, ADPLM-REQ-F-068, ADPLM-REQ-F-069_
+- [ ] ADPLM-C11-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-069_
+  - _Rules: ADPLM-BR-074_
+  - _After: ADPLM-C11-T1_
+- [ ] ADPLM-C11-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-068_
+  - _Rules: ADPLM-BR-073_
+  - _After: ADPLM-C11-T1_
+- [ ] ADPLM-C11-T4 [api] Build the scheduled job
+  - ADPLM-BR-067: Build a composite key: the policy type letter, the customer number zero-padded to 10 digits, and the policy number zero-padded to 10 digits, 21 characters in all. Records are then found by keyed lookup on the full key, or by prefix (type, or type plus customer) for range browsing.
+  - ADPLM-BR-068: Map the endowment summary into fixed-width fields: with-profits, equities and managed-fund indicators of 1 character each, fund name of 10 characters and life assured of 30 characters. Values are padded or truncated to those widths.
+  - ADPLM-BR-069: Map the house summary into fixed-width fields: property type of 15 characters, bedrooms of 3 digits, value of 8 digits, postcode of 8 characters, and only the first 9 characters of the house name (truncated on purpose).
+  - ADPLM-BR-070: Map the motor summary into fixed-width fields: make of 15 characters, model of 15 characters, value of 6 digits and registration of 7 characters.
+  - ADPLM-BR-071: Map the commercial summary into fixed-width fields: postcode of 8 characters, status of 4 digits, and the first 31 characters of the customer name.
+  - ADPLM-BR-072: Insert the 64-character summary record into the policy key-value or index store under the 21-character key, using insert-only semantics, so an existing key is never overwritten and the write fails instead.
+  - _Requirements: ADPLM-REQ-F-062, ADPLM-REQ-F-063, ADPLM-REQ-F-064, ADPLM-REQ-F-065, ADPLM-REQ-F-066, ADPLM-REQ-F-067_
+  - _Rules: ADPLM-BR-067, ADPLM-BR-068, ADPLM-BR-069, ADPLM-BR-070, ADPLM-BR-071, ADPLM-BR-072_
+  - _After: ADPLM-C11-T1, ADPLM-C11-T2, ADPLM-C11-T3_
+- [ ] ADPLM-C11-T5 [test-generation] Write a test for every acceptance criterion
+  - 10 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-062, ADPLM-REQ-F-063, ADPLM-REQ-F-064, ADPLM-REQ-F-065, ADPLM-REQ-F-066, ADPLM-REQ-F-067, ADPLM-REQ-F-068, ADPLM-REQ-F-069_
+  - _Criteria: ADPLM-C11-AC-01, ADPLM-C11-AC-02, ADPLM-C11-AC-03, ADPLM-C11-AC-04, ADPLM-C11-AC-05, ADPLM-C11-AC-06, ADPLM-C11-AC-07, ADPLM-C11-AC-08, ADPLM-C11-AC-09, ADPLM-C11-AC-10_
+  - _After: ADPLM-C11-T1, ADPLM-C11-T2, ADPLM-C11-T3, ADPLM-C11-T4_
+- [ ] ADPLM-C11-T6 [compliance] Review the handling of audit, money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-062, ADPLM-REQ-F-063, ADPLM-REQ-F-064, ADPLM-REQ-F-065, ADPLM-REQ-F-066, ADPLM-REQ-F-067, ADPLM-REQ-F-068, ADPLM-REQ-F-069_
+  - _After: ADPLM-C11-T1, ADPLM-C11-T2, ADPLM-C11-T3, ADPLM-C11-T4_
+
+## ADPLM-C12 Record the first application start (draft)
+
+- [ ] ADPLM-C12-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: ADPLM-REQ-F-070, ADPLM-REQ-F-071_
+- [ ] ADPLM-C12-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-070, ADPLM-REQ-F-071_
+  - _Rules: ADPLM-BR-075_
+  - _After: ADPLM-C12-T1_
+- [ ] ADPLM-C12-T3 [api] Build the scheduled job
+  - Expose the rules as the service the screens call.
+  - _Requirements: ADPLM-REQ-F-070, ADPLM-REQ-F-071_
+  - _Rules: ADPLM-BR-075_
+  - _After: ADPLM-C12-T1, ADPLM-C12-T2_
+- [ ] ADPLM-C12-T4 [test-generation] Write a test for every acceptance criterion
+  - 2 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-070, ADPLM-REQ-F-071_
+  - _Criteria: ADPLM-C12-AC-01, ADPLM-C12-AC-02_
+  - _After: ADPLM-C12-T1, ADPLM-C12-T2, ADPLM-C12-T3_
+- [ ] ADPLM-C12-T5 [compliance] Review the handling of audit
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-070, ADPLM-REQ-F-071_
+  - _After: ADPLM-C12-T1, ADPLM-C12-T2, ADPLM-C12-T3_
+
+## ADPLM-C13 Count transactions by request type and outcome (draft)
+
+- [ ] ADPLM-C13-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: ADPLM-REQ-F-072, ADPLM-REQ-F-073, ADPLM-REQ-F-074, ADPLM-REQ-F-075, ADPLM-REQ-F-076, ADPLM-REQ-F-077, ADPLM-REQ-N-001_
+- [ ] ADPLM-C13-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - Ask the owner before carrying the historical artifacts: ADPLM-BR-082.
+  - _Requirements: ADPLM-REQ-F-075, ADPLM-REQ-F-076, ADPLM-REQ-F-077, ADPLM-REQ-N-001_
+  - _Rules: ADPLM-BR-079, ADPLM-BR-080, ADPLM-BR-081, ADPLM-BR-082_
+  - _After: ADPLM-C13-T1_
+- [ ] ADPLM-C13-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-074_
+  - _Rules: ADPLM-BR-078_
+  - _After: ADPLM-C13-T1_
+- [ ] ADPLM-C13-T4 [api] Build the scheduled job
+  - ADPLM-BR-076: The counter needs a transaction-completed event that carries the request type and the return code as separate fields. Publish it from every request handler when the handler finishes, and have the statistics consumer read these fields first.
+  - ADPLM-BR-077: Fallback input: if the event fields are missing, the consumer takes the request type and return code from the request payload that came with the event. Handle both shapes through one input contract instead of two code paths.
+  - _Requirements: ADPLM-REQ-F-072, ADPLM-REQ-F-073_
+  - _Rules: ADPLM-BR-076, ADPLM-BR-077_
+  - _After: ADPLM-C13-T1, ADPLM-C13-T2, ADPLM-C13-T3_
+- [ ] ADPLM-C13-T5 [test-generation] Write a test for every acceptance criterion
+  - 7 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-072, ADPLM-REQ-F-073, ADPLM-REQ-F-074, ADPLM-REQ-F-075, ADPLM-REQ-F-076, ADPLM-REQ-F-077, ADPLM-REQ-N-001_
+  - _Criteria: ADPLM-C13-AC-01, ADPLM-C13-AC-02, ADPLM-C13-AC-03, ADPLM-C13-AC-04, ADPLM-C13-AC-05, ADPLM-C13-AC-06, ADPLM-C13-AC-07_
+  - _After: ADPLM-C13-T1, ADPLM-C13-T2, ADPLM-C13-T3, ADPLM-C13-T4_
+
+## ADPLM-C14 Delete a policy (draft)
+
+- [ ] ADPLM-C14-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: ADPLM-REQ-F-078, ADPLM-REQ-F-079, ADPLM-REQ-F-080, ADPLM-REQ-F-081, ADPLM-REQ-F-082, ADPLM-REQ-F-083, ADPLM-REQ-F-084, ADPLM-REQ-F-085, ADPLM-REQ-F-086, ADPLM-REQ-F-087_
+- [ ] ADPLM-C14-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-080, ADPLM-REQ-F-082, ADPLM-REQ-F-083, ADPLM-REQ-F-084, ADPLM-REQ-F-086_
+  - _Rules: ADPLM-BR-085, ADPLM-BR-086, ADPLM-BR-088, ADPLM-BR-089, ADPLM-BR-090, ADPLM-BR-091, ADPLM-BR-092, ADPLM-BR-094_
+  - _After: ADPLM-C14-T1_
+- [ ] ADPLM-C14-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-078, ADPLM-REQ-F-087_
+  - _Rules: ADPLM-BR-083, ADPLM-BR-095_
+  - _After: ADPLM-C14-T1_
+- [ ] ADPLM-C14-T4 [api] Build the scheduled job
+  - ADPLM-BR-084: Set the response code to '00' as soon as a request with data is accepted. Only a later validation failure or the outcome of the database delete may replace it.
+  - ADPLM-BR-087: Compare the request identifier case-insensitively, for example by upper-casing it before matching against '01DEND', '01DMOT', '01DHOU' and '01DCOM', so that '01dend' behaves like '01DEND'.
+  - ADPLM-BR-093: Define the endowment, house, motor and commercial detail tables with a foreign key to the policy table and ON DELETE CASCADE. Deleting the policy row then removes its details in the same transaction, with no separate delete statements.
+  - _Requirements: ADPLM-REQ-F-079, ADPLM-REQ-F-081, ADPLM-REQ-F-085_
+  - _Rules: ADPLM-BR-084, ADPLM-BR-087, ADPLM-BR-093_
+  - _After: ADPLM-C14-T1, ADPLM-C14-T2, ADPLM-C14-T3_
+- [ ] ADPLM-C14-T5 [test-generation] Write a test for every acceptance criterion
+  - 14 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-078, ADPLM-REQ-F-079, ADPLM-REQ-F-080, ADPLM-REQ-F-081, ADPLM-REQ-F-082, ADPLM-REQ-F-083, ADPLM-REQ-F-084, ADPLM-REQ-F-085, ADPLM-REQ-F-086, ADPLM-REQ-F-087_
+  - _Criteria: ADPLM-C14-AC-01, ADPLM-C14-AC-02, ADPLM-C14-AC-03, ADPLM-C14-AC-04, ADPLM-C14-AC-05, ADPLM-C14-AC-06, ADPLM-C14-AC-07, ADPLM-C14-AC-08, ADPLM-C14-AC-09, ADPLM-C14-AC-10, ADPLM-C14-AC-11, ADPLM-C14-AC-12, ADPLM-C14-AC-13, ADPLM-C14-AC-14_
+  - _After: ADPLM-C14-T1, ADPLM-C14-T2, ADPLM-C14-T3, ADPLM-C14-T4_
+- [ ] ADPLM-C14-T6 [compliance] Review the handling of audit
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-078, ADPLM-REQ-F-079, ADPLM-REQ-F-080, ADPLM-REQ-F-081, ADPLM-REQ-F-082, ADPLM-REQ-F-083, ADPLM-REQ-F-084, ADPLM-REQ-F-085, ADPLM-REQ-F-086, ADPLM-REQ-F-087_
+  - _After: ADPLM-C14-T1, ADPLM-C14-T2, ADPLM-C14-T3, ADPLM-C14-T4_
+
+## ADPLM-C15 Remove a deleted policy from the policy file (draft)
+
+- [ ] ADPLM-C15-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: ADPLM-REQ-F-088, ADPLM-REQ-F-089, ADPLM-REQ-F-090, ADPLM-REQ-F-091_
+- [ ] ADPLM-C15-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-090, ADPLM-REQ-F-091_
+  - _Rules: ADPLM-BR-098, ADPLM-BR-099_
+  - _After: ADPLM-C15-T1_
+- [ ] ADPLM-C15-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-089_
+  - _Rules: ADPLM-BR-097_
+  - _After: ADPLM-C15-T1_
+- [ ] ADPLM-C15-T4 [api] Build the scheduled job
+  - ADPLM-BR-096: The policy file is a keyed store. Its 21-character key is the policy type letter (the fourth character of the request identifier), then the 10-digit customer number, then the 10-digit policy number. Deletion is a single delete by that exact key.
+  - _Requirements: ADPLM-REQ-F-088_
+  - _Rules: ADPLM-BR-096_
+  - _After: ADPLM-C15-T1, ADPLM-C15-T2, ADPLM-C15-T3_
+- [ ] ADPLM-C15-T5 [test-generation] Write a test for every acceptance criterion
+  - 8 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-088, ADPLM-REQ-F-089, ADPLM-REQ-F-090, ADPLM-REQ-F-091_
+  - _Criteria: ADPLM-C15-AC-01, ADPLM-C15-AC-02, ADPLM-C15-AC-03, ADPLM-C15-AC-04, ADPLM-C15-AC-05, ADPLM-C15-AC-06, ADPLM-C15-AC-07, ADPLM-C15-AC-08_
+  - _After: ADPLM-C15-T1, ADPLM-C15-T2, ADPLM-C15-T3, ADPLM-C15-T4_
+- [ ] ADPLM-C15-T6 [compliance] Review the handling of audit
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-088, ADPLM-REQ-F-089, ADPLM-REQ-F-090, ADPLM-REQ-F-091_
+  - _After: ADPLM-C15-T1, ADPLM-C15-T2, ADPLM-C15-T3, ADPLM-C15-T4_
+
+## ADPLM-C16 Pick a customer number within the control range (draft)
+
+- [ ] ADPLM-C16-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-096, ADPLM-REQ-F-097, ADPLM-REQ-F-101_
+  - _Rules: ADPLM-BR-103, ADPLM-BR-104, ADPLM-BR-108_
+- [ ] ADPLM-C16-T2 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-102, ADPLM-REQ-F-103_
+  - _Rules: ADPLM-BR-109, ADPLM-BR-110_
+- [ ] ADPLM-C16-T3 [api] Build the scheduled job
+  - ADPLM-BR-100: Expose one operation that two callers share: a service call that returns the result in its response, and an interactive or terminal entry point that shows the result. Choose the presentation by the entry point, not by checking a start code at run time.
+  - ADPLM-BR-101: The customer range starts at 1000001 to 1000001 before the control record is read. Reading and repairing the control record must be serialized with an exclusive lock, such as a row lock or a lock held for the transaction, and the lock must be released before the random customer is chosen.
+  - ADPLM-BR-102: Store the control data as a small configuration record with a header, a low customer and a high customer, instead of an ordered queue. If the record is absent, treat all three entries as missing. If it is present, read every entry.
+  - ADPLM-BR-105: If the header is missing, write the header marker '**** GENAPP CNTL' as part of the same locked repair of the control record.
+  - ADPLM-BR-106: If the low customer value is missing, store it as the low end of the range in use, a 10-digit zero-padded number (0001000001 by default), within the same locked repair.
+  - ADPLM-BR-107: If the high customer value is missing, store it as the high end of the range in use, a 10-digit zero-padded number (0001000001 by default), within the same locked repair.
+  - ADPLM-BR-111: For service callers, return a response that holds only the label 'HIGH CUSTOMER=' and the chosen 10-digit customer number, with no data left over from the request.
+  - _Requirements: ADPLM-REQ-F-092, ADPLM-REQ-F-093, ADPLM-REQ-F-094, ADPLM-REQ-F-095, ADPLM-REQ-F-098, ADPLM-REQ-F-099, ADPLM-REQ-F-100, ADPLM-REQ-F-104_
+  - _Rules: ADPLM-BR-100, ADPLM-BR-101, ADPLM-BR-102, ADPLM-BR-105, ADPLM-BR-106, ADPLM-BR-107, ADPLM-BR-111_
+  - _After: ADPLM-C16-T1, ADPLM-C16-T2_
+- [ ] ADPLM-C16-T4 [test-generation] Write a test for every acceptance criterion
+  - 12 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-092, ADPLM-REQ-F-093, ADPLM-REQ-F-094, ADPLM-REQ-F-095, ADPLM-REQ-F-096, ADPLM-REQ-F-097, ADPLM-REQ-F-098, ADPLM-REQ-F-099, ADPLM-REQ-F-100, ADPLM-REQ-F-101, ADPLM-REQ-F-102, ADPLM-REQ-F-103, ADPLM-REQ-F-104_
+  - _Criteria: ADPLM-C16-AC-01, ADPLM-C16-AC-02, ADPLM-C16-AC-03, ADPLM-C16-AC-04, ADPLM-C16-AC-05, ADPLM-C16-AC-06, ADPLM-C16-AC-07, ADPLM-C16-AC-08, ADPLM-C16-AC-09, ADPLM-C16-AC-10, ADPLM-C16-AC-11, ADPLM-C16-AC-12_
+  - _After: ADPLM-C16-T1, ADPLM-C16-T2, ADPLM-C16-T3_
+- [ ] ADPLM-C16-T5 [compliance] Review the handling of personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-092, ADPLM-REQ-F-093, ADPLM-REQ-F-094, ADPLM-REQ-F-095, ADPLM-REQ-F-096, ADPLM-REQ-F-097, ADPLM-REQ-F-098, ADPLM-REQ-F-099, ADPLM-REQ-F-100, ADPLM-REQ-F-101, ADPLM-REQ-F-102, ADPLM-REQ-F-103, ADPLM-REQ-F-104_
+  - _After: ADPLM-C16-T1, ADPLM-C16-T2, ADPLM-C16-T3_
+
+## ADPLM-C17 Look up a customer's policy by type (draft)
+
+- [ ] ADPLM-C17-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - Ask the owner before carrying the historical artifacts: ADPLM-BR-114.
+  - _Requirements: ADPLM-REQ-F-107, ADPLM-REQ-F-108, ADPLM-REQ-N-002_
+  - _Rules: ADPLM-BR-114, ADPLM-BR-115, ADPLM-BR-116_
+- [ ] ADPLM-C17-T2 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-109, ADPLM-REQ-F-111_
+  - _Rules: ADPLM-BR-117, ADPLM-BR-118, ADPLM-BR-120_
+- [ ] ADPLM-C17-T3 [api] Build the scheduled job
+  - ADPLM-BR-112: The interactive entry point takes the policy type and the customer number as separate input fields, instead of splitting a typed line at fixed offsets after a 5-character transaction code and space.
+  - ADPLM-BR-113: The service entry point takes a request with a one-character policy type and a 10-digit customer number as named fields.
+  - ADPLM-BR-119: Return a fresh response for service callers that holds the result label ('Policy Key=' or 'Policy Bad=') and the 21-character key. Nothing from the caller's request is echoed back.
+  - _Requirements: ADPLM-REQ-F-105, ADPLM-REQ-F-106, ADPLM-REQ-F-110_
+  - _Rules: ADPLM-BR-112, ADPLM-BR-113, ADPLM-BR-119_
+  - _After: ADPLM-C17-T1, ADPLM-C17-T2_
+- [ ] ADPLM-C17-T4 [test-generation] Write a test for every acceptance criterion
+  - 12 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-105, ADPLM-REQ-F-106, ADPLM-REQ-N-002, ADPLM-REQ-F-107, ADPLM-REQ-F-108, ADPLM-REQ-F-109, ADPLM-REQ-F-110, ADPLM-REQ-F-111_
+  - _Criteria: ADPLM-C17-AC-01, ADPLM-C17-AC-02, ADPLM-C17-AC-03, ADPLM-C17-AC-04, ADPLM-C17-AC-05, ADPLM-C17-AC-06, ADPLM-C17-AC-07, ADPLM-C17-AC-08, ADPLM-C17-AC-09, ADPLM-C17-AC-10, ADPLM-C17-AC-11, ADPLM-C17-AC-12_
+  - _After: ADPLM-C17-T1, ADPLM-C17-T2, ADPLM-C17-T3_
+- [ ] ADPLM-C17-T5 [compliance] Review the handling of personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-105, ADPLM-REQ-F-106, ADPLM-REQ-N-002, ADPLM-REQ-F-107, ADPLM-REQ-F-108, ADPLM-REQ-F-109, ADPLM-REQ-F-110, ADPLM-REQ-F-111_
+  - _After: ADPLM-C17-T1, ADPLM-C17-T2, ADPLM-C17-T3_
+
+## ADPLM-C18 Reset the application environment (draft)
+
+- [ ] ADPLM-C18-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-112, ADPLM-REQ-F-113, ADPLM-REQ-F-114, ADPLM-REQ-F-115_
+  - _Rules: ADPLM-BR-121, ADPLM-BR-122, ADPLM-BR-123, ADPLM-BR-124_
+- [ ] ADPLM-C18-T2 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-118_
+  - _Rules: ADPLM-BR-128_
+- [ ] ADPLM-C18-T3 [api] Build the scheduled job
+  - ADPLM-BR-125: Reset is an admin operation. It clears the error log, the start-time records and the statistics records, and it rewrites the control record. Only the control record is recreated straight away; the other stores fill again as the application writes to them.
+  - ADPLM-BR-126: Replace the control record as a whole in one transaction with the header '**** GENAPP CNTL', the 10-digit low customer number and the 10-digit high customer number, so that no reader sees a partly rewritten record.
+  - ADPLM-BR-127: The legacy writes do not wait for space and never check the result. The new reset should check the write of the control record and report a failure to the operator; the fixed lengths of 20, 23 and 24 characters only matter where the old text format is kept.
+  - _Requirements: ADPLM-REQ-F-116, ADPLM-REQ-F-117, ADPLM-REQ-N-003_
+  - _Rules: ADPLM-BR-125, ADPLM-BR-126, ADPLM-BR-127_
+  - _After: ADPLM-C18-T1, ADPLM-C18-T2_
+- [ ] ADPLM-C18-T4 [test-generation] Write a test for every acceptance criterion
+  - 9 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-112, ADPLM-REQ-F-113, ADPLM-REQ-F-114, ADPLM-REQ-F-115, ADPLM-REQ-F-116, ADPLM-REQ-F-117, ADPLM-REQ-N-003, ADPLM-REQ-F-118_
+  - _Criteria: ADPLM-C18-AC-01, ADPLM-C18-AC-02, ADPLM-C18-AC-03, ADPLM-C18-AC-04, ADPLM-C18-AC-05, ADPLM-C18-AC-06, ADPLM-C18-AC-07, ADPLM-C18-AC-08, ADPLM-C18-AC-09_
+  - _After: ADPLM-C18-T1, ADPLM-C18-T2, ADPLM-C18-T3_
+- [ ] ADPLM-C18-T5 [compliance] Review the handling of audit
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-112, ADPLM-REQ-F-113, ADPLM-REQ-F-114, ADPLM-REQ-F-115, ADPLM-REQ-F-116, ADPLM-REQ-F-117, ADPLM-REQ-N-003, ADPLM-REQ-F-118_
+  - _After: ADPLM-C18-T1, ADPLM-C18-T2, ADPLM-C18-T3_
+
+## ADPLM-C19 Accept and check a policy update request (draft)
+
+- [ ] ADPLM-C19-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: ADPLM-REQ-F-119, ADPLM-REQ-F-120, ADPLM-REQ-F-121, ADPLM-REQ-F-122, ADPLM-REQ-F-123, ADPLM-REQ-F-124, ADPLM-REQ-F-125_
+- [ ] ADPLM-C19-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-121, ADPLM-REQ-F-122, ADPLM-REQ-F-123, ADPLM-REQ-F-124_
+  - _Rules: ADPLM-BR-131, ADPLM-BR-132, ADPLM-BR-133, ADPLM-BR-134_
+  - _After: ADPLM-C19-T1_
+- [ ] ADPLM-C19-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-119_
+  - _Rules: ADPLM-BR-129_
+  - _After: ADPLM-C19-T1_
+- [ ] ADPLM-C19-T4 [api] Build the scheduled job
+  - ADPLM-BR-130: Set the response code to '00' as soon as a request with data is accepted, before the length and type checks run.
+  - ADPLM-BR-135: Call the policy database update in-process with the whole validated request, and return its outcome code ('00', '01', '02' or '90') to the caller as the final result.
+  - _Requirements: ADPLM-REQ-F-120, ADPLM-REQ-F-125_
+  - _Rules: ADPLM-BR-130, ADPLM-BR-135_
+  - _After: ADPLM-C19-T1, ADPLM-C19-T2, ADPLM-C19-T3_
+- [ ] ADPLM-C19-T5 [test-generation] Write a test for every acceptance criterion
+  - 10 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-119, ADPLM-REQ-F-120, ADPLM-REQ-F-121, ADPLM-REQ-F-122, ADPLM-REQ-F-123, ADPLM-REQ-F-124, ADPLM-REQ-F-125_
+  - _Criteria: ADPLM-C19-AC-01, ADPLM-C19-AC-02, ADPLM-C19-AC-03, ADPLM-C19-AC-04, ADPLM-C19-AC-05, ADPLM-C19-AC-06, ADPLM-C19-AC-07, ADPLM-C19-AC-08, ADPLM-C19-AC-09, ADPLM-C19-AC-10_
+  - _After: ADPLM-C19-T1, ADPLM-C19-T2, ADPLM-C19-T3, ADPLM-C19-T4_
+- [ ] ADPLM-C19-T6 [compliance] Review the handling of audit
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-119, ADPLM-REQ-F-120, ADPLM-REQ-F-121, ADPLM-REQ-F-122, ADPLM-REQ-F-123, ADPLM-REQ-F-124, ADPLM-REQ-F-125_
+  - _After: ADPLM-C19-T1, ADPLM-C19-T2, ADPLM-C19-T3, ADPLM-C19-T4_
+
+## ADPLM-C20 Update a policy in the database with a timestamp check (draft)
+
+- [ ] ADPLM-C20-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: ADPLM-REQ-F-126, ADPLM-REQ-F-127, ADPLM-REQ-F-128, ADPLM-REQ-F-129, ADPLM-REQ-F-130, ADPLM-REQ-F-131, ADPLM-REQ-F-132, ADPLM-REQ-F-133, ADPLM-REQ-F-134, ADPLM-REQ-F-135, ADPLM-REQ-F-136, ADPLM-REQ-F-137, ADPLM-REQ-F-138, ADPLM-REQ-F-139, ADPLM-REQ-F-140, ADPLM-REQ-F-141, ADPLM-REQ-F-142, ADPLM-REQ-F-143_
+- [ ] ADPLM-C20-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - Ask the owner before carrying the historical artifacts: ADPLM-BR-153.
+  - _Requirements: ADPLM-REQ-F-128, ADPLM-REQ-F-129, ADPLM-REQ-F-130, ADPLM-REQ-F-131, ADPLM-REQ-F-135, ADPLM-REQ-F-139, ADPLM-REQ-F-142, ADPLM-REQ-F-138_
+  - _Rules: ADPLM-BR-138, ADPLM-BR-139, ADPLM-BR-140, ADPLM-BR-141, ADPLM-BR-142, ADPLM-BR-143, ADPLM-BR-144, ADPLM-BR-150, ADPLM-BR-153, ADPLM-BR-154, ADPLM-BR-157, ADPLM-BR-158_
+  - _After: ADPLM-C20-T1_
+- [ ] ADPLM-C20-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-126, ADPLM-REQ-F-132, ADPLM-REQ-F-133, ADPLM-REQ-F-134, ADPLM-REQ-F-137, ADPLM-REQ-F-140, ADPLM-REQ-F-141, ADPLM-REQ-F-143_
+  - _Rules: ADPLM-BR-136, ADPLM-BR-145, ADPLM-BR-146, ADPLM-BR-147, ADPLM-BR-148, ADPLM-BR-149, ADPLM-BR-152, ADPLM-BR-155, ADPLM-BR-156, ADPLM-BR-159_
+  - _After: ADPLM-C20-T1_
+- [ ] ADPLM-C20-T4 [api] Build the scheduled job
+  - ADPLM-BR-137: Start every update with outcome '00'. Find the policy by a keyed lookup on customer number plus policy number, and read it inside the same transaction as the update.
+  - ADPLM-BR-151: After the update, read the new last-changed timestamp, keyed by policy number, or take it from the update's RETURNING clause, and put it in the response so that the caller can make its next change.
+  - _Requirements: ADPLM-REQ-F-127, ADPLM-REQ-F-136_
+  - _Rules: ADPLM-BR-137, ADPLM-BR-151_
+  - _After: ADPLM-C20-T1, ADPLM-C20-T2, ADPLM-C20-T3_
+- [ ] ADPLM-C20-T5 [test-generation] Write a test for every acceptance criterion
+  - 25 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-126, ADPLM-REQ-F-127, ADPLM-REQ-F-128, ADPLM-REQ-F-129, ADPLM-REQ-F-130, ADPLM-REQ-F-131, ADPLM-REQ-F-132, ADPLM-REQ-F-133, ADPLM-REQ-F-134, ADPLM-REQ-F-135, ADPLM-REQ-F-136, ADPLM-REQ-F-137, ADPLM-REQ-F-138, ADPLM-REQ-F-139, ADPLM-REQ-F-140, ADPLM-REQ-F-141, ADPLM-REQ-F-142, ADPLM-REQ-F-143_
+  - _Criteria: ADPLM-C20-AC-01, ADPLM-C20-AC-02, ADPLM-C20-AC-03, ADPLM-C20-AC-04, ADPLM-C20-AC-05, ADPLM-C20-AC-06, ADPLM-C20-AC-07, ADPLM-C20-AC-08, ADPLM-C20-AC-09, ADPLM-C20-AC-10, ADPLM-C20-AC-11, ADPLM-C20-AC-12, ADPLM-C20-AC-13, ADPLM-C20-AC-14, ADPLM-C20-AC-15, ADPLM-C20-AC-16, ADPLM-C20-AC-17, ADPLM-C20-AC-18, ADPLM-C20-AC-19, ADPLM-C20-AC-20, ADPLM-C20-AC-21, ADPLM-C20-AC-22, ADPLM-C20-AC-23, ADPLM-C20-AC-24, ADPLM-C20-AC-25_
+  - _After: ADPLM-C20-T1, ADPLM-C20-T2, ADPLM-C20-T3, ADPLM-C20-T4_
+- [ ] ADPLM-C20-T6 [compliance] Review the handling of audit, money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-126, ADPLM-REQ-F-127, ADPLM-REQ-F-128, ADPLM-REQ-F-129, ADPLM-REQ-F-130, ADPLM-REQ-F-131, ADPLM-REQ-F-132, ADPLM-REQ-F-133, ADPLM-REQ-F-134, ADPLM-REQ-F-135, ADPLM-REQ-F-136, ADPLM-REQ-F-137, ADPLM-REQ-F-138, ADPLM-REQ-F-139, ADPLM-REQ-F-140, ADPLM-REQ-F-141, ADPLM-REQ-F-142, ADPLM-REQ-F-143_
+  - _After: ADPLM-C20-T1, ADPLM-C20-T2, ADPLM-C20-T3, ADPLM-C20-T4_
+
+## ADPLM-C21 Synchronise the policy file after an update (draft)
+
+- [ ] ADPLM-C21-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: ADPLM-REQ-F-144, ADPLM-REQ-F-145, ADPLM-REQ-F-146, ADPLM-REQ-F-147, ADPLM-REQ-F-148, ADPLM-REQ-F-149, ADPLM-REQ-F-150, ADPLM-REQ-F-151, ADPLM-REQ-F-152, ADPLM-REQ-F-153, ADPLM-REQ-F-154_
+- [ ] ADPLM-C21-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: ADPLM-REQ-F-146, ADPLM-REQ-F-147, ADPLM-REQ-F-148, ADPLM-REQ-F-149, ADPLM-REQ-F-150, ADPLM-REQ-F-151, ADPLM-REQ-F-154_
+  - _Rules: ADPLM-BR-163, ADPLM-BR-164, ADPLM-BR-165, ADPLM-BR-166, ADPLM-BR-167, ADPLM-BR-168, ADPLM-BR-171_
+  - _After: ADPLM-C21-T1_
+- [ ] ADPLM-C21-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: ADPLM-REQ-F-152, ADPLM-REQ-F-153_
+  - _Rules: ADPLM-BR-169, ADPLM-BR-170_
+  - _After: ADPLM-C21-T1_
+- [ ] ADPLM-C21-T4 [api] Build the scheduled job
+  - ADPLM-BR-160: Build the policy-file key from the policy type letter (the fourth character of the request ID), the customer number and the policy number. Use typed fields for the request instead of a length the caller passes in.
+  - ADPLM-BR-161: Same key as the delete and lookup paths: the type letter, then the 10-digit customer number, then the 10-digit policy number. Put the key build in one shared function so that all policy-file operations agree.
+  - ADPLM-BR-162: Do a keyed read with a row lock (select for update) on the policy-file record, then a full replace of that record in the same transaction.
+  - _Requirements: ADPLM-REQ-F-144, ADPLM-REQ-F-145_
+  - _Rules: ADPLM-BR-160, ADPLM-BR-161, ADPLM-BR-162_
+  - _After: ADPLM-C21-T1, ADPLM-C21-T2, ADPLM-C21-T3_
+- [ ] ADPLM-C21-T5 [test-generation] Write a test for every acceptance criterion
+  - 12 acceptance criteria, each a test named by its ID.
+  - _Requirements: ADPLM-REQ-F-144, ADPLM-REQ-F-145, ADPLM-REQ-F-146, ADPLM-REQ-F-147, ADPLM-REQ-F-148, ADPLM-REQ-F-149, ADPLM-REQ-F-150, ADPLM-REQ-F-151, ADPLM-REQ-F-152, ADPLM-REQ-F-153, ADPLM-REQ-F-154_
+  - _Criteria: ADPLM-C21-AC-01, ADPLM-C21-AC-02, ADPLM-C21-AC-03, ADPLM-C21-AC-04, ADPLM-C21-AC-05, ADPLM-C21-AC-06, ADPLM-C21-AC-07, ADPLM-C21-AC-08, ADPLM-C21-AC-09, ADPLM-C21-AC-10, ADPLM-C21-AC-11, ADPLM-C21-AC-12_
+  - _After: ADPLM-C21-T1, ADPLM-C21-T2, ADPLM-C21-T3, ADPLM-C21-T4_
+- [ ] ADPLM-C21-T6 [compliance] Review the handling of audit, money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: ADPLM-REQ-F-144, ADPLM-REQ-F-145, ADPLM-REQ-F-146, ADPLM-REQ-F-147, ADPLM-REQ-F-148, ADPLM-REQ-F-149, ADPLM-REQ-F-150, ADPLM-REQ-F-151, ADPLM-REQ-F-152, ADPLM-REQ-F-153, ADPLM-REQ-F-154_
+  - _After: ADPLM-C21-T1, ADPLM-C21-T2, ADPLM-C21-T3, ADPLM-C21-T4_
+
+## CRCM-C01 Accept and check an add-customer request (draft)
+
+- [ ] CRCM-C01-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: CRCM-REQ-F-001, CRCM-REQ-F-002, CRCM-REQ-F-003, CRCM-REQ-F-004_
+- [ ] CRCM-C01-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: CRCM-REQ-F-003, CRCM-REQ-F-004_
+  - _Rules: CRCM-BR-004, CRCM-BR-005, CRCM-BR-006, CRCM-BR-007, CRCM-BR-008_
+  - _After: CRCM-C01-T1_
+- [ ] CRCM-C01-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: CRCM-REQ-F-002_
+  - _Rules: CRCM-BR-003_
+  - _After: CRCM-C01-T1_
+- [ ] CRCM-C01-T4 [api] Build the scheduled job
+  - CRCM-BR-001: Start every add-customer response with outcome '00' (success) and a policy count of '00'. Later checks overwrite the outcome only when they fail, so a caller always gets a defined outcome and policy count.
+  - CRCM-BR-002: The customer-add data step must also default its outcome to '00' before it validates the request, so only a failed check or a failed store sets a non-success code.
+  - CRCM-BR-008: Once the request passes the presence and minimum-length checks, the intake hands the complete request to the customer-creation service, which assigns the number and stores the customer. It then returns that service's outcome to the caller unchanged. In the new application this is an internal service call with a typed customer payload, not a fixed 32,500-byte buffer.
+  - _Requirements: CRCM-REQ-F-001_
+  - _Rules: CRCM-BR-001, CRCM-BR-002_
+  - _After: CRCM-C01-T1, CRCM-C01-T2, CRCM-C01-T3_
+- [ ] CRCM-C01-T5 [test-generation] Write a test for every acceptance criterion
+  - 12 acceptance criteria, each a test named by its ID.
+  - _Requirements: CRCM-REQ-F-001, CRCM-REQ-F-002, CRCM-REQ-F-003, CRCM-REQ-F-004_
+  - _Criteria: CRCM-C01-AC-01, CRCM-C01-AC-02, CRCM-C01-AC-03, CRCM-C01-AC-04, CRCM-C01-AC-05, CRCM-C01-AC-06, CRCM-C01-AC-07, CRCM-C01-AC-08, CRCM-C01-AC-09, CRCM-C01-AC-10, CRCM-C01-AC-11, CRCM-C01-AC-12_
+  - _After: CRCM-C01-T1, CRCM-C01-T2, CRCM-C01-T3, CRCM-C01-T4_
+- [ ] CRCM-C01-T6 [compliance] Review the handling of personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: CRCM-REQ-F-001, CRCM-REQ-F-002, CRCM-REQ-F-003, CRCM-REQ-F-004_
+  - _After: CRCM-C01-T1, CRCM-C01-T2, CRCM-C01-T3, CRCM-C01-T4_
+
+## CRCM-C02 Assign a customer number and store the new customer (draft)
+
+- [ ] CRCM-C02-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: CRCM-REQ-F-005, CRCM-REQ-F-006, CRCM-REQ-F-007, CRCM-REQ-F-008, CRCM-REQ-F-009_
+- [ ] CRCM-C02-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: CRCM-REQ-F-005, CRCM-REQ-F-006, CRCM-REQ-F-009_
+  - _Rules: CRCM-BR-009, CRCM-BR-010, CRCM-BR-011, CRCM-BR-013, CRCM-BR-015_
+  - _After: CRCM-C02-T1_
+- [ ] CRCM-C02-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: CRCM-REQ-F-008_
+  - _Rules: CRCM-BR-013, CRCM-BR-014_
+  - _After: CRCM-C02-T1_
+- [ ] CRCM-C02-T4 [api] Build the scheduled job
+  - CRCM-BR-010: When the shared customer-number counter supplies the number, insert the customer row under that explicit key, together with the supplied name, date of birth, address, phone numbers and email. The key must be unique, so a clash with an existing customer is rejected rather than overwritten.
+  - CRCM-BR-012: Both numbering paths, counter-issued or database-generated, must write the same nine fields: first name, last name, date of birth, house name, house number, postcode, mobile phone, home phone and email. A single insert routine, with the key either supplied or generated, keeps the two paths consistent.
+  - _Requirements: CRCM-REQ-F-007_
+  - _Rules: CRCM-BR-010, CRCM-BR-012_
+  - _After: CRCM-C02-T1, CRCM-C02-T2, CRCM-C02-T3_
+- [ ] CRCM-C02-T5 [test-generation] Write a test for every acceptance criterion
+  - 7 acceptance criteria, each a test named by its ID.
+  - _Requirements: CRCM-REQ-F-005, CRCM-REQ-F-006, CRCM-REQ-F-007, CRCM-REQ-F-008, CRCM-REQ-F-009_
+  - _Criteria: CRCM-C02-AC-01, CRCM-C02-AC-02, CRCM-C02-AC-03, CRCM-C02-AC-04, CRCM-C02-AC-05, CRCM-C02-AC-06, CRCM-C02-AC-07_
+  - _After: CRCM-C02-T1, CRCM-C02-T2, CRCM-C02-T3, CRCM-C02-T4_
+- [ ] CRCM-C02-T6 [compliance] Review the handling of audit, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: CRCM-REQ-F-005, CRCM-REQ-F-006, CRCM-REQ-F-007, CRCM-REQ-F-008, CRCM-REQ-F-009_
+  - _After: CRCM-C02-T1, CRCM-C02-T2, CRCM-C02-T3, CRCM-C02-T4_
+
+## CRCM-C03 Copy the new customer to the customer file (draft)
+
+- [ ] CRCM-C03-T1 [data] Model the data the capability reads and writes
+  - File records: LGCMAREA (see data-contracts.md).
+  - Working records it passes or builds: LGPOLICY.
+  - _Requirements: CRCM-REQ-F-010, CRCM-REQ-F-011, CRCM-REQ-F-012, CRCM-REQ-F-013, CRCM-REQ-F-014_
+- [ ] CRCM-C03-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: CRCM-REQ-F-013, CRCM-REQ-F-014_
+  - _Rules: CRCM-BR-019, CRCM-BR-020_
+  - _After: CRCM-C03-T1_
+- [ ] CRCM-C03-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: CRCM-REQ-F-012_
+  - _Rules: CRCM-BR-018_
+  - _After: CRCM-C03-T1_
+- [ ] CRCM-C03-T4 [api] Build the scheduled job
+  - CRCM-BR-016: Call the customer-file copy step only after the customer row is stored, and pass it the whole customer record including the newly assigned number. The step can be an in-process call or a message to the service that owns the customer file, but it must not run when the insert failed.
+  - CRCM-BR-017: The customer file needs a store keyed by the 10-digit customer number, with one record per customer holding the number, first and last name, date of birth, house name, house number, postcode, number of policies, mobile phone, home phone and email. Adding a customer is an insert-only write, so an existing key must make the write fail.
+  - _Requirements: CRCM-REQ-F-010, CRCM-REQ-F-011_
+  - _Rules: CRCM-BR-016, CRCM-BR-017_
+  - _After: CRCM-C03-T1, CRCM-C03-T2, CRCM-C03-T3_
+- [ ] CRCM-C03-T5 [test-generation] Write a test for every acceptance criterion
+  - 5 acceptance criteria, each a test named by its ID.
+  - _Requirements: CRCM-REQ-F-010, CRCM-REQ-F-011, CRCM-REQ-F-012, CRCM-REQ-F-013, CRCM-REQ-F-014_
+  - _Criteria: CRCM-C03-AC-01, CRCM-C03-AC-02, CRCM-C03-AC-03, CRCM-C03-AC-04, CRCM-C03-AC-05_
+  - _After: CRCM-C03-T1, CRCM-C03-T2, CRCM-C03-T3, CRCM-C03-T4_
+- [ ] CRCM-C03-T6 [compliance] Review the handling of audit, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: CRCM-REQ-F-010, CRCM-REQ-F-011, CRCM-REQ-F-012, CRCM-REQ-F-013, CRCM-REQ-F-014_
+  - _After: CRCM-C03-T1, CRCM-C03-T2, CRCM-C03-T3, CRCM-C03-T4_
+
+## CRCM-C04 Create the new customer's security record (draft)
+
+- [ ] CRCM-C04-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: CRCM-REQ-F-015, CRCM-REQ-F-016, CRCM-REQ-F-017, CRCM-REQ-F-018_
+- [ ] CRCM-C04-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: CRCM-REQ-F-015, CRCM-REQ-F-016, CRCM-REQ-F-017_
+  - _Rules: CRCM-BR-021, CRCM-BR-022, CRCM-BR-023, CRCM-BR-024_
+  - _After: CRCM-C04-T1_
+- [ ] CRCM-C04-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: CRCM-REQ-F-018_
+  - _Rules: CRCM-BR-025_
+  - _After: CRCM-C04-T1_
+- [ ] CRCM-C04-T4 [api] Build the scheduled job
+  - Expose the rules as the service the screens call.
+  - _Requirements: CRCM-REQ-F-015, CRCM-REQ-F-016, CRCM-REQ-F-017, CRCM-REQ-F-018_
+  - _Rules: CRCM-BR-021, CRCM-BR-022, CRCM-BR-023, CRCM-BR-024, CRCM-BR-025_
+  - _After: CRCM-C04-T1, CRCM-C04-T2, CRCM-C04-T3_
+- [ ] CRCM-C04-T5 [test-generation] Write a test for every acceptance criterion
+  - 5 acceptance criteria, each a test named by its ID.
+  - _Requirements: CRCM-REQ-F-015, CRCM-REQ-F-016, CRCM-REQ-F-017, CRCM-REQ-F-018_
+  - _Criteria: CRCM-C04-AC-01, CRCM-C04-AC-02, CRCM-C04-AC-03, CRCM-C04-AC-04, CRCM-C04-AC-05_
+  - _After: CRCM-C04-T1, CRCM-C04-T2, CRCM-C04-T3, CRCM-C04-T4_
+- [ ] CRCM-C04-T6 [compliance] Review the handling of audit, personal data, security
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: CRCM-REQ-F-015, CRCM-REQ-F-016, CRCM-REQ-F-017, CRCM-REQ-F-018_
+  - _After: CRCM-C04-T1, CRCM-C04-T2, CRCM-C04-T3, CRCM-C04-T4_
+
+## CRCM-C05 Accept a customer update request (draft)
+
+- [ ] CRCM-C05-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: CRCM-REQ-F-019, CRCM-REQ-F-020, CRCM-REQ-F-021_
+- [ ] CRCM-C05-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - Ask the owner before carrying the historical artifacts: CRCM-BR-026, CRCM-BR-027.
+  - _Requirements: CRCM-REQ-F-020, CRCM-REQ-F-021, CRCM-REQ-F-019_
+  - _Rules: CRCM-BR-026, CRCM-BR-027, CRCM-BR-028, CRCM-BR-029_
+  - _After: CRCM-C05-T1_
+- [ ] CRCM-C05-T3 [api] Build the scheduled job
+  - CRCM-BR-026: Default the update response outcome to '00' (success) before the request type is checked. The type check (failure '99') and the downstream update service overwrite it only when they fail.
+  - _Requirements: CRCM-REQ-F-019, CRCM-REQ-F-020, CRCM-REQ-F-021_
+  - _Rules: CRCM-BR-026, CRCM-BR-027, CRCM-BR-028, CRCM-BR-029_
+  - _After: CRCM-C05-T1, CRCM-C05-T2_
+- [ ] CRCM-C05-T4 [test-generation] Write a test for every acceptance criterion
+  - 4 acceptance criteria, each a test named by its ID.
+  - _Requirements: CRCM-REQ-F-019, CRCM-REQ-F-020, CRCM-REQ-F-021_
+  - _Criteria: CRCM-C05-AC-01, CRCM-C05-AC-02, CRCM-C05-AC-03, CRCM-C05-AC-04_
+  - _After: CRCM-C05-T1, CRCM-C05-T2, CRCM-C05-T3_
+- [ ] CRCM-C05-T5 [compliance] Review the handling of personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: CRCM-REQ-F-019, CRCM-REQ-F-020, CRCM-REQ-F-021_
+  - _After: CRCM-C05-T1, CRCM-C05-T2, CRCM-C05-T3_
+
+## CRCM-C06 Update the customer's personal and contact details (draft)
+
+- [ ] CRCM-C06-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: CRCM-REQ-F-022, CRCM-REQ-F-023, CRCM-REQ-F-024, CRCM-REQ-F-025, CRCM-REQ-F-026_
+- [ ] CRCM-C06-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: CRCM-REQ-F-023_
+  - _Rules: CRCM-BR-031_
+  - _After: CRCM-C06-T1_
+- [ ] CRCM-C06-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: CRCM-REQ-F-024, CRCM-REQ-F-025_
+  - _Rules: CRCM-BR-032, CRCM-BR-033_
+  - _After: CRCM-C06-T1_
+- [ ] CRCM-C06-T4 [api] Build the scheduled job
+  - CRCM-BR-030: Default the outcome to '00', then update the customer row found by a keyed lookup on the customer number in the request. The update has to tell 'no matching row' (outcome '01') apart from any other database failure (outcome '90').
+  - CRCM-BR-034: When the database update step has finished, hand the customer record (225 bytes of customer data) and its return code to the customer-file update step, which brings the customer file into line with the database.
+  - _Requirements: CRCM-REQ-F-022, CRCM-REQ-F-026_
+  - _Rules: CRCM-BR-030, CRCM-BR-034_
+  - _After: CRCM-C06-T1, CRCM-C06-T2, CRCM-C06-T3_
+- [ ] CRCM-C06-T5 [test-generation] Write a test for every acceptance criterion
+  - 5 acceptance criteria, each a test named by its ID.
+  - _Requirements: CRCM-REQ-F-022, CRCM-REQ-F-023, CRCM-REQ-F-024, CRCM-REQ-F-025, CRCM-REQ-F-026_
+  - _Criteria: CRCM-C06-AC-01, CRCM-C06-AC-02, CRCM-C06-AC-03, CRCM-C06-AC-04, CRCM-C06-AC-05_
+  - _After: CRCM-C06-T1, CRCM-C06-T2, CRCM-C06-T3, CRCM-C06-T4_
+- [ ] CRCM-C06-T6 [compliance] Review the handling of audit, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: CRCM-REQ-F-022, CRCM-REQ-F-023, CRCM-REQ-F-024, CRCM-REQ-F-025, CRCM-REQ-F-026_
+  - _After: CRCM-C06-T1, CRCM-C06-T2, CRCM-C06-T3, CRCM-C06-T4_
+
+## CRCM-C07 Replace the customer's record in the customer file (draft)
+
+- [ ] CRCM-C07-T1 [data] Model the data the capability reads and writes
+  - File records: LGCMAREA (see data-contracts.md).
+  - _Requirements: CRCM-REQ-F-027, CRCM-REQ-F-028, CRCM-REQ-F-029_
+- [ ] CRCM-C07-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: CRCM-REQ-F-027_
+  - _Rules: CRCM-BR-035_
+  - _After: CRCM-C07-T1_
+- [ ] CRCM-C07-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: CRCM-REQ-F-028, CRCM-REQ-F-029_
+  - _Rules: CRCM-BR-036, CRCM-BR-037_
+  - _After: CRCM-C07-T1_
+- [ ] CRCM-C07-T4 [api] Build the service
+  - Expose the rules as the service the screens call.
+  - _Requirements: CRCM-REQ-F-027, CRCM-REQ-F-028, CRCM-REQ-F-029_
+  - _Rules: CRCM-BR-035, CRCM-BR-036, CRCM-BR-037_
+  - _After: CRCM-C07-T1, CRCM-C07-T2, CRCM-C07-T3_
+- [ ] CRCM-C07-T5 [test-generation] Write a test for every acceptance criterion
+  - 3 acceptance criteria, each a test named by its ID.
+  - _Requirements: CRCM-REQ-F-027, CRCM-REQ-F-028, CRCM-REQ-F-029_
+  - _Criteria: CRCM-C07-AC-01, CRCM-C07-AC-02, CRCM-C07-AC-03_
+  - _After: CRCM-C07-T1, CRCM-C07-T2, CRCM-C07-T3, CRCM-C07-T4_
+- [ ] CRCM-C07-T6 [compliance] Review the handling of audit, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: CRCM-REQ-F-027, CRCM-REQ-F-028, CRCM-REQ-F-029_
+  - _After: CRCM-C07-T1, CRCM-C07-T2, CRCM-C07-T3, CRCM-C07-T4_
+
+## UP-C01 Produce the simulator log listing (draft)
+
+- [ ] UP-C01-T1 [api] Build the scheduled job
+  - UP-BR-001: A scheduled or on-demand job reads the simulator log in shared, read-only mode, so other runs can read it at the same time. It formats the records with the same options as today: console, SNA formatting, display, data, run and end. If the simulator is retired, this job goes with it.
+  - UP-BR-002: The formatted listing goes to the job's printed report output (print class A today) and is kept where operators can view it. The job opens the simulator log as input only and needs no write access to it.
+  - _Requirements: UP-REQ-F-001, UP-REQ-F-002_
+  - _Rules: UP-BR-001, UP-BR-002_
+- [ ] UP-C01-T2 [test-generation] Write a test for every acceptance criterion
+  - 2 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-001, UP-REQ-F-002_
+  - _Criteria: UP-C01-AC-01, UP-C01-AC-02_
+  - _After: UP-C01-T1_
+
+## UP-C02 Translate workload simulator scripts (draft)
+
+- [ ] UP-C02-T1 [api] Build the scheduled job
+  - UP-BR-003: One independent step of the translation job translates script 'WSC1I1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-004: One independent step of the translation job translates script 'STOP' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-005: One independent step of the translation job translates script 'SSP4D1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-006: One independent step of the translation job translates script 'SSP2I1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-007: One independent step of the translation job translates script 'SSC1A1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-008: One independent step of the translation job translates script 'SSP4A1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-009: One independent step of the translation job translates script 'SSP1I1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-010: One independent step of the translation job translates script 'SSP3D1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-011: One independent step of the translation job translates script '#SSVARS' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator. The job must accept a script name that starts with '#'.
+  - UP-BR-012: One independent step of the translation job translates script 'SSP2U1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-013: One independent step of the translation job translates script 'SSP3I1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-014: One independent step of the translation job translates script 'SSC1I1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-015: One independent step of the translation job translates script 'SSP2A1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-016: One independent step of the translation job translates script 'SSP2D1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-017: One independent step of the translation job translates script 'SSP1U1' from the script library, using that library as its include library and taking message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-018: One independent step of the translation job translates script 'SSP3A1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-019: One independent step of the translation job translates script 'SSP4I1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is not kept after the step, and keeps its listing and sequential output for the operator.
+  - UP-BR-020: One independent step of the translation job translates script 'SSP1A1', read as the step's control input, from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its listing and sequential output for the operator.
+  - UP-BR-021: One independent step of the translation job translates script 'SSP1D1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and writes its listing and sequential output to the job's default output.
+  - UP-BR-022: One independent step of the translation job translates script 'WSC1A1' from the script library. It resolves references against that library and takes message texts from the message library, both read-only and shared. It uses a scratch work file that is deleted when the step ends, and keeps its report and sequential output for the operator.
+  - _Requirements: UP-REQ-F-003, UP-REQ-F-004, UP-REQ-N-001, UP-REQ-F-005_
+  - _Rules: UP-BR-003, UP-BR-004, UP-BR-005, UP-BR-006, UP-BR-007, UP-BR-008, UP-BR-009, UP-BR-010, UP-BR-011, UP-BR-012, UP-BR-013, UP-BR-014, UP-BR-015, UP-BR-016, UP-BR-017, UP-BR-018, UP-BR-019, UP-BR-020, UP-BR-021, UP-BR-022_
+- [ ] UP-C02-T2 [test-generation] Write a test for every acceptance criterion
+  - 20 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-003, UP-REQ-F-004, UP-REQ-N-001, UP-REQ-F-005_
+  - _Criteria: UP-C02-AC-01, UP-C02-AC-02, UP-C02-AC-03, UP-C02-AC-04, UP-C02-AC-05, UP-C02-AC-06, UP-C02-AC-07, UP-C02-AC-08, UP-C02-AC-09, UP-C02-AC-10, UP-C02-AC-11, UP-C02-AC-12, UP-C02-AC-13, UP-C02-AC-14, UP-C02-AC-15, UP-C02-AC-16, UP-C02-AC-17, UP-C02-AC-18, UP-C02-AC-19, UP-C02-AC-20_
+  - _After: UP-C02-T1_
+
+## UP-C03 Look up customer details (draft)
+
+- [ ] UP-C03-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: UP-REQ-F-006, UP-REQ-F-007, UP-REQ-F-008, UP-REQ-F-009, UP-REQ-F-010, UP-REQ-F-011, UP-REQ-F-012, UP-REQ-F-013_
+- [ ] UP-C03-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP-REQ-F-007, UP-REQ-F-008, UP-REQ-F-010, UP-REQ-F-011_
+  - _Rules: UP-BR-025, UP-BR-026, UP-BR-027, UP-BR-028, UP-BR-030, UP-BR-031_
+  - _After: UP-C03-T1_
+- [ ] UP-C03-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: UP-REQ-F-006, UP-REQ-F-012, UP-REQ-F-013_
+  - _Rules: UP-BR-023, UP-BR-024, UP-BR-032, UP-BR-033_
+  - _After: UP-C03-T1_
+- [ ] UP-C03-T4 [api] Build the scheduled job
+  - UP-BR-025: Every customer inquiry reply starts as a success: return code '00' and number of policies '00' are set before any check runs. Later checks overwrite them only on failure.
+  - UP-BR-029: Once a request passes the length check, the inquiry calls the customer data service (LGICDB01 today) with the whole request (32500 bytes today). It passes that service's reply and return code back to the caller unchanged. In the new application this is a call from the inquiry API to the customer lookup service, keyed by customer number.
+  - _Requirements: UP-REQ-F-009_
+  - _Rules: UP-BR-029_
+  - _After: UP-C03-T1, UP-C03-T2, UP-C03-T3_
+- [ ] UP-C03-T5 [test-generation] Write a test for every acceptance criterion
+  - 13 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-006, UP-REQ-F-007, UP-REQ-F-008, UP-REQ-F-009, UP-REQ-F-010, UP-REQ-F-011, UP-REQ-F-012, UP-REQ-F-013_
+  - _Criteria: UP-C03-AC-01, UP-C03-AC-02, UP-C03-AC-03, UP-C03-AC-04, UP-C03-AC-05, UP-C03-AC-06, UP-C03-AC-07, UP-C03-AC-08, UP-C03-AC-09, UP-C03-AC-10, UP-C03-AC-11, UP-C03-AC-12, UP-C03-AC-13_
+  - _After: UP-C03-T1, UP-C03-T2, UP-C03-T3, UP-C03-T4_
+- [ ] UP-C03-T6 [compliance] Review the handling of audit, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP-REQ-F-006, UP-REQ-F-007, UP-REQ-F-008, UP-REQ-F-009, UP-REQ-F-010, UP-REQ-F-011, UP-REQ-F-012, UP-REQ-F-013_
+  - _After: UP-C03-T1, UP-C03-T2, UP-C03-T3, UP-C03-T4_
+
+## UP-C04 Route policy inquiries by request type (draft)
+
+- [ ] UP-C04-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: UP-REQ-F-014, UP-REQ-F-015, UP-REQ-F-016, UP-REQ-F-017, UP-REQ-F-018, UP-REQ-F-019, UP-REQ-F-020, UP-REQ-F-021, UP-REQ-F-022, UP-REQ-F-023_
+- [ ] UP-C04-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP-REQ-F-015, UP-REQ-F-016, UP-REQ-F-017, UP-REQ-F-018, UP-REQ-F-019, UP-REQ-F-020, UP-REQ-F-021, UP-REQ-F-022, UP-REQ-F-023_
+  - _Rules: UP-BR-036, UP-BR-037, UP-BR-038, UP-BR-039, UP-BR-040, UP-BR-041, UP-BR-042, UP-BR-043, UP-BR-044_
+  - _After: UP-C04-T1_
+- [ ] UP-C04-T3 [api] Build the scheduled job
+  - UP-BR-034: Every policy inquiry reply starts with return code '00'. Only a later failure (not found, reply area too small, database error or unknown request) changes it, so a request that runs cleanly always returns '00'.
+  - UP-BR-035: At the start of each policy inquiry, the supplied customer number and policy number become the lookup keys. They are also kept as context for error messages, so any error logged later names the customer and policy the caller asked for.
+  - _Requirements: UP-REQ-F-014_
+  - _Rules: UP-BR-034, UP-BR-035_
+  - _After: UP-C04-T1, UP-C04-T2_
+- [ ] UP-C04-T4 [test-generation] Write a test for every acceptance criterion
+  - 12 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-014, UP-REQ-F-015, UP-REQ-F-016, UP-REQ-F-017, UP-REQ-F-018, UP-REQ-F-019, UP-REQ-F-020, UP-REQ-F-021, UP-REQ-F-022, UP-REQ-F-023_
+  - _Criteria: UP-C04-AC-01, UP-C04-AC-02, UP-C04-AC-03, UP-C04-AC-04, UP-C04-AC-05, UP-C04-AC-06, UP-C04-AC-07, UP-C04-AC-08, UP-C04-AC-09, UP-C04-AC-10, UP-C04-AC-11, UP-C04-AC-12_
+  - _After: UP-C04-T1, UP-C04-T2, UP-C04-T3_
+- [ ] UP-C04-T5 [compliance] Review the handling of personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP-REQ-F-014, UP-REQ-F-015, UP-REQ-F-016, UP-REQ-F-017, UP-REQ-F-018, UP-REQ-F-019, UP-REQ-F-020, UP-REQ-F-021, UP-REQ-F-022, UP-REQ-F-023_
+  - _After: UP-C04-T1, UP-C04-T2, UP-C04-T3_
+
+## UP-C05 Report policy lookup outcomes (draft)
+
+- [ ] UP-C05-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: UP-REQ-F-024, UP-REQ-F-025, UP-REQ-F-026, UP-REQ-F-027, UP-REQ-F-028, UP-REQ-F-029_
+- [ ] UP-C05-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP-REQ-F-028_
+  - _Rules: UP-BR-049_
+  - _After: UP-C05-T1_
+- [ ] UP-C05-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: UP-REQ-F-024, UP-REQ-F-025, UP-REQ-F-026, UP-REQ-F-027, UP-REQ-F-029_
+  - _Rules: UP-BR-045, UP-BR-046, UP-BR-047, UP-BR-048, UP-BR-050_
+  - _After: UP-C05-T1_
+- [ ] UP-C05-T4 [api] Build the scheduled job
+  - Expose the rules as the service the screens call.
+  - _Requirements: UP-REQ-F-024, UP-REQ-F-025, UP-REQ-F-026, UP-REQ-F-027, UP-REQ-F-028, UP-REQ-F-029_
+  - _Rules: UP-BR-045, UP-BR-046, UP-BR-047, UP-BR-048, UP-BR-049, UP-BR-050_
+  - _After: UP-C05-T1, UP-C05-T2, UP-C05-T3_
+- [ ] UP-C05-T5 [test-generation] Write a test for every acceptance criterion
+  - 8 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-024, UP-REQ-F-025, UP-REQ-F-026, UP-REQ-F-027, UP-REQ-F-028, UP-REQ-F-029_
+  - _Criteria: UP-C05-AC-01, UP-C05-AC-02, UP-C05-AC-03, UP-C05-AC-04, UP-C05-AC-05, UP-C05-AC-06, UP-C05-AC-07, UP-C05-AC-08_
+  - _After: UP-C05-T1, UP-C05-T2, UP-C05-T3, UP-C05-T4_
+- [ ] UP-C05-T6 [compliance] Review the handling of audit, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP-REQ-F-024, UP-REQ-F-025, UP-REQ-F-026, UP-REQ-F-027, UP-REQ-F-028, UP-REQ-F-029_
+  - _After: UP-C05-T1, UP-C05-T2, UP-C05-T3, UP-C05-T4_
+
+## UP-C06 Return policy details (draft)
+
+- [ ] UP-C06-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: UP-REQ-F-030, UP-REQ-F-031, UP-REQ-F-032, UP-REQ-F-033, UP-REQ-F-034, UP-REQ-F-035, UP-REQ-F-036, UP-REQ-F-037, UP-REQ-F-038_
+- [ ] UP-C06-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP-REQ-F-030, UP-REQ-F-031, UP-REQ-F-033, UP-REQ-F-035, UP-REQ-F-036, UP-REQ-F-037_
+  - _Rules: UP-BR-051, UP-BR-052, UP-BR-055, UP-BR-057, UP-BR-058, UP-BR-059_
+  - _After: UP-C06-T1_
+- [ ] UP-C06-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: UP-REQ-F-038_
+  - _Rules: UP-BR-060_
+  - _After: UP-C06-T1_
+- [ ] UP-C06-T4 [api] Build the scheduled job
+  - UP-BR-053: Before replying, the inquiry works out the space the reply needs: 33 bytes of header plus the length for the policy type. That is 124 for endowment plus any padding data, 130 for house, 137 for motor and 1174 for commercial. In a message-based API this becomes a check that the reply fits the caller's limit, with '98' when it does not.
+  - UP-BR-054: For an endowment policy, the space needed is 33 + 124 bytes plus the length of the policy's free-form padding data when present. The padding length must be read with the policy, so the size check and the reply use the same value.
+  - UP-BR-056: An endowment reply ends with the end-of-data marker 'FINAL', written straight after the padding data: at position 1 plus the padding length, or position 1 when there is none. Callers use it to find where the policy data ends. An API with explicit field lengths may not need it, but it must stay while existing callers read it.
+  - _Requirements: UP-REQ-F-032, UP-REQ-F-034_
+  - _Rules: UP-BR-053, UP-BR-054, UP-BR-056_
+  - _After: UP-C06-T1, UP-C06-T2, UP-C06-T3_
+- [ ] UP-C06-T5 [test-generation] Write a test for every acceptance criterion
+  - 15 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-030, UP-REQ-F-031, UP-REQ-F-032, UP-REQ-F-033, UP-REQ-F-034, UP-REQ-F-035, UP-REQ-F-036, UP-REQ-F-037, UP-REQ-F-038_
+  - _Criteria: UP-C06-AC-01, UP-C06-AC-02, UP-C06-AC-03, UP-C06-AC-04, UP-C06-AC-05, UP-C06-AC-06, UP-C06-AC-07, UP-C06-AC-08, UP-C06-AC-09, UP-C06-AC-10, UP-C06-AC-11, UP-C06-AC-12, UP-C06-AC-13, UP-C06-AC-14, UP-C06-AC-15_
+  - _After: UP-C06-T1, UP-C06-T2, UP-C06-T3, UP-C06-T4_
+- [ ] UP-C06-T6 [compliance] Review the handling of money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP-REQ-F-030, UP-REQ-F-031, UP-REQ-F-032, UP-REQ-F-033, UP-REQ-F-034, UP-REQ-F-035, UP-REQ-F-036, UP-REQ-F-037, UP-REQ-F-038_
+  - _After: UP-C06-T1, UP-C06-T2, UP-C06-T3, UP-C06-T4_
+
+## UP-C07 Look up a single commercial policy (draft)
+
+- [ ] UP-C07-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: UP-REQ-F-039, UP-REQ-F-040, UP-REQ-F-041, UP-REQ-F-042, UP-REQ-F-043, UP-REQ-F-044_
+- [ ] UP-C07-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP-REQ-F-041, UP-REQ-F-043_
+  - _Rules: UP-BR-063, UP-BR-065_
+  - _After: UP-C07-T1_
+- [ ] UP-C07-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: UP-REQ-F-042, UP-REQ-F-044, UP-REQ-F-039_
+  - _Rules: UP-BR-061, UP-BR-064, UP-BR-066_
+  - _After: UP-C07-T1_
+- [ ] UP-C07-T4 [api] Build the scheduled job
+  - UP-BR-062: In a '01ICOM' or '02ICOM' reply, the marker 'FINAL' goes in the first 5 positions of the free space after the rejection reason, so callers can find where the data ends. Keep it in the reply layout while existing callers depend on it.
+  - _Requirements: UP-REQ-F-040_
+  - _Rules: UP-BR-062_
+  - _After: UP-C07-T1, UP-C07-T2, UP-C07-T3_
+- [ ] UP-C07-T5 [test-generation] Write a test for every acceptance criterion
+  - 8 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-039, UP-REQ-F-040, UP-REQ-F-041, UP-REQ-F-042, UP-REQ-F-043, UP-REQ-F-044_
+  - _Criteria: UP-C07-AC-01, UP-C07-AC-02, UP-C07-AC-03, UP-C07-AC-04, UP-C07-AC-05, UP-C07-AC-06, UP-C07-AC-07, UP-C07-AC-08_
+  - _After: UP-C07-T1, UP-C07-T2, UP-C07-T3, UP-C07-T4_
+- [ ] UP-C07-T6 [compliance] Review the handling of money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP-REQ-F-039, UP-REQ-F-040, UP-REQ-F-041, UP-REQ-F-042, UP-REQ-F-043, UP-REQ-F-044_
+  - _After: UP-C07-T1, UP-C07-T2, UP-C07-T3, UP-C07-T4_
+
+## UP-C08 List commercial policies by customer or postcode (draft)
+
+- [ ] UP-C08-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: UP-REQ-F-045, UP-REQ-F-046, UP-REQ-F-047, UP-REQ-F-048, UP-REQ-F-049, UP-REQ-F-050_
+- [ ] UP-C08-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP-REQ-F-045, UP-REQ-F-046, UP-REQ-F-047, UP-REQ-F-050_
+  - _Rules: UP-BR-067, UP-BR-068, UP-BR-069, UP-BR-072_
+  - _After: UP-C08-T1_
+- [ ] UP-C08-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: UP-REQ-F-048, UP-REQ-F-049_
+  - _Rules: UP-BR-070, UP-BR-071_
+  - _After: UP-C08-T1_
+- [ ] UP-C08-T4 [api] Build the scheduled job
+  - Expose the rules as the service the screens call.
+  - _Requirements: UP-REQ-F-045, UP-REQ-F-046, UP-REQ-F-047, UP-REQ-F-048, UP-REQ-F-049, UP-REQ-F-050_
+  - _Rules: UP-BR-067, UP-BR-068, UP-BR-069, UP-BR-070, UP-BR-071, UP-BR-072_
+  - _After: UP-C08-T1, UP-C08-T2, UP-C08-T3_
+- [ ] UP-C08-T5 [test-generation] Write a test for every acceptance criterion
+  - 7 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-045, UP-REQ-F-046, UP-REQ-F-047, UP-REQ-F-048, UP-REQ-F-049, UP-REQ-F-050_
+  - _Criteria: UP-C08-AC-01, UP-C08-AC-02, UP-C08-AC-03, UP-C08-AC-04, UP-C08-AC-05, UP-C08-AC-06, UP-C08-AC-07_
+  - _After: UP-C08-T1, UP-C08-T2, UP-C08-T3, UP-C08-T4_
+- [ ] UP-C08-T6 [compliance] Review the handling of money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP-REQ-F-045, UP-REQ-F-046, UP-REQ-F-047, UP-REQ-F-048, UP-REQ-F-049, UP-REQ-F-050_
+  - _After: UP-C08-T1, UP-C08-T2, UP-C08-T3, UP-C08-T4_
+
+## UP-C09 Look up house and motor policy details (draft)
+
+- [ ] UP-C09-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: UP-REQ-F-051, UP-REQ-F-052, UP-REQ-F-053, UP-REQ-F-054_
+- [ ] UP-C09-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP-REQ-F-051, UP-REQ-F-052_
+  - _Rules: UP-BR-073, UP-BR-074_
+  - _After: UP-C09-T1_
+- [ ] UP-C09-T3 [api] Build the scheduled job
+  - UP-BR-075: A house reply ends with 'FINAL' in the first 5 positions of the free space straight after the house details. Callers use it to find where the policy data ends.
+  - UP-BR-076: A motor reply ends with 'FINAL' in the first 5 positions of the free space straight after the motor details, after the accidents count. Callers use it to find where the policy data ends.
+  - _Requirements: UP-REQ-F-053, UP-REQ-F-054_
+  - _Rules: UP-BR-075, UP-BR-076_
+  - _After: UP-C09-T1, UP-C09-T2_
+- [ ] UP-C09-T4 [test-generation] Write a test for every acceptance criterion
+  - 6 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-051, UP-REQ-F-052, UP-REQ-F-053, UP-REQ-F-054_
+  - _Criteria: UP-C09-AC-01, UP-C09-AC-02, UP-C09-AC-03, UP-C09-AC-04, UP-C09-AC-05, UP-C09-AC-06_
+  - _After: UP-C09-T1, UP-C09-T2, UP-C09-T3_
+- [ ] UP-C09-T5 [compliance] Review the handling of money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP-REQ-F-051, UP-REQ-F-052, UP-REQ-F-053, UP-REQ-F-054_
+  - _After: UP-C09-T1, UP-C09-T2, UP-C09-T3_
+
+## UP-C10 Accept and route policy inquiries (draft)
+
+- [ ] UP-C10-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA, LGPOLICY.
+  - _Requirements: UP-REQ-F-055, UP-REQ-F-056_
+- [ ] UP-C10-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP-REQ-F-055, UP-REQ-F-056_
+  - _Rules: UP-BR-077, UP-BR-078_
+  - _After: UP-C10-T1_
+- [ ] UP-C10-T3 [api] Build the scheduled job
+  - Expose the rules as the service the screens call.
+  - _Requirements: UP-REQ-F-055, UP-REQ-F-056_
+  - _Rules: UP-BR-077, UP-BR-078_
+  - _After: UP-C10-T1, UP-C10-T2_
+- [ ] UP-C10-T4 [test-generation] Write a test for every acceptance criterion
+  - 3 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-055, UP-REQ-F-056_
+  - _Criteria: UP-C10-AC-01, UP-C10-AC-02, UP-C10-AC-03_
+  - _After: UP-C10-T1, UP-C10-T2, UP-C10-T3_
+
+## UP-C11 Customise installation members with site values (draft)
+
+- [ ] UP-C11-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - Ask the owner before carrying the historical artifacts: UP-BR-079, UP-BR-100, UP-BR-101, UP-BR-114.
+  - _Requirements: UP-REQ-F-057, UP-REQ-F-078, UP-REQ-F-079, UP-REQ-F-092_
+  - _Rules: UP-BR-079, UP-BR-100, UP-BR-101, UP-BR-114_
+- [ ] UP-C11-T2 [api] Build the service
+  - UP-BR-080: Template substitution: every '<LOADX>' is replaced with the GenApp load library name, which is the installation qualifier followed by '.LOAD'. Derive the value from the one qualifier setting rather than asking for it separately.
+  - UP-BR-081: Template substitution: every '<AORSYSID>' is replaced with the application-owning region system identifier from the site configuration.
+  - UP-BR-082: Template substitution: every '<DB2RUN>' is replaced with the configured database run library value from the site configuration.
+  - UP-BR-083: Template substitution: every '<TORAPPL>' is replaced with the terminal-owning region application identifier from the site configuration.
+  - UP-BR-084: Template substitution: every '<SOURCEX>' is replaced with the GenApp source library name, which is the installation qualifier followed by '.SRC'. Derive the value from the qualifier setting.
+  - UP-BR-085: Template substitution: every '<TORSYSID>' is replaced with the terminal-owning region system identifier from the site configuration.
+  - UP-BR-086: Template substitution: every '<ZFSHOME>' is replaced with the configured file-system home directory.
+  - UP-BR-087: Template substitution: every '<DB2DBID>' is replaced with the configured database name.
+  - UP-BR-088: Template substitution: every '<WSIMMSX>' is replaced with the GenApp message-text library name, which is the installation qualifier followed by '.MSGTXT'. Derive the value from the qualifier setting.
+  - UP-BR-089: Template substitution: every '<DORAPPL>' is replaced with the data-owning region application identifier from the site configuration.
+  - UP-BR-090: Template substitution: every '<CICSHLQ>' is replaced with the configured transaction-server library prefix.
+  - UP-BR-091: Template substitution: every '<KSDSCUS>' is replaced with the customer data file name the installer set up.
+  - UP-BR-092: Template substitution: every '<COBOLHLQ>' is replaced with the site's COBOL compiler library qualifier.
+  - UP-BR-093: Template substitution: every '<WSIMHLQ>' is replaced with the site's workload simulator library qualifier (shipped as 'PP.WSIM.V110'). Several other placeholders reuse this same value.
+  - UP-BR-094: Template substitution: every '<USRHLQ>' is replaced with the installing user's data set qualifier.
+  - UP-BR-095: Template substitution: every '<WSIMWSX>' is replaced with the name of the GenApp workload simulator script library. A template without the placeholder passes through unchanged.
+  - UP-BR-096: Template substitution: every '<SQLID>' is replaced with the database SQL authorisation ID set for the installation.
+  - UP-BR-097: Template substitution: every '<CPSMHLQ>' is replaced with the site's CICSPlex SM library qualifier.
+  - UP-BR-098: Template substitution: every '<DB2CCSID>' is replaced with the database coded character set ID set for the installation.
+  - UP-BR-099: Template substitution: every '<DB2PLAN>' is replaced with the database plan name set for the installation.
+  - UP-BR-102: Template substitution: every '<WSIMSTL>' is replaced with the WSim product high-level qualifier (WSIMHLQ), not with the GenApp WSim data set name. Keep that mapping unless the owner decides otherwise.
+  - UP-BR-103: Template substitution: every '<AORAPPL>' is replaced with the configured application-owning region application name.
+  - UP-BR-104: Template substitution: every '<WSIMLGX>' is replaced with the name of the GenApp WSim log data set, written without quotes.
+  - UP-BR-105: Template substitution: every '<DB2HLQ>' is replaced with the configured database high-level qualifier.
+  - UP-BR-106: Template substitution: every '<KSDSPOL>' is replaced with the name of the policy load data set.
+  - UP-BR-107: Template substitution: every '<DBRMLIX>' is replaced with the name of the GenApp database request module library, written without quotes.
+  - UP-BR-108: Template substitution: every '<CICSLIC>' is replaced with the configured name of the CICS licence data set.
+  - UP-BR-109: Template substitution: every '<CSDNAME>' is replaced with the configured CICS system definition data set name.
+  - UP-BR-110: Template substitution: every '<WUIAPPL>' is replaced with the configured CICSPlex SM web user interface application name.
+  - UP-BR-111: Template substitution: every '<MAPCOPX>' is replaced with the name of the GenApp map copybook library, written without quotes.
+  - UP-BR-112: Template substitution: every '<CMASAPPL>' is replaced with the configured CICSPlex SM address space (CMAS) application name.
+  - UP-BR-113: Template substitution: every '<DORSYSID>' is replaced with the data-owning region system identifier the installer set (shipped default 'DOR1'). As with every placeholder, build it as one entry in a placeholder-to-setting table read from the site configuration, and report a missing setting instead of leaving the placeholder in place.
+  - _Requirements: UP-REQ-F-058, UP-REQ-F-059, UP-REQ-F-060, UP-REQ-F-061, UP-REQ-F-062, UP-REQ-F-063, UP-REQ-F-064, UP-REQ-F-065, UP-REQ-F-066, UP-REQ-F-067, UP-REQ-F-068, UP-REQ-F-069, UP-REQ-F-070, UP-REQ-F-071, UP-REQ-F-072, UP-REQ-F-073, UP-REQ-F-074, UP-REQ-F-075, UP-REQ-F-076, UP-REQ-F-077, UP-REQ-F-080, UP-REQ-F-081, UP-REQ-F-082, UP-REQ-F-083, UP-REQ-F-084, UP-REQ-F-085, UP-REQ-F-086, UP-REQ-F-087, UP-REQ-F-088, UP-REQ-F-089, UP-REQ-F-090, UP-REQ-F-091_
+  - _Rules: UP-BR-080, UP-BR-081, UP-BR-082, UP-BR-083, UP-BR-084, UP-BR-085, UP-BR-086, UP-BR-087, UP-BR-088, UP-BR-089, UP-BR-090, UP-BR-091, UP-BR-092, UP-BR-093, UP-BR-094, UP-BR-095, UP-BR-096, UP-BR-097, UP-BR-098, UP-BR-099, UP-BR-102, UP-BR-103, UP-BR-104, UP-BR-105, UP-BR-106, UP-BR-107, UP-BR-108, UP-BR-109, UP-BR-110, UP-BR-111, UP-BR-112, UP-BR-113_
+  - _After: UP-C11-T1_
+- [ ] UP-C11-T3 [test-generation] Write a test for every acceptance criterion
+  - 38 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-057, UP-REQ-F-058, UP-REQ-F-059, UP-REQ-F-060, UP-REQ-F-061, UP-REQ-F-062, UP-REQ-F-063, UP-REQ-F-064, UP-REQ-F-065, UP-REQ-F-066, UP-REQ-F-067, UP-REQ-F-068, UP-REQ-F-069, UP-REQ-F-070, UP-REQ-F-071, UP-REQ-F-072, UP-REQ-F-073, UP-REQ-F-074, UP-REQ-F-075, UP-REQ-F-076, UP-REQ-F-077, UP-REQ-F-078, UP-REQ-F-079, UP-REQ-F-080, UP-REQ-F-081, UP-REQ-F-082, UP-REQ-F-083, UP-REQ-F-084, UP-REQ-F-085, UP-REQ-F-086, UP-REQ-F-087, UP-REQ-F-088, UP-REQ-F-089, UP-REQ-F-090, UP-REQ-F-091, UP-REQ-F-092_
+  - _Criteria: UP-C11-AC-01, UP-C11-AC-02, UP-C11-AC-03, UP-C11-AC-04, UP-C11-AC-05, UP-C11-AC-06, UP-C11-AC-07, UP-C11-AC-08, UP-C11-AC-09, UP-C11-AC-10, UP-C11-AC-11, UP-C11-AC-12, UP-C11-AC-13, UP-C11-AC-14, UP-C11-AC-15, UP-C11-AC-16, UP-C11-AC-17, UP-C11-AC-18, UP-C11-AC-19, UP-C11-AC-20, UP-C11-AC-21, UP-C11-AC-22, UP-C11-AC-23, UP-C11-AC-24, UP-C11-AC-25, UP-C11-AC-26, UP-C11-AC-27, UP-C11-AC-28, UP-C11-AC-29, UP-C11-AC-30, UP-C11-AC-31, UP-C11-AC-32, UP-C11-AC-33, UP-C11-AC-34, UP-C11-AC-35, UP-C11-AC-36, UP-C11-AC-37, UP-C11-AC-38_
+  - _After: UP-C11-T1, UP-C11-T2_
+- [ ] UP-C11-T4 [compliance] Review the handling of security
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP-REQ-F-057, UP-REQ-F-058, UP-REQ-F-059, UP-REQ-F-060, UP-REQ-F-061, UP-REQ-F-062, UP-REQ-F-063, UP-REQ-F-064, UP-REQ-F-065, UP-REQ-F-066, UP-REQ-F-067, UP-REQ-F-068, UP-REQ-F-069, UP-REQ-F-070, UP-REQ-F-071, UP-REQ-F-072, UP-REQ-F-073, UP-REQ-F-074, UP-REQ-F-075, UP-REQ-F-076, UP-REQ-F-077, UP-REQ-F-078, UP-REQ-F-079, UP-REQ-F-080, UP-REQ-F-081, UP-REQ-F-082, UP-REQ-F-083, UP-REQ-F-084, UP-REQ-F-085, UP-REQ-F-086, UP-REQ-F-087, UP-REQ-F-088, UP-REQ-F-089, UP-REQ-F-090, UP-REQ-F-091, UP-REQ-F-092_
+  - _After: UP-C11-T1, UP-C11-T2_
+
+## UP-C12 Save customised installation members as copies (draft)
+
+- [ ] UP-C12-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - Ask the owner before carrying the historical artifacts: UP-BR-079, UP-BR-080, UP-BR-081, UP-BR-082, UP-BR-083, UP-BR-084, UP-BR-085, UP-BR-086, UP-BR-087, UP-BR-088, UP-BR-089, UP-BR-090, UP-BR-117, UP-BR-118.
+  - _Requirements: UP-REQ-F-094_
+  - _Rules: UP-BR-079, UP-BR-080, UP-BR-081, UP-BR-082, UP-BR-083, UP-BR-084, UP-BR-085, UP-BR-086, UP-BR-087, UP-BR-088, UP-BR-089, UP-BR-090, UP-BR-117, UP-BR-118_
+- [ ] UP-C12-T2 [api] Build the service
+  - UP-BR-115: When the template being customised is named 'ONCICS', its customised text is saved as a new output named '#ONCICS'.
+  - UP-BR-116: The whole customised text of 'ONCICS' is written as '#ONCICS' and overwrites any earlier output of that name, so the customisation can be re-run.
+  - UP-BR-117: Every template other than 'ONCICS' is saved as a new output named '@' followed by the template name.
+  - UP-BR-118: The whole customised text of every other template is written under the '@'-prefixed name and overwrites any earlier output of that name, so the customisation can be re-run.
+  - UP-BR-080: After '<LOADX>' has been replaced with the load library name, the result is saved only as the customised copy, never back into the template.
+  - UP-BR-081: After '<AORSYSID>' has been replaced with the application-owning region system identifier, the result is saved only as the customised copy, never back into the template.
+  - UP-BR-082: After '<DB2RUN>' has been replaced with the database run library value, the result is saved only as the customised copy, never back into the template.
+  - UP-BR-083: After '<TORAPPL>' has been replaced with the terminal-owning region application identifier, the result is saved only as the customised copy, never back into the template.
+  - UP-BR-084: After '<SOURCEX>' has been replaced with the source library name, the result is saved only as the customised copy, never back into the template.
+  - UP-BR-085: After '<TORSYSID>' has been replaced with the terminal-owning region system identifier, the result is saved only as the customised copy, never back into the template.
+  - UP-BR-086: After '<ZFSHOME>' has been replaced with the file-system home directory, the result is saved only as the customised copy, never back into the template.
+  - UP-BR-087: After '<DB2DBID>' has been replaced with the database name, the result is saved only as the customised copy, never back into the template.
+  - UP-BR-088: After '<WSIMMSX>' has been replaced with the message-text library name, the result is saved only as the customised copy, never back into the template.
+  - UP-BR-089: After '<DORAPPL>' has been replaced with the data-owning region application identifier, the result is saved only as the customised copy, never back into the template.
+  - UP-BR-090: After '<CICSHLQ>' has been replaced with the transaction-server library prefix, the result is saved only as the customised copy, never back into the template.
+  - UP-BR-119: The shipped template is never modified. Substitutions are made on a working copy, which is discarded once the customised output has been saved under its prefixed name.
+  - UP-BR-120: After the customised copy is saved, the working edits are discarded, so the original template stays exactly as shipped and can be customised again.
+  - _Requirements: UP-REQ-F-093, UP-REQ-F-095_
+  - _Rules: UP-BR-115, UP-BR-116, UP-BR-119, UP-BR-120_
+  - _After: UP-C12-T1_
+- [ ] UP-C12-T3 [test-generation] Write a test for every acceptance criterion
+  - 3 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-093, UP-REQ-F-094, UP-REQ-F-095_
+  - _Criteria: UP-C12-AC-01, UP-C12-AC-02, UP-C12-AC-03_
+  - _After: UP-C12-T1, UP-C12-T2_
+
+## UP-C13 Customise installation members with site values (draft)
+
+- [ ] UP-C13-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - Ask the owner before carrying the historical artifacts: UP-BR-121.
+  - _Requirements: UP-REQ-F-096_
+  - _Rules: UP-BR-121_
+- [ ] UP-C13-T2 [api] Build the service
+  - UP-BR-122: The CICSPlex SM Web User Interface system identifier becomes a per-environment deployment setting (default 'IWUI'). The deployment templating step fills every '<WUISYSID>' in the configuration and install templates with it. The step fails if the setting is missing, so no template is left with the placeholder.
+  - UP-BR-123: The Db2 subsystem identifier becomes a per-environment setting (default 'DKM1'), and the same templating step fills every '<DB2SSID>' with it. In the new application this is the database connection target in environment configuration. It must not be hard-coded in any member or in code.
+  - UP-BR-124: The CICSPlex SM address space (CMAS) system identifier becomes a per-environment setting (default 'ICMA'). The templating step fills every '<CMASYSID>' with it. It is only needed while the target environment still runs CICSPlex SM; if the new platform has no CMAS, the setting and its placeholder can be dropped.
+  - UP-BR-125: The Language Environment runtime library qualifier becomes a per-environment setting (default 'CEE'). The templating step fills every '<CEEHLQ>' with it. On a non-mainframe runtime this maps to the location of the runtime libraries, or it is not needed at all.
+  - _Requirements: UP-REQ-F-097, UP-REQ-F-098, UP-REQ-F-099, UP-REQ-F-100_
+  - _Rules: UP-BR-122, UP-BR-123, UP-BR-124, UP-BR-125_
+  - _After: UP-C13-T1_
+- [ ] UP-C13-T3 [test-generation] Write a test for every acceptance criterion
+  - 6 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP-REQ-F-096, UP-REQ-F-097, UP-REQ-F-098, UP-REQ-F-099, UP-REQ-F-100_
+  - _Criteria: UP-C13-AC-01, UP-C13-AC-02, UP-C13-AC-03, UP-C13-AC-04, UP-C13-AC-05, UP-C13-AC-06_
+  - _After: UP-C13-T1, UP-C13-T2_
+
+## UP2-C01 Customer add, update and menu (draft)
+
+- [ ] UP2-C01-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: UP2-REQ-F-001, UP2-REQ-F-002, UP2-REQ-F-003, UP2-REQ-F-004, UP2-REQ-F-005, UP2-REQ-F-006, UP2-REQ-F-007, UP2-REQ-F-008, UP2-REQ-F-009, UP2-REQ-F-010, UP2-REQ-F-011, UP2-REQ-F-012, UP2-REQ-F-013_
+- [ ] UP2-C01-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP2-REQ-F-001, UP2-REQ-F-006, UP2-REQ-F-007, UP2-REQ-F-008, UP2-REQ-F-011, UP2-REQ-F-003, UP2-REQ-F-004_
+  - _Rules: UP2-BR-001, UP2-BR-003, UP2-BR-004, UP2-BR-006, UP2-BR-007, UP2-BR-009_
+  - _After: UP2-C01-T1_
+- [ ] UP2-C01-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: UP2-REQ-F-005, UP2-REQ-F-009, UP2-REQ-F-010, UP2-REQ-F-002, UP2-REQ-F-012, UP2-REQ-F-013_
+  - _Rules: UP2-BR-002, UP2-BR-005, UP2-BR-008, UP2-BR-010_
+  - _After: UP2-C01-T1_
+- [ ] UP2-C01-T4 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - link "New customer"
+  - link "Find customer"
+  - button "Sign out"
+  - _Requirements: UP2-REQ-F-001, UP2-REQ-F-006, UP2-REQ-F-012_
+  - _Rules: UP2-BR-001, UP2-BR-006, UP2-BR-010_
+  - _After: UP2-C01-T2, UP2-C01-T3_
+- [ ] UP2-C01-T5 [ui-modernization] Build the screen New customer (S-CUSTOMER-NEW)
+  - To the prototype: ui-reference/index.html#/S-CUSTOMER-NEW.
+  - text "Postcode": Postcode can be at most 8 characters
+  - button "Add customer"
+  - button "Clear form"
+  - display "Customer number"
+  - message "Result"
+  - message "Action not available": Only the actions shown as buttons here (Add customer, Clear form) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-001, UP2-REQ-F-002, UP2-REQ-F-003, UP2-REQ-F-004, UP2-REQ-F-005, UP2-REQ-F-011, UP2-REQ-F-013_
+  - _Rules: UP2-BR-001, UP2-BR-002, UP2-BR-003, UP2-BR-004, UP2-BR-005, UP2-BR-009, UP2-BR-010_
+  - _After: UP2-C01-T2, UP2-C01-T3_
+- [ ] UP2-C01-T6 [ui-modernization] Build the screen Customer details (S-CUSTOMER-EDIT)
+  - To the prototype: ui-reference/index.html#/S-CUSTOMER-EDIT.
+  - search "Customer number": Customer number must be up to 10 digits: enter digits only, for example 0000000001
+  - button "Find"
+  - message "Customer not found"
+  - text "Postcode": Postcode can be at most 8 characters
+  - button "Save changes"
+  - button "Discard changes"
+  - message "Result"
+  - message "Action not available": Only the actions shown as buttons here (Find, Save changes, Discard changes) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-006, UP2-REQ-F-007, UP2-REQ-F-008, UP2-REQ-F-009, UP2-REQ-F-010, UP2-REQ-F-011, UP2-REQ-F-013_
+  - _Rules: UP2-BR-006, UP2-BR-007, UP2-BR-008, UP2-BR-009, UP2-BR-010_
+  - _After: UP2-C01-T2, UP2-C01-T3_
+- [ ] UP2-C01-T7 [ui-modernization] Build the screen Find policies (S-POLICY-FIND)
+  - To the prototype: ui-reference/index.html#/S-POLICY-FIND.
+  - button "Search"
+  - message "Action not available": Only the actions shown as buttons here (Search, Open, New policy, Clear search) can run. Motor and life policies offer inquire, add, delete and update; house policies offer add, update and delete; commercial policies offer inquire, add and delete. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown.
+  - _Requirements: UP2-REQ-F-011_
+  - _Rules: UP2-BR-009_
+  - _After: UP2-C01-T2, UP2-C01-T3_
+- [ ] UP2-C01-T8 [ui-modernization] Build the screen Motor policy (S-MOTOR-POLICY)
+  - To the prototype: ui-reference/index.html#/S-MOTOR-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-011_
+  - _Rules: UP2-BR-009_
+  - _After: UP2-C01-T2, UP2-C01-T3_
+- [ ] UP2-C01-T9 [ui-modernization] Build the screen Life (endowment) policy (S-LIFE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-LIFE-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-011_
+  - _Rules: UP2-BR-009_
+  - _After: UP2-C01-T2, UP2-C01-T3_
+- [ ] UP2-C01-T10 [ui-modernization] Build the screen House policy (S-HOUSE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-HOUSE-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-011_
+  - _Rules: UP2-BR-009_
+  - _After: UP2-C01-T2, UP2-C01-T3_
+- [ ] UP2-C01-T11 [ui-modernization] Build the screen Commercial property policy (S-COMMERCIAL-POLICY)
+  - To the prototype: ui-reference/index.html#/S-COMMERCIAL-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Delete) can run, plus finding a policy on S-POLICY-FIND; commercial policies cannot be updated. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-011_
+  - _Rules: UP2-BR-009_
+  - _After: UP2-C01-T2, UP2-C01-T3_
+- [ ] UP2-C01-T12 [ui-modernization] Build the screen Claim (S-CLAIM-VIEW)
+  - To the prototype: ui-reference/index.html#/S-CLAIM-VIEW.
+  - message "Action not available": Only Find can run here. Any other request calls no back-end service and shows 'Please enter a valid option': use the Find button.
+  - _Requirements: UP2-REQ-F-011_
+  - _Rules: UP2-BR-009_
+  - _After: UP2-C01-T2, UP2-C01-T3_
+- [ ] UP2-C01-T13 [test-generation] Write a test for every acceptance criterion
+  - 14 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP2-REQ-F-001, UP2-REQ-F-002, UP2-REQ-F-003, UP2-REQ-F-004, UP2-REQ-F-005, UP2-REQ-F-006, UP2-REQ-F-007, UP2-REQ-F-008, UP2-REQ-F-009, UP2-REQ-F-010, UP2-REQ-F-011, UP2-REQ-F-012, UP2-REQ-F-013_
+  - _Criteria: UP2-C01-AC-01, UP2-C01-AC-02, UP2-C01-AC-03, UP2-C01-AC-04, UP2-C01-AC-05, UP2-C01-AC-06, UP2-C01-AC-07, UP2-C01-AC-08, UP2-C01-AC-09, UP2-C01-AC-10, UP2-C01-AC-11, UP2-C01-AC-12, UP2-C01-AC-13, UP2-C01-AC-14_
+  - _After: UP2-C01-T1, UP2-C01-T2, UP2-C01-T3, UP2-C01-T4, UP2-C01-T5, UP2-C01-T6, UP2-C01-T7, UP2-C01-T8, UP2-C01-T9, UP2-C01-T10, UP2-C01-T11, UP2-C01-T12_
+- [ ] UP2-C01-T14 [compliance] Review the handling of personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP2-REQ-F-001, UP2-REQ-F-002, UP2-REQ-F-003, UP2-REQ-F-004, UP2-REQ-F-005, UP2-REQ-F-006, UP2-REQ-F-007, UP2-REQ-F-008, UP2-REQ-F-009, UP2-REQ-F-010, UP2-REQ-F-011, UP2-REQ-F-012, UP2-REQ-F-013_
+  - _After: UP2-C01-T1, UP2-C01-T2, UP2-C01-T3, UP2-C01-T4, UP2-C01-T5, UP2-C01-T6, UP2-C01-T7, UP2-C01-T8, UP2-C01-T9, UP2-C01-T10, UP2-C01-T11, UP2-C01-T12_
+
+## UP2-C02 Motor policy inquire, add, delete and update (draft)
+
+- [ ] UP2-C02-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: UP2-REQ-F-014, UP2-REQ-F-015, UP2-REQ-F-016, UP2-REQ-F-017, UP2-REQ-F-018, UP2-REQ-F-019, UP2-REQ-F-020, UP2-REQ-F-021, UP2-REQ-F-022, UP2-REQ-F-023, UP2-REQ-F-024, UP2-REQ-F-025, UP2-REQ-F-026, UP2-REQ-F-027, UP2-REQ-F-028_
+- [ ] UP2-C02-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP2-REQ-F-014, UP2-REQ-F-015, UP2-REQ-F-018, UP2-REQ-F-021, UP2-REQ-F-024, UP2-REQ-F-025, UP2-REQ-F-026_
+  - _Rules: UP2-BR-011, UP2-BR-014, UP2-BR-017, UP2-BR-020, UP2-BR-021_
+  - _After: UP2-C02-T1_
+- [ ] UP2-C02-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: UP2-REQ-F-017, UP2-REQ-F-020, UP2-REQ-F-023, UP2-REQ-F-027, UP2-REQ-F-028, UP2-REQ-F-016, UP2-REQ-F-019, UP2-REQ-F-022_
+  - _Rules: UP2-BR-012, UP2-BR-013, UP2-BR-015, UP2-BR-016, UP2-BR-018, UP2-BR-019, UP2-BR-022_
+  - _After: UP2-C02-T1_
+- [ ] UP2-C02-T4 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - link "Policies"
+  - _Requirements: UP2-REQ-F-014_
+  - _Rules: UP2-BR-011_
+  - _After: UP2-C02-T2, UP2-C02-T3_
+- [ ] UP2-C02-T5 [ui-modernization] Build the screen New customer (S-CUSTOMER-NEW)
+  - To the prototype: ui-reference/index.html#/S-CUSTOMER-NEW.
+  - message "Action not available": Only the actions shown as buttons here (Add customer, Clear form) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-015_
+  - _Rules: UP2-BR-011_
+  - _After: UP2-C02-T2, UP2-C02-T3_
+- [ ] UP2-C02-T6 [ui-modernization] Build the screen Customer details (S-CUSTOMER-EDIT)
+  - To the prototype: ui-reference/index.html#/S-CUSTOMER-EDIT.
+  - message "Action not available": Only the actions shown as buttons here (Find, Save changes, Discard changes) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-015_
+  - _Rules: UP2-BR-011_
+  - _After: UP2-C02-T2, UP2-C02-T3_
+- [ ] UP2-C02-T7 [ui-modernization] Build the screen Find policies (S-POLICY-FIND)
+  - To the prototype: ui-reference/index.html#/S-POLICY-FIND.
+  - button "Search"
+  - message "Nothing found"
+  - button "New motor policy"
+  - message "Action not available": Only the actions shown as buttons here (Search, Open, New policy, Clear search) can run. Motor and life policies offer inquire, add, delete and update; house policies offer add, update and delete; commercial policies offer inquire, add and delete. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown.
+  - _Requirements: UP2-REQ-F-015, UP2-REQ-F-016, UP2-REQ-F-017, UP2-REQ-F-018_
+  - _Rules: UP2-BR-011, UP2-BR-012, UP2-BR-013, UP2-BR-014_
+  - _After: UP2-C02-T2, UP2-C02-T3_
+- [ ] UP2-C02-T8 [ui-modernization] Build the screen Motor policy (S-MOTOR-POLICY)
+  - To the prototype: ui-reference/index.html#/S-MOTOR-POLICY.
+  - button "Add motor policy"
+  - button "Save changes"
+  - button "Delete motor policy"
+  - dialog "Delete this policy?"
+  - message "Result"
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-014, UP2-REQ-F-015, UP2-REQ-F-018, UP2-REQ-F-019, UP2-REQ-F-020, UP2-REQ-F-021, UP2-REQ-F-022, UP2-REQ-F-023, UP2-REQ-F-024, UP2-REQ-F-025, UP2-REQ-F-026, UP2-REQ-F-027, UP2-REQ-F-028_
+  - _Rules: UP2-BR-011, UP2-BR-014, UP2-BR-015, UP2-BR-016, UP2-BR-017, UP2-BR-018, UP2-BR-019, UP2-BR-020, UP2-BR-021, UP2-BR-022_
+  - _After: UP2-C02-T2, UP2-C02-T3_
+- [ ] UP2-C02-T9 [ui-modernization] Build the screen Life (endowment) policy (S-LIFE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-LIFE-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-014, UP2-REQ-F-015_
+  - _Rules: UP2-BR-011_
+  - _After: UP2-C02-T2, UP2-C02-T3_
+- [ ] UP2-C02-T10 [ui-modernization] Build the screen House policy (S-HOUSE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-HOUSE-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-014, UP2-REQ-F-015_
+  - _Rules: UP2-BR-011_
+  - _After: UP2-C02-T2, UP2-C02-T3_
+- [ ] UP2-C02-T11 [ui-modernization] Build the screen Commercial property policy (S-COMMERCIAL-POLICY)
+  - To the prototype: ui-reference/index.html#/S-COMMERCIAL-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Delete) can run, plus finding a policy on S-POLICY-FIND; commercial policies cannot be updated. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-014, UP2-REQ-F-015_
+  - _Rules: UP2-BR-011_
+  - _After: UP2-C02-T2, UP2-C02-T3_
+- [ ] UP2-C02-T12 [ui-modernization] Build the screen Claim (S-CLAIM-VIEW)
+  - To the prototype: ui-reference/index.html#/S-CLAIM-VIEW.
+  - message "Action not available": Only Find can run here. Any other request calls no back-end service and shows 'Please enter a valid option': use the Find button.
+  - _Requirements: UP2-REQ-F-014, UP2-REQ-F-015_
+  - _Rules: UP2-BR-011_
+  - _After: UP2-C02-T2, UP2-C02-T3_
+- [ ] UP2-C02-T13 [test-generation] Write a test for every acceptance criterion
+  - 14 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP2-REQ-F-014, UP2-REQ-F-015, UP2-REQ-F-016, UP2-REQ-F-017, UP2-REQ-F-018, UP2-REQ-F-019, UP2-REQ-F-020, UP2-REQ-F-021, UP2-REQ-F-022, UP2-REQ-F-023, UP2-REQ-F-024, UP2-REQ-F-025, UP2-REQ-F-026, UP2-REQ-F-027, UP2-REQ-F-028_
+  - _Criteria: UP2-C02-AC-01, UP2-C02-AC-02, UP2-C02-AC-03, UP2-C02-AC-04, UP2-C02-AC-05, UP2-C02-AC-06, UP2-C02-AC-07, UP2-C02-AC-08, UP2-C02-AC-09, UP2-C02-AC-10, UP2-C02-AC-11, UP2-C02-AC-12, UP2-C02-AC-13, UP2-C02-AC-14_
+  - _After: UP2-C02-T1, UP2-C02-T2, UP2-C02-T3, UP2-C02-T4, UP2-C02-T5, UP2-C02-T6, UP2-C02-T7, UP2-C02-T8, UP2-C02-T9, UP2-C02-T10, UP2-C02-T11, UP2-C02-T12_
+- [ ] UP2-C02-T14 [compliance] Review the handling of money
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP2-REQ-F-014, UP2-REQ-F-015, UP2-REQ-F-016, UP2-REQ-F-017, UP2-REQ-F-018, UP2-REQ-F-019, UP2-REQ-F-020, UP2-REQ-F-021, UP2-REQ-F-022, UP2-REQ-F-023, UP2-REQ-F-024, UP2-REQ-F-025, UP2-REQ-F-026, UP2-REQ-F-027, UP2-REQ-F-028_
+  - _After: UP2-C02-T1, UP2-C02-T2, UP2-C02-T3, UP2-C02-T4, UP2-C02-T5, UP2-C02-T6, UP2-C02-T7, UP2-C02-T8, UP2-C02-T9, UP2-C02-T10, UP2-C02-T11, UP2-C02-T12_
+
+## UP2-C03 Endowment (life) policy inquire, add, delete and update (draft)
+
+- [ ] UP2-C03-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: UP2-REQ-F-029, UP2-REQ-F-030, UP2-REQ-F-031, UP2-REQ-F-032, UP2-REQ-F-033, UP2-REQ-F-034, UP2-REQ-F-035, UP2-REQ-F-036, UP2-REQ-F-037, UP2-REQ-F-038, UP2-REQ-F-039, UP2-REQ-F-040, UP2-REQ-F-041, UP2-REQ-F-042, UP2-REQ-F-043, UP2-REQ-F-044_
+- [ ] UP2-C03-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP2-REQ-F-029, UP2-REQ-F-030, UP2-REQ-F-033, UP2-REQ-F-035, UP2-REQ-F-040_
+  - _Rules: UP2-BR-023, UP2-BR-024, UP2-BR-026, UP2-BR-028, UP2-BR-029, UP2-BR-034_
+  - _After: UP2-C03-T1_
+- [ ] UP2-C03-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: UP2-REQ-F-034, UP2-REQ-F-037, UP2-REQ-F-038, UP2-REQ-F-041, UP2-REQ-F-043, UP2-REQ-F-044, UP2-REQ-F-031, UP2-REQ-F-032, UP2-REQ-F-036, UP2-REQ-F-039, UP2-REQ-F-042_
+  - _Rules: UP2-BR-025, UP2-BR-027, UP2-BR-030, UP2-BR-031, UP2-BR-032, UP2-BR-033, UP2-BR-035, UP2-BR-036, UP2-BR-037_
+  - _After: UP2-C03-T1_
+- [ ] UP2-C03-T4 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - link "Policies"
+  - button "Sign out"
+  - _Requirements: UP2-REQ-F-029, UP2-REQ-F-031_
+  - _Rules: UP2-BR-023, UP2-BR-025_
+  - _After: UP2-C03-T2, UP2-C03-T3_
+- [ ] UP2-C03-T5 [ui-modernization] Build the screen New customer (S-CUSTOMER-NEW)
+  - To the prototype: ui-reference/index.html#/S-CUSTOMER-NEW.
+  - message "Action not available": Only the actions shown as buttons here (Add customer, Clear form) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-030_
+  - _Rules: UP2-BR-024_
+  - _After: UP2-C03-T2, UP2-C03-T3_
+- [ ] UP2-C03-T6 [ui-modernization] Build the screen Customer details (S-CUSTOMER-EDIT)
+  - To the prototype: ui-reference/index.html#/S-CUSTOMER-EDIT.
+  - message "Action not available": Only the actions shown as buttons here (Find, Save changes, Discard changes) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-030_
+  - _Rules: UP2-BR-024_
+  - _After: UP2-C03-T2, UP2-C03-T3_
+- [ ] UP2-C03-T7 [ui-modernization] Build the screen Find policies (S-POLICY-FIND)
+  - To the prototype: ui-reference/index.html#/S-POLICY-FIND.
+  - button "Search"
+  - message "Nothing found"
+  - button "New life policy"
+  - button "Clear search"
+  - message "Action not available": Only the actions shown as buttons here (Search, Open, New policy, Clear search) can run. Motor and life policies offer inquire, add, delete and update; house policies offer add, update and delete; commercial policies offer inquire, add and delete. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown.
+  - _Requirements: UP2-REQ-F-030, UP2-REQ-F-032, UP2-REQ-F-033, UP2-REQ-F-034, UP2-REQ-F-035_
+  - _Rules: UP2-BR-024, UP2-BR-025, UP2-BR-026, UP2-BR-027, UP2-BR-028, UP2-BR-029_
+  - _After: UP2-C03-T2, UP2-C03-T3_
+- [ ] UP2-C03-T8 [ui-modernization] Build the screen Motor policy (S-MOTOR-POLICY)
+  - To the prototype: ui-reference/index.html#/S-MOTOR-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-030_
+  - _Rules: UP2-BR-024_
+  - _After: UP2-C03-T2, UP2-C03-T3_
+- [ ] UP2-C03-T9 [ui-modernization] Build the screen Life (endowment) policy (S-LIFE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-LIFE-POLICY.
+  - button "Add life policy"
+  - button "Save changes"
+  - button "Delete life policy"
+  - dialog "Delete this policy?"
+  - message "Result"
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-029, UP2-REQ-F-030, UP2-REQ-F-035, UP2-REQ-F-036, UP2-REQ-F-037, UP2-REQ-F-038, UP2-REQ-F-039, UP2-REQ-F-040, UP2-REQ-F-041, UP2-REQ-F-042, UP2-REQ-F-043, UP2-REQ-F-044_
+  - _Rules: UP2-BR-023, UP2-BR-024, UP2-BR-028, UP2-BR-029, UP2-BR-030, UP2-BR-031, UP2-BR-032, UP2-BR-033, UP2-BR-034, UP2-BR-035, UP2-BR-036, UP2-BR-037_
+  - _After: UP2-C03-T2, UP2-C03-T3_
+- [ ] UP2-C03-T10 [ui-modernization] Build the screen House policy (S-HOUSE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-HOUSE-POLICY.
+  - button "Add house policy"
+  - button "Save changes"
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-030, UP2-REQ-F-035, UP2-REQ-F-040_
+  - _Rules: UP2-BR-024, UP2-BR-028, UP2-BR-029, UP2-BR-034_
+  - _After: UP2-C03-T2, UP2-C03-T3_
+- [ ] UP2-C03-T11 [ui-modernization] Build the screen Commercial property policy (S-COMMERCIAL-POLICY)
+  - To the prototype: ui-reference/index.html#/S-COMMERCIAL-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Delete) can run, plus finding a policy on S-POLICY-FIND; commercial policies cannot be updated. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-030_
+  - _Rules: UP2-BR-024_
+  - _After: UP2-C03-T2, UP2-C03-T3_
+- [ ] UP2-C03-T12 [ui-modernization] Build the screen Claim (S-CLAIM-VIEW)
+  - To the prototype: ui-reference/index.html#/S-CLAIM-VIEW.
+  - message "Action not available": Only Find can run here. Any other request calls no back-end service and shows 'Please enter a valid option': use the Find button.
+  - _Requirements: UP2-REQ-F-030_
+  - _Rules: UP2-BR-024_
+  - _After: UP2-C03-T2, UP2-C03-T3_
+- [ ] UP2-C03-T13 [test-generation] Write a test for every acceptance criterion
+  - 21 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP2-REQ-F-029, UP2-REQ-F-030, UP2-REQ-F-031, UP2-REQ-F-032, UP2-REQ-F-033, UP2-REQ-F-034, UP2-REQ-F-035, UP2-REQ-F-036, UP2-REQ-F-037, UP2-REQ-F-038, UP2-REQ-F-039, UP2-REQ-F-040, UP2-REQ-F-041, UP2-REQ-F-042, UP2-REQ-F-043, UP2-REQ-F-044_
+  - _Criteria: UP2-C03-AC-01, UP2-C03-AC-02, UP2-C03-AC-03, UP2-C03-AC-04, UP2-C03-AC-05, UP2-C03-AC-06, UP2-C03-AC-07, UP2-C03-AC-08, UP2-C03-AC-09, UP2-C03-AC-10, UP2-C03-AC-11, UP2-C03-AC-12, UP2-C03-AC-13, UP2-C03-AC-14, UP2-C03-AC-15, UP2-C03-AC-16, UP2-C03-AC-17, UP2-C03-AC-18, UP2-C03-AC-19, UP2-C03-AC-20, UP2-C03-AC-21_
+  - _After: UP2-C03-T1, UP2-C03-T2, UP2-C03-T3, UP2-C03-T4, UP2-C03-T5, UP2-C03-T6, UP2-C03-T7, UP2-C03-T8, UP2-C03-T9, UP2-C03-T10, UP2-C03-T11, UP2-C03-T12_
+- [ ] UP2-C03-T14 [compliance] Review the handling of money
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP2-REQ-F-029, UP2-REQ-F-030, UP2-REQ-F-031, UP2-REQ-F-032, UP2-REQ-F-033, UP2-REQ-F-034, UP2-REQ-F-035, UP2-REQ-F-036, UP2-REQ-F-037, UP2-REQ-F-038, UP2-REQ-F-039, UP2-REQ-F-040, UP2-REQ-F-041, UP2-REQ-F-042, UP2-REQ-F-043, UP2-REQ-F-044_
+  - _After: UP2-C03-T1, UP2-C03-T2, UP2-C03-T3, UP2-C03-T4, UP2-C03-T5, UP2-C03-T6, UP2-C03-T7, UP2-C03-T8, UP2-C03-T9, UP2-C03-T10, UP2-C03-T11, UP2-C03-T12_
+
+## UP2-C04 House policy add, delete and update (draft)
+
+- [ ] UP2-C04-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: UP2-REQ-F-045, UP2-REQ-F-046, UP2-REQ-F-047, UP2-REQ-F-048, UP2-REQ-F-049, UP2-REQ-F-050, UP2-REQ-F-051, UP2-REQ-F-052, UP2-REQ-F-053_
+- [ ] UP2-C04-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP2-REQ-F-045, UP2-REQ-F-048, UP2-REQ-F-050, UP2-REQ-F-051_
+  - _Rules: UP2-BR-029, UP2-BR-038, UP2-BR-041, UP2-BR-043_
+  - _After: UP2-C04-T1_
+- [ ] UP2-C04-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: UP2-REQ-F-047, UP2-REQ-F-049, UP2-REQ-F-052, UP2-REQ-F-053, UP2-REQ-F-046_
+  - _Rules: UP2-BR-039, UP2-BR-040, UP2-BR-042, UP2-BR-044_
+  - _After: UP2-C04-T1_
+- [ ] UP2-C04-T4 [ui-modernization] Build the screen Find policies (S-POLICY-FIND)
+  - To the prototype: ui-reference/index.html#/S-POLICY-FIND.
+  - button "New house policy"
+  - _Requirements: UP2-REQ-F-045_
+  - _Rules: UP2-BR-029, UP2-BR-038_
+  - _After: UP2-C04-T2, UP2-C04-T3_
+- [ ] UP2-C04-T5 [ui-modernization] Build the screen Life (endowment) policy (S-LIFE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-LIFE-POLICY.
+  - button "Add life policy"
+  - button "Save changes"
+  - _Requirements: UP2-REQ-F-045, UP2-REQ-F-050_
+  - _Rules: UP2-BR-029, UP2-BR-038, UP2-BR-043_
+  - _After: UP2-C04-T2, UP2-C04-T3_
+- [ ] UP2-C04-T6 [ui-modernization] Build the screen House policy (S-HOUSE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-HOUSE-POLICY.
+  - button "Add house policy"
+  - button "Save changes"
+  - button "Delete house policy"
+  - dialog "Delete this policy?"
+  - message "Result"
+  - _Requirements: UP2-REQ-F-045, UP2-REQ-F-046, UP2-REQ-F-047, UP2-REQ-F-048, UP2-REQ-F-049, UP2-REQ-F-050, UP2-REQ-F-051, UP2-REQ-F-052, UP2-REQ-F-053_
+  - _Rules: UP2-BR-029, UP2-BR-038, UP2-BR-039, UP2-BR-040, UP2-BR-041, UP2-BR-042, UP2-BR-043, UP2-BR-044_
+  - _After: UP2-C04-T2, UP2-C04-T3_
+- [ ] UP2-C04-T7 [test-generation] Write a test for every acceptance criterion
+  - 10 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP2-REQ-F-045, UP2-REQ-F-046, UP2-REQ-F-047, UP2-REQ-F-048, UP2-REQ-F-049, UP2-REQ-F-050, UP2-REQ-F-051, UP2-REQ-F-052, UP2-REQ-F-053_
+  - _Criteria: UP2-C04-AC-01, UP2-C04-AC-02, UP2-C04-AC-03, UP2-C04-AC-04, UP2-C04-AC-05, UP2-C04-AC-06, UP2-C04-AC-07, UP2-C04-AC-08, UP2-C04-AC-09, UP2-C04-AC-10_
+  - _After: UP2-C04-T1, UP2-C04-T2, UP2-C04-T3, UP2-C04-T4, UP2-C04-T5, UP2-C04-T6_
+- [ ] UP2-C04-T8 [compliance] Review the handling of money
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP2-REQ-F-045, UP2-REQ-F-046, UP2-REQ-F-047, UP2-REQ-F-048, UP2-REQ-F-049, UP2-REQ-F-050, UP2-REQ-F-051, UP2-REQ-F-052, UP2-REQ-F-053_
+  - _After: UP2-C04-T1, UP2-C04-T2, UP2-C04-T3, UP2-C04-T4, UP2-C04-T5, UP2-C04-T6_
+
+## UP2-C05 Commercial property policy inquire, add and delete (draft)
+
+- [ ] UP2-C05-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: UP2-REQ-F-054, UP2-REQ-F-055, UP2-REQ-F-056, UP2-REQ-F-057, UP2-REQ-F-058, UP2-REQ-F-059, UP2-REQ-F-060, UP2-REQ-F-061, UP2-REQ-F-062, UP2-REQ-F-063, UP2-REQ-F-064, UP2-REQ-F-065, UP2-REQ-F-066, UP2-REQ-F-067, UP2-REQ-N-001, UP2-REQ-F-068, UP2-REQ-F-069_
+- [ ] UP2-C05-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP2-REQ-F-055, UP2-REQ-F-056, UP2-REQ-F-057, UP2-REQ-F-058, UP2-REQ-F-059, UP2-REQ-F-062, UP2-REQ-F-065_
+  - _Rules: UP2-BR-046, UP2-BR-047, UP2-BR-048, UP2-BR-049, UP2-BR-052, UP2-BR-055_
+  - _After: UP2-C05-T1_
+- [ ] UP2-C05-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: UP2-REQ-F-061, UP2-REQ-F-064, UP2-REQ-F-067, UP2-REQ-F-054, UP2-REQ-F-060, UP2-REQ-F-063, UP2-REQ-F-066, UP2-REQ-F-068, UP2-REQ-F-069_
+  - _Rules: UP2-BR-045, UP2-BR-050, UP2-BR-051, UP2-BR-053, UP2-BR-054, UP2-BR-056, UP2-BR-057, UP2-BR-059_
+  - _After: UP2-C05-T1_
+- [ ] UP2-C05-T4 [api] Build the services and the scheduled job
+  - UP2-BR-058: After each option has been processed, the commercial policy screen stays open with its current values, so the user's next submission is handled by the same commercial policy screen and starts the next action. This is ordinary screen navigation in the new application: it needs no transaction code, only a way to keep the user on the commercial policy page between actions until they leave it (PF3 / exit) or clear it.
+  - _Requirements: UP2-REQ-N-001_
+  - _Rules: UP2-BR-058_
+  - _After: UP2-C05-T1, UP2-C05-T2, UP2-C05-T3_
+- [ ] UP2-C05-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - button "Sign out"
+  - _Requirements: UP2-REQ-F-068_
+  - _Rules: UP2-BR-059_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] UP2-C05-T6 [ui-modernization] Build the screen New customer (S-CUSTOMER-NEW)
+  - To the prototype: ui-reference/index.html#/S-CUSTOMER-NEW.
+  - message "Action not available": Only the actions shown as buttons here (Add customer, Clear form) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] UP2-C05-T7 [ui-modernization] Build the screen Customer details (S-CUSTOMER-EDIT)
+  - To the prototype: ui-reference/index.html#/S-CUSTOMER-EDIT.
+  - message "Action not available": Only the actions shown as buttons here (Find, Save changes, Discard changes) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] UP2-C05-T8 [ui-modernization] Build the screen Find policies (S-POLICY-FIND)
+  - To the prototype: ui-reference/index.html#/S-POLICY-FIND.
+  - text "Postcode": Postcode can be at most 8 characters
+  - button "Search"
+  - table "Policies found"
+  - message "Nothing found"
+  - button "New commercial policy"
+  - button "Clear search"
+  - message "Action not available": Only the actions shown as buttons here (Search, Open, New policy, Clear search) can run. Motor and life policies offer inquire, add, delete and update; house policies offer add, update and delete; commercial policies offer inquire, add and delete. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown.
+  - _Requirements: UP2-REQ-F-055, UP2-REQ-F-056, UP2-REQ-F-057, UP2-REQ-F-058, UP2-REQ-F-059, UP2-REQ-F-060, UP2-REQ-F-061, UP2-REQ-F-062, UP2-REQ-F-069_
+  - _Rules: UP2-BR-046, UP2-BR-047, UP2-BR-048, UP2-BR-049, UP2-BR-050, UP2-BR-051, UP2-BR-052, UP2-BR-059_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] UP2-C05-T9 [ui-modernization] Build the screen Motor policy (S-MOTOR-POLICY)
+  - To the prototype: ui-reference/index.html#/S-MOTOR-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] UP2-C05-T10 [ui-modernization] Build the screen Life (endowment) policy (S-LIFE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-LIFE-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] UP2-C05-T11 [ui-modernization] Build the screen House policy (S-HOUSE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-HOUSE-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] UP2-C05-T12 [ui-modernization] Build the screen Commercial property policy (S-COMMERCIAL-POLICY)
+  - To the prototype: ui-reference/index.html#/S-COMMERCIAL-POLICY.
+  - form "Commercial policy"
+  - display "Policy number"
+  - button "Add commercial policy"
+  - button "Delete commercial policy"
+  - dialog "Delete this policy?"
+  - message "Result"
+  - message "Action not available": Only the actions shown as buttons here (Add, Delete) can run, plus finding a policy on S-POLICY-FIND; commercial policies cannot be updated. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-054, UP2-REQ-F-055, UP2-REQ-F-060, UP2-REQ-F-062, UP2-REQ-F-063, UP2-REQ-F-064, UP2-REQ-F-065, UP2-REQ-F-066, UP2-REQ-F-067, UP2-REQ-N-001_
+  - _Rules: UP2-BR-045, UP2-BR-046, UP2-BR-050, UP2-BR-052, UP2-BR-053, UP2-BR-054, UP2-BR-055, UP2-BR-056, UP2-BR-057, UP2-BR-058_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] UP2-C05-T13 [ui-modernization] Build the screen Claim (S-CLAIM-VIEW)
+  - To the prototype: ui-reference/index.html#/S-CLAIM-VIEW.
+  - message "Action not available": Only Find can run here. Any other request calls no back-end service and shows 'Please enter a valid option': use the Find button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] UP2-C05-T14 [test-generation] Write a test for every acceptance criterion
+  - 19 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP2-REQ-F-054, UP2-REQ-F-055, UP2-REQ-F-056, UP2-REQ-F-057, UP2-REQ-F-058, UP2-REQ-F-059, UP2-REQ-F-060, UP2-REQ-F-061, UP2-REQ-F-062, UP2-REQ-F-063, UP2-REQ-F-064, UP2-REQ-F-065, UP2-REQ-F-066, UP2-REQ-F-067, UP2-REQ-N-001, UP2-REQ-F-068, UP2-REQ-F-069_
+  - _Criteria: UP2-C05-AC-01, UP2-C05-AC-02, UP2-C05-AC-03, UP2-C05-AC-04, UP2-C05-AC-05, UP2-C05-AC-06, UP2-C05-AC-07, UP2-C05-AC-08, UP2-C05-AC-09, UP2-C05-AC-10, UP2-C05-AC-11, UP2-C05-AC-12, UP2-C05-AC-13, UP2-C05-AC-14, UP2-C05-AC-15, UP2-C05-AC-16, UP2-C05-AC-17, UP2-C05-AC-18, UP2-C05-AC-19_
+  - _After: UP2-C05-T1, UP2-C05-T2, UP2-C05-T3, UP2-C05-T4, UP2-C05-T5, UP2-C05-T6, UP2-C05-T7, UP2-C05-T8, UP2-C05-T9, UP2-C05-T10, UP2-C05-T11, UP2-C05-T12, UP2-C05-T13_
+- [ ] UP2-C05-T15 [compliance] Review the handling of money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP2-REQ-F-054, UP2-REQ-F-055, UP2-REQ-F-056, UP2-REQ-F-057, UP2-REQ-F-058, UP2-REQ-F-059, UP2-REQ-F-060, UP2-REQ-F-061, UP2-REQ-F-062, UP2-REQ-F-063, UP2-REQ-F-064, UP2-REQ-F-065, UP2-REQ-F-066, UP2-REQ-F-067, UP2-REQ-N-001, UP2-REQ-F-068, UP2-REQ-F-069_
+  - _After: UP2-C05-T1, UP2-C05-T2, UP2-C05-T3, UP2-C05-T4, UP2-C05-T5, UP2-C05-T6, UP2-C05-T7, UP2-C05-T8, UP2-C05-T9, UP2-C05-T10, UP2-C05-T11, UP2-C05-T12, UP2-C05-T13_
+
+## DEML-C01 Accept log requests from programs and terminals (draft)
+
+- [ ] DEML-C01-T1 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: DEML-REQ-F-003_
+  - _Rules: DEML-BR-003_
+- [ ] DEML-C01-T2 [api] Build the scheduled job
+  - DEML-BR-001: Expose the logger as a callable service (in-process API or endpoint) that takes a message of up to 90 characters. The service prefixes the identifier of the producing system/instance and one space, and records the length as message length plus 5. Keep the 90-character limit and the 'system-id space text' layout so existing log readers still work.
+  - DEML-BR-002: Give operators a separate entry point (a console command or simple form) for typing a message by hand. When the input still carries a 5-character command/transaction prefix, strip it and keep at most the next 74 characters as the message. Then pass it through the same record-building path, with length computed as input length minus 5, plus 5.
+  - DEML-BR-004: A program-call submission must return straight to the caller with no user-facing output and no result the caller has to handle. Make it a fire-and-forget call that does not change the caller's flow.
+  - _Requirements: DEML-REQ-F-001, DEML-REQ-F-002, DEML-REQ-F-004_
+  - _Rules: DEML-BR-001, DEML-BR-002, DEML-BR-004_
+  - _After: DEML-C01-T1_
+- [ ] DEML-C01-T3 [test-generation] Write a test for every acceptance criterion
+  - 6 acceptance criteria, each a test named by its ID.
+  - _Requirements: DEML-REQ-F-001, DEML-REQ-F-002, DEML-REQ-F-003, DEML-REQ-F-004_
+  - _Criteria: DEML-C01-AC-01, DEML-C01-AC-02, DEML-C01-AC-03, DEML-C01-AC-04, DEML-C01-AC-05, DEML-C01-AC-06_
+  - _After: DEML-C01-T1, DEML-C01-T2_
+- [ ] DEML-C01-T4 [compliance] Review the handling of audit
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: DEML-REQ-F-001, DEML-REQ-F-002, DEML-REQ-F-003, DEML-REQ-F-004_
+  - _After: DEML-C01-T1, DEML-C01-T2_
+
+## DEML-C02 Record log messages to the standard and error queues (draft)
+
+- [ ] DEML-C02-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: DEML-REQ-F-006, DEML-REQ-F-007, DEML-REQ-F-005, DEML-REQ-F-008_
+  - _Rules: DEML-BR-005, DEML-BR-006, DEML-BR-007, DEML-BR-008_
+- [ ] DEML-C02-T2 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: DEML-REQ-N-001_
+  - _Rules: DEML-BR-009_
+- [ ] DEML-C02-T3 [api] Build the service
+  - Expose the rules as the service the screens call.
+  - _Requirements: DEML-REQ-F-005, DEML-REQ-F-006, DEML-REQ-F-007, DEML-REQ-F-008, DEML-REQ-N-001_
+  - _Rules: DEML-BR-005, DEML-BR-006, DEML-BR-007, DEML-BR-008, DEML-BR-009_
+  - _After: DEML-C02-T1, DEML-C02-T2_
+- [ ] DEML-C02-T4 [test-generation] Write a test for every acceptance criterion
+  - 6 acceptance criteria, each a test named by its ID.
+  - _Requirements: DEML-REQ-F-005, DEML-REQ-F-006, DEML-REQ-F-007, DEML-REQ-F-008, DEML-REQ-N-001_
+  - _Criteria: DEML-C02-AC-01, DEML-C02-AC-02, DEML-C02-AC-03, DEML-C02-AC-04, DEML-C02-AC-05, DEML-C02-AC-06_
+  - _After: DEML-C02-T1, DEML-C02-T2, DEML-C02-T3_
+- [ ] DEML-C02-T5 [compliance] Review the handling of audit
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: DEML-REQ-F-005, DEML-REQ-F-006, DEML-REQ-F-007, DEML-REQ-F-008, DEML-REQ-N-001_
+  - _After: DEML-C02-T1, DEML-C02-T2, DEML-C02-T3_
+
+## TSM-C01 Self-scheduled statistics refresh (draft)
+
+- [ ] TSM-C01-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: TSM-REQ-F-002, TSM-REQ-F-003, TSM-REQ-F-004_
+  - _Rules: TSM-BR-002_
+- [ ] TSM-C01-T2 [api] Build the scheduled job
+  - TSM-BR-001: The new application needs a scheduled job that starts the statistics collection once a minute. The legacy run books its own next run first, before it reads any counters, and never checks whether the booking worked. A scheduler with a fixed one-minute interval, such as a cron trigger or a timer service, replaces that self-booking. It must still run every minute even if a run fails partway, so that one failure does not stop the cycle.
+  - _Requirements: TSM-REQ-F-001_
+  - _Rules: TSM-BR-001_
+  - _After: TSM-C01-T1_
+- [ ] TSM-C01-T3 [test-generation] Write a test for every acceptance criterion
+  - 4 acceptance criteria, each a test named by its ID.
+  - _Requirements: TSM-REQ-F-001, TSM-REQ-F-002, TSM-REQ-F-003, TSM-REQ-F-004_
+  - _Criteria: TSM-C01-AC-01, TSM-C01-AC-02, TSM-C01-AC-03, TSM-C01-AC-04_
+  - _After: TSM-C01-T1, TSM-C01-T2_
+
+## TSM-C02 Total transaction counters by outcome and type (draft)
+
+- [ ] TSM-C02-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: TSM-REQ-F-005, TSM-REQ-F-006, TSM-REQ-F-007, TSM-REQ-F-008, TSM-REQ-F-009, TSM-REQ-F-010_
+  - _Rules: TSM-BR-003, TSM-BR-004, TSM-BR-005, TSM-BR-006, TSM-BR-007, TSM-BR-008_
+- [ ] TSM-C02-T2 [api] Build the scheduled job
+  - Expose the rules as the service the screens call.
+  - _Requirements: TSM-REQ-F-005, TSM-REQ-F-006, TSM-REQ-F-007, TSM-REQ-F-008, TSM-REQ-F-009, TSM-REQ-F-010_
+  - _Rules: TSM-BR-003, TSM-BR-004, TSM-BR-005, TSM-BR-006, TSM-BR-007, TSM-BR-008_
+  - _After: TSM-C02-T1_
+- [ ] TSM-C02-T3 [test-generation] Write a test for every acceptance criterion
+  - 6 acceptance criteria, each a test named by its ID.
+  - _Requirements: TSM-REQ-F-005, TSM-REQ-F-006, TSM-REQ-F-007, TSM-REQ-F-008, TSM-REQ-F-009, TSM-REQ-F-010_
+  - _Criteria: TSM-C02-AC-01, TSM-C02-AC-02, TSM-C02-AC-03, TSM-C02-AC-04, TSM-C02-AC-05, TSM-C02-AC-06_
+  - _After: TSM-C02-T1, TSM-C02-T2_
+
+## TSM-C03 Publish statistics to shared queues (draft)
+
+- [ ] TSM-C03-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: TSM-REQ-F-011, TSM-REQ-F-012, TSM-REQ-F-013, TSM-REQ-F-014, TSM-REQ-F-015_
+  - _Rules: TSM-BR-009, TSM-BR-010, TSM-BR-011, TSM-BR-012, TSM-BR-013, TSM-BR-014_
+- [ ] TSM-C03-T2 [api] Build the scheduled job
+  - TSM-BR-009: Each statistic needs a small keyed record, keyed by its queue name (for example 'GENA100V' or 'GENAX00V'), that holds the current value, the previous value and the change. Publishing reads the stored current value as the previous value and then replaces the whole record with new, previous and change (new minus previous). Do this as one atomic replace, such as a keyed upsert in a cache or table, so readers never see an empty or half-written statistic. Keep the order new, previous, change wherever consumers read it as a list.
+  - _Requirements: TSM-REQ-F-011, TSM-REQ-F-012, TSM-REQ-F-013, TSM-REQ-F-014, TSM-REQ-F-015_
+  - _Rules: TSM-BR-009, TSM-BR-010, TSM-BR-011, TSM-BR-012, TSM-BR-013, TSM-BR-014_
+  - _After: TSM-C03-T1_
+- [ ] TSM-C03-T3 [test-generation] Write a test for every acceptance criterion
+  - 4 acceptance criteria, each a test named by its ID.
+  - _Requirements: TSM-REQ-F-011, TSM-REQ-F-012, TSM-REQ-F-013, TSM-REQ-F-014, TSM-REQ-F-015_
+  - _Criteria: TSM-C03-AC-01, TSM-C03-AC-02, TSM-C03-AC-03, TSM-C03-AC-04_
+  - _After: TSM-C03-T1, TSM-C03-T2_
+
+## TSM-C04 Business-monitor symbol list (not delivered) (draft)
+
+- [ ] TSM-C04-T1 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - Ask the owner before carrying the historical artifacts: TSM-BR-013, TSM-BR-015.
+  - _Requirements: TSM-REQ-F-016, TSM-REQ-F-017, TSM-REQ-F-018_
+  - _Rules: TSM-BR-013, TSM-BR-015_
+- [ ] TSM-C04-T2 [api] Build the scheduled job
+  - Expose the rules as the service the screens call.
+  - _Requirements: TSM-REQ-F-016, TSM-REQ-F-017, TSM-REQ-F-018_
+  - _Rules: TSM-BR-013, TSM-BR-015_
+  - _After: TSM-C04-T1_
+- [ ] TSM-C04-T3 [test-generation] Write a test for every acceptance criterion
+  - 3 acceptance criteria, each a test named by its ID.
+  - _Requirements: TSM-REQ-F-016, TSM-REQ-F-017, TSM-REQ-F-018_
+  - _Criteria: TSM-C04-AC-01, TSM-C04-AC-02, TSM-C04-AC-03_
+  - _After: TSM-C04-T1, TSM-C04-T2_
+
+## WSIG-C01 Publish customer operations as web services (draft)
+
+- [ ] WSIG-C01-T1 [api] Build the scheduled job
+  - WSIG-BR-001: Expose add customer as an API operation at the stable path GENAPP/LGACUS01. Its request and response contract comes from the one shared customer layout (SOAIC01), the same layout that inquiry and update use. Generate the contract from that layout so the two cannot drift apart.
+  - WSIG-BR-002: Publish the add-customer service description, any runtime binding, and a generation log as build artifacts named after the service (LGACUS01). Put them where the deployment step and callers can find them under the installation home. Generation failures must show up in that log.
+  - WSIG-BR-003: Expose customer inquiry as a read-only API operation at the stable path GENAPP/LGICUS01. It uses the shared customer layout SOAIC01 for both request and response.
+  - WSIG-BR-004: Publish the customer inquiry service description, binding and generation log as build artifacts named LGICUS01, in the same published-services and logs locations as the other customer services.
+  - WSIG-BR-005: Expose customer update as an API operation at the stable path GENAPP/LGUCUS01, with the shared customer layout SOAIC01 for both request and response. The legacy generator reached the network through PROXY.HURSLEY.IBM.COM:80. Make the build's outbound proxy a configuration setting, not a fixed value.
+  - WSIG-BR-006: Publish the customer update service description, binding and log as build artifacts named LGUCUS01. The legacy toolchain settings (Java 'java601_bit64_ga/J6.0.1_64', 'cics660', '/tmp', 'LS2WS') belong in build-environment configuration. They are not product behaviour.
+  - WSIG-BR-007: Expose customer number lookup as an API operation at the stable path GENAPP/LGICVS01. Unlike the other customer services, it has its own request layout (SOAVCII) and its own response layout (SOAVCIO), and the contract must keep those two shapes separate.
+  - WSIG-BR-008: Publish the customer number service description, binding and log as build artifacts named LGICVS01. The toolchain directories and temp-file settings go in build configuration.
+  - WSIG-BR-009: Contract generation for add customer runs as a repeatable build or pipeline step from the source layouts. The Java runtime, platform directory, temp location and HTTP proxy it needs become build-environment settings.
+  - WSIG-BR-010: Contract generation for customer inquiry runs in the same repeatable build step as add customer, with the same configurable runtime, temp location and proxy settings.
+  - _Requirements: WSIG-REQ-F-001, WSIG-REQ-F-002, WSIG-REQ-F-003, WSIG-REQ-F-004, WSIG-REQ-F-005, WSIG-REQ-F-006, WSIG-REQ-F-007, WSIG-REQ-F-008, WSIG-REQ-N-001, WSIG-REQ-N-002_
+  - _Rules: WSIG-BR-001, WSIG-BR-002, WSIG-BR-003, WSIG-BR-004, WSIG-BR-005, WSIG-BR-006, WSIG-BR-007, WSIG-BR-008, WSIG-BR-009, WSIG-BR-010_
+- [ ] WSIG-C01-T2 [test-generation] Write a test for every acceptance criterion
+  - 12 acceptance criteria, each a test named by its ID.
+  - _Requirements: WSIG-REQ-F-001, WSIG-REQ-F-002, WSIG-REQ-F-003, WSIG-REQ-F-004, WSIG-REQ-F-005, WSIG-REQ-F-006, WSIG-REQ-F-007, WSIG-REQ-F-008, WSIG-REQ-N-001, WSIG-REQ-N-002_
+  - _Criteria: WSIG-C01-AC-01, WSIG-C01-AC-02, WSIG-C01-AC-03, WSIG-C01-AC-04, WSIG-C01-AC-05, WSIG-C01-AC-06, WSIG-C01-AC-07, WSIG-C01-AC-08, WSIG-C01-AC-09, WSIG-C01-AC-10, WSIG-C01-AC-11, WSIG-C01-AC-12_
+  - _After: WSIG-C01-T1_
+- [ ] WSIG-C01-T3 [compliance] Review the handling of personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: WSIG-REQ-F-001, WSIG-REQ-F-002, WSIG-REQ-F-003, WSIG-REQ-F-004, WSIG-REQ-F-005, WSIG-REQ-F-006, WSIG-REQ-F-007, WSIG-REQ-F-008, WSIG-REQ-N-001, WSIG-REQ-N-002_
+  - _After: WSIG-C01-T1_
+
+## WSIG-C02 Publish policy add as web services by policy type (draft)
+
+- [ ] WSIG-C02-T1 [api] Build the scheduled job
+  - WSIG-BR-011: Provide an add-Motor-policy API operation at the stable path GENAPP/LGAPOLM1. Its contract comes from the Motor policy layout SOAIPM1 and it routes to the shared policy add logic. Publish its service description, binding and log named LGAPOLM1. The outbound proxy is build configuration.
+  - WSIG-BR-012: Provide an add-Endowment-policy API operation at the stable path GENAPP/LGAPOLE1. Its contract comes from the Endowment layout SOAIPE1 and it routes to the shared policy add logic. Publish its artifacts named LGAPOLE1.
+  - WSIG-BR-013: Provide an add-House-policy API operation at the stable path GENAPP/LGAPOLH1. Its contract comes from the House layout SOAIPH1 and it routes to the shared policy add logic. Publish its artifacts named LGAPOLH1. The Java and platform directory settings are build-environment configuration.
+  - WSIG-BR-014: Provide an add-Commercial-policy API operation at the stable path GENAPP/LGAPOLB1. Its contract comes from the Commercial layout SOAIPB1 and it routes to the shared policy add logic. Publish its artifacts named LGAPOLB1. Toolchain settings are build configuration.
+  - _Requirements: WSIG-REQ-F-009, WSIG-REQ-F-010, WSIG-REQ-F-011, WSIG-REQ-F-012, WSIG-REQ-N-003_
+  - _Rules: WSIG-BR-011, WSIG-BR-012, WSIG-BR-013, WSIG-BR-014_
+- [ ] WSIG-C02-T2 [test-generation] Write a test for every acceptance criterion
+  - 4 acceptance criteria, each a test named by its ID.
+  - _Requirements: WSIG-REQ-F-009, WSIG-REQ-F-010, WSIG-REQ-F-011, WSIG-REQ-F-012, WSIG-REQ-N-003_
+  - _Criteria: WSIG-C02-AC-01, WSIG-C02-AC-02, WSIG-C02-AC-03, WSIG-C02-AC-04_
+  - _After: WSIG-C02-T1_
+
+## WSIG-C03 Publish policy inquiry as web services (draft)
+
+- [ ] WSIG-C03-T1 [api] Build the scheduled job
+  - WSIG-BR-015: Provide a read-only mobile policy lookup API operation at the stable path GENAPP/LGIPOL02 that can return several policies in one response. Its request contract comes from POLLOOK and its response contract from POLLOO2. Publish its service description, binding and log named LGIPOL02.
+  - WSIG-BR-016: Provide a read-only Motor policy inquiry API operation at the stable path GENAPP/LGIPOLM1. Its request and response contract comes from the Motor layout SOAIPM1 and it routes to the shared policy inquiry logic. Publish its artifacts named LGIPOLM1.
+  - WSIG-BR-017: Provide a read-only Commercial policy inquiry API operation at the stable path GENAPP/LGIPOLB1. Its request and response contract comes from the Commercial layout SOAIPB1. Publish its artifacts named LGIPOLB1.
+  - WSIG-BR-018: Provide a read-only House policy inquiry API operation at the stable path GENAPP/LGIPOLH1. Its request and response contract comes from the House layout SOAIPH1. Publish its artifacts named LGIPOLH1.
+  - WSIG-BR-019: Provide a read-only Endowment policy inquiry API operation at the stable path GENAPP/LGIPOLE1. Its request and response contract comes from the Endowment layout SOAIPE1. Publish its artifacts named LGIPOLE1.
+  - WSIG-BR-020: Generate all five policy inquiry contracts in one repeatable build step. The runtime, platform directory, temp location and file-prefix settings it needs are shared build-environment configuration, not per-service code.
+  - _Requirements: WSIG-REQ-F-013, WSIG-REQ-F-014, WSIG-REQ-F-015, WSIG-REQ-F-016, WSIG-REQ-F-017, WSIG-REQ-N-004_
+  - _Rules: WSIG-BR-015, WSIG-BR-016, WSIG-BR-017, WSIG-BR-018, WSIG-BR-019, WSIG-BR-020_
+- [ ] WSIG-C03-T2 [test-generation] Write a test for every acceptance criterion
+  - 6 acceptance criteria, each a test named by its ID.
+  - _Requirements: WSIG-REQ-F-013, WSIG-REQ-F-014, WSIG-REQ-F-015, WSIG-REQ-F-016, WSIG-REQ-F-017, WSIG-REQ-N-004_
+  - _Criteria: WSIG-C03-AC-01, WSIG-C03-AC-02, WSIG-C03-AC-03, WSIG-C03-AC-04, WSIG-C03-AC-05, WSIG-C03-AC-06_
+  - _After: WSIG-C03-T1_
+
+## WSIG-C04 Publish policy update as web services by policy type (draft)
+
+- [ ] WSIG-C04-T1 [api] Build the scheduled job
+  - WSIG-BR-021: Provide an update-Motor-policy API operation at the stable path GENAPP/LGUPOLM1. Its request and response contract comes from the Motor layout SOAIPM1 and it routes to the shared policy update logic. The outbound proxy is build configuration.
+  - WSIG-BR-022: Publish the Motor update service description, binding and generation log as build artifacts named LGUPOLM1. The toolchain directories and temp settings go in build configuration.
+  - WSIG-BR-023: Provide an update-Commercial-policy API operation at the stable path GENAPP/LGUPOLB1. Its request and response contract comes from the Commercial layout SOAIPB1 and it routes to the shared policy update logic.
+  - WSIG-BR-024: Publish the Commercial update service description, binding and generation log as build artifacts named LGUPOLB1. Toolchain settings are build configuration.
+  - WSIG-BR-025: Provide an update-Endowment-policy API operation at the stable path GENAPP/LGUPOLE1. Its request and response contract comes from the Endowment layout SOAIPE1 and it routes to the shared policy update logic.
+  - WSIG-BR-026: Publish the Endowment update service description, binding and generation log as build artifacts named LGUPOLE1. Toolchain settings are build configuration.
+  - WSIG-BR-027: Provide an update-House-policy API operation at the stable path GENAPP/LGUPOLH1. Its request and response contract comes from the House layout SOAIPH1 and it routes to the shared policy update logic.
+  - WSIG-BR-028: Publish the House update service description, binding and generation log as build artifacts named LGUPOLH1. Toolchain settings are build configuration.
+  - _Requirements: WSIG-REQ-F-018, WSIG-REQ-F-019, WSIG-REQ-F-020, WSIG-REQ-F-021, WSIG-REQ-F-022, WSIG-REQ-F-023, WSIG-REQ-F-024, WSIG-REQ-F-025, WSIG-REQ-N-005_
+  - _Rules: WSIG-BR-021, WSIG-BR-022, WSIG-BR-023, WSIG-BR-024, WSIG-BR-025, WSIG-BR-026, WSIG-BR-027, WSIG-BR-028_
+- [ ] WSIG-C04-T2 [test-generation] Write a test for every acceptance criterion
+  - 8 acceptance criteria, each a test named by its ID.
+  - _Requirements: WSIG-REQ-F-018, WSIG-REQ-F-019, WSIG-REQ-F-020, WSIG-REQ-F-021, WSIG-REQ-F-022, WSIG-REQ-F-023, WSIG-REQ-F-024, WSIG-REQ-F-025, WSIG-REQ-N-005_
+  - _Criteria: WSIG-C04-AC-01, WSIG-C04-AC-02, WSIG-C04-AC-03, WSIG-C04-AC-04, WSIG-C04-AC-05, WSIG-C04-AC-06, WSIG-C04-AC-07, WSIG-C04-AC-08_
+  - _After: WSIG-C04-T1_
+
+## WSIG-C05 Publish policy number lookup as a web service (draft)
+
+- [ ] WSIG-C05-T1 [api] Build the scheduled job
+  - WSIG-BR-029: Provide a read-only policy number lookup API operation at the stable path GENAPP/LGIPVS01. It has its own request contract from SOAVPII and its own response contract from SOAVPIO. Both are generated from those layouts, and the outbound proxy is build configuration.
+  - WSIG-BR-030: Publish the policy number service description, binding and generation log as build artifacts named LGIPVS01. The runtime directories and temp-file settings go in build-environment configuration.
+  - _Requirements: WSIG-REQ-F-026, WSIG-REQ-F-027, WSIG-REQ-N-006_
+  - _Rules: WSIG-BR-029, WSIG-BR-030_
+- [ ] WSIG-C05-T2 [test-generation] Write a test for every acceptance criterion
+  - 3 acceptance criteria, each a test named by its ID.
+  - _Requirements: WSIG-REQ-F-026, WSIG-REQ-F-027, WSIG-REQ-N-006_
+  - _Criteria: WSIG-C05-AC-01, WSIG-C05-AC-02, WSIG-C05-AC-03_
+  - _After: WSIG-C05-T1_

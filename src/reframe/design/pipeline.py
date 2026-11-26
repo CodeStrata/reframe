@@ -46,7 +46,7 @@ WORDS = {
                 "decisions": "decisions that name it changed", "style_reference": "the style reference changed", "domain": "the domain changed"},
     "specs": {"requirements": "the requirements changed", "rules": "the rules changed", "screens": "the screens that serve it changed",
               "capabilities": "the capabilities changed", "decisions": "decisions that name it changed"},
-    "": {"new": "new", "unrecorded": "an input changed (the earlier round did not record which)", "method": "Reframe's method changed"},
+    "": {"new": "new", "problems": "it failed Reframe's checks last round", "unrecorded": "an input changed (the earlier round did not record which)", "method": "Reframe's method changed"},
 }
 TEXT = (".md", ".txt", ".css", ".scss", ".html", ".htm", ".json", ".ts", ".tsx", ".js", ".jsx", ".java", ".kt", ".cs", ".py", ".go", ".xml", ".yaml", ".yml")
 
@@ -214,7 +214,8 @@ def changes_md(n: int, report: dict[str, Any]) -> str:
     for stage, title in (("journeys", "Journeys"), ("screens", "Modern screens"), ("specs", "Final specifications")):
         r = report["stages"].get(stage) or {"redone": [], "kept": []}
         out += [f"## {title}", ""]
-        out += [f"- Redone: {x['name'] or 'No domain'}, because {words(stage, x['changed'])}." for x in r["redone"]]
+        out += [f"- Made: {x['name'] or 'No domain'} (new)." if x["changed"] == ["new"] else f"- Redone: {x['name'] or 'No domain'}, because {words(stage, x['changed'])}."
+                for x in r["redone"]]
         out.append(f"- Kept: {len(r['kept'])}" + (f" ({', '.join(k or 'No domain' for k in r['kept'][:12])}{' …' if len(r['kept']) > 12 else ''})" if r["kept"] else "") + ".")
         out.append("")
     if report.get("signoffs"):

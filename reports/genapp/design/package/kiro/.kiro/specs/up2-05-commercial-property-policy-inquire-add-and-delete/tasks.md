@@ -1,0 +1,97 @@
+# Implementation plan: Commercial property policy inquire, add and delete (UP2-C05)
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+- [ ] 1. UP2-C05-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: LGCMAREA.
+  - _Requirements: UP2-REQ-F-054, UP2-REQ-F-055, UP2-REQ-F-056, UP2-REQ-F-057, UP2-REQ-F-058, UP2-REQ-F-059, UP2-REQ-F-060, UP2-REQ-F-061, UP2-REQ-F-062, UP2-REQ-F-063, UP2-REQ-F-064, UP2-REQ-F-065, UP2-REQ-F-066, UP2-REQ-F-067, UP2-REQ-N-001, UP2-REQ-F-068, UP2-REQ-F-069_
+- [ ] 2. UP2-C05-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: UP2-REQ-F-055, UP2-REQ-F-056, UP2-REQ-F-057, UP2-REQ-F-058, UP2-REQ-F-059, UP2-REQ-F-062, UP2-REQ-F-065_
+  - _Rules: UP2-BR-046, UP2-BR-047, UP2-BR-048, UP2-BR-049, UP2-BR-052, UP2-BR-055_
+  - _After: UP2-C05-T1_
+- [ ] 3. UP2-C05-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: UP2-REQ-F-061, UP2-REQ-F-064, UP2-REQ-F-067, UP2-REQ-F-054, UP2-REQ-F-060, UP2-REQ-F-063, UP2-REQ-F-066, UP2-REQ-F-068, UP2-REQ-F-069_
+  - _Rules: UP2-BR-045, UP2-BR-050, UP2-BR-051, UP2-BR-053, UP2-BR-054, UP2-BR-056, UP2-BR-057, UP2-BR-059_
+  - _After: UP2-C05-T1_
+- [ ] 4. UP2-C05-T4 [api] Build the services and the scheduled job
+  - UP2-BR-058: After each option has been processed, the commercial policy screen stays open with its current values, so the user's next submission is handled by the same commercial policy screen and starts the next action. This is ordinary screen navigation in the new application: it needs no transaction code, only a way to keep the user on the commercial policy page between actions until they leave it (PF3 / exit) or clear it.
+  - _Requirements: UP2-REQ-N-001_
+  - _Rules: UP2-BR-058_
+  - _After: UP2-C05-T1, UP2-C05-T2, UP2-C05-T3_
+- [ ] 5. UP2-C05-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - button "Sign out"
+  - _Requirements: UP2-REQ-F-068_
+  - _Rules: UP2-BR-059_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] 6. UP2-C05-T6 [ui-modernization] Build the screen New customer (S-CUSTOMER-NEW)
+  - To the prototype: ui-reference/index.html#/S-CUSTOMER-NEW.
+  - message "Action not available": Only the actions shown as buttons here (Add customer, Clear form) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] 7. UP2-C05-T7 [ui-modernization] Build the screen Customer details (S-CUSTOMER-EDIT)
+  - To the prototype: ui-reference/index.html#/S-CUSTOMER-EDIT.
+  - message "Action not available": Only the actions shown as buttons here (Find, Save changes, Discard changes) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] 8. UP2-C05-T8 [ui-modernization] Build the screen Find policies (S-POLICY-FIND)
+  - To the prototype: ui-reference/index.html#/S-POLICY-FIND.
+  - text "Postcode": Postcode can be at most 8 characters
+  - button "Search"
+  - table "Policies found"
+  - message "Nothing found"
+  - button "New commercial policy"
+  - button "Clear search"
+  - message "Action not available": Only the actions shown as buttons here (Search, Open, New policy, Clear search) can run. Motor and life policies offer inquire, add, delete and update; house policies offer add, update and delete; commercial policies offer inquire, add and delete. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown.
+  - _Requirements: UP2-REQ-F-055, UP2-REQ-F-056, UP2-REQ-F-057, UP2-REQ-F-058, UP2-REQ-F-059, UP2-REQ-F-060, UP2-REQ-F-061, UP2-REQ-F-062, UP2-REQ-F-069_
+  - _Rules: UP2-BR-046, UP2-BR-047, UP2-BR-048, UP2-BR-049, UP2-BR-050, UP2-BR-051, UP2-BR-052, UP2-BR-059_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] 9. UP2-C05-T9 [ui-modernization] Build the screen Motor policy (S-MOTOR-POLICY)
+  - To the prototype: ui-reference/index.html#/S-MOTOR-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] 10. UP2-C05-T10 [ui-modernization] Build the screen Life (endowment) policy (S-LIFE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-LIFE-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] 11. UP2-C05-T11 [ui-modernization] Build the screen House policy (S-HOUSE-POLICY)
+  - To the prototype: ui-reference/index.html#/S-HOUSE-POLICY.
+  - message "Action not available": Only the actions shown as buttons here (Add, Save changes, Delete) can run. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] 12. UP2-C05-T12 [ui-modernization] Build the screen Commercial property policy (S-COMMERCIAL-POLICY)
+  - To the prototype: ui-reference/index.html#/S-COMMERCIAL-POLICY.
+  - form "Commercial policy"
+  - display "Policy number"
+  - button "Add commercial policy"
+  - button "Delete commercial policy"
+  - dialog "Delete this policy?"
+  - message "Result"
+  - message "Action not available": Only the actions shown as buttons here (Add, Delete) can run, plus finding a policy on S-POLICY-FIND; commercial policies cannot be updated. Any other request calls no back-end service and shows 'Please enter a valid option': choose one of the action buttons shown. Focus moves to the first action button.
+  - _Requirements: UP2-REQ-F-054, UP2-REQ-F-055, UP2-REQ-F-060, UP2-REQ-F-062, UP2-REQ-F-063, UP2-REQ-F-064, UP2-REQ-F-065, UP2-REQ-F-066, UP2-REQ-F-067, UP2-REQ-N-001_
+  - _Rules: UP2-BR-045, UP2-BR-046, UP2-BR-050, UP2-BR-052, UP2-BR-053, UP2-BR-054, UP2-BR-055, UP2-BR-056, UP2-BR-057, UP2-BR-058_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] 13. UP2-C05-T13 [ui-modernization] Build the screen Claim (S-CLAIM-VIEW)
+  - To the prototype: ui-reference/index.html#/S-CLAIM-VIEW.
+  - message "Action not available": Only Find can run here. Any other request calls no back-end service and shows 'Please enter a valid option': use the Find button.
+  - _Requirements: UP2-REQ-F-055_
+  - _Rules: UP2-BR-046_
+  - _After: UP2-C05-T2, UP2-C05-T3, UP2-C05-T4_
+- [ ] 14. UP2-C05-T14 [test-generation] Write a test for every acceptance criterion
+  - 19 acceptance criteria, each a test named by its ID.
+  - _Requirements: UP2-REQ-F-054, UP2-REQ-F-055, UP2-REQ-F-056, UP2-REQ-F-057, UP2-REQ-F-058, UP2-REQ-F-059, UP2-REQ-F-060, UP2-REQ-F-061, UP2-REQ-F-062, UP2-REQ-F-063, UP2-REQ-F-064, UP2-REQ-F-065, UP2-REQ-F-066, UP2-REQ-F-067, UP2-REQ-N-001, UP2-REQ-F-068, UP2-REQ-F-069_
+  - _Criteria: UP2-C05-AC-01, UP2-C05-AC-02, UP2-C05-AC-03, UP2-C05-AC-04, UP2-C05-AC-05, UP2-C05-AC-06, UP2-C05-AC-07, UP2-C05-AC-08, UP2-C05-AC-09, UP2-C05-AC-10, UP2-C05-AC-11, UP2-C05-AC-12, UP2-C05-AC-13, UP2-C05-AC-14, UP2-C05-AC-15, UP2-C05-AC-16, UP2-C05-AC-17, UP2-C05-AC-18, UP2-C05-AC-19_
+  - _After: UP2-C05-T1, UP2-C05-T2, UP2-C05-T3, UP2-C05-T4, UP2-C05-T5, UP2-C05-T6, UP2-C05-T7, UP2-C05-T8, UP2-C05-T9, UP2-C05-T10, UP2-C05-T11, UP2-C05-T12, UP2-C05-T13_
+- [ ] 15. UP2-C05-T15 [compliance] Review the handling of money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: UP2-REQ-F-054, UP2-REQ-F-055, UP2-REQ-F-056, UP2-REQ-F-057, UP2-REQ-F-058, UP2-REQ-F-059, UP2-REQ-F-060, UP2-REQ-F-061, UP2-REQ-F-062, UP2-REQ-F-063, UP2-REQ-F-064, UP2-REQ-F-065, UP2-REQ-F-066, UP2-REQ-F-067, UP2-REQ-N-001, UP2-REQ-F-068, UP2-REQ-F-069_
+  - _After: UP2-C05-T1, UP2-C05-T2, UP2-C05-T3, UP2-C05-T4, UP2-C05-T5, UP2-C05-T6, UP2-C05-T7, UP2-C05-T8, UP2-C05-T9, UP2-C05-T10, UP2-C05-T11, UP2-C05-T12, UP2-C05-T13_

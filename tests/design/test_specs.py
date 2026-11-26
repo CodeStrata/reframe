@@ -169,6 +169,18 @@ class SpecsTest(ScreensTest):
         self.assertEqual(len([c for c in claude.other_calls if not c[0].endswith("-retry")]), 2)
         self.assertIn("rec/Access/SignOn#1: REQ-F-002 has no acceptance criterion", value["problems"])
         self.assertIn(f"rec/Access/SignOn#1: technical rule {MENU} has no design note", value["problems"])
+        again = specs.run(self.folder, self.writer(written))  # the same input, but it failed its checks: done again
+        self.assertEqual(again["problems"], [])
+        self.assertEqual(sorted(x["changed"][0] for x in again["round"]["redone"]), ["problems", "problems"])
+
+    def test_copybooks_beside_the_programs_and_no_screen_copybooks(self):
+        legacy = self.folder.root / "claude" / "legacy" / "demo"
+        (legacy / "base/src").mkdir(parents=True)
+        (legacy / "base/src/lgcmarea.cpy").write_text(RECORD)
+        (legacy / "base/src/SIGN00.cpy").write_text(RECORD)  # named after a mapset: a screen copybook
+        found = contracts.copybooks(legacy)
+        self.assertIn("LGCMAREA", found)
+        self.assertNotIn("SIGN00", found)
 
     def test_the_checks_on_an_answer(self):
         data = {"capabilities": [{"key": "K#1", "requirements": [{"code": "R1", "rules": ["a"]}, {"code": "R2", "rules": ["b"]}],
