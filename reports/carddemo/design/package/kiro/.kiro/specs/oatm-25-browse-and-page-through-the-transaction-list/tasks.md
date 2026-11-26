@@ -1,0 +1,43 @@
+# Implementation plan: Browse and page through the transaction list (OATM-C25)
+
+**Status: FINAL**, signed off by Sam (acceptance), 2026-11-25.
+
+- [ ] 1. OATM-C25-T1 [data] Model the data the capability reads and writes
+  - File records: CVTRA05Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSMSG01Y.
+  - _Requirements: OATM-REQ-F-195, OATM-REQ-F-196, OATM-REQ-F-197, OATM-REQ-F-198, OATM-REQ-F-199, OATM-REQ-F-200, OATM-REQ-F-201, OATM-REQ-F-202, OATM-REQ-F-203, OATM-REQ-F-204, OATM-REQ-F-205, OATM-REQ-F-206, OATM-REQ-F-207, OATM-REQ-F-208, OATM-REQ-F-209, OATM-REQ-F-210, OATM-REQ-F-211, OATM-REQ-F-212, OATM-REQ-F-213, OATM-REQ-F-214, OATM-REQ-F-215, OATM-REQ-F-216, OATM-REQ-F-217, OATM-REQ-F-218, OATM-REQ-F-219_
+- [ ] 2. OATM-C25-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: OATM-REQ-F-195, OATM-REQ-F-197, OATM-REQ-F-198, OATM-REQ-F-199, OATM-REQ-F-200, OATM-REQ-F-201, OATM-REQ-F-203, OATM-REQ-F-208, OATM-REQ-F-209, OATM-REQ-F-212, OATM-REQ-F-214, OATM-REQ-F-218_
+  - _Rules: OATM-BR-205, OATM-BR-207, OATM-BR-208, OATM-BR-209, OATM-BR-210, OATM-BR-211, OATM-BR-213, OATM-BR-218, OATM-BR-219, OATM-BR-222, OATM-BR-224, OATM-BR-228_
+  - _After: OATM-C25-T1_
+- [ ] 3. OATM-C25-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: OATM-REQ-F-211, OATM-REQ-F-219, OATM-REQ-F-202, OATM-REQ-F-204, OATM-REQ-F-205, OATM-REQ-F-210, OATM-REQ-F-213, OATM-REQ-F-215, OATM-REQ-F-217_
+  - _Rules: OATM-BR-212, OATM-BR-214, OATM-BR-215, OATM-BR-220, OATM-BR-221, OATM-BR-223, OATM-BR-225, OATM-BR-227, OATM-BR-229_
+  - _After: OATM-C25-T1_
+- [ ] 4. OATM-C25-T4 [api] Build the services behind the screens
+  - OATM-BR-206: Every request to the list starts from a clean state: no leftover message, no error, end-of-list or next-page flags carried over, and focus on the transaction ID filter. Page position comes only from the paging state the server keeps (or the request carries), not from previous screen contents.
+  - OATM-BR-216: Each page response must keep the transaction ID of its first row and of its last row as paging cursors. The first ID is where the next previous-page request starts. Keep them in the user's session or return them as opaque cursors.
+  - OATM-BR-217: The ID of the tenth row is the cursor for the next-page request. The next page is a keyed range read of transactions with ID strictly greater than this cursor, in ascending ID order, limited to 10 (plus one look-ahead to tell whether more exist).
+  - OATM-BR-226: The previous page is a keyed range read of transactions with ID strictly less than the current page's first ID, in descending order, limited to 10, then reversed for display. The current first transaction is never repeated. Use an index on transaction ID that supports reading in both directions from a key.
+  - _Requirements: OATM-REQ-F-196, OATM-REQ-F-206, OATM-REQ-F-207, OATM-REQ-F-216_
+  - _Rules: OATM-BR-206, OATM-BR-216, OATM-BR-217, OATM-BR-226_
+  - _After: OATM-C25-T1, OATM-C25-T2, OATM-C25-T3_
+- [ ] 5. OATM-C25-T5 [ui-modernization] Build the screen Transactions (S-TRANSACTION-LIST)
+  - To the prototype: ui-reference/index.html#/S-TRANSACTION-LIST.
+  - search "Start from transaction ID": Digits only: 'Tran ID must be Numeric ...'; above every ID on file: 'You are at the top of the page...'.
+  - table "Transactions": Previous on the first page: 'You are already at the top of the page...'; Next on the last page: 'You are already at the bottom of the page...'.
+  - message "List error"
+  - _Requirements: OATM-REQ-F-197, OATM-REQ-F-198, OATM-REQ-F-199, OATM-REQ-F-200, OATM-REQ-F-211, OATM-REQ-F-212_
+  - _Rules: OATM-BR-207, OATM-BR-208, OATM-BR-209, OATM-BR-210, OATM-BR-221, OATM-BR-222_
+  - _After: OATM-C25-T2, OATM-C25-T3, OATM-C25-T4_
+- [ ] 6. OATM-C25-T6 [test-generation] Write a test for every acceptance criterion
+  - 31 acceptance criteria, each a test named by its ID.
+  - _Requirements: OATM-REQ-F-195, OATM-REQ-F-196, OATM-REQ-F-197, OATM-REQ-F-198, OATM-REQ-F-199, OATM-REQ-F-200, OATM-REQ-F-201, OATM-REQ-F-202, OATM-REQ-F-203, OATM-REQ-F-204, OATM-REQ-F-205, OATM-REQ-F-206, OATM-REQ-F-207, OATM-REQ-F-208, OATM-REQ-F-209, OATM-REQ-F-210, OATM-REQ-F-211, OATM-REQ-F-212, OATM-REQ-F-213, OATM-REQ-F-214, OATM-REQ-F-215, OATM-REQ-F-216, OATM-REQ-F-217, OATM-REQ-F-218, OATM-REQ-F-219_
+  - _Criteria: OATM-C25-AC-01, OATM-C25-AC-02, OATM-C25-AC-03, OATM-C25-AC-04, OATM-C25-AC-05, OATM-C25-AC-06, OATM-C25-AC-07, OATM-C25-AC-08, OATM-C25-AC-09, OATM-C25-AC-10, OATM-C25-AC-11, OATM-C25-AC-12, OATM-C25-AC-13, OATM-C25-AC-14, OATM-C25-AC-15, OATM-C25-AC-16, OATM-C25-AC-17, OATM-C25-AC-18, OATM-C25-AC-19, OATM-C25-AC-20, OATM-C25-AC-21, OATM-C25-AC-22, OATM-C25-AC-23, OATM-C25-AC-24, OATM-C25-AC-25, OATM-C25-AC-26, OATM-C25-AC-27, OATM-C25-AC-28, OATM-C25-AC-29, OATM-C25-AC-30, OATM-C25-AC-31_
+  - _After: OATM-C25-T1, OATM-C25-T2, OATM-C25-T3, OATM-C25-T4, OATM-C25-T5_
+- [ ] 7. OATM-C25-T7 [compliance] Review the handling of card data, money
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: OATM-REQ-F-195, OATM-REQ-F-196, OATM-REQ-F-197, OATM-REQ-F-198, OATM-REQ-F-199, OATM-REQ-F-200, OATM-REQ-F-201, OATM-REQ-F-202, OATM-REQ-F-203, OATM-REQ-F-204, OATM-REQ-F-205, OATM-REQ-F-206, OATM-REQ-F-207, OATM-REQ-F-208, OATM-REQ-F-209, OATM-REQ-F-210, OATM-REQ-F-211, OATM-REQ-F-212, OATM-REQ-F-213, OATM-REQ-F-214, OATM-REQ-F-215, OATM-REQ-F-216, OATM-REQ-F-217, OATM-REQ-F-218, OATM-REQ-F-219_
+  - _After: OATM-C25-T1, OATM-C25-T2, OATM-C25-T3, OATM-C25-T4, OATM-C25-T5_

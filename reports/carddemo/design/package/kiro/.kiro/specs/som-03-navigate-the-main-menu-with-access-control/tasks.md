@@ -1,0 +1,44 @@
+# Implementation plan: Navigate the Main Menu with access control (SOM-C03)
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+- [ ] 1. SOM-C03-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: COCOM01Y, COMEN02Y, COTTL01Y, CSDAT01Y, CSMSG01Y, CSUSR01Y.
+  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
+- [ ] 2. SOM-C03-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-022, SOM-REQ-F-023_
+  - _Rules: SOM-BR-014, SOM-BR-017, SOM-BR-019, SOM-BR-020, SOM-BR-021, SOM-BR-022, SOM-BR-023, SOM-BR-024, SOM-BR-026, SOM-BR-027_
+  - _After: SOM-C03-T1_
+- [ ] 3. SOM-C03-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: SOM-REQ-F-024, SOM-REQ-F-015, SOM-REQ-F-021_
+  - _Rules: SOM-BR-018, SOM-BR-025, SOM-BR-028_
+  - _After: SOM-C03-T1_
+- [ ] 4. SOM-C03-T4 [api] Build the services behind the screens
+  - SOM-BR-015: The menu needs a 'first display' state and a 'handle input' state held in the user's session. The first request after sign-on, or after returning from a function, shows the menu. Later submits from the menu are read and acted on. A web app does this naturally with GET to show the menu and POST to submit it, inside an authenticated session.
+  - SOM-BR-016: When the menu is reached by navigation, not by submitting the menu form, render a clean menu with no message and no input processing. Then record in the session that the next request from this screen is a submit, which replaces the legacy re-enter flag (context = 1).
+  - SOM-BR-017: On submit, act on the action taken. Enter (the submit action) processes the chosen option. PF3 (a Back or Sign out action) returns to sign-on. Any other action shows the menu again with 'Invalid key pressed. Please see below...'. In a modern UI, map function keys to explicit buttons and reject any unknown action value sent to the server.
+  - SOM-BR-019: Normalise the typed option before validating: trim trailing spaces, right-align it into two digits and pad it with leading zeros (for example '7' becomes '07'). Show the normalised number back in the field. Text that is not a number must still fail the option check.
+  - SOM-BR-029: The menu keeps no server-side process waiting between interactions. After each response, the session (user, user type, origin screen) must persist so that the next submit arrives back at the Main Menu (legacy transaction CM00) with the same session data. Use a stateless request handler with session storage.
+  - _Requirements: SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-025_
+  - _Rules: SOM-BR-015, SOM-BR-016, SOM-BR-017, SOM-BR-029_
+  - _After: SOM-C03-T1, SOM-C03-T2, SOM-C03-T3_
+- [ ] 5. SOM-C03-T5 [ui-modernization] Build the screen Home (S-HOME)
+  - To the prototype: ui-reference/index.html#/S-HOME.
+  - page "Home"
+  - list "Functions": Only listed functions can be opened, so no option number can be wrong; a request for a function that does not exist shows 'Please enter a valid option number...'; a regular user requesting an admin-only function gets 'No access - Admin Only option... '
+  - link "Pending Authorization View"
+  - message "Home messages": An unsupported action shows 'Invalid key pressed. Please see below...'
+  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
+  - _Rules: SOM-BR-014, SOM-BR-015, SOM-BR-016, SOM-BR-017, SOM-BR-018, SOM-BR-019, SOM-BR-020, SOM-BR-021, SOM-BR-022, SOM-BR-023, SOM-BR-024, SOM-BR-025, SOM-BR-026, SOM-BR-027, SOM-BR-028, SOM-BR-029_
+  - _After: SOM-C03-T2, SOM-C03-T3, SOM-C03-T4_
+- [ ] 6. SOM-C03-T6 [test-generation] Write a test for every acceptance criterion
+  - 23 acceptance criteria, each a test named by its ID.
+  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
+  - _Criteria: SOM-C03-AC-01, SOM-C03-AC-02, SOM-C03-AC-03, SOM-C03-AC-04, SOM-C03-AC-05, SOM-C03-AC-06, SOM-C03-AC-07, SOM-C03-AC-08, SOM-C03-AC-09, SOM-C03-AC-10, SOM-C03-AC-11, SOM-C03-AC-12, SOM-C03-AC-13, SOM-C03-AC-14, SOM-C03-AC-15, SOM-C03-AC-16, SOM-C03-AC-17, SOM-C03-AC-18, SOM-C03-AC-19, SOM-C03-AC-20, SOM-C03-AC-21, SOM-C03-AC-22, SOM-C03-AC-23_
+  - _After: SOM-C03-T1, SOM-C03-T2, SOM-C03-T3, SOM-C03-T4, SOM-C03-T5_
+- [ ] 7. SOM-C03-T7 [compliance] Review the handling of security
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
+  - _After: SOM-C03-T1, SOM-C03-T2, SOM-C03-T3, SOM-C03-T4, SOM-C03-T5_
