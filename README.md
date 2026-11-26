@@ -393,7 +393,7 @@ Before anything is written, Reframe removes the AWS account ID, ARNs, S3 locatio
 reframe publish --to aws
 ```
 
-This uploads the run to a private bucket in your account: encrypted, versioned, with no public access, refusing any request not over TLS. Reframe creates the bucket the first time, with its own Terraform state in `~/.reframe/reports-store`, and keeps one per account and region for every project. Only someone whose AWS sign-in may read the bucket can open what is in it; there is no public address.
+This is optional: nothing goes to the bucket unless you run it. It uploads the run to a private bucket in your account: encrypted, versioned, with no public access, refusing any request not over TLS. Reframe creates the bucket the first time, with its own Terraform state in `~/.reframe/reports-store`, and keeps one per account and region for every project. Only someone whose AWS sign-in may read the bucket can open what is in it; there is no public address.
 
 ```text
 reframe-reports-xxxxxxxx/
