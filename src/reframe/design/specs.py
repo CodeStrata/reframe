@@ -70,6 +70,8 @@ For each capability listed, write the parts of its final specification that need
 - "acceptance": a Given/When/Then acceptance criterion for each requirement listed under "needs_criteria" (at least one each), each naming the "requirement" (its code) and the "rules" (keys) it checks, taken from that requirement's own rules. Make them testable, with the concrete values the rule text gives (messages word for word, limits, codes); do not invent behaviour the rules do not state. The other requirements already have criteria from the rules' worked examples.
 - "design_notes": one note for each rule listed under "technical_rules", naming the "rule" key: what the new application needs from that technical step (a keyed lookup, a sorted extract, a scheduled job, a message to another system), without the mainframe mechanics (VSAM, CICS, JCL, COMMAREA) unless there is no other way to say it.
 
+If the file lists "decisions", the owner made them: follow each one that applies to these capabilities.
+
 Use only the keys listed. Answer only with the JSON."""
 
 RETRY = """Your answer failed Reframe's checks. Answer again with the whole JSON, fixing these:
@@ -189,7 +191,7 @@ def questions_for(rule_keys: list[str], rules: dict[str, Any], sme: list[dict[st
     return found
 
 
-def assemble(folder, legacy: Path | None) -> dict[str, Any]:
+def assemble(folder, legacy: Path | None, signoffs: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Every capability's specification without the model's parts, and what the model step is to write for each."""
     requirements = folder.load("outputs/reconcile/requirements.json") or {}
     rules = {r["key"]: r for r in (folder.load("outputs/reconcile/rules.json") or {}).get("rules") or []}
@@ -199,7 +201,7 @@ def assemble(folder, legacy: Path | None) -> dict[str, Any]:
     flow = folder.load("design/flow.json") or {}
     sme = (folder.load("reconcile/questions.json") or {}).get("questions") or []
     signed: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for x in (folder.state.get("reconcile") or {}).get("signoffs") or []:
+    for x in list((folder.state.get("reconcile") or {}).get("signoffs") or []) + list(signoffs or []):
         signed[x["function"]].append({"reviewer": x.get("reviewer", ""), "at": x.get("at", ""), "comment": x.get("comment", "")})
     online = {p["name"].upper() for s in inventory.get("screens") or [] for p in s.get("programs") or []} | \
              {str(t.get("program", "")).upper() for t in flow.get("transactions") or []}
@@ -271,6 +273,15 @@ def batch_input(mine: list[dict[str, Any]]) -> dict[str, Any]:
         "rules": [{"key": r["key"], "kind": r["kind"], "name": r["name"], "text": r["text"][:400]} for r in s["rules"]],
         "screens": [x["title"] for x in s["screens"]],
         "needs_criteria": s["needs_criteria"], "technical_rules": s["technical_rules"]} for s in mine]}
+
+
+def batch_parts(data: dict[str, Any]) -> dict[str, str]:
+    """What a batch was made from, piece by piece, so a round can say why it was redone."""
+    from reframe.design import rounds
+    caps = data["capabilities"]
+    return rounds.parts({"requirements": [c["requirements"] for c in caps], "rules": [c["rules"] for c in caps], "screens": [c["screens"] for c in caps],
+                         "capabilities": [{k: c[k] for k in ("key", "title", "story", "runs_as", "needs_criteria", "technical_rules")} for c in caps],
+                         **{k: v for k, v in data.items() if k not in ("capabilities", "function", "domain")}}, METHOD)
 
 
 def problems(answer: dict[str, Any] | None, data: dict[str, Any]) -> list[str]:
@@ -386,8 +397,11 @@ def stack_of(folder, stack: str | None) -> dict[str, Any] | None:
     return folder.load(STACK) or None
 
 
-def run(folder, claude, stack: str | None = None) -> dict[str, Any]:
+def run(folder, claude, stack: str | None = None, more=None, plan_only: bool = False, signoffs: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """D6. `more(name, data)` gives a batch's extra input for a round (the decisions that name its capabilities);
+    `signoffs` adds sign-offs read in the round; `plan_only` says what would be redone, and why, without a step."""
     from reframe.claude.steps import stop_for
+    from reframe.design import rounds
     from reframe.claude.workspace import paths
     places = paths(folder)
     project = folder.state["project"]
@@ -395,22 +409,28 @@ def run(folder, claude, stack: str | None = None) -> dict[str, Any]:
         raise ValueError("run the reconciliation first")
     if not folder.load("design/modern.json"):
         raise ValueError("run the screen inventory, the flow, the journeys and the modern screens first")
-    target = stack_of(folder, stack)
+    target = stack_of(folder, None if plan_only else stack)
     types = data_contracts.stack_types(target)
-    built = assemble(folder, places["legacy"])
+    built = assemble(folder, places["legacy"], signoffs)
     books = data_contracts.contracts(places["legacy"], set(built["books"]), types)
-    folder.save(CONTRACTS, {"stack": target, "notes": types["notes"], "contracts": books})
+    if not plan_only:
+        folder.save(CONTRACTS, {"stack": target, "notes": types["notes"], "contracts": books})
     saved = folder.load(FILE, {}) or {}
     kept, log = saved.get("batches") or {}, saved.get("log") or []
     folder_in = places["analysis"] / "reframe" / "design"
     folder_in.mkdir(parents=True, exist_ok=True)
-    lock, stopped, todo = threading.Lock(), [], []
+    lock, stopped, todo, why = threading.Lock(), [], [], []
     plan = batches(built["specs"])
     for name, mine in plan:
         data = batch_input(mine)
+        data.update(more(name, data) if more else {})
         digest = _hash([data, METHOD])
         if (kept.get(name) or {}).get("hash") != digest:
             todo.append((name, data, digest))
+            why.append((name, rounds.changed(kept.get(name), batch_parts(data))))
+    told = rounds.summary(why, [n for n, _ in plan if n not in {x[0] for x in todo}])
+    if plan_only:
+        return {"round": told}
 
     def one(item) -> None:
         name, data, digest = item
@@ -440,7 +460,7 @@ def run(folder, claude, stack: str | None = None) -> dict[str, Any]:
             if not wrong:
                 break
         with lock:
-            kept[name] = {"hash": digest, "attempts": attempts, "capabilities": [c["key"] for c in data["capabilities"]],
+            kept[name] = {"hash": digest, "parts": batch_parts(data), "attempts": attempts, "capabilities": [c["key"] for c in data["capabilities"]],
                           "answer": {a.get("key"): a for a in (answer or {}).get("capabilities") or [] if isinstance(a, dict)}, "problems": wrong}
             folder.save(FILE, {"batches": kept, "log": log})
 
@@ -472,6 +492,7 @@ def run(folder, claude, stack: str | None = None) -> dict[str, Any]:
     folder.save(FILE, value)
     value["full"] = specs
     value["contracts"] = books
+    value["round"] = told
     return value
 
 

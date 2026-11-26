@@ -195,10 +195,27 @@ def build(screens: dict[str, Any], modern: dict[str, Any], journeys: dict[str, A
             "source": {"sha256": ""}, "tool": TOOL, "entry": entry_map}
 
 
-def draw(folder, data: dict[str, Any]) -> Path:
+TOKENS = ("bg", "fg", "muted", "line", "card", "accent", "accent-fg", "warn", "ok", "soft")
+
+
+def token_style(tokens: dict[str, Any] | None) -> str:
+    """The design system's tokens (design-system/tokens.json in the context folder) as the prototype's colours and font:
+    {"accent": "#0b5", ...}, or the same under "colors", and "font" for the font family. Other names are left out."""
+    if not isinstance(tokens, dict):
+        return ""
+    colors = {**{k: v for k, v in tokens.items() if k in TOKENS}, **{k: v for k, v in (tokens.get("colors") or {}).items() if k in TOKENS}}
+    safe = lambda v: re.fullmatch(r"[#\w\s,.%()'\"-]{1,80}", str(v)) is not None  # noqa: E731
+    rules = "".join(f"--{k}:{v};" for k, v in colors.items() if safe(v))
+    font = str(tokens.get("font") or "")
+    css = (f":root,:root[data-theme]{{{rules}}}" if rules else "") + (f"body{{font-family:{font}}}" if font and safe(font) else "")
+    return f"<style>{css}</style>" if css else ""
+
+
+def draw(folder, data: dict[str, Any], tokens: dict[str, Any] | None = None) -> Path:
     data = {**data, "source": {"sha256": (folder.load("snapshot.json") or {}).get("sha256", "")}, "run": folder.root.name}
     template = (Path(__file__).with_name("prototype.html")).read_text()
     page = template.replace("/*DATA*/", json.dumps(data, default=str).replace("</", "<\\/")).replace("{{title}}", html.escape(f"{data['app']} prototype"))
+    page = page.replace("</head>", token_style(tokens) + "</head>", 1)
     target = folder.path(PAGE)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(page)

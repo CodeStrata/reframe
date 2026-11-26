@@ -241,6 +241,14 @@ Each part is kept with a hash of what it was made from, as in pipeline 3. A new 
 
 Each round writes `design/changes-<round>.md`: what changed, why, and what was kept, and the package's `CHANGES.md` from it.
 
+**Command:** `python -m reframe.design.pipeline [--run <run>] [--context <folder>] [--stack "<front end>; <back end>; <data>"] [--plan]` runs a round: the inventory and the flow, the journeys, the modern screens, the prototype, the final specifications, the design page and the package, in order. The context folder is remembered for later rounds.
+- **Why a part is redone:** each model stage keeps, beside each part's hash, a hash of each piece of its input. A round names the pieces that changed, for example "prototype marks on its screens changed" or "personas.md changed".
+- **Routing:** `personas.md` goes to every domain's journeys. Each decision in `decisions.md` (one per heading) goes only to the journeys, screens and specifications whose legacy or modern screens, functions, capabilities, requirements or rules it names, by name or package ID. A decision that names nothing is listed in the round's changes and goes to the package's product description only. *Needs change* and *Question* marks from the prototype's downloads go to the domain that designed the screen; *Agree* changes nothing. A function signed off in a reconciliation review download is final from that round, with no model step. `style-reference/` goes to every domain's screens and fills the package's style reference. `design-system/tokens.json` sets the prototype's colours and font.
+- **`--plan`** says what a round would redo, and why, with no model step and nothing written. It cannot yet see what a redone part changes downstream.
+- **The package:** a new version only when a file changes, its `CHANGES.md` carrying the round's own account.
+
+**On CardDemo** (26 November 2026): `--plan` with nothing new redoes nothing: 4 journey domains, 4 screen domains and 16 specification batches kept. The tests cover a round with a persona, a *Needs change* mark, an *Agree* and a sign-off: only the marked domain's screens and the journeys are redone, the signed-off capability becomes final with no step, and the package's CHANGES.md says so.
+
 ### D10 Golden datasets and equivalence tests (P4-11)
 
 Per capability, Reframe writes a golden dataset from the worked examples and decision tables: cases the new system must answer as the legacy one does. Each case has:

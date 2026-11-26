@@ -75,6 +75,8 @@ Screens ("screens"): each with an "id" (S- and a few words, such as S-ACCOUNT-VI
 
 If the file lists "other_domains_screens", other domains designed those screens: link to them by those ids, and reuse a shared screen (one that replaces nothing, such as the application's header and navigation) by its id and component ids rather than designing your own.
 
+If the file lists "review_marks", reviewers marked these screens or components *Needs change* or *Question* in the prototype: change the design to answer each comment, and keep what they did not mark. If it lists "decisions", the owner made them: follow each one that applies. If it lists "style_reference", it is the house's own examples: follow their look and patterns where the design system does not say.
+
 Mapping ("mapping"): one entry for every legacy screen (kind "screen"), every data field (kind "field", the field name as listed) and every function key (kind "key", such as F3) listed under "legacy_screens", exactly once each: "how" it is carried (kept, merged, split, dropped, new), what it "becomes" (a screen id for a screen, "<screen id>/<component id>" for a field or key, or empty when dropped) and "why". A component with no legacy counterpart needs no mapping entry; say "new" in its purpose if useful.
 
 Use only keys listed. Answer only with the JSON."""
@@ -281,8 +283,11 @@ def links_across(domains: dict[str, Any]) -> dict[str, list[str]]:
 
 # ---- run ---------------------------------------------------------------------------------------------------------------
 
-def run(folder, claude, context: Path | None = None) -> dict[str, Any]:
+def run(folder, claude, context: Path | None = None, more=None, plan_only: bool = False) -> dict[str, Any]:
+    """D4 for every domain whose input changed. `more(key, data)` gives a domain's extra input for a round (prototype
+    marks on its screens, the decisions that name it, the style reference); `plan_only` says what would be redone."""
     from reframe.claude.steps import stop_for
+    from reframe.design import rounds
     from reframe.claude.workspace import paths
     from reframe.design.journeys import domains_of_screens
     places = paths(folder)
@@ -299,13 +304,18 @@ def run(folder, claude, context: Path | None = None) -> dict[str, Any]:
     kept, log = saved.get("domains") or {}, saved.get("log") or []
     folder_in = places["analysis"] / "reframe" / "design"
     folder_in.mkdir(parents=True, exist_ok=True)
-    lock, stopped, todo, inputs = threading.Lock(), [], [], {}
+    lock, stopped, todo, inputs, why = threading.Lock(), [], [], {}, []
     for key, mine in sorted(by_domain.items()):
         data = domain_input(key, names.get(key, key), mine, screens, flow, journeyed["journeys"], rules, requirements, parts)
+        data.update(more(key, data) if more else {})
         digest = _hash([data, METHOD])
         inputs[key] = (data, digest)
         if (kept.get(key) or {}).get("hash") != digest:
             todo.append((key, data, digest))
+            why.append((key, rounds.changed(kept.get(key), rounds.parts(data, METHOD))))
+    plan = rounds.summary(why, [k for k in by_domain if k not in {t[0] for t in todo}])
+    if plan_only:
+        return {"round": plan}
 
     def one(item, across: list[str] | None = None) -> None:
         key, data, digest = item
@@ -337,7 +347,7 @@ def run(folder, claude, context: Path | None = None) -> dict[str, Any]:
         if across and answer is None:
             return  # the links pass did not finish: keep the domain's first design
         with lock:
-            kept[key] = {"hash": digest, "name": data["domain"], "legacy": [s["screen"] for s in data["legacy_screens"]], "attempts": attempts,
+            kept[key] = {"hash": digest, "parts": rounds.parts(data, METHOD), "name": data["domain"], "legacy": [s["screen"] for s in data["legacy_screens"]], "attempts": attempts,
                          "screens": (answer or {}).get("screens") or [], "mapping": (answer or {}).get("mapping") or [], "problems": wrong}
             folder.save(FILE, {"domains": kept, "log": log})
 
@@ -374,7 +384,7 @@ def run(folder, claude, context: Path | None = None) -> dict[str, Any]:
              + [f"{kept[k]['name']}: {p}" for k, found in across.items() for p in found],
              "steps": len(todo), "cost_usd": round(sum(x.get("cost_usd") or 0 for x in log), 2)}
     folder.save(FILE, value)
-    return value
+    return {**value, "round": plan}
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -48,13 +48,15 @@ def stack_section(stack: dict[str, Any] | None, architecture: str) -> str:
         "\n\nOr put these in `target-architecture.md` in the design context folder and write the package again with `--context`."
 
 
-def house() -> str:
+def house(style: str = "") -> str:
+    """The house conventions: placeholders, except the style reference when the context folder has one."""
     items = [("Coding standards", "style guide, linters and formatters"), ("Naming", "packages, modules, classes, endpoints, tables"),
              ("Error handling and logging", "exception policy, log format, what is never logged (card numbers, personal data)"),
              ("Style reference", "path or link to the house's example screens and code, or its design system"),
              ("Branching and review", "branch naming, pull request rules, who reviews"),
              ("Definition of done", "the checks a task must pass: tests, coverage, review, security scan")]
-    return "\n".join(f"- {k}: {fill(v)}" for k, v in items)
+    given = {"Style reference": f"the design context's style-reference/ ({style})"} if style.strip() else {}
+    return "\n".join(f"- {k}: {given[k]}" if k in given else f"- {k}: {fill(v)}" for k, v in items)
 
 
 def technical_context(stack: dict[str, Any] | None) -> str:

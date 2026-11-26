@@ -466,7 +466,7 @@ def write(root: Path, specs: list[dict[str, Any]], books: dict[str, Any], stack:
         files[f"{form}/START-HERE.md"] = handover.start_here(known, project, stack, form)
         files[f"{form}/data-contracts.md"] = contracts
         files[f"{form}/traceability.md"] = trace
-    house = "# House conventions\n\nWhat your team builds to. Reframe cannot know these; fill them in.\n\n" + handover.house() + "\n\n## From the design\n\n" + \
+    house = "# House conventions\n\nWhat your team builds to. Reframe cannot know these; fill them in.\n\n" + handover.house(context.get("style", "")) + "\n\n## From the design\n\n" + \
         "\n".join(conventions()) + "\n"
     for name in handover.SKILLS:
         files[f"claude-code/.claude/skills/{name}/SKILL.md"] = handover.skill(name, "specs/<capability>.md", "tasks.md")
@@ -488,7 +488,7 @@ def write(root: Path, specs: list[dict[str, Any]], books: dict[str, Any], stack:
         f"# {project}, modernized", "", "Build the modernized application from the specifications here. Each capability's specification is in `specs/`; "
         "the build tasks, each for a role, are in `tasks.md`; the prototype in `ui-reference/index.html` is the UI to build to; the data contracts are in "
         "`data-contracts.md`; `traceability.md` takes every ID back to the legacy source.", "", "## Target stack", "", stack_md(stack, context.get("architecture", "")), "",
-        "## Conventions", ""] + conventions() + ["", "## House conventions", "", handover.house(), "",
+        "## Conventions", ""] + conventions() + ["", "## House conventions", "", handover.house(context.get("style", "")), "",
         "## Skills", "", "In `.claude/skills/`: " + ", ".join(f"`{n}`" for n in handover.SKILLS) + ". Fill in their placeholders first; START-HERE.md says how.", "",
         "## Capabilities", "", index, ""])
     files["claude-code/tasks.md"] = "# Tasks\n\nBuild final capabilities first. Each task names its role and the IDs it implements.\n\n" + "\n\n".join(
@@ -508,7 +508,7 @@ def write(root: Path, specs: list[dict[str, Any]], books: dict[str, Any], stack:
         "6. Order of replacement: final capabilities first; the risk-ranked order (P4-12) will replace this when it exists.",
         "7. A business rule is kept exactly; a historical artifact is carried only after asking.", "", "## Roles", ""]
         + [f"- `{r}`: {ROLES[r][1]}" for r in ROLES] + ["", "## Technical context", "", handover.technical_context(stack), "",
-                                                         "## House conventions", "", handover.house(), "", "## Conventions", ""] + conventions()) + "\n"
+                                                         "## House conventions", "", handover.house(context.get("style", "")), "", "## Conventions", ""] + conventions()) + "\n"
     for role in ROLES:
         files[f"spec-kit/.claude/agents/{role}.md"] = role_md(role)
     for n, s in enumerate(specs, 1):
@@ -567,10 +567,11 @@ def manifest(specs: list[dict[str, Any]], ts: dict[str, list[dict[str, Any]]], s
         "tasks": [t["id"] for t in ts[s["id"]]], "hash": _hash(s)} for s in specs}}
 
 
-def changes(before: dict[str, Any] | None, now: dict[str, Any], version: int) -> str:
-    """What changed since the last version, by ID."""
+def changes(before: dict[str, Any] | None, now: dict[str, Any], version: int, notes: str = "") -> str:
+    """What changed since the last version, by ID; `notes` is the design round's own account, added after it."""
+    tail = f"\n## The design round\n\n{notes.strip()}\n" if notes.strip() else ""
     if not before:
-        return f"# Changes in v{version}\n\nThe first version: {len(now['capabilities'])} capabilities.\n"
+        return f"# Changes in v{version}\n\nThe first version: {len(now['capabilities'])} capabilities.\n" + tail
     out = [f"# Changes in v{version}", "", f"Since v{before.get('version')}.", ""]
     if before.get("stack") != now.get("stack"):
         out.append(f"- The target stack: {before.get('stack') or 'not given'} → {now.get('stack') or 'not given'}.")
@@ -593,7 +594,7 @@ def changes(before: dict[str, Any] | None, now: dict[str, Any], version: int) ->
         out.append(f"- {k} {new[k]['title']}: " + ("; ".join(line) or "screens, contracts, notes or questions changed") + ".")
     if len(out) == 4:
         out.append("- Only the wording or layout of the files changed.")
-    return "\n".join(out) + "\n"
+    return "\n".join(out) + "\n" + tail
 
 
 def versions(folder) -> list[int]:
@@ -606,10 +607,12 @@ def read_context(context: Path | None) -> dict[str, str]:
     for key, name in (("architecture", "target-architecture.md"), ("personas", "personas.md"), ("decisions", "decisions.md")):
         path = context / name if context else None
         found[key] = path.read_text() if path and path.is_file() else ""
+    style = context / "style-reference" if context else None
+    found["style"] = ", ".join(p.relative_to(style).as_posix() for p in sorted(style.rglob("*")) if p.is_file()) if style and style.is_dir() else ""
     return found
 
 
-def run(folder, context: Path | None = None) -> dict[str, Any]:
+def run(folder, context: Path | None = None, notes: str = "") -> dict[str, Any]:
     from reframe.core.runfolder import iso
     raw = load_specs(folder)
     if not raw:
@@ -637,7 +640,7 @@ def run(folder, context: Path | None = None) -> dict[str, Any]:
         else:
             version = (have[-1] + 1) if have else 1
             before = json.loads((latest / "manifest.json").read_text()) if latest and (latest / "manifest.json").is_file() else None
-            (root / "CHANGES.md").write_text(changes(before, made, version))
+            (root / "CHANGES.md").write_text(changes(before, made, version, notes))
             (root / "manifest.json").write_text(json.dumps({**made, "version": version, "generated_at": iso(), "digest": digest(root),
                                                             "problems": problems}, indent=1))
             target = folder.path(f"{FOLDER}/v{version}")
