@@ -147,6 +147,19 @@ Reframe draws one static HTML app, with no build step and nothing loaded from ou
 - on each screen, *Show the legacy screen* opens the 3270 copies it replaces, with the mapping;
 - marks, as on the review pages: *Agree*, *Needs change* or *Question* with a comment, on each screen and component, and sign-off by journey, downloaded as JSON or CSV in the `reframe-review/1` format with the tool *Reframe's design*.
 
+**Command:** `python -m reframe.design.prototype [--run <run>]` writes `outputs/design/prototype/index.html`. It's one file: the screens' data is embedded and its script runs offline.
+- **Routes:** each modern screen is a route. The shared screens (header, navigation) frame every screen, and a link to a shared screen goes to Home: the screen with the most links out.
+- **Sign in:** the prototype starts at the screen that replaces the sign-on.
+- **Actions:** a button runs its screen's checks first. An empty field whose check says it is required shows that check's message from the rule. Then the button opens its screen, or shows the success message the design quotes.
+- **Lists:** a row in a list opens the screen the list's view link opens.
+
+**On CardDemo** (25 November 2026), with no model and in under a second:
+- 19 screens, framed by the shared shell, start at Sign in with Home as the hub;
+- 20 journeys can be walked;
+- all 21 legacy copies are embedded, for 433 KB in all.
+
+A stub-DOM run of the page's script (`tests/design/render_prototype.js`) renders every route, runs each screen's main action and opens its legacy and review panels, with no script error. Every link leads to a screen that exists. The success messages are the rules' own, for example "User <id> has been added ...".
+
 ### D6 Final specifications (P4-07)
 
 Per capability, one model step writes the parts that need words, and Reframe assembles the rest:
