@@ -4,6 +4,10 @@ What changed in each release. Releases are tagged on `main`; the stories behind 
 
 ## Unreleased
 
+**The licence**
+- Reframe is now under the GNU Affero General Public License, version 3 only (AGPL-3.0-only), with other licences, such as a commercial one, from the copyright holder. Versions before the change, v0.4.0 and earlier, stay under the MIT License. `reframe --version` shows the notice.
+- Only CardDemo's example reports are published, with CardDemo's licence and notice beside them; other codebases Reframe is tested on are run locally, and nothing from them is committed.
+
 **Code quality**
 - Reframe is classed as Beta.
 - CI lints with ruff, type-checks with mypy and fails below 80% line coverage, with the checkers pinned in the `dev` extra.

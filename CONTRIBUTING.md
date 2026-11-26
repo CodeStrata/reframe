@@ -78,6 +78,16 @@ For a small fix, an issue and a pull request are enough.
 - Keep each pull request to one purpose.
 - Say when AI helped write it.
 
+## Licensing your contribution
+
+Reframe is under the AGPL-3.0-only, and its copyright holder also licenses it on other terms, such as a commercial licence. So that both stay possible, by opening a pull request you agree that:
+
+- the contribution is your own work, or you have the right to submit it;
+- it is licensed under the AGPL-3.0-only, like the rest of Reframe; and
+- you grant the copyright holder, and those the copyright holder licenses Reframe to, a perpetual, worldwide, non-exclusive, royalty-free and irrevocable licence to use, copy, change, sublicense and distribute it on any terms, commercial ones included.
+
+Sign off each commit (`git commit -s`) to say so. You keep the copyright in what you wrote.
+
 ## Reporting a problem
 
 Open an issue with the bug template: what you ran, what you expected, and what happened. Include `reframe --version` and the run's `reframe status`, with account IDs and paths removed. Report a security problem privately, as [SECURITY.md](SECURITY.md) says, not in an issue.
