@@ -80,7 +80,8 @@ def claude_code(ctx: Context):
     places = paths(ctx.folder)
     settings = state(ctx)
     auth = settings.get("auth", "subscription")
-    env = environment(auth, aws_credentials=ctx.aws.credentials_environment if auth == "bedrock" else None, region=ctx.state.get("region"))
+    profile = auth == "bedrock" and bool(ctx.state.get("profile"))  # else a Bedrock API key in AWS_BEARER_TOKEN_BEDROCK
+    env = environment(auth, aws_credentials=ctx.aws.credentials_environment if profile else None, region=ctx.state.get("region"))
     return ClaudeCode(places["root"], places["policy"], plugin.plugin_dir(), places["logs"], env)
 
 
@@ -100,10 +101,13 @@ def work(ctx: Context) -> Outcome:
     from reframe.claude import workspace as ws
     run = ctx.state
     alone = claude_only(run)
+    auth = state(ctx).get("auth", "subscription")
     if alone:
-        if state(ctx).get("auth") == "bedrock":
-            raise Stop(Outcome.REFUSED, "a Claude-only run uses no AWS, so it signs in to Claude with your subscription; Claude on Amazon Bedrock "
-                                        "needs a run with AWS")
+        import os
+        if auth == "bedrock" and not run.get("profile") and not os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
+            raise Stop(Outcome.REFUSED, "Claude on Amazon Bedrock needs an AWS sign-in: start the run with --auth bedrock --profile <profile> "
+                                        "--region <region> (the profile is used for Bedrock only; the run creates no AWS resources), or set "
+                                        "AWS_BEARER_TOKEN_BEDROCK")
         ctx.folder.update(stage="claude", status="RUNNING", message=None, updated_at=iso())
         if not ctx.folder.exists("snapshot.json"):
             stage(ctx, "snapshot")
@@ -118,7 +122,7 @@ def work(ctx: Context) -> Outcome:
     update(ctx, started_at=settings.get("started_at") or iso())
 
     stage(ctx, "preflight")
-    report = preflight.check(settings.get("auth", "subscription"), aws_identity=None if alone else ctx.aws.identity)
+    report = preflight.check(auth, aws_identity=ctx.aws.identity if (not alone or (auth == "bedrock" and run.get("profile"))) else None)
     ctx.folder.save("claude-preflight.json", report.as_json())
     if not report.ok:
         signin = any(not c.ok and "sign-in" in c.name for c in report.checks)
@@ -151,7 +155,7 @@ def work(ctx: Context) -> Outcome:
     if not approved and (mode == "interactive" or size["agents_high"] > limit):
         reply = ask(ctx)("claude-estimate", f"Rule extraction will run {size['shards']} shards: about {size['agents_low']} to "
                          f"{size['agents_high']} agents, up to about {size['tokens_high'] / 1e6:.1f} million tokens and "
-                         f"{size['minutes_high']} minutes on your Claude account. The agent limit is {limit}.",
+                         f"{size['minutes_high']} minutes, {preflight.BILLED.get(auth, 'on your Claude account')}. The agent limit is {limit}.",
                          [f"Run it (raises the limit for this run to {max(limit, size['agents_high'])})", "Cancel the Claude assessment for now"])
         if reply.startswith("Cancel"):
             raise Stop(Outcome.REFUSED, "rule extraction was cancelled at the estimate; reframe claude starts it again")

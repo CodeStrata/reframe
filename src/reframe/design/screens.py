@@ -400,7 +400,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m reframe.design.screens", description="Modern screens and their mapping (P4-05)")
     parser.add_argument("--run", help="the run (default: the latest run)")
     parser.add_argument("--context", help="a folder with design-system/components.md")
-    parser.add_argument("--auth", choices=("subscription", "bedrock"), default="subscription")
+    parser.add_argument("--auth", choices=("subscription", "api-key", "bedrock"), default="subscription")
     args = parser.parse_args(argv)
     folder = find_run(args.run)
     from reframe.claude import preflight

@@ -62,7 +62,7 @@ def claude_code(folder: RunFolder, auth: str, model: str | None = None):
     from reframe.claude.workspace import paths
     places = paths(folder)
     aws_credentials = None
-    if auth == "bedrock":
+    if auth == "bedrock" and folder.state.get("profile"):  # else a Bedrock API key in AWS_BEARER_TOKEN_BEDROCK
         from reframe.core.pipeline import Context
         aws_credentials = Context.load(folder).aws.credentials_environment
     env = environment(auth, aws_credentials=aws_credentials, region=folder.state.get("region"))
