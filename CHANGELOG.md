@@ -9,6 +9,22 @@ What changed in each release. Releases are tagged on `main`; the stories behind 
 - CI lints with ruff, type-checks with mypy and fails below 80% line coverage, with the checkers pinned in the `dev` extra.
 - The drivers of both assessments and the command handlers are tested stage by stage.
 
+**Signing in**
+- `--auth api-key` signs Claude in with an Anthropic API key (`ANTHROPIC_API_KEY`, and `ANTHROPIC_BASE_URL` for a gateway), on every command that runs Claude and in the guided run. The key is passed to Claude Code and never written.
+- Amazon Bedrock on a Claude-only run: `--auth bedrock --profile <profile>` uses the profile for Bedrock only, with no AWS resources; a Bedrock API key needs no profile.
+- The reconciliation and the design check a Bedrock sign-in against the run's profile; before, `--auth bedrock` always failed their preflight.
+- Estimates say who is billed, and `reframe publish` replaces an API key it finds.
+
+**Exports**
+- `reframe export --to jira` and `--to azure-devops` write the design's backlog as each tool's CSV import file: epics, features (Azure DevOps) and a story per capability, with its requirements, rules, open questions and acceptance criteria, all with the AI-DLC package's IDs.
+
+**Evidence**
+- `python -m reframe.reconcile.expert` gives the accuracy audit's sample to a mainframe expert, blind, as one page and a CSV to fill in, and reads their verdicts back: their accuracy figures, their agreement with each judge and with the audit, and the rules they call wrong.
+- The larger-codebase spike (SC-01) compares the public candidates, their sizes and licences, with cost estimates for the owner's choice.
+
+**The design (pipeline 4)**
+- Golden datasets (P4-11): per capability, the cases the new system must answer as the legacy one does, from the worked examples and the decision-table rows, in `golden/` in every form of the package. `golden/compare.py` compares a new system's answers and reports formatting apart from business differences. Until legacy outputs are captured, the expected outputs come from the rules.
+
 ## 1.0.0 (2026)
 
 The first release for anyone to try: with Claude only, or with Claude and AWS Transform.

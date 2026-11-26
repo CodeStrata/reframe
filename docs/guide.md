@@ -144,7 +144,7 @@ To use a Neptune cluster you already have, pass `--graph existing` to choose fro
 
 ## Claude only, with no AWS
 
-No AWS account, or no AWS Transform? Run Reframe with Claude only ([release 1.0](release-1.md), section 2). It needs Git, [Claude Code](https://docs.anthropic.com/en/docs/claude-code) signed in with your Claude subscription, and the code-modernization plugin, which Reframe fetches itself.
+No AWS account, or no AWS Transform? Run Reframe with Claude only ([release 1.0](release-1.md), section 2). It needs Git, [Claude Code](https://docs.anthropic.com/en/docs/claude-code) signed in, and the code-modernization plugin, which Reframe fetches itself. Claude signs in with your Claude subscription (the default), an Anthropic API key (`--auth api-key`, with `ANTHROPIC_API_KEY` set), or Amazon Bedrock (`--auth bedrock --profile <profile> --region <region>`, the profile used for Bedrock only, or `AWS_BEARER_TOKEN_BEDROCK`).
 
 ```bash
 reframe setup --tools claude
@@ -243,7 +243,7 @@ reframe claude
 
 Options:
 
-- `--auth subscription` (the default) signs Claude in with your Claude subscription. `--auth bedrock` uses Amazon Bedrock with the run's AWS profile, or a Bedrock API key in `AWS_BEARER_TOKEN_BEDROCK`.
+- `--auth subscription` (the default) signs Claude in with your Claude subscription. `--auth api-key` uses the Anthropic API key in `ANTHROPIC_API_KEY`, billed at API prices; `ANTHROPIC_BASE_URL` is passed on too, for a company's gateway. `--auth bedrock` uses Amazon Bedrock with the run's AWS profile, or a Bedrock API key in `AWS_BEARER_TOKEN_BEDROCK`. Reframe passes a key to Claude Code and never writes it ([docs/pipeline-2.md](pipeline-2.md), section 4.1).
 - `--max-agents` sets the agent limit for rule extraction (default 600). It is a ceiling, not a target: Reframe stops and asks only if the estimate is higher. For CardDemo use 650 or more, so the run does not stop to ask.
 - `--graph-load yes` loads Claude's graph into an existing Neptune cluster. A graph the run created is loaded by default.
 - If Claude's usage limit is reached, the run stops and says so. When the limit resets, `reframe resume` continues where it stopped, and runs extraction again for any modules the plugin did not finish.
@@ -332,6 +332,8 @@ A round runs every stage in order and keeps what has not changed:
 | Prototype | One offline page: a route per screen, sample data, the rules' own messages, each screen beside the legacy screens it replaces, and marks reviewers can download | No |
 | Final specifications | Per capability: requirements, business rules (classed), acceptance criteria, screens, data contracts from the copybooks, decision tables with gaps, open questions; final where the function is signed off | One step per function, for summaries, criteria and design notes |
 | The package | Kiro, Claude Code and Spec Kit forms, every ID traced back to the legacy source, with `[FILL IN: ...]` placeholders for what your team gives and a `START-HERE.md` | No |
+| A backlog | `reframe export --to jira` or `--to azure-devops`: each tool's CSV import file, a story per capability with its requirements and acceptance criteria, keeping the package's IDs ([sharing §8](sharing.md)) | No |
+| Golden datasets | In each form's `golden/`: per capability, the cases the new system must answer as the legacy one does, and `compare.py`, which sets formatting differences apart from business ones. The expected outputs come from the rules | No |
 
 **Adding context.** Put it in the run's `inputs/design/`, or pass `--context <folder>` once, and run `reframe design` again:
 - `personas.md` reaches the journeys;

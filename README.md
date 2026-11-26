@@ -20,7 +20,7 @@ It is for modernization teams, architects and the business people who have to sa
 - **Rules checked against the code:** each recommended rule cites the source lines that back it. Each has a confidence Reframe sets from what it checked, a kind and worked examples. Possible defects are noted.
 - **One SME list:** every question the code cannot settle, with the rules it holds up, to answer and feed back into the next round.
 - **The design:** legacy screens and how they connect, user journeys, modern screens with every legacy field mapped, and a clickable prototype beside the legacy screens. A final specification for every capability, with acceptance criteria and data contracts.
-- **An AI-DLC package:** the specifications in Kiro, Claude Code and Spec Kit form, with every ID traced back to the legacy source and a `START-HERE.md` for the team that builds it.
+- **An AI-DLC package:** the specifications in Kiro, Claude Code and Spec Kit form, with every ID traced back to the legacy source, a golden dataset per capability for equivalence tests, and a `START-HERE.md` for the team that builds it.
 
 ## How it works
 
@@ -121,7 +121,7 @@ The figures are from live runs and are recorded in [docs/acceptance.md](docs/acc
 
 Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) says how to set up, run the offline tests and propose a change, and [SECURITY.md](SECURITY.md) how to report a problem privately. What has changed in each release is in [CHANGELOG.md](CHANGELOG.md).
 
-**Later:** golden datasets and a replacement order from the specifications, real legacy outputs under GnuCOBOL, backlog export to Jira and Azure DevOps, and proving it on a larger codebase and on Amazon Bedrock ([docs/plan.md](docs/plan.md)).
+**Later:** a replacement order from the specifications, real legacy outputs under GnuCOBOL, and proving it on a larger codebase and on Amazon Bedrock ([docs/plan.md](docs/plan.md)).
 
 ## License
 

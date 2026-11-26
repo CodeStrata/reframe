@@ -268,16 +268,18 @@ def claude_only_summary(chosen_source: str, ref: str | None, picked: dict[str, A
 
 def claude_choice(alone: bool = False) -> dict[str, Any] | None:
     """Pipeline 2, offered with yes as the default: after AWS Transform finishes, the same snapshot is assessed with Claude.
-    On a Claude-only run it is the run itself, signed in with the Claude subscription."""
+    On a Claude-only run it is the run itself, signed in with the Claude subscription or an Anthropic API key (Amazon Bedrock
+    on a Claude-only run is chosen with reframe run --tools claude --auth bedrock --profile <profile>)."""
     ui.section("Claude assessment")
+    signins = [("Your Claude subscription", "Claude Code's own sign-in (claude auth login)"),
+               ("An Anthropic API key", "ANTHROPIC_API_KEY in this shell, billed at API prices; passed to Claude Code and never written")]
     if alone:
-        auth = "subscription"
+        auth = ("subscription", "api-key")[ui.choose("How should Claude sign in?", signins) - 1]
     elif not _also_claude():
         ui.hint("Later, run: reframe claude")
         return None
     else:
-        auth = ("subscription", "bedrock")[ui.choose("How should Claude sign in?", [
-            ("Your Claude subscription", "Claude Code's own sign-in (claude auth login)"),
+        auth = ("subscription", "api-key", "bedrock")[ui.choose("How should Claude sign in?", signins + [
             ("Amazon Bedrock", "Claude models billed to the AWS account, with this AWS profile or AWS_BEARER_TOKEN_BEDROCK")]) - 1]
     return _claude_settings(auth)
 
@@ -300,6 +302,13 @@ def _claude_settings(auth: str, limit_too: bool = True) -> dict[str, Any]:
             ui.warn("Claude Code is not signed in.")
             if ui.yes("Run claude auth login now? You sign in in your browser.", default=True):
                 setup.run_in_terminal("claude auth login")
+    elif auth == "api-key":
+        import os
+        if os.environ.get("ANTHROPIC_API_KEY", "").strip():
+            ui.ok("ANTHROPIC_API_KEY is set; Claude's steps are billed to it at API prices.")
+        else:
+            ui.warn("ANTHROPIC_API_KEY is not set in this shell. Export it, then start the run again; Reframe passes it to Claude Code "
+                    "and never writes it.")
     if not plugin.fetched():
         ui.say(f"Reframe uses the code-modernization plugin {plugin.VERSION}, fetched from Anthropic's plugin repository at a pinned commit.")
         if ui.yes("Fetch it now?", default=True):
@@ -351,7 +360,8 @@ def run(args) -> int:
                 ui.hint("Nothing was started or created.")
                 return 0
             return commands.start_claude_only(source=chosen, ref=ref, mode=picked["mode"], project=picked["project"],
-                                              foreground=bool(getattr(args, "foreground", False)), max_agents=picked["claude"]["max_agents"])
+                                              foreground=bool(getattr(args, "foreground", False)), max_agents=picked["claude"]["max_agents"],
+                                              auth=picked["claude"]["auth"])
         if not prerequisites(m):
             return 1
         sign = sign_in()

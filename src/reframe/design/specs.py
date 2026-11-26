@@ -521,7 +521,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m reframe.design.specs", description="The final specifications (P4-07)")
     parser.add_argument("--run", help="the run (default: the latest run)")
     parser.add_argument("--stack", help='the target stack, "<front end>; <back end>; <data>"; recorded in the run')
-    parser.add_argument("--auth", choices=("subscription", "bedrock"), default="subscription")
+    parser.add_argument("--auth", choices=("subscription", "api-key", "bedrock"), default="subscription")
     args = parser.parse_args(argv)
     folder = find_run(args.run)
     from reframe.claude import preflight
