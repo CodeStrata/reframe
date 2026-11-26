@@ -425,9 +425,10 @@ def run(folder, claude, stack: str | None = None, more=None, plan_only: bool = F
         data = batch_input(mine)
         data.update(more(name, data) if more else {})
         digest = _hash([data, METHOD])
-        if (kept.get(name) or {}).get("hash") != digest:
+        before = kept.get(name) or {}
+        if before.get("hash") != digest or before.get("problems"):
             todo.append((name, data, digest))
-            why.append((name, rounds.changed(kept.get(name), batch_parts(data))))
+            why.append((name, rounds.changed(before or None, batch_parts(data)) if before.get("hash") != digest else ["problems"]))
     told = rounds.summary(why, [n for n, _ in plan if n not in {x[0] for x in todo}])
     if plan_only:
         return {"round": told}
@@ -436,7 +437,7 @@ def run(folder, claude, stack: str | None = None, more=None, plan_only: bool = F
         name, data, digest = item
         if stopped:
             return
-        safe = slug(name)[:60]
+        safe = slug(name)[:50] + "-" + hashlib.sha256(name.encode()).hexdigest()[:6]  # unique: batches of one function share a long name
         path = folder_in / f"specs-{safe}.json"
         path.write_text(json.dumps(data, indent=1))
         prompt = PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", legacy=f"legacy/{project}")

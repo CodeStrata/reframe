@@ -1,0 +1,92 @@
+# Feature specification: Mark or unmark an authorization as fraud
+
+**Feature:** CAFM-C15 · Card Authorization and Fraud Management · Unclassified
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+## User scenarios and testing
+
+### User story (CAFM-C15)
+
+As a card operations user, I want to press PF5 on an authorization to report fraud or remove a fraud mark, so that suspected fraudulent authorizations are flagged consistently in the authorization record and the fraud register.
+
+Lets a card operations user mark a pending authorization as fraud, or remove a fraud mark, with one action on the detail screen. The fraud register and the authorization record must change together or not at all: a partial update where one says fraud and the other does not must never be left behind. The user must be told clearly whether the authorization was marked fraud, had fraud removed, or the change was rolled back.
+
+**Acceptance scenarios:**
+
+1. **Given** key pressed: PF5; current fraud flag: F, **when** the user presses PF5 on the authorization detail screen and the selected authorization is marked fraud ('F'), **then** The flag becomes 'R' and action 'R' (remove fraud) is requested. (CAFM-C15-AC-01)
+2. **Given** key: PF5; fraud flag: (blank), **when** the user presses PF5 on the detail screen, **then** The fraud marking process runs for the selected authorization and the screen is redisplayed. (CAFM-C15-AC-02)
+3. **Given** current fraud flag: 'F'; key: PF5, **when** a user presses PF5 on the authorization detail screen, **then** Action 'R' is sent to the fraud program (CAFM-C15-AC-03)
+4. **Given** current fraud flag: blank; key: PF5, **when** a user presses PF5 on the authorization detail screen, **then** Action 'F' is sent to the fraud program (CAFM-C15-AC-04)
+5. **Given** key pressed: PF5; current fraud flag: (blank), **when** the user presses PF5 on the authorization detail screen and the selected authorization is not marked fraud (blank or 'R'), **then** The flag becomes 'F' and action 'F' (report fraud) is requested. (CAFM-C15-AC-05)
+6. **Given** key pressed: PF5; current fraud flag: R, **when** the user presses PF5 on the authorization detail screen and the selected authorization is not marked fraud (blank or 'R'), **then** The flag becomes 'F' again and action 'F' is requested. (CAFM-C15-AC-06)
+7. **Given** fraud update status: S; new fraud flag: F, **when** the fraud update program completes normally and reports success ('S'), **then** The detail is saved and 'AUTH MARKED FRAUD...' is shown. (CAFM-C15-AC-07)
+8. **Given** fraud update status: S; new fraud flag: R, **when** the fraud update program completes normally and reports success ('S'), **then** The detail is saved and 'AUTH FRAUD REMOVED...' is shown. (CAFM-C15-AC-08)
+9. **Given** key pressed: PF5; fraud processor update status: S; fraud flag before: blank, **when** the user presses PF5 on the authorization detail screen and the fraud processor (COPAUS2C) reports update status 'S', **then** The IMS authorization detail record is rewritten with fraud flag 'F' and today's fraud report date. (CAFM-C15-AC-09)
+10. **Given** IMS replace status: blank; new fraud flag: F, **when** the IMS replace succeeds (status blank or 'FW'), **then** Both changes are committed and 'AUTH MARKED FRAUD...' is shown. (CAFM-C15-AC-10)
+11. **Given** IMS replace status: FW; new fraud flag: R, **when** the IMS replace succeeds (status blank or 'FW'), **then** Both changes are committed and 'AUTH FRAUD REMOVED...' is shown. (CAFM-C15-AC-11)
+12. **Given** fraud update status: F; fraud program message: UPDT ERROR DB2: CODE:-911, STATE: 40001, **when** the fraud update program completes but reports failure, **then** The change is rolled back and that message is shown. (CAFM-C15-AC-12)
+13. **Given** link result: not NORMAL, **when** the link to the fraud update program does not complete normally, **then** The change is rolled back and no message is shown. (CAFM-C15-AC-13)
+14. **Given** key pressed: PF5, **when** a PF5 fraud action finishes, **then** The detail screen is shown again for the same authorization, with the result message. (CAFM-C15-AC-14)
+15. **Given** the detail screen shows a selected authorization for a known account number and customer number, and the fraud action to request is 'F', **when** the user presses PF5, **then** the fraud update receives the whole authorization record, the account number, the customer number and the fraud action 'F' (CAFM-C15-AC-15)
+16. **Given** today's date is 25 November 2026 and the user presses PF5 on a selected authorization, **when** the fraud update returns the authorization record, **then** the record's fraud report date is 11/25/26, that date is saved on the pending authorization and the detail screen shows it next to the fraud flag (CAFM-C15-AC-16)
+17. **Given** the user presses PF5, the fraud update reports success 'S', and replacing the pending authorization detail returns status 'AJ' (not blank or 'FW'), **when** the system saves the updated authorization detail, **then** both the fraud register change and the authorization detail change are rolled back, the error flag is set, and ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by AJ is shown (CAFM-C15-AC-17)
+
+## Requirements
+
+### Functional requirements
+
+- **CAFM-REQ-F-133** (business rule): When the user presses PF5 on the authorization detail screen and the selected authorization is marked fraud ('F'), the system shall set its fraud flag to 'R' (fraud removed) and request the fraud action 'R' (remove fraud). Rules: CAFM-BR-143, CAFM-BR-144, CAFM-BR-145.
+- **CAFM-REQ-F-134** (business rule): When the user presses PF5 on the authorization detail screen and the selected authorization is not marked fraud (blank or 'R'), the system shall set its fraud flag to 'F' (fraud confirmed) and request the fraud action 'F' (report fraud). Rules: CAFM-BR-146, CAFM-BR-144, CAFM-BR-145.
+- **CAFM-REQ-F-135** (design note): The system shall send the whole authorization record, the account number, the customer number and the fraud action to the fraud update program (COPAUS2C). Rules: CAFM-BR-147.
+- **CAFM-REQ-F-136** (business rule): The system shall set the fraud report date on the authorization record returned by the fraud update program to today's date in MM/DD/YY form with separators, which the detail screen then saves on the pending authorization and displays. Rules: CAFM-BR-147, CAFM-BR-148.
+- **CAFM-REQ-F-137** (business rule): When the fraud update program completes normally and reports success ('S'), the system shall replace the pending authorization detail record (PAUTDTL1) with the record carrying the toggled fraud flag and the fraud report date set by the fraud update program. Rules: CAFM-BR-149, CAFM-BR-150.
+- **CAFM-REQ-F-138** (business rule): When the replace of the authorization detail succeeds (status blank or 'FW'), the system shall commit the fraud register change and the authorization detail change together and show 'AUTH FRAUD REMOVED...' if the flag is now 'R', otherwise 'AUTH MARKED FRAUD...'. Rules: CAFM-BR-149, CAFM-BR-151.
+- **CAFM-REQ-N-003** (error handling): If the replace of the authorization detail returns any other status, then the system shall roll back both the fraud register change and the authorization detail change, set the error flag and show ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by the database status code. Rules: CAFM-BR-152, CAFM-BR-153.
+- **CAFM-REQ-F-139** (error handling): If the fraud update program completes but reports failure, then the system shall roll back, leave the authorization detail unchanged and show the fraud program's message (for example ' SYSTEM ERROR DB2: CODE:…'). Rules: CAFM-BR-154.
+- **CAFM-REQ-F-140** (error handling): If the link to the fraud update program does not complete normally, then the system shall roll back and leave the authorization detail unchanged, without setting any message. Rules: CAFM-BR-155.
+- **CAFM-REQ-F-141** (business rule): When a PF5 fraud action finishes, the system shall redisplay the same authorization's details. Rules: CAFM-BR-156, CAFM-BR-144.
+
+### Business rules
+
+| ID | Name | Class | Rule | Confidence | Evidence |
+|---|---|---|---|---|---|
+| CAFM-BR-143 | Toggle fraud mark on selected authorization | business rule | WHEN the user presses PF5 on the authorization detail screen and the selected authorization is marked fraud ('F'), THE authorization detail screen SHALL set its fraud flag to 'R' (fraud removed) and request the fraud action 'R' (remove fraud). | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:230-266, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:520-552, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:565-569, app/app-authorization-ims-db2-mq/cpy/CIPAUDTY.cpy:50-53 |
+| CAFM-BR-144 | Route operator requests on re-entry | business rule | WHEN the user presses PF5 on the detail screen, THE Authorization Detail View SHALL toggle the fraud mark of the selected authorization and redisplay its details. | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:157-206, app/cpy/CSMSG01Y.cpy:20-21, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:360-370 |
+| CAFM-BR-145 | Mark or unmark an authorization as fraud (upsert to the fraud table) | business rule | WHEN a user presses PF5 on the authorization detail screen, THE authorization detail screen SHALL ask the fraud program to record action 'R' (remove fraud) if the authorization is already marked fraud, and action 'F' (report fraud) otherwise. | high | app/app-authorization-ims-db2-mq/cbl/COPAUS2C.cbl:91-139, app/app-authorization-ims-db2-mq/cbl/COPAUS2C.cbl:141-216, app/app-authorization-ims-db2-mq/cbl/COPAUS2C.cbl:221-244, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:230-262 |
+| CAFM-BR-146 | Toggle fraud mark on selected authorization | business rule | WHEN the user presses PF5 on the authorization detail screen and the selected authorization is not marked fraud (blank or 'R'), THE authorization detail screen SHALL set its fraud flag to 'F' (fraud confirmed) and request the fraud action 'F' (report fraud). | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:230-266, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:520-552, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:565-569, app/app-authorization-ims-db2-mq/cpy/CIPAUDTY.cpy:50-53 |
+| CAFM-BR-147 | Submit fraud action to fraud processor | design note | THE authorization detail screen SHALL send the whole authorization record, the account number, the customer number and the fraud action to the fraud update program (COPAUS2C), which stamps today's date (MM/DD/YY) as the fraud report date on the record. | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:230-266, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:520-552, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:565-569, app/app-authorization-ims-db2-mq/cpy/CIPAUDTY.cpy:50-53 |
+| CAFM-BR-148 | Stamp fraud report with current date | business rule | THE fraud recording program SHALL set the fraud report date on the authorization record it returns to the caller (PA-FRAUD-RPT-DATE) to today's CICS date in MM/DD/YY form with separators, which the detail screen then saves on the pending authorization and displays. | high | app/app-authorization-ims-db2-mq/cbl/COPAUS2C.cbl:91-139, app/app-authorization-ims-db2-mq/cbl/COPAUS2C.cbl:141-216, app/app-authorization-ims-db2-mq/cbl/COPAUS2C.cbl:221-244, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:230-262 |
+| CAFM-BR-149 | Confirm fraud mark outcome | business rule | WHEN the fraud update program completes normally and reports success ('S'), THE authorization detail screen SHALL save the authorization detail with the new fraud flag and report date, commit, and show 'AUTH FRAUD REMOVED...' if the flag is 'R', otherwise 'AUTH MARKED FRAUD...'. | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:230-266, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:520-552, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:565-569, app/app-authorization-ims-db2-mq/cpy/CIPAUDTY.cpy:50-53 |
+| CAFM-BR-150 | Save updated authorization fraud status | business rule | WHEN the user presses PF5 on the authorization detail screen and the fraud processor (COPAUS2C) reports update status 'S', THE authorization detail screen SHALL replace the pending authorization detail record in IMS (PAUTDTL1) with the record carrying the toggled fraud flag and the fraud report date set by the fraud processor. | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:253-255, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:520-552, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:557-569, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:80 |
+| CAFM-BR-151 | Fraud update is all-or-nothing across the Db2 fraud register and the IMS authorization record | business rule | WHEN the IMS replace succeeds (status blank or 'FW'), THE authorization detail screen SHALL commit the Db2 fraud register change and the IMS change together and show 'AUTH FRAUD REMOVED...' if the flag is now 'R', otherwise 'AUTH MARKED FRAUD...'. | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:253-255, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:520-552, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:557-569, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:80 |
+| CAFM-BR-152 | Confirm fraud mark outcome | error handling | WHEN saving the updated authorization detail fails, THE authorization detail screen SHALL roll back and show ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by the database status code. | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:230-266, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:520-552, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:565-569, app/app-authorization-ims-db2-mq/cpy/CIPAUDTY.cpy:50-53 |
+| CAFM-BR-153 | Fraud update is all-or-nothing across the Db2 fraud register and the IMS authorization record | error handling | WHEN the IMS replace returns any other status, THE authorization detail screen SHALL roll back both the Db2 fraud register change and the IMS change, set the error flag and show ' System error while FRAUD Tagging, ROLLBACK\|\|' followed by the IMS status code. | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:253-255, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:520-552, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:557-569, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:80 |
+| CAFM-BR-154 | Submit fraud update request | error handling | WHEN the fraud update program completes but reports failure, THE authorization detail screen SHALL roll back, leave the authorization detail unchanged and show the fraud program's message (for example ' SYSTEM ERROR DB2: CODE:…'). | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:230-266, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:520-552, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:565-569, app/app-authorization-ims-db2-mq/cpy/CIPAUDTY.cpy:50-53 |
+| CAFM-BR-155 | Submit fraud action to fraud processor | error handling | WHEN the link to the fraud update program does not complete normally, THE authorization detail screen SHALL roll back and leave the authorization detail unchanged, without setting any message. | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:230-266, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:520-552, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:565-569, app/app-authorization-ims-db2-mq/cpy/CIPAUDTY.cpy:50-53 |
+| CAFM-BR-156 | Submit fraud update request | formatting | WHEN a PF5 fraud action finishes, THE authorization detail screen SHALL redisplay the same authorization's details. | high | app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:230-266, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:520-552, app/app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl:565-569, app/app-authorization-ims-db2-mq/cpy/CIPAUDTY.cpy:50-53 |
+
+### Key entities
+
+- CIPAUDTY (working storage)
+- CIPAUSMY (working storage)
+- COCOM01Y (working storage)
+- COTTL01Y (working storage)
+- CSDAT01Y (working storage)
+- CSMSG01Y (working storage)
+- CSMSG02Y (working storage)
+
+### Needs clarification
+
+- SME-143: On the authorization detail screen, what should happen (a) when the screen is opened without any data from the screen that called it, and (b) when the user presses PF3 after the screen is already showing? (Authorization business analyst) On CAFM-BR-144.
+- SME-144: When the request to mark or unmark an authorization as fraud does not complete normally, what should the operator see, and what state should the authorization be left in? (Authorization business analyst) On CAFM-BR-146, CAFM-BR-155, CAFM-BR-152, CAFM-BR-156, CAFM-BR-148, CAFM-BR-150.
+- SME-145: When adding or updating a fraud record fails for any reason other than a duplicate record, what status and message should go back to the operator? (Fraud management team) On CAFM-BR-152, CAFM-BR-156, CAFM-BR-148.
+- SME-146: The fraud update is written to the fraud store first, then to the authorization detail record. If the second write fails after the first has succeeded, nothing is rolled back. Must both updates succeed or fail together? (Architecture team) On CAFM-BR-146, CAFM-BR-155, CAFM-BR-152, CAFM-BR-156, CAFM-BR-150.
+- SME-147: When an authorization's fraud flag is changed, which data stores must hold the new fraud flag and fraud report date: the authorization detail record, the fraud store, or both? (Data architect) On CAFM-BR-152, CAFM-BR-156, CAFM-BR-148.
+- SME-148: If the fraud update reports success but the authorization's database status is neither blank nor 'FW', what message should the system show? (Business analyst) On CAFM-BR-152, CAFM-BR-156, CAFM-BR-148.
+- SME-149: Please confirm: after the fraud flag is changed, the system sends a fraud update request with the updated authorization record, the account ID and the customer ID, to be recorded in the authorization fraud store (CARDDEMO.AUTHFRDS). (Business analyst) On CAFM-BR-152, CAFM-BR-156, CAFM-BR-148.
+- DEF-056: Is this intended? If the link to the fraud program itself fails, the screen rolls back the change but sets no message, so the user sees the detail screen again with no word that the fraud action was not recorded. (Subject-matter expert) On CAFM-BR-146, CAFM-BR-149, CAFM-BR-155, CAFM-BR-152, CAFM-BR-156.
+
+### Decision table gaps
+
+None.

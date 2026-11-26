@@ -1,0 +1,41 @@
+# Implementation plan: Validate customer phone numbers (OATM-C10)
+
+**Status: FINAL**, signed off by Sam (acceptance), 2026-11-25.
+
+- [ ] 1. OATM-C10-T1 [data] Model the data the capability reads and writes
+  - File records: CSMSG02Y, CVACT01Y, CVACT03Y, CVCUS01Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSLKPCDY, CSMSG01Y, CSSETATY, CSSTRPFY, CSUSR01Y, CSUTLDPY, CSUTLDWY, CVCRD01Y.
+  - _Requirements: OATM-REQ-F-082, OATM-REQ-F-083, OATM-REQ-F-084, OATM-REQ-F-085, OATM-REQ-F-086, OATM-REQ-F-087, OATM-REQ-F-088, OATM-REQ-F-089, OATM-REQ-F-090, OATM-REQ-F-091, OATM-REQ-F-092, OATM-REQ-F-093, OATM-REQ-F-094_
+- [ ] 2. OATM-C10-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: OATM-REQ-F-083, OATM-REQ-F-084, OATM-REQ-F-085, OATM-REQ-F-086, OATM-REQ-F-087, OATM-REQ-F-088, OATM-REQ-F-089, OATM-REQ-F-090, OATM-REQ-F-091, OATM-REQ-F-092, OATM-REQ-F-093_
+  - _Rules: OATM-BR-086, OATM-BR-087, OATM-BR-088, OATM-BR-089, OATM-BR-090, OATM-BR-091, OATM-BR-092, OATM-BR-093, OATM-BR-094, OATM-BR-095, OATM-BR-096, OATM-BR-097_
+  - _After: OATM-C10-T1_
+- [ ] 3. OATM-C10-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: OATM-REQ-F-094_
+  - _Rules: OATM-BR-073_
+  - _After: OATM-C10-T1_
+- [ ] 4. OATM-C10-T4 [api] Build the services behind the screens
+  - OATM-BR-085: Input binding for the area code, prefix and line number of each phone: blank or '*' becomes null per part before the phone validator runs, so a phone with all three parts null counts as omitted.
+  - _Requirements: OATM-REQ-F-082_
+  - _Rules: OATM-BR-085_
+  - _After: OATM-C10-T1, OATM-C10-T2, OATM-C10-T3_
+- [ ] 5. OATM-C10-T5 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
+  - message "Fix these fields"
+  - radio "Primary card holder": Required: 'Primary Card Holder must be supplied.'; only Yes or No: 'Primary Card Holder must be Y or N.'
+  - text "Phone 1 (optional)": Optional; leave all of it blank to omit. If any part is entered: the area code must be supplied ('Phone Number 1: Area code must be supplied.'), 3 digits ('Phone Number 1: Area code must be A 3 digit number.'), not 000 ('Phone Number 1: Area code cannot be zero') and a general-purpose North American area code ('Phone Number 1: Not valid North America general purpose area code'); the prefix must be supplied, 3 digits and not 000 ('Phone Number 1: Prefix code must be supplied.' / 'Phone Number 1: Prefix code must be A 3 digit number.' / 'Phone Number 1: Prefix code cannot be zero'); the line number must be supplied, 4 digits and not 0000 ('Phone Number 1: Line number code must be supplied.' / 'Phone Number 1: Line number code must be A 4 digit number.' / 'Phone Number 1: Line number code cannot be zero').
+  - text "Phone 2 (optional)": Optional; leave all of it blank to omit. If any part is entered: the area code must be supplied ('Phone Number 2: Area code must be supplied.'), 3 digits ('Phone Number 2: Area code must be A 3 digit number.'), not 000 ('Phone Number 2: Area code cannot be zero') and a general-purpose North American area code ('Phone Number 2: Not valid North America general purpose area code'); the prefix must be supplied, 3 digits and not 000 ('Phone Number 2: Prefix code must be supplied.' / 'Phone Number 2: Prefix code must be A 3 digit number.' / 'Phone Number 2: Prefix code cannot be zero'); the line number must be supplied, 4 digits and not 0000 ('Phone Number 2: Line number code must be supplied.' / 'Phone Number 2: Line number code must be A 4 digit number.' / 'Phone Number 2: Line number code cannot be zero').
+  - _Requirements: OATM-REQ-F-082, OATM-REQ-F-083, OATM-REQ-F-087, OATM-REQ-F-094_
+  - _Rules: OATM-BR-073, OATM-BR-085, OATM-BR-086, OATM-BR-087, OATM-BR-091_
+  - _After: OATM-C10-T2, OATM-C10-T3, OATM-C10-T4_
+- [ ] 6. OATM-C10-T6 [test-generation] Write a test for every acceptance criterion
+  - 13 acceptance criteria, each a test named by its ID.
+  - _Requirements: OATM-REQ-F-082, OATM-REQ-F-083, OATM-REQ-F-084, OATM-REQ-F-085, OATM-REQ-F-086, OATM-REQ-F-087, OATM-REQ-F-088, OATM-REQ-F-089, OATM-REQ-F-090, OATM-REQ-F-091, OATM-REQ-F-092, OATM-REQ-F-093, OATM-REQ-F-094_
+  - _Criteria: OATM-C10-AC-01, OATM-C10-AC-02, OATM-C10-AC-03, OATM-C10-AC-04, OATM-C10-AC-05, OATM-C10-AC-06, OATM-C10-AC-07, OATM-C10-AC-08, OATM-C10-AC-09, OATM-C10-AC-10, OATM-C10-AC-11, OATM-C10-AC-12, OATM-C10-AC-13_
+  - _After: OATM-C10-T1, OATM-C10-T2, OATM-C10-T3, OATM-C10-T4, OATM-C10-T5_
+- [ ] 7. OATM-C10-T7 [compliance] Review the handling of personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: OATM-REQ-F-082, OATM-REQ-F-083, OATM-REQ-F-084, OATM-REQ-F-085, OATM-REQ-F-086, OATM-REQ-F-087, OATM-REQ-F-088, OATM-REQ-F-089, OATM-REQ-F-090, OATM-REQ-F-091, OATM-REQ-F-092, OATM-REQ-F-093, OATM-REQ-F-094_
+  - _After: OATM-C10-T1, OATM-C10-T2, OATM-C10-T3, OATM-C10-T4, OATM-C10-T5_

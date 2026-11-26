@@ -35,6 +35,8 @@ Every command, its options and examples, as `reframe --help` and `reframe <comma
 
 ## A full run, start to finish
 
+The short version, with the folder layout, is [How to run Reframe](how-to-run.md). Run every command from your workspace folder: each run lives in its `.reframe/<project>/<run>/`.
+
 ```bash
 aws sso login --profile my-profile        # sign in to AWS; Reframe never sees your credentials
 reframe run                               # guided: prerequisites, sign-in, source, choices, then one yes
@@ -49,6 +51,9 @@ reframe reconcile --max-batches <n>       # go ahead with the estimate it showed
 reframe reconcile --open                  # the reconciliation page, opening with Review first
 reframe review --context <folder>         # several reviewers' downloads: coverage, sign-offs, disagreements
 reframe export --to xlsx                  # the reconciled results as one Excel workbook
+reframe design --plan                     # the design: what a round would redo, with no Claude step
+reframe design --open                     # run a design round, then open the design page
+reframe design --package <empty folder>   # the AI-DLC package, cleaned, for the forward build
 reframe publish --to aws                  # a cleaned copy in your account's private reports bucket
 reframe reports open <project>           # open the project's latest published copy with your AWS sign-in
 reframe teardown                          # remove the run's AWS resources, after you type yes
@@ -242,6 +247,33 @@ reframe export --to xlsx --context ~/carddemo-context  # with the reviewers' mar
 
 It opens on the Requirements sheet; every sheet has a frozen header row and filters. Requirements, business rules, capabilities and open questions carry **Mark** (every reviewer's marks combined, as the next round combines them), **Reviewers' marks** (each one, with the comment) and **Key**. Only downloads from the reconciled review of the same snapshot are read, from the run's own page or a published copy; the About sheet lists the files read and ignored. Every cell is text, never a formula, and cleaned as `reframe publish` cleans its copy; if anything is left, nothing is written. Reframe does not read the workbook back. See [sharing.md](sharing.md), section 7.
 
+### `reframe design`
+
+The design (pipeline 4): legacy and modern screens, journeys, the clickable prototype, final specifications and the AI-DLC package, from the reconciled results; a round redoes only what new context touches. See [pipeline-4.md](pipeline-4.md).
+
+| Option | What it does |
+|---|---|
+| `--run <run>` | the run to act on (default: the latest run) |
+| `--context <context>` | the design context folder (default: the one given before, then the run's `inputs/design/`) |
+| `--stack <stack>` | the target stack, `"<front end>; <back end>; <data>"`; never chosen for you |
+| `--plan` | say what a round would redo, and why, without a Claude step |
+| `--package <folder>` | copy the latest package, cleaned, into an empty folder; runs nothing |
+| `--form kiro\|claude-code\|spec-kit\|all` | with `--package`: which form (default: all) |
+| `--check <copy>` | list the placeholders left in a copy of the package; runs nothing |
+| `--open` | open the design page when done |
+| `--auth subscription\|bedrock` | how Claude signs in (default: your subscription) |
+
+```bash
+reframe design                                    # a design round on the latest run: only what new context touches is redone
+reframe design --plan                             # what a round would redo, and why, with no Claude step
+reframe design --stack "React; Java 21 with Spring Boot; PostgreSQL"  # give the target stack: the data contracts get its types
+reframe design --package ~/handover/app           # copy the AI-DLC package, cleaned, into an empty folder
+reframe design --check ~/handover/app             # the placeholders still to fill in a copy of the package
+reframe design --open                             # open the design page, with the prototype
+```
+
+A round runs in the foreground: the inventory and flow, the journeys, the modern screens, the prototype, the final specifications, the design page and the package. It writes `design/changes-<round>.md` and a new package version only when something changed. If Claude's usage limit stops it, run `reframe design` again: what is done is kept.
+
 ### `reframe compare`
 
 Build the page comparing AWS Transform's and Claude's results again.
@@ -309,7 +341,9 @@ reframe teardown  # list the latest run's AWS resources, then remove them after 
 | Path | What it holds |
 |---|---|
 | `~/.reframe/config.json` | The saved profile, region and tool paths: the next run's defaults |
-| `~/.reframe/projects/<project>/runs/<run>/` | A run: its state, event log, change records, Terraform roots, downloads and reports |
+| `<workspace>/.reframe/<project>/<run>/` | A run, in the folder you run Reframe from: its state, event log, change records, Terraform roots, downloads, `inputs/` (the context you add) and `outputs/` (the reports, the reconciliation and the design) |
+| `…/inputs/reconcile/`, `…/inputs/design/` | The context for the reconciliation and the design, read when `--context` is not given |
+| `…/outputs/design/index.html` | The design page, with `prototype/` and `package/v<n>/` beside it |
 | `…/outputs/report/index.html` | AWS Transform's business review |
 | `…/outputs/claude/report/index.html` | Claude's business review |
 | `…/outputs/comparison/index.html` | The comparison page |

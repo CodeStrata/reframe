@@ -1,0 +1,67 @@
+# Feature specification: Select a card to view or update
+
+**Feature:** CCLDV-C03 · Credit Card List Detail View and Update · Customer Data Setup
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+## User scenarios and testing
+
+### User story (CCLDV-C03)
+
+As a card operations user, I want to mark one card in the list with S or U, so that I can go straight to its details or its update screen.
+
+Lets card operations staff mark one card in the list with 'S' to view its details or 'U' to update it, and takes them straight to that screen with the card's account and card number. It must never act when more than one row is marked or when a code other than S, U or blank is entered.
+
+**Acceptance scenarios:**
+
+1. **Given** Row 1 selection: 'S'; Row 3 selection: 'U', **when** the filters are valid and the operator selects more than one row with 'S' or 'U', or enters a code other than 'S', 'U' or blank, **then** Rejected with 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE'; rows 1 and 3 marked in error. (CCLDV-C03-AC-01)
+2. **Given** Row 2 selection: 'X', **when** the filters are valid and the operator selects more than one row with 'S' or 'U', or enters a code other than 'S', 'U' or blank, **then** Rejected with 'INVALID ACTION CODE'; row 2 marked in error. (CCLDV-C03-AC-02)
+3. **Given** Row 4 selection: 'S'; other rows: (blank), **when** the filters are valid and the operator selects more than one row with 'S' or 'U', or enters a code other than 'S', 'U' or blank, **then** Accepted; row 4 recorded as the selected row. (CCLDV-C03-AC-03)
+4. **Given** selection: 'S' on row 1 and 'U' on row 2, **when** the user's input fails a check (an invalid filter, more than one row selected with 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE', or an action other than S or U with 'INVALID ACTION CODE'), **then** Screen shows 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' with the cards re-read. (CCLDV-C03-AC-04)
+5. **Given** card filter: 41110000ABC, **when** the user's input fails a check (an invalid filter, more than one row selected with 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE', or an action other than S or U with 'INVALID ACTION CODE'), **then** Screen shows 'CARD ID FILTER,IF SUPPLIED MUST BE A 16 DIGIT NUMBER' and no cards are re-read. (CCLDV-C03-AC-05)
+6. **Given** row 3: account 00000000010, card 4111000000000003; selection on row 3: S; key pressed: Enter, **when** the user, on the list shown by this screen, types 'S' against one card row and presses Enter with no input error, **then** Card detail opens for account 00000000010, card 4111000000000003. (CCLDV-C03-AC-06)
+7. **Given** row 3: account 00000000010, card 4111000000000003; selection on row 3: U; key pressed: Enter, **when** the user, on the list shown by this screen, types 'U' against one card row and presses Enter with no input error, **then** Card update opens for account 00000000010, card 4111000000000003. (CCLDV-C03-AC-07)
+
+## Requirements
+
+### Functional requirements
+
+- **CCLDV-REQ-F-028** (business rule): If the filters are valid and the operator selects more than one row with 'S' or 'U', then the system shall reject the selection with 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE' and mark the affected rows in error. Rules: CCLDV-BR-029.
+- **CCLDV-REQ-F-029** (business rule): If the filters are valid and the operator enters a code other than 'S', 'U' or blank, then the system shall reject it with 'INVALID ACTION CODE' and mark the affected rows in error. Rules: CCLDV-BR-029.
+- **CCLDV-REQ-F-030** (business rule): When the filters are valid and a row is selected, the system shall record the selected row. Rules: CCLDV-BR-029.
+- **CCLDV-REQ-F-031** (error handling): If the selection fails a check, then the system shall redisplay the list screen with the error message. Rules: CCLDV-BR-028.
+- **CCLDV-REQ-F-032** (business rule): When the user types 'S' against one card row and presses Enter with no input error, the system shall transfer to card detail (COCRDSLC) passing that row's account and card number, with the card list as the previous program and context 'enter'. Rules: CCLDV-BR-030.
+- **CCLDV-REQ-F-033** (business rule): When the user types 'U' against one card row and presses Enter with no input error, the system shall transfer to card update (COCRDUPC) passing that row's account and card number, with the card list as the previous program and context 'enter'. Rules: CCLDV-BR-031.
+
+### Business rules
+
+| ID | Name | Class | Rule | Confidence | Evidence |
+|---|---|---|---|---|---|
+| CCLDV-BR-029 | Validate row selection codes | business rule | WHEN the filters are valid and the operator selects more than one row with 'S' or 'U', or enters a code other than 'S', 'U' or blank, THE Card List Selection Validation SHALL reject multiple selections with 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE', reject invalid codes with 'INVALID ACTION CODE', mark the affected rows in error, and record the selected row | medium | app/cbl/COCRDLIC.cbl:1073,1075-1077,1079-1082,1084-1086,1088-1093,1095,1097,1099-1115, app/cbl/COCRDLIC.cbl:1073-1121 |
+| CCLDV-BR-028 | Redisplay list after input errors | error handling | WHEN the user's input fails a check (an invalid filter, more than one row selected with 'PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE', or an action other than S or U with 'INVALID ACTION CODE'), THE card list SHALL redisplay the list screen with the error message, re-reading the cards only when both filters are valid or blank. | medium | app/cbl/COCRDLIC.cbl:418-438, app/cbl/COCRDLIC.cbl:1003-1030, app/cbl/COCRDLIC.cbl:1036-1067, app/cbl/COCRDLIC.cbl:1074-1116 |
+| CCLDV-BR-030 | Selected card routes to view or update program | business rule | WHEN the user, on the list shown by this screen, types 'S' against one card row and presses Enter with no input error, THE card list SHALL transfer to card detail (COCRDSLC) passing that row's account and card number, with this list as the previous program and context 'enter'. | medium | app/cbl/COCRDLIC.cbl:517-569, app/cbl/COCRDLIC.cbl:195-210, app/cbl/COCRDLIC.cbl:1074-1116 |
+| CCLDV-BR-031 | Selected card routes to view or update program | business rule | WHEN the user, on the list shown by this screen, types 'U' against one card row and presses Enter with no input error, THE card list SHALL transfer to card update (COCRDUPC) passing that row's account and card number, with this list as the previous program and context 'enter'. | medium | app/cbl/COCRDLIC.cbl:517-569, app/cbl/COCRDLIC.cbl:195-210, app/cbl/COCRDLIC.cbl:1074-1116 |
+
+### Key entities
+
+- CVACT02Y (file record)
+- COCOM01Y (working storage)
+- COTTL01Y (working storage)
+- CSDAT01Y (working storage)
+- CSMSG01Y (working storage)
+- CSSTRPFY (working storage)
+- CSUSR01Y (working storage)
+- CVCRD01Y (working storage)
+
+### Needs clarification
+
+- SME-096: On the card list screen, the filter messages say the account number must be 11 digits and the card number 16 digits, but only 'numeric' is checked. Should exactly 11 and 16 digits be required? (Business analyst) On CCLDV-BR-029, CCLDV-BR-028.
+- SME-097: On the card list screen, what should happen when the user pages forward past the last page? Should 'NO MORE PAGES TO DISPLAY' appear on the first press, or is the current behaviour intended (the first PF8 shows the action prompt and only the second shows the message)? (Card operations subject-matter expert) On CCLDV-BR-029, CCLDV-BR-028.
+- SME-098: On the card list screen, what should happen when the user presses Enter with exactly one card marked 'S' (view) or 'U' (update)? (Business analyst) On CCLDV-BR-029, CCLDV-BR-028.
+- SME-099: Please confirm this card list rule: while a page is being filled, each card record that is read successfully (a duplicate key counts as success) and passes the account and card filters adds one row showing its card number, account number and active status. (Business analyst) On CCLDV-BR-029, CCLDV-BR-028.
+- SME-102: Please confirm the priority of the rule that sends a selected card to the view screen ('S') or the update screen ('U'). Is it critical to the system's core purpose, or a rule that would be costly if it were wrong? (Card operations subject-matter expert) On CCLDV-BR-031.
+- DEF-124: Is this intended? On an input error the re-read is started from an empty key, so the cards shown come from the start of the file even when the user was on a later page, while the page number shown stays the same. (Subject-matter expert) On CCLDV-BR-028.
+
+### Decision table gaps
+
+- Row selection outcome: The rules do not say which message is shown when the operator both selects several rows and enters an invalid code.

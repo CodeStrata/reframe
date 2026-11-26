@@ -1,0 +1,28 @@
+# Tasks: Validate customer name and address (OATM-C09)
+
+**Status: FINAL**, signed off by Sam (acceptance), 2026-11-25.
+
+Each task names the role that does it; the role files are in .claude/agents/.
+
+- [ ] OATM-C09-T1 [data] Model the data the capability reads and writes. Requirements: OATM-REQ-F-073, OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081.
+  - File records: CSMSG02Y, CVACT01Y, CVACT03Y, CVCUS01Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSLKPCDY, CSMSG01Y, CSSETATY, CSSTRPFY, CSUSR01Y, CSUTLDPY, CSUTLDWY, CVCRD01Y.
+- [ ] OATM-C09-T2 [business-rules] Implement the business rules. Requirements: OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081. Rules: OATM-BR-076, OATM-BR-077, OATM-BR-078, OATM-BR-079, OATM-BR-080, OATM-BR-081, OATM-BR-082, OATM-BR-083, OATM-BR-084. After: OATM-C09-T1.
+  - Keep each business rule exactly as specified.
+- [ ] OATM-C09-T3 [api] Build the services behind the screens. Requirements: OATM-REQ-F-073. Rules: OATM-BR-074, OATM-BR-075. After: OATM-C09-T1, OATM-C09-T2.
+  - OATM-BR-074: Input binding for first, middle and last name, address lines 1 and 2, city and EFT account id: blank or '*' becomes null; otherwise the value is the proposed new value. The city maps to the customer's third address line in the stored record.
+  - OATM-BR-075: Input binding for state and ZIP: blank or '*' becomes null (empty); otherwise the entered value goes to the state and ZIP validators.
+- [ ] OATM-C09-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT). Requirements: OATM-REQ-F-073, OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081. Rules: OATM-BR-074, OATM-BR-075, OATM-BR-076, OATM-BR-077, OATM-BR-078, OATM-BR-079, OATM-BR-080, OATM-BR-081, OATM-BR-082, OATM-BR-083, OATM-BR-084. After: OATM-C09-T2, OATM-C09-T3.
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
+  - text "First name": Required: 'First Name must be supplied.'; letters and spaces only: 'First Name can have alphabets only.'.
+  - text "Middle name (optional)": Optional; letters and spaces only: 'Middle Name can have alphabets only.'.
+  - text "Last name": Required: 'Last Name must be supplied.'; letters and spaces only: 'Last Name can have alphabets only.'.
+  - text "Address line 1": Required: 'Address Line 1 must be supplied.'
+  - text "City": Required: 'City must be supplied.'; letters and spaces only: 'City can have alphabets only.'.
+  - select "State": Required: 'State must be supplied.'; letters and spaces only: 'State can have alphabets only.'. Must be a US state code: 'State: is not a valid state code'; must match the ZIP code: 'Invalid zip code for state'.
+  - text "ZIP code": Required: 'Zip must be supplied.'; 5 digits: 'Zip must be all numeric.'; not zero: 'Zip must not be zero.'; its first two digits must belong to the chosen state: 'Invalid zip code for state'.
+  - text "EFT account ID": Required: 'EFT Account Id must be supplied.'; 10 digits: 'EFT Account Id must be all numeric.'; not zero: 'EFT Account Id must not be zero.'
+- [ ] OATM-C09-T5 [test-generation] Write a test for every acceptance criterion. Requirements: OATM-REQ-F-073, OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081. Criteria: OATM-C09-AC-01, OATM-C09-AC-02, OATM-C09-AC-03, OATM-C09-AC-04, OATM-C09-AC-05, OATM-C09-AC-06, OATM-C09-AC-07, OATM-C09-AC-08, OATM-C09-AC-09, OATM-C09-AC-10, OATM-C09-AC-11, OATM-C09-AC-12, OATM-C09-AC-13, OATM-C09-AC-14, OATM-C09-AC-15, OATM-C09-AC-16. After: OATM-C09-T1, OATM-C09-T2, OATM-C09-T3, OATM-C09-T4.
+  - 16 acceptance criteria, each a test named by its ID.
+- [ ] OATM-C09-T6 [compliance] Review the handling of personal data. Requirements: OATM-REQ-F-073, OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081. After: OATM-C09-T1, OATM-C09-T2, OATM-C09-T3, OATM-C09-T4.
+  - Check storage, logs, screens and audit against the rules.

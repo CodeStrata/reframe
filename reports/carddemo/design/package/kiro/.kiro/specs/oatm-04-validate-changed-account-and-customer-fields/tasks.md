@@ -1,0 +1,47 @@
+# Implementation plan: Validate changed account and customer fields (OATM-C04)
+
+**Status: FINAL**, signed off by Sam (acceptance), 2026-11-25.
+
+- [ ] 1. OATM-C04-T1 [data] Model the data the capability reads and writes
+  - File records: CSMSG02Y, CVACT01Y, CVACT03Y, CVCUS01Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSLKPCDY, CSMSG01Y, CSSETATY, CSSTRPFY, CSUSR01Y, CSUTLDPY, CSUTLDWY, CVCRD01Y.
+  - _Requirements: OATM-REQ-F-033, OATM-REQ-F-034, OATM-REQ-F-035, OATM-REQ-F-036, OATM-REQ-F-037, OATM-REQ-F-038, OATM-REQ-F-039, OATM-REQ-F-040, OATM-REQ-F-041, OATM-REQ-F-042, OATM-REQ-F-043, OATM-REQ-N-003, OATM-REQ-F-044_
+- [ ] 2. OATM-C04-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: OATM-REQ-F-033, OATM-REQ-F-034, OATM-REQ-F-035, OATM-REQ-F-036, OATM-REQ-F-037, OATM-REQ-F-038, OATM-REQ-F-039, OATM-REQ-F-040, OATM-REQ-F-041, OATM-REQ-F-042, OATM-REQ-F-043, OATM-REQ-N-003, OATM-REQ-F-044_
+  - _Rules: OATM-BR-034, OATM-BR-035, OATM-BR-036, OATM-BR-037, OATM-BR-038, OATM-BR-039, OATM-BR-040, OATM-BR-041, OATM-BR-042, OATM-BR-043_
+  - _After: OATM-C04-T1_
+- [ ] 3. OATM-C04-T3 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
+  - message "Fix these fields"
+  - radio "Account status": Required: 'Account Status must be supplied.'; only Active or Inactive: 'Account Status must be Y or N.'
+  - date "Open date": Year, month and day must all be supplied: 'Open Date : Year must be supplied.', 'Open Date : Month must be supplied.', 'Open Date : Day must be supplied.'. The year must be 4 digits: 'Open Date must be 4 digit number.', starting 19 or 20: 'Open Date : Century is not valid.'. 'Open Date: Month must be a number between 1 and 12.'; 'Open Date:day must be a number between 1 and 31.'; 'Open Date:Cannot have 31 days in this month.'; 'Open Date:Cannot have 30 days in this month.'; 'Open Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Open Date validation error ...'.
+  - date "Expiry date": Year, month and day must all be supplied: 'Expiry Date : Year must be supplied.', 'Expiry Date : Month must be supplied.', 'Expiry Date : Day must be supplied.'. The year must be 4 digits: 'Expiry Date must be 4 digit number.', starting 19 or 20: 'Expiry Date : Century is not valid.'. 'Expiry Date: Month must be a number between 1 and 12.'; 'Expiry Date:day must be a number between 1 and 31.'; 'Expiry Date:Cannot have 31 days in this month.'; 'Expiry Date:Cannot have 30 days in this month.'; 'Expiry Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Expiry Date validation error ...'.
+  - date "Reissue date": Year, month and day must all be supplied: 'Reissue Date : Year must be supplied.', 'Reissue Date : Month must be supplied.', 'Reissue Date : Day must be supplied.'. The year must be 4 digits: 'Reissue Date must be 4 digit number.', starting 19 or 20: 'Reissue Date : Century is not valid.'. 'Reissue Date: Month must be a number between 1 and 12.'; 'Reissue Date:day must be a number between 1 and 31.'; 'Reissue Date:Cannot have 31 days in this month.'; 'Reissue Date:Cannot have 30 days in this month.'; 'Reissue Date:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Reissue Date validation error ...'.
+  - money "Credit limit": Required: 'Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Credit Limit is not valid'; negative and zero amounts are accepted.
+  - money "Cash credit limit": Required: 'Cash Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Cash Credit Limit is not valid'; negative and zero amounts are accepted.
+  - money "Current balance": Required: 'Current Balance must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Balance is not valid'; negative and zero amounts are accepted.
+  - money "Current cycle credit": Required: 'Current Cycle Credit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Cycle Credit Limit is not valid'; negative and zero amounts are accepted.
+  - money "Current cycle debit": Required: 'Current Cycle Debit Limit must be supplied.'; must be a valid amount, for example -1,250.00 or 5000: 'Current Cycle Debit Limit is not valid'; negative and zero amounts are accepted.
+  - text "First name": Required: 'First Name must be supplied.'; letters and spaces only: 'First Name can have alphabets only.'.
+  - text "Middle name (optional)": Optional; letters and spaces only: 'Middle Name can have alphabets only.'.
+  - text "Last name": Required: 'Last Name must be supplied.'; letters and spaces only: 'Last Name can have alphabets only.'.
+  - text "Social Security number": First 3 digits must be supplied, numeric and not zero: 'SSN: First 3 chars must be supplied.' / 'SSN: First 3 chars must be all numeric.' / 'SSN: First 3 chars must not be zero.'; and not 666 or 900-999: 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'. The 4th-5th digits and the last 4 digits must each be supplied, numeric and not zero (messages 'SSN 4th & 5th chars ...' and 'SSN Last 4 chars ...').
+  - date "Date of birth": Year, month and day must all be supplied: 'Date of Birth : Year must be supplied.', 'Date of Birth : Month must be supplied.', 'Date of Birth : Day must be supplied.'. The year must be 4 digits: 'Date of Birth must be 4 digit number.', starting 19 or 20: 'Date of Birth : Century is not valid.'. 'Date of Birth: Month must be a number between 1 and 12.'; 'Date of Birth:day must be a number between 1 and 31.'; 'Date of Birth:Cannot have 31 days in this month.'; 'Date of Birth:Cannot have 30 days in this month.'; 'Date of Birth:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Date of Birth validation error ...'. Must be before today: 'Date of Birth:cannot be in the future '.
+  - number "FICO score": Required: 'FICO Score must be supplied.'; 3 digits: 'FICO Score must be all numeric.'; not zero: 'FICO Score must not be zero.'; 300 to 850 inclusive: 'FICO Score: should be between 300 and 850'.
+  - radio "Primary card holder": Required: 'Primary Card Holder must be supplied.'; only Yes or No: 'Primary Card Holder must be Y or N.'
+  - text "City": Required: 'City must be supplied.'; letters and spaces only: 'City can have alphabets only.'.
+  - select "State": Required: 'State must be supplied.'; letters and spaces only: 'State can have alphabets only.'. Must be a US state code: 'State: is not a valid state code'; must match the ZIP code: 'Invalid zip code for state'.
+  - button "Check changes"
+  - _Requirements: OATM-REQ-F-033, OATM-REQ-F-034, OATM-REQ-F-035, OATM-REQ-F-036, OATM-REQ-F-040, OATM-REQ-F-041, OATM-REQ-F-042, OATM-REQ-F-043, OATM-REQ-F-044_
+  - _Rules: OATM-BR-034, OATM-BR-035, OATM-BR-036, OATM-BR-040, OATM-BR-041, OATM-BR-042, OATM-BR-043_
+  - _After: OATM-C04-T2_
+- [ ] 4. OATM-C04-T4 [test-generation] Write a test for every acceptance criterion
+  - 18 acceptance criteria, each a test named by its ID.
+  - _Requirements: OATM-REQ-F-033, OATM-REQ-F-034, OATM-REQ-F-035, OATM-REQ-F-036, OATM-REQ-F-037, OATM-REQ-F-038, OATM-REQ-F-039, OATM-REQ-F-040, OATM-REQ-F-041, OATM-REQ-F-042, OATM-REQ-F-043, OATM-REQ-N-003, OATM-REQ-F-044_
+  - _Criteria: OATM-C04-AC-01, OATM-C04-AC-02, OATM-C04-AC-03, OATM-C04-AC-04, OATM-C04-AC-05, OATM-C04-AC-06, OATM-C04-AC-07, OATM-C04-AC-08, OATM-C04-AC-09, OATM-C04-AC-10, OATM-C04-AC-11, OATM-C04-AC-12, OATM-C04-AC-13, OATM-C04-AC-14, OATM-C04-AC-15, OATM-C04-AC-16, OATM-C04-AC-17, OATM-C04-AC-18_
+  - _After: OATM-C04-T1, OATM-C04-T2, OATM-C04-T3_
+- [ ] 5. OATM-C04-T5 [compliance] Review the handling of money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: OATM-REQ-F-033, OATM-REQ-F-034, OATM-REQ-F-035, OATM-REQ-F-036, OATM-REQ-F-037, OATM-REQ-F-038, OATM-REQ-F-039, OATM-REQ-F-040, OATM-REQ-F-041, OATM-REQ-F-042, OATM-REQ-F-043, OATM-REQ-N-003, OATM-REQ-F-044_
+  - _After: OATM-C04-T1, OATM-C04-T2, OATM-C04-T3_

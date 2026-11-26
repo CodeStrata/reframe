@@ -1,0 +1,238 @@
+# Save changes to a user profile (USPM-C07)
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+User Access Control · User Security Profile Management · runs as online · risk high
+
+## Introduction
+
+Lets an administrator save changes to a user's first name, last name, password and user type, either staying on the screen or saving and leaving. It must require every field and report only the first blank one. It must write the record only when at least one field actually changed, and say plainly whether the save happened.
+
+**User story:** As an administrator, I want to save changes to a user's name, password and user type, so that the user's security profile stays correct.
+
+## Requirements
+
+### Requirement 1: USPM-REQ-F-064 (business rule)
+
+#### Acceptance criteria
+
+1. When the administrator presses PF5, the system shall validate and save the changes and stay on the Update User screen. (rules USPM-BR-072)
+2. GIVEN Key: PF5; Change: Last Name Smith to Smyth WHEN the admin presses PF5 THEN The change is saved and the Update User screen is shown again with the result message. (USPM-C07-AC-01; USPM-BR-072)
+
+### Requirement 2: USPM-REQ-F-065 (business rule)
+
+#### Acceptance criteria
+
+1. When the administrator presses PF3, the system shall attempt the same validation and save as PF5 and then always return to the program that called it, or to the Admin menu (COADM01C) if no caller is recorded. (rules USPM-BR-073)
+2. GIVEN Caller: User List (COUSR00C); Key: PF3 WHEN the admin presses PF3 THEN Changes are saved if valid and the User List screen is shown. (USPM-C07-AC-02; USPM-BR-073)
+3. GIVEN Caller: none recorded; Key: PF3 WHEN the admin presses PF3 THEN The Admin menu (COADM01C) is shown. (USPM-C07-AC-03; USPM-BR-073)
+
+### Requirement 3: USPM-REQ-F-066 (business rule)
+
+#### Acceptance criteria
+
+1. If a save is requested (PF5, or PF3 save-and-exit) and the User ID is blank, then the system shall not save, show 'User ID can NOT be empty...' and place the cursor on User ID. (rules USPM-BR-074)
+2. GIVEN User ID: (blank); Key: PF5 WHEN an administrator asks to save a user update (PF5, or PF3 save-and-exit) and the User ID is blank THEN Nothing is saved; 'User ID can NOT be empty...' is shown with the cursor on User ID (USPM-C07-AC-04; USPM-BR-074)
+
+### Requirement 4: USPM-REQ-F-067 (business rule)
+
+#### Acceptance criteria
+
+1. If a save is requested with a User ID but a blank First Name, then the system shall not save, show 'First Name can NOT be empty...' and place the cursor on First Name. (rules USPM-BR-075)
+2. GIVEN User ID: JSMITH01; First Name: (blank); Key: PF5 WHEN a save is requested with a User ID but a blank First Name THEN Nothing is saved; 'First Name can NOT be empty...' is shown (USPM-C07-AC-05; USPM-BR-075)
+
+### Requirement 5: USPM-REQ-F-068 (business rule)
+
+#### Acceptance criteria
+
+1. If a save is requested with User ID and First Name filled but a blank Last Name, then the system shall not save, show 'Last Name can NOT be empty...' and place the cursor on Last Name. (rules USPM-BR-076)
+2. GIVEN User ID: JSMITH01; First Name: John; Last Name: (blank); Password: pass1234; User Type: U; Key: PF5 WHEN a save is requested with User ID and First Name filled but a blank Last Name THEN Nothing is saved; 'Last Name can NOT be empty...' is shown with the cursor on Last Name (USPM-C07-AC-06; USPM-BR-076)
+
+### Requirement 6: USPM-REQ-F-069 (business rule)
+
+#### Acceptance criteria
+
+1. If a save is requested with User ID and both names filled but a blank Password, then the system shall not save, show 'Password can NOT be empty...' and place the cursor on Password. (rules USPM-BR-077)
+2. GIVEN User ID: JSMITH01; First Name: John; Last Name: Smith; Password: (blank); Key: PF5 WHEN a save is requested with User ID and both names filled but a blank Password THEN Nothing is saved; 'Password can NOT be empty...' is shown (USPM-C07-AC-07; USPM-BR-077)
+
+### Requirement 7: USPM-REQ-F-070 (business rule)
+
+#### Acceptance criteria
+
+1. If a save is requested with all other fields filled but a blank User Type, then the system shall not save, show 'User Type can NOT be empty...' and place the cursor on User Type. (rules USPM-BR-078)
+2. GIVEN User ID: JSMITH01; First Name: John; Last Name: Smith; Password: pass1234; User Type: (blank); Key: PF5 WHEN a save is requested with all other fields filled but a blank User Type THEN Nothing is saved; 'User Type can NOT be empty...' is shown (USPM-C07-AC-08; USPM-BR-078)
+
+### Requirement 8: USPM-REQ-F-071 (business rule)
+
+#### Acceptance criteria
+
+1. If several fields are blank when a save is requested, then the system shall report only the first in the order User ID, First Name, Last Name, Password, User Type. (rules USPM-BR-079)
+2. GIVEN First Name: (blank); Last Name: (blank); Key: PF5 WHEN several fields are blank THEN Only 'First Name can NOT be empty...' is shown (USPM-C07-AC-09; USPM-BR-079)
+
+### Requirement 9: USPM-REQ-F-072 (error handling)
+
+#### Acceptance criteria
+
+1. If PF3 is pressed with a blank required field, then the system shall skip the save but still return to the calling screen (or the admin menu), so the validation message is not left on view. (rules USPM-BR-080)
+2. GIVEN Last Name: (blank); Key: PF3 WHEN PF3 is pressed with a blank required field THEN No update is written and the user is taken back to the previous screen (USPM-C07-AC-10; USPM-BR-080)
+
+### Requirement 10: USPM-REQ-F-073 (business rule)
+
+#### Acceptance criteria
+
+1. When the administrator saves (PF5 or PF3) and User ID, First Name, Last Name, Password and User Type are all filled in, the system shall re-read the stored user, replace each of First Name, Last Name, Password and User Type that differs from the screen, and save the user record only if at least one of them changed. (rules USPM-BR-081)
+2. GIVEN Stored user: JSMITH01, John, Smith, pass1234, type U; Screen: JSMITH01, John, Smith, pass1234, type A; Key: PF5 WHEN the admin saves (PF5 or PF3) and User ID, First Name, Last Name, Password and User Type are all filled in THEN The user record is rewritten with User Type 'A'; the other fields stay as they were. (USPM-C07-AC-11; USPM-BR-081)
+
+### Requirement 11: USPM-REQ-F-074 (business rule)
+
+#### Acceptance criteria
+
+1. If the administrator saves and none of First Name, Last Name, Password or User Type differs from the stored user, then the system shall not save anything and shall show 'Please modify to update ...' in red. (rules USPM-BR-082)
+2. GIVEN Stored user: JSMITH01, John, Smith, pass1234, type U; Screen: JSMITH01, John, Smith, pass1234, type U; Key: PF5 WHEN the admin saves and none of First Name, Last Name, Password or User Type differs from the stored user THEN Nothing is written; the message 'Please modify to update ...' is shown in red. (USPM-C07-AC-12; USPM-BR-082)
+
+### Requirement 12: USPM-REQ-F-075 (formatting)
+
+#### Acceptance criteria
+
+1. When the changed user record is saved successfully, the system shall show 'User <user ID> has been updated ...' in green. (rules USPM-BR-083)
+2. GIVEN user 'USER0001' is stored with Last Name 'Smith' and the administrator has changed Last Name to 'Jones' with all other fields filled WHEN the administrator presses PF5 and the changed record is saved successfully THEN the message 'User USER0001 has been updated ...' is shown in green (USPM-C07-AC-13; USPM-BR-083)
+
+## Screens and components
+
+### Sign in (S-SIGN-IN)
+
+Sign in to CardDemo with User ID and password; on success the user lands on the home page for their role. Also shows the signed-out confirmation.
+
+Prototype: `ui-reference/index.html#/S-SIGN-IN`. Replaces the legacy screens COSGN0A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
+### Home (S-HOME)
+
+One role-aware home page replacing both the Main Menu and the Admin Menu: each allowed function is a link, grouped by subject, instead of a typed option number. Administrators see Administration; regular users see accounts, cards, transactions and payments.
+
+Prototype: `ui-reference/index.html#/S-HOME`. Replaces the legacy screens COMEN1A, COADM1A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
+### Users (S-USER-LIST)
+
+Find users and act on them: search by User ID, page through a table of users, and edit or delete a user from its row; add a new user from here.
+
+Prototype: `ui-reference/index.html#/S-USER-LIST`. Replaces the legacy screens COUSR0A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
+### Update user (S-USER-EDIT)
+
+Change a user's name, password or user type. Opens with the user already loaded when chosen from the list; another user can be looked up by User ID.
+
+Prototype: `ui-reference/index.html#/S-USER-EDIT`. Replaces the legacy screens COUSR2A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| User ID | search | User ID to look up, up to 8 characters | Required: 'User ID can NOT be empty...'. Unknown: 'User ID NOT found...' and the details stay empty |  | USPM-REQ-F-066 |
+| User details | form | First name, Last name, Password, User type; errors listed in a summary and next to each field, focus on the first in the order User ID, First name, Last name, Password, User type; only changed values are saved |  |  | USPM-REQ-F-071, USPM-REQ-F-073 |
+| First name | text | Up to 20 characters | Required: 'First Name can NOT be empty...' |  | USPM-REQ-F-067 |
+| Last name | text | Up to 20 characters | Required: 'Last Name can NOT be empty...' |  | USPM-REQ-F-068 |
+| Password | password | Up to 8 characters, hidden, with a Show password toggle | Required: 'Password can NOT be empty...' |  | USPM-REQ-F-069 |
+| User type | radio | Admin (A) or Regular user (U) | Required: 'User Type can NOT be empty...' |  | USPM-REQ-F-070 |
+| Save | button |  | Nothing changed: 'Please modify to update ...' |  | USPM-REQ-F-064, USPM-REQ-F-074, USPM-REQ-F-075 |
+| Save and close | button | Saves, then returns to where the user came from only when the save succeeded, so errors stay in view |  | S-USER-LIST | USPM-REQ-F-065, USPM-REQ-F-072 |
+
+
+## Data models
+
+#### CSUSR01Y
+
+File record of COUSR02C. Source: `app/cpy/CSUSR01Y.cpy`.
+
+Record `SEC-USER-DATA`:
+
+| Field | In | PIC | Type | Code type | Column type | Values |
+|---|---|---|---|---|---|---|
+| SEC-USR-ID |  | X(08) | text, 8 characters |  |  |  |
+| SEC-USR-FNAME |  | X(20) | text, 20 characters |  |  |  |
+| SEC-USR-LNAME |  | X(20) | text, 20 characters |  |  |  |
+| SEC-USR-PWD |  | X(08) | text, 8 characters |  |  |  |
+| SEC-USR-TYPE |  | X(01) | text, 1 character |  |  |  |
+| SEC-USR-FILLER |  | X(23) | text, 23 characters |  |  |  |
+
+- COCOM01Y (working storage of COUSR02C): see data-contracts.md.
+- COTTL01Y (working storage of COUSR02C): see data-contracts.md.
+- CSDAT01Y (working storage of COUSR02C): see data-contracts.md.
+- CSMSG01Y (working storage of COUSR02C): see data-contracts.md.
+
+## Business rules
+
+Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error handling* keeps its messages; a *side effect* is kept; a *historical artifact* is carried only after asking the owner; a *design note* is for the build, below.
+
+| ID | Name | Class | Rule | Confidence | Evidence |
+|---|---|---|---|---|---|
+| USPM-BR-072 | Route operator request by pressed key | business rule | WHEN the admin presses PF5, THE User Update SHALL validate and save the changes and stay on the Update User screen. | high | app/cbl/COUSR02C.cbl:106-131, app/cbl/COUSR02C.cbl:250-261, app/cbl/COUSR02C.cbl:395-411, app/cpy/CSMSG01Y.cpy:20-21 |
+| USPM-BR-073 | Route operator request by pressed key | business rule | WHEN the admin presses PF3, THE User Update SHALL attempt the same validation and save as PF5 and then always return to the program that called it, or to the Admin menu (COADM01C) if no caller is recorded. | high | app/cbl/COUSR02C.cbl:106-131, app/cbl/COUSR02C.cbl:250-261, app/cbl/COUSR02C.cbl:395-411, app/cpy/CSMSG01Y.cpy:20-21 |
+| USPM-BR-074 | Require user ID for update | business rule | WHEN an administrator asks to save a user update (PF5, or PF3 save-and-exit) and the User ID is blank, THE User Update screen SHALL not save, show 'User ID can NOT be empty...' and place the cursor on User ID. | high | app/cbl/COUSR02C.cbl:177-213, app/cbl/COUSR02C.cbl:215, app/cbl/COUSR02C.cbl:111-119, app/cbl/COUSR02C.cbl:122-123 |
+| USPM-BR-075 | Require first name for update | business rule | WHEN a save is requested with a User ID but a blank First Name, THE User Update screen SHALL not save, show 'First Name can NOT be empty...' and place the cursor on First Name. | high | app/cbl/COUSR02C.cbl:177-213, app/cbl/COUSR02C.cbl:215, app/cbl/COUSR02C.cbl:111-119, app/cbl/COUSR02C.cbl:122-123 |
+| USPM-BR-076 | Require last name for update | business rule | WHEN a save is requested with User ID and First Name filled but a blank Last Name, THE User Update screen SHALL not save, show 'Last Name can NOT be empty...' and place the cursor on Last Name. | high | app/cbl/COUSR02C.cbl:177-213, app/cbl/COUSR02C.cbl:215, app/cbl/COUSR02C.cbl:111-119, app/cbl/COUSR02C.cbl:122-123 |
+| USPM-BR-077 | Require password for update | business rule | WHEN a save is requested with User ID and both names filled but a blank Password, THE User Update screen SHALL not save, show 'Password can NOT be empty...' and place the cursor on Password. | high | app/cbl/COUSR02C.cbl:177-213, app/cbl/COUSR02C.cbl:215, app/cbl/COUSR02C.cbl:111-119, app/cbl/COUSR02C.cbl:122-123 |
+| USPM-BR-078 | Require user type for update | business rule | WHEN a save is requested with all other fields filled but a blank User Type, THE User Update screen SHALL not save, show 'User Type can NOT be empty...' and place the cursor on User Type. | high | app/cbl/COUSR02C.cbl:177-213, app/cbl/COUSR02C.cbl:215, app/cbl/COUSR02C.cbl:111-119, app/cbl/COUSR02C.cbl:122-123 |
+| USPM-BR-079 | User update requires all profile fields to be non-blank | business rule | WHEN several fields are blank, THE User Update screen SHALL report only the first in the order User ID, First Name, Last Name, Password, User Type. | high | app/cbl/COUSR02C.cbl:177-213, app/cbl/COUSR02C.cbl:215, app/cbl/COUSR02C.cbl:111-119, app/cbl/COUSR02C.cbl:122-123 |
+| USPM-BR-080 | User update requires all profile fields to be non-blank | error handling | WHEN PF3 is pressed with a blank required field, THE User Update screen SHALL skip the save but still return to the calling screen (or the admin menu), so the validation message is not left on view. | high | app/cbl/COUSR02C.cbl:177-213, app/cbl/COUSR02C.cbl:215, app/cbl/COUSR02C.cbl:111-119, app/cbl/COUSR02C.cbl:122-123 |
+| USPM-BR-081 | Apply changed user fields and save | business rule | WHEN the admin saves (PF5 or PF3) and User ID, First Name, Last Name, Password and User Type are all filled in, THE User Update SHALL re-read the stored user and replace each of First Name, Last Name, Password and User Type that differs from the screen, and save the user record only if at least one of them changed. | high | app/cbl/COUSR02C.cbl:177-245, app/cbl/COUSR02C.cbl:320-338, app/cbl/COUSR02C.cbl:358-376 |
+| USPM-BR-082 | Reject update with no changes | business rule | WHEN the admin saves and none of First Name, Last Name, Password or User Type differs from the stored user, THE User Update SHALL not save anything and SHALL show 'Please modify to update ...' in red. | high | app/cbl/COUSR02C.cbl:177-245, app/cbl/COUSR02C.cbl:320-338, app/cbl/COUSR02C.cbl:358-376 |
+| USPM-BR-083 | Save user record and confirm | formatting | WHEN the changed user record is saved successfully, THE User Update SHALL show 'User <user ID> has been updated ...' in green. | high | app/cbl/COUSR02C.cbl:177-245, app/cbl/COUSR02C.cbl:320-338, app/cbl/COUSR02C.cbl:358-376 |
+
+### Worked examples
+
+- USPM-BR-072: Key = PF5; Change = Last Name Smith to Smyth → The change is saved and the Update User screen is shown again with the result message.
+- USPM-BR-073: Caller = User List (COUSR00C); Key = PF3 → Changes are saved if valid and the User List screen is shown.
+- USPM-BR-073: Caller = none recorded; Key = PF3 → The Admin menu (COADM01C) is shown.
+- USPM-BR-074: User ID = (blank); Key = PF5 → Nothing is saved; 'User ID can NOT be empty...' is shown with the cursor on User ID
+- USPM-BR-075: User ID = JSMITH01; First Name = (blank); Key = PF5 → Nothing is saved; 'First Name can NOT be empty...' is shown
+- USPM-BR-076: User ID = JSMITH01; First Name = John; Last Name = (blank); Password = pass1234; User Type = U; Key = PF5 → Nothing is saved; 'Last Name can NOT be empty...' is shown with the cursor on Last Name
+- USPM-BR-077: User ID = JSMITH01; First Name = John; Last Name = Smith; Password = (blank); Key = PF5 → Nothing is saved; 'Password can NOT be empty...' is shown
+- USPM-BR-078: User ID = JSMITH01; First Name = John; Last Name = Smith; Password = pass1234; User Type = (blank); Key = PF5 → Nothing is saved; 'User Type can NOT be empty...' is shown
+- USPM-BR-079: First Name = (blank); Last Name = (blank); Key = PF5 → Only 'First Name can NOT be empty...' is shown
+- USPM-BR-080: Last Name = (blank); Key = PF3 → No update is written and the user is taken back to the previous screen
+- USPM-BR-081: Stored user = JSMITH01, John, Smith, pass1234, type U; Screen = JSMITH01, John, Smith, pass1234, type A; Key = PF5 → The user record is rewritten with User Type 'A'; the other fields stay as they were.
+- USPM-BR-082: Stored user = JSMITH01, John, Smith, pass1234, type U; Screen = JSMITH01, John, Smith, pass1234, type U; Key = PF5 → Nothing is written; the message 'Please modify to update ...' is shown in red.
+
+## Decision tables
+
+#### User update save validation
+
+| User ID | First Name | Last Name | Password | User Type | Any of First Name, Last Name, Password, User Type differs from stored user | Save result | Rule |
+|---|---|---|---|---|---|---|---|
+| Blank | Any | Any | Any | Any | Any | Not saved; 'User ID can NOT be empty...'; cursor on User ID | USPM-BR-074 |
+| Filled | Blank | Any | Any | Any | Any | Not saved; 'First Name can NOT be empty...'; cursor on First Name | USPM-BR-075 |
+| Filled | Filled | Blank | Any | Any | Any | Not saved; 'Last Name can NOT be empty...'; cursor on Last Name | USPM-BR-076 |
+| Filled | Filled | Filled | Blank | Any | Any | Not saved; 'Password can NOT be empty...'; cursor on Password | USPM-BR-077 |
+| Filled | Filled | Filled | Filled | Blank | Any | Not saved; 'User Type can NOT be empty...'; cursor on User Type | USPM-BR-078 |
+| Filled | Filled | Filled | Filled | Filled | Yes | Changed fields replaced and user record saved; 'User <user ID> has been updated ...' in green | USPM-BR-081 |
+| Filled | Filled | Filled | Filled | Filled | No | Nothing saved; 'Please modify to update ...' in red | USPM-BR-082 |
+| Filled | Filled | Filled | Filled | Filled | Stored user not found or save fails | **Gap:** No rule says what the screen shows if the re-read of the stored user or the save of the changed record fails. | |
+
+
+## Design notes
+
+None.
+
+## Open questions
+
+- SME-220: What should PF12 do on the update-user screen? (Business analyst (user security profile management)) On USPM-BR-074, USPM-BR-075, USPM-BR-076, USPM-BR-077, USPM-BR-078, USPM-BR-081, USPM-BR-082, USPM-BR-083, USPM-BR-073.
+- SME-221: What should happen when the update-user screen is opened directly, without coming from another screen? (Business analyst (user security profile management)) On USPM-BR-074, USPM-BR-075, USPM-BR-076, USPM-BR-077, USPM-BR-078, USPM-BR-081, USPM-BR-082, USPM-BR-083, USPM-BR-073.
+- SME-222: While an operator is editing a user's details, before pressing PF5 to save, should the new system lock the record, or check for conflicting changes when the operator saves? (Architecture team) On USPM-BR-074, USPM-BR-075, USPM-BR-076, USPM-BR-077, USPM-BR-078, USPM-BR-081, USPM-BR-082, USPM-BR-083, USPM-BR-073.
+- SME-223: The update-user screen displays the user's stored password. Should the new system keep showing stored passwords? (Security team) On USPM-BR-074, USPM-BR-075, USPM-BR-076, USPM-BR-077, USPM-BR-078, USPM-BR-081, USPM-BR-082, USPM-BR-083, USPM-BR-073.
+- SME-224: When a user record is not found during a save, the error flag is not set, unlike when it is not found during a lookup. Is this difference intended? (Business analyst (user security profile management)) On USPM-BR-074, USPM-BR-075, USPM-BR-076, USPM-BR-077, USPM-BR-078, USPM-BR-081, USPM-BR-082, USPM-BR-083, USPM-BR-073.
+- SME-225: Please confirm this rule: when a user lookup is requested with a user ID entered and no error flagged, the system blanks the first name, last name, password and user type fields, then retrieves the user record by that user ID. (Business analyst (user security profile management)) On USPM-BR-074, USPM-BR-075, USPM-BR-076, USPM-BR-077, USPM-BR-078, USPM-BR-081, USPM-BR-082, USPM-BR-083, USPM-BR-073.
+- SME-227: Should the rule that saving a user writes the record only when at least one field actually changed be treated as top priority (P0)? (Product owner) On USPM-BR-083.
+- DEF-054: Is this intended? On PF3 (save and exit) a failed validation still returns to the previous screen, so the error message sent is immediately replaced and the user is not told the update was not saved. (Subject-matter expert) On USPM-BR-074, USPM-BR-075, USPM-BR-076, USPM-BR-077, USPM-BR-078, USPM-BR-080.
+- DEF-079: Is this intended? The save does not check the result of re-reading the user: if the User ID is not found or the read fails, it still compares fields and tries to rewrite a record it never read for update, so the 'User ID NOT found...' message is replaced by whatever the rewrite returns. (Subject-matter expert) On USPM-BR-081, USPM-BR-082, USPM-BR-083.
+- DEF-094: Is this intended? PF3 returns to the caller even when the save fails validation, finds no change or fails to write, so the admin never sees the error message and may think the change was saved. (Subject-matter expert) On USPM-BR-073.
+
+## Testing
+
+Every acceptance criterion in requirements.md is a test named by its ID (13 in all).

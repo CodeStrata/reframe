@@ -25,6 +25,7 @@ HANDLERS = {
     "reconcile": "reframe.core.commands:reconcile",
     "review": "reframe.core.commands:review",
     "export": "reframe.core.commands:export",
+    "design": "reframe.core.commands:design",
     "compare": "reframe.core.commands:compare",
     "publish": "reframe.core.commands:publish",
     "reports": "reframe.core.commands:reports",
@@ -116,6 +117,18 @@ def parser() -> argparse.ArgumentParser:
     export.add_argument("--out", help="the file or folder to write it to (default: outputs/reconcile/<project>-<run>-requirements.xlsx in the run folder)")
     export.add_argument("--context", help="a folder of review downloads whose marks to add (default: the reconciliation's context folder)")
     export.add_argument("--open", action="store_true", help="open the workbook when written")
+
+    design = command("design", "The design (pipeline 4): legacy and modern screens, journeys, the clickable prototype, final specifications "
+                              "and the AI-DLC package, from the reconciled results; a round redoes only what new context touches")
+    _run_option(design)
+    design.add_argument("--context", help="the design context folder (default: the one given before, then the run's inputs/design/)")
+    design.add_argument("--stack", help='the target stack, "<front end>; <back end>; <data>"; never chosen for you')
+    design.add_argument("--plan", action="store_true", help="say what a round would redo, and why, without a Claude step")
+    design.add_argument("--package", metavar="FOLDER", help="copy the latest package, cleaned, into an empty folder; runs nothing")
+    design.add_argument("--form", choices=("kiro", "claude-code", "spec-kit", "all"), default="all", help="with --package: which form (default: all)")
+    design.add_argument("--check", metavar="COPY", help="list the placeholders left in a copy of the package; runs nothing")
+    design.add_argument("--open", action="store_true", help="open the design page when done")
+    design.add_argument("--auth", choices=("subscription", "bedrock"), default="subscription", help="how Claude signs in (default: your subscription)")
 
     compare = command("compare", "Build the page comparing AWS Transform's and Claude's results again")
     _run_option(compare)

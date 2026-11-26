@@ -1,0 +1,16 @@
+# Tasks: Accept log requests from programs and terminals (DEML-C01)
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+Each task names the role that does it; the role files are in .claude/agents/.
+
+- [ ] DEML-C01-T1 [business-rules] Implement error handling and messages. Requirements: DEML-REQ-F-003. Rules: DEML-BR-003.
+  - Show every message word for word; formatting rules may be restyled to the design system.
+- [ ] DEML-C01-T2 [api] Build the scheduled job. Requirements: DEML-REQ-F-001, DEML-REQ-F-002, DEML-REQ-F-004. Rules: DEML-BR-001, DEML-BR-002, DEML-BR-004. After: DEML-C01-T1.
+  - DEML-BR-001: Expose the logger as a callable service (in-process API or endpoint) that takes a message of up to 90 characters. The service prefixes the identifier of the producing system/instance and one space, and records the length as message length plus 5. Keep the 90-character limit and the 'system-id space text' layout so existing log readers still work.
+  - DEML-BR-002: Give operators a separate entry point (a console command or simple form) for typing a message by hand. When the input still carries a 5-character command/transaction prefix, strip it and keep at most the next 74 characters as the message. Then pass it through the same record-building path, with length computed as input length minus 5, plus 5.
+  - DEML-BR-004: A program-call submission must return straight to the caller with no user-facing output and no result the caller has to handle. Make it a fire-and-forget call that does not change the caller's flow.
+- [ ] DEML-C01-T3 [test-generation] Write a test for every acceptance criterion. Requirements: DEML-REQ-F-001, DEML-REQ-F-002, DEML-REQ-F-003, DEML-REQ-F-004. Criteria: DEML-C01-AC-01, DEML-C01-AC-02, DEML-C01-AC-03, DEML-C01-AC-04, DEML-C01-AC-05, DEML-C01-AC-06. After: DEML-C01-T1, DEML-C01-T2.
+  - 6 acceptance criteria, each a test named by its ID.
+- [ ] DEML-C01-T4 [compliance] Review the handling of audit. Requirements: DEML-REQ-F-001, DEML-REQ-F-002, DEML-REQ-F-003, DEML-REQ-F-004. After: DEML-C01-T1, DEML-C01-T2.
+  - Check storage, logs, screens and audit against the rules.

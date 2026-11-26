@@ -1,0 +1,43 @@
+# Implementation plan: Open and navigate the Add Transaction screen (OATM-C30)
+
+**Status: FINAL**, signed off by Sam (acceptance), 2026-11-25.
+
+- [ ] 1. OATM-C30-T1 [data] Model the data the capability reads and writes
+  - File records: CVACT03Y, CVTRA05Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSMSG01Y, CVACT01Y.
+  - _Requirements: OATM-REQ-N-012, OATM-REQ-F-238, OATM-REQ-F-239, OATM-REQ-F-240, OATM-REQ-F-241, OATM-REQ-F-242, OATM-REQ-F-243, OATM-REQ-F-244_
+- [ ] 2. OATM-C30-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: OATM-REQ-N-012, OATM-REQ-F-239, OATM-REQ-F-240, OATM-REQ-F-241, OATM-REQ-F-242, OATM-REQ-F-243, OATM-REQ-F-244_
+  - _Rules: OATM-BR-252, OATM-BR-254, OATM-BR-255, OATM-BR-256, OATM-BR-257, OATM-BR-258_
+  - _After: OATM-C30-T1_
+- [ ] 3. OATM-C30-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: OATM-REQ-F-238_
+  - _Rules: OATM-BR-253_
+  - _After: OATM-C30-T1_
+- [ ] 4. OATM-C30-T4 [ui-modernization] Build the screen Add transaction (S-TRANSACTION-ADD)
+  - To the prototype: ui-reference/index.html#/S-TRANSACTION-ADD.
+  - form "New transaction"
+  - button "Copy last transaction"
+  - button "Add transaction"
+  - button "Clear"
+  - link "Back"
+  - _Requirements: OATM-REQ-F-238, OATM-REQ-F-240, OATM-REQ-F-241, OATM-REQ-F-242, OATM-REQ-F-243_
+  - _Rules: OATM-BR-253, OATM-BR-255, OATM-BR-256, OATM-BR-257_
+  - _After: OATM-C30-T2, OATM-C30-T3_
+- [ ] 5. OATM-C30-T5 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - header "CardDemo"
+  - _Requirements: OATM-REQ-N-012_
+  - _Rules: OATM-BR-252_
+  - _After: OATM-C30-T2, OATM-C30-T3_
+- [ ] 6. OATM-C30-T6 [test-generation] Write a test for every acceptance criterion
+  - 9 acceptance criteria, each a test named by its ID.
+  - _Requirements: OATM-REQ-N-012, OATM-REQ-F-238, OATM-REQ-F-239, OATM-REQ-F-240, OATM-REQ-F-241, OATM-REQ-F-242, OATM-REQ-F-243, OATM-REQ-F-244_
+  - _Criteria: OATM-C30-AC-01, OATM-C30-AC-02, OATM-C30-AC-03, OATM-C30-AC-04, OATM-C30-AC-05, OATM-C30-AC-06, OATM-C30-AC-07, OATM-C30-AC-08, OATM-C30-AC-09_
+  - _After: OATM-C30-T1, OATM-C30-T2, OATM-C30-T3, OATM-C30-T4, OATM-C30-T5_
+- [ ] 7. OATM-C30-T7 [compliance] Review the handling of card data, security
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: OATM-REQ-N-012, OATM-REQ-F-238, OATM-REQ-F-239, OATM-REQ-F-240, OATM-REQ-F-241, OATM-REQ-F-242, OATM-REQ-F-243, OATM-REQ-F-244_
+  - _After: OATM-C30-T1, OATM-C30-T2, OATM-C30-T3, OATM-C30-T4, OATM-C30-T5_

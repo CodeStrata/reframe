@@ -1,4 +1,6 @@
 # Keep all real evidence outside the checkout; these patterns are a backstop.
+# Run folders (reframe run from this folder): account identifiers and working records; share reframe publish's copy instead.
+.reframe/
 .DS_Store
 .env
 .env.*

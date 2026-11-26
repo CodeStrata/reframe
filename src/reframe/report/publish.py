@@ -144,6 +144,27 @@ def protected_warning(target: Path) -> str | None:
             f"~/reframe-reports/{target.name}), or give the browser access in System Settings > Privacy & Security > Files and Folders.")
 
 
+def _design_pages(folder: RunFolder) -> dict[str, str]:
+    """Pipeline 4's pages as they are in outputs/design/ (the design page, the legacy screens, the flow, the journeys,
+    the modern screens and the prototype) and the latest version of the package, all under design/."""
+    base = folder.root / "outputs" / "design"
+    if not (base / "index.html").is_file():
+        return {}
+    versions = sorted((int(p.name[1:]), p) for p in (base / "package").glob("v*") if p.is_dir() and p.name[1:].isdigit())
+    latest = versions[-1][1] if versions else None
+    found = {}
+    for p in sorted(base.rglob("*")):
+        if not p.is_file() or p.suffix.lower() not in (".html", ".md", ".json"):
+            continue
+        rel = p.relative_to(base)
+        if rel.parts[0] == "package":
+            if latest is None or latest not in p.parents:
+                continue
+            rel = Path("package") / p.relative_to(latest)
+        found[f"design/{rel.as_posix()}"] = p.read_text(errors="replace")
+    return found
+
+
 def publish(folder: RunFolder, target: Path) -> dict[str, Any]:
     from reframe.claude.workspace import paths
     from reframe.report import build, compare
@@ -178,6 +199,8 @@ def publish(folder: RunFolder, target: Path) -> dict[str, Any]:
         from reframe.report import reconciled as reconciled_page
         data = _retarget(reconciled_page.collect_reconciled(folder), {"../claude/report/index.html": "../claude/index.html", "../report/index.html": "../aws/index.html"})
         pages["reconciled/index.html"] = _render(build.TEMPLATE, data, f"Reconciled review: {data['project']}")
+    designed = _design_pages(folder)
+    pages.update(designed)
     snapshot = folder.load("snapshot.json") or {}
     plugin = (state.get("claude") or {}).get("plugin") or {}
     cards = [("aws/index.html", "AWS Transform's business review", "Business domains, functions, capabilities, requirements and business rules, from overview down to each requirement.")]
@@ -187,6 +210,9 @@ def publish(folder: RunFolder, target: Path) -> dict[str, Any]:
         cards.append(("comparison/index.html", "AWS Transform and Claude compared", "The numbers side by side, domains aligned by shared programs, rules by program, AI-paired rules, and what only one tool found."))
     if reconciled:
         cards.append(("reconciled/index.html", "Reconciled review", "Both assessments reconciled against the source code: recommended rules with their evidence, recommended requirements, and one SME list."))
+    if designed:
+        cards.append(("design/index.html", "The design", "The modernized application: legacy and modern screens, journeys, the clickable prototype, a final "
+                      "specification for every capability, and the AI-DLC package in Kiro, Claude Code and Spec Kit form."))
     rows = [("Source", snapshot.get("source") if str(snapshot.get("source", "")).startswith("http") else Path(str(snapshot.get("source") or "")).name),
             ("Commit", snapshot.get("commit") or "–"), ("Snapshot SHA-256", snapshot.get("sha256")), ("Files", snapshot.get("files")),
             ("AWS Transform results", state.get("retrieved_at")), ("Claude assessment", (state.get("claude") or {}).get("finished_at") or "–"),
@@ -210,7 +236,7 @@ def publish(folder: RunFolder, target: Path) -> dict[str, Any]:
         manifest = {"published_at": iso(), "run": folder.root.name, "project": state.get("project"), "source_sha256": snapshot.get("sha256"),
                     "commit": snapshot.get("commit"), "files": sorted(cleaned)}
         (staged / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
-        for old in ("aws", "claude", "comparison", "reconciled", "index.html", "manifest.json"):
+        for old in ("aws", "claude", "comparison", "reconciled", "design", "index.html", "manifest.json"):
             existing = target / old
             if existing.is_dir():
                 shutil.rmtree(existing)

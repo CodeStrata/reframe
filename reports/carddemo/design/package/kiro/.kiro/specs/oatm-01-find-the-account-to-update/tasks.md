@@ -1,0 +1,44 @@
+# Implementation plan: Find the account to update (OATM-C01)
+
+**Status: FINAL**, signed off by Sam (acceptance), 2026-11-25.
+
+- [ ] 1. OATM-C01-T1 [data] Model the data the capability reads and writes
+  - File records: CSMSG02Y, CVACT01Y, CVACT03Y, CVCUS01Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSLKPCDY, CSMSG01Y, CSSETATY, CSSTRPFY, CSUSR01Y, CSUTLDPY, CSUTLDWY, CVCRD01Y.
+  - _Requirements: OATM-REQ-F-001, OATM-REQ-F-002, OATM-REQ-F-003, OATM-REQ-F-004, OATM-REQ-F-005, OATM-REQ-F-006, OATM-REQ-F-007, OATM-REQ-F-008, OATM-REQ-F-009, OATM-REQ-F-010, OATM-REQ-F-011, OATM-REQ-F-012, OATM-REQ-F-013, OATM-REQ-F-014_
+- [ ] 2. OATM-C01-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - Ask the owner before carrying the historical artifacts: OATM-BR-003.
+  - _Requirements: OATM-REQ-F-005, OATM-REQ-F-003_
+  - _Rules: OATM-BR-003, OATM-BR-005_
+  - _After: OATM-C01-T1_
+- [ ] 3. OATM-C01-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: OATM-REQ-F-006, OATM-REQ-F-008, OATM-REQ-F-009, OATM-REQ-F-011, OATM-REQ-F-012, OATM-REQ-F-001, OATM-REQ-F-002_
+  - _Rules: OATM-BR-001, OATM-BR-002, OATM-BR-006, OATM-BR-008, OATM-BR-009, OATM-BR-011, OATM-BR-012_
+  - _After: OATM-C01-T1_
+- [ ] 4. OATM-C01-T4 [api] Build the services behind the screens
+  - OATM-BR-004: Needs a keyed lookup from account id to its card link (customer id and card number), via an index on account id over the card-account-customer cross-reference; the customer id it returns drives the customer read, and the card number is kept in the session.
+  - OATM-BR-007: Needs a read of the account record by its account id primary key; a successful read sets an 'account found' state that the screen uses to decide whether account fields can be shown.
+  - OATM-BR-010: Needs a read of the customer record by the customer id taken from the cross-reference; a successful read sets a 'customer found' state used for showing customer fields.
+  - OATM-BR-013: Keep account id, customer id, customer names, account status and card number in the operator's server-side session (or a signed request token) so they carry over between screen submissions and to the next screen.
+  - OATM-BR-014: Store an immutable snapshot of the fetched account and customer values for the session, with open, expiry, reissue and birth dates held as year, month and day parts; it is the baseline for change detection and for the optimistic check that nobody else changed the record before save (a version or timestamp column can serve the same purpose).
+  - _Requirements: OATM-REQ-F-004, OATM-REQ-F-007, OATM-REQ-F-010, OATM-REQ-F-013, OATM-REQ-F-014_
+  - _Rules: OATM-BR-004, OATM-BR-007, OATM-BR-010, OATM-BR-013, OATM-BR-014_
+  - _After: OATM-C01-T1, OATM-C01-T2, OATM-C01-T3_
+- [ ] 5. OATM-C01-T5 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
+  - search "Account number": Required: 'No input received' when blank; 'Account Number if supplied must be a 11 digit Non-Zero Number' when not numeric or all zeros; 'Account:<number> not found in Cross ref file' when the account has no card cross-reference.
+  - message "Guidance"
+  - _Requirements: OATM-REQ-F-001, OATM-REQ-F-002, OATM-REQ-F-003_
+  - _Rules: OATM-BR-001, OATM-BR-002, OATM-BR-003_
+  - _After: OATM-C01-T2, OATM-C01-T3, OATM-C01-T4_
+- [ ] 6. OATM-C01-T6 [test-generation] Write a test for every acceptance criterion
+  - 15 acceptance criteria, each a test named by its ID.
+  - _Requirements: OATM-REQ-F-001, OATM-REQ-F-002, OATM-REQ-F-003, OATM-REQ-F-004, OATM-REQ-F-005, OATM-REQ-F-006, OATM-REQ-F-007, OATM-REQ-F-008, OATM-REQ-F-009, OATM-REQ-F-010, OATM-REQ-F-011, OATM-REQ-F-012, OATM-REQ-F-013, OATM-REQ-F-014_
+  - _Criteria: OATM-C01-AC-01, OATM-C01-AC-02, OATM-C01-AC-03, OATM-C01-AC-04, OATM-C01-AC-05, OATM-C01-AC-06, OATM-C01-AC-07, OATM-C01-AC-08, OATM-C01-AC-09, OATM-C01-AC-10, OATM-C01-AC-11, OATM-C01-AC-12, OATM-C01-AC-13, OATM-C01-AC-14, OATM-C01-AC-15_
+  - _After: OATM-C01-T1, OATM-C01-T2, OATM-C01-T3, OATM-C01-T4, OATM-C01-T5_
+- [ ] 7. OATM-C01-T7 [compliance] Review the handling of card data, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: OATM-REQ-F-001, OATM-REQ-F-002, OATM-REQ-F-003, OATM-REQ-F-004, OATM-REQ-F-005, OATM-REQ-F-006, OATM-REQ-F-007, OATM-REQ-F-008, OATM-REQ-F-009, OATM-REQ-F-010, OATM-REQ-F-011, OATM-REQ-F-012, OATM-REQ-F-013, OATM-REQ-F-014_
+  - _After: OATM-C01-T1, OATM-C01-T2, OATM-C01-T3, OATM-C01-T4, OATM-C01-T5_

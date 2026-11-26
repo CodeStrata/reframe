@@ -4,7 +4,8 @@ A round runs every stage in order: the screen inventory and the flow (no model),
 prototype (no model), the final specifications, the design page and the package (no model). Each model stage keeps each
 part with what it was made from, so a round redoes only the parts whose input changed, and says why.
 
-The design context folder (given once with --context, remembered for later rounds) is read and each piece sent only to
+The design context folder (given once with --context and remembered for later rounds; otherwise the run's own
+inputs/design/) is read and each piece sent only to
 the parts it touches:
 
 | In the context folder | Goes to |
@@ -45,7 +46,7 @@ WORDS = {
                 "decisions": "decisions that name it changed", "style_reference": "the style reference changed", "domain": "the domain changed"},
     "specs": {"requirements": "the requirements changed", "rules": "the rules changed", "screens": "the screens that serve it changed",
               "capabilities": "the capabilities changed", "decisions": "decisions that name it changed"},
-    "": {"new": "new", "unrecorded": "an input changed (the earlier round did not record which)", "method": "Reframe's method changed"},
+    "": {"new": "new", "problems": "it failed Reframe's checks last round", "unrecorded": "an input changed (the earlier round did not record which)", "method": "Reframe's method changed"},
 }
 TEXT = (".md", ".txt", ".css", ".scss", ".html", ".htm", ".json", ".ts", ".tsx", ".js", ".jsx", ".java", ".kt", ".cs", ".py", ".go", ".xml", ".yaml", ".yml")
 
@@ -213,7 +214,8 @@ def changes_md(n: int, report: dict[str, Any]) -> str:
     for stage, title in (("journeys", "Journeys"), ("screens", "Modern screens"), ("specs", "Final specifications")):
         r = report["stages"].get(stage) or {"redone": [], "kept": []}
         out += [f"## {title}", ""]
-        out += [f"- Redone: {x['name'] or 'No domain'}, because {words(stage, x['changed'])}." for x in r["redone"]]
+        out += [f"- Made: {x['name'] or 'No domain'} (new)." if x["changed"] == ["new"] else f"- Redone: {x['name'] or 'No domain'}, because {words(stage, x['changed'])}."
+                for x in r["redone"]]
         out.append(f"- Kept: {len(r['kept'])}" + (f" ({', '.join(k or 'No domain' for k in r['kept'][:12])}{' …' if len(r['kept']) > 12 else ''})" if r["kept"] else "") + ".")
         out.append("")
     if report.get("signoffs"):
@@ -234,7 +236,8 @@ def run(folder, claude, context: Path | None = None, stack: str | None = None, p
     from reframe.claude.workspace import paths
     from reframe.design import designpage, flow, flowpage, inventory, journeypage, journeys, legacy, modernpage, package, prototype, screens, specs
     state = folder.state.get("design") or {}
-    context = context or (Path(state["context"]) if state.get("context") else None)
+    from reframe.core.runfolder import default_context
+    context = context or (Path(state["context"]) if state.get("context") else None) or default_context(folder, "design")
     if context and not context.is_dir():
         raise ValueError(f"the context folder {context} does not exist")
     number = state.get("round", 0) if state.get("status") == "running" else state.get("round", 0) + 1

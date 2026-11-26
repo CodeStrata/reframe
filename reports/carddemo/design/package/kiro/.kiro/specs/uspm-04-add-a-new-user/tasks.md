@@ -1,0 +1,44 @@
+# Implementation plan: Add a new user (USPM-C04)
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+- [ ] 1. USPM-C04-T1 [data] Model the data the capability reads and writes
+  - File records: CSUSR01Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSMSG01Y.
+  - _Requirements: USPM-REQ-F-039, USPM-REQ-F-040, USPM-REQ-F-041, USPM-REQ-F-042, USPM-REQ-F-043, USPM-REQ-F-044, USPM-REQ-F-045, USPM-REQ-F-046, USPM-REQ-N-002, USPM-REQ-F-047, USPM-REQ-F-048, USPM-REQ-F-049, USPM-REQ-F-050_
+- [ ] 2. USPM-C04-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: USPM-REQ-F-039, USPM-REQ-F-040, USPM-REQ-F-041, USPM-REQ-F-042, USPM-REQ-F-043, USPM-REQ-F-044, USPM-REQ-F-045, USPM-REQ-N-002, USPM-REQ-F-047, USPM-REQ-F-048, USPM-REQ-F-050_
+  - _Rules: USPM-BR-044, USPM-BR-045, USPM-BR-046, USPM-BR-047, USPM-BR-048, USPM-BR-049, USPM-BR-050, USPM-BR-052, USPM-BR-053, USPM-BR-054, USPM-BR-056_
+  - _After: USPM-C04-T1_
+- [ ] 3. USPM-C04-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: USPM-REQ-F-049_
+  - _Rules: USPM-BR-055_
+  - _After: USPM-C04-T1_
+- [ ] 4. USPM-C04-T4 [api] Build the services behind the screens
+  - USPM-BR-051: Build one user record from the five validated fields and insert it keyed on User ID, with a uniqueness constraint on that key. The insert must fail, not overwrite, when the key already exists, so that the 'User ID already exist...' path can be detected.
+  - _Requirements: USPM-REQ-F-046_
+  - _Rules: USPM-BR-051_
+  - _After: USPM-C04-T1, USPM-C04-T2, USPM-C04-T3_
+- [ ] 5. USPM-C04-T5 [ui-modernization] Build the screen Add user (S-USER-ADD)
+  - To the prototype: ui-reference/index.html#/S-USER-ADD.
+  - form "New user"
+  - text "First name": Required: 'First Name can NOT be empty...'
+  - text "Last name": Required: 'Last Name can NOT be empty...'
+  - text "User ID": Required: 'User ID can NOT be empty...'. Already used: 'User ID already exist...'
+  - password "Password": Required: 'Password can NOT be empty...'
+  - radio "User type": Required: 'User Type can NOT be empty...'; only Admin or Regular user can be chosen
+  - message "Result": An unsupported action shows 'Invalid key pressed. Please see below...'
+  - _Requirements: USPM-REQ-F-039, USPM-REQ-F-040, USPM-REQ-F-041, USPM-REQ-F-042, USPM-REQ-F-043, USPM-REQ-F-044, USPM-REQ-F-045, USPM-REQ-F-046, USPM-REQ-N-002, USPM-REQ-F-047, USPM-REQ-F-048, USPM-REQ-F-049, USPM-REQ-F-050_
+  - _Rules: USPM-BR-044, USPM-BR-045, USPM-BR-046, USPM-BR-047, USPM-BR-048, USPM-BR-049, USPM-BR-050, USPM-BR-051, USPM-BR-052, USPM-BR-053, USPM-BR-054, USPM-BR-055, USPM-BR-056_
+  - _After: USPM-C04-T2, USPM-C04-T3, USPM-C04-T4_
+- [ ] 6. USPM-C04-T6 [test-generation] Write a test for every acceptance criterion
+  - 13 acceptance criteria, each a test named by its ID.
+  - _Requirements: USPM-REQ-F-039, USPM-REQ-F-040, USPM-REQ-F-041, USPM-REQ-F-042, USPM-REQ-F-043, USPM-REQ-F-044, USPM-REQ-F-045, USPM-REQ-F-046, USPM-REQ-N-002, USPM-REQ-F-047, USPM-REQ-F-048, USPM-REQ-F-049, USPM-REQ-F-050_
+  - _Criteria: USPM-C04-AC-01, USPM-C04-AC-02, USPM-C04-AC-03, USPM-C04-AC-04, USPM-C04-AC-05, USPM-C04-AC-06, USPM-C04-AC-07, USPM-C04-AC-08, USPM-C04-AC-09, USPM-C04-AC-10, USPM-C04-AC-11, USPM-C04-AC-12, USPM-C04-AC-13_
+  - _After: USPM-C04-T1, USPM-C04-T2, USPM-C04-T3, USPM-C04-T4, USPM-C04-T5_
+- [ ] 7. USPM-C04-T7 [compliance] Review the handling of personal data, security
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: USPM-REQ-F-039, USPM-REQ-F-040, USPM-REQ-F-041, USPM-REQ-F-042, USPM-REQ-F-043, USPM-REQ-F-044, USPM-REQ-F-045, USPM-REQ-F-046, USPM-REQ-N-002, USPM-REQ-F-047, USPM-REQ-F-048, USPM-REQ-F-049, USPM-REQ-F-050_
+  - _After: USPM-C04-T1, USPM-C04-T2, USPM-C04-T3, USPM-C04-T4, USPM-C04-T5_

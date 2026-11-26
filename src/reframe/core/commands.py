@@ -225,6 +225,55 @@ def export(args) -> int:
     return 0
 
 
+def design(args) -> int:
+    """`reframe design` (docs/pipeline-4.md): a design round, its plan, the package copied out, or a copy's readiness."""
+    from reframe.core import ui
+    from reframe.design import handover, package, pipeline
+    if args.check:
+        found = handover.readiness(Path(args.check).expanduser())
+        ui.section(f"Package copy {args.check}")
+        ui.table(["File", "Placeholders left"], [[k, str(len(v))] for k, v in found["files"].items()] or [["–", "0"]])
+        if found["drafts"]:
+            ui.hint(f"{len(found['drafts'])} draft capabilities: confirm them with the owner before building them")
+        (ui.ok if found["ready"] else ui.hint)("ready for forward engineering" if found["ready"] else f"{found['placeholders']} placeholders to fill in; START-HERE.md says how")
+        return 0 if found["ready"] else 1
+    try:
+        folder = find_run(args.run)
+        if args.package:
+            done = package.copy_out(folder, Path(args.package).expanduser().resolve(), args.form)
+            if done["left"]:
+                raise Stop(Outcome.REFUSED, "; ".join(done["left"][:5]))
+            ui.ok(f"Package v{done['version']} copied to {done['path']}: {done['written']} files. Open START-HERE.md there.")
+            return 0
+        context = Path(args.context).expanduser().resolve() if args.context else None
+        claude = None
+        if not args.plan:
+            from reframe.claude import preflight
+            from reframe.reconcile.pipeline import claude_code
+            report = preflight.check(args.auth)
+            if not report.ok:
+                raise Stop(Outcome.REFUSED, report.problems())
+            claude = claude_code(folder, args.auth)
+        value = pipeline.run(folder, claude, context, args.stack, args.plan)
+    except (Stop, ValueError) as stop:
+        return _fail(stop if isinstance(stop, Stop) else Stop(Outcome.REFUSED, str(stop)))
+    ui.section(f"Run {folder.root.name} · the design" + (" · plan" if args.plan else f" · round {value['round']}"))
+    ui.table(["Stage", "Redone", "Kept"], [[k, ", ".join(x["name"] or "No domain" for x in v["redone"]) or "–", str(len(v["kept"]))]
+                                            for k, v in value["stages"].items()])
+    if args.plan:
+        ui.hint(value["note"])
+        return 0
+    ui.ok(f"What changed: {value['changes']}")
+    ui.ok(f"Package v{value['package']['version']}" + (" (new)" if value["package"]["new"] else " (unchanged)") + f": {value['package']['path']}")
+    page = folder.path("outputs/design/index.html")
+    ui.ok(f"The design page: {page}")
+    if value.get("problems"):
+        ui.hint(f"{len(value['problems'])} problems the checks still found; they are on the design page")
+    if args.open:
+        subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(page)], check=False)
+    return 0
+
+
 def review(args) -> int:
     """Several reviewers' files (docs/pipeline-3.md, section 8.11): coverage, sign-offs and disagreements; runs nothing."""
     from reframe.core import ui

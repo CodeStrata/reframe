@@ -249,6 +249,12 @@ Each round writes `design/changes-<round>.md`: what changed, why, and what was k
 
 **On CardDemo** (26 November 2026): `--plan` with nothing new redoes nothing: 4 journey domains, 4 screen domains and 16 specification batches kept. The tests cover a round with a persona, a *Needs change* mark, an *Agree* and a sign-off: only the marked domain's screens and the journeys are redone, the signed-off capability becomes final with no step, and the package's CHANGES.md says so.
 
+**On GenApp** (run 8e5a08, 26 November 2026), the first design round from `reframe design` took about 25 minutes and $11.40 at API prices. It read 6 legacy maps and made 6 journeys; the claim screen is listed unused, because no link reaches it. There are 9 modern screens, with all 90 legacy items mapped, and 57 specifications (all draft, since nothing is signed off) with 537 acceptance criteria and 196 design notes. The package is in three forms. The round also found two faults, now fixed:
+- **Batches of one function shared an input file.** Their names were cut to 60 characters, so two batches running at once read each other's input, and one batch failed its checks. Each batch's file name now carries a hash of its full name.
+- **No data contracts.** GenApp keeps its copybooks beside the programs as `.cpy` files, so copybooks are now found by extension wherever they are; the screen copybooks are left out.
+
+A part that failed its checks is now done again in the next round, which says so. Round 2 redid only the failed batch, in 2 minutes, and left 0 problems and 2 data contracts.
+
 ### D10 Golden datasets and equivalence tests (P4-11)
 
 Per capability, Reframe writes a golden dataset from the worked examples and decision tables: cases the new system must answer as the legacy one does. Each case has:

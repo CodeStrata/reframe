@@ -6,11 +6,15 @@ You give it the source as a local folder, a local ZIP file or a GitHub URL. Refr
 
 The Claude assessment then assesses the same snapshot with Claude's [code-modernization plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-modernization), shows its results in the same business review, adds its graph to the same Neptune cluster, and builds a page comparing the two assessments (see [The Claude assessment and the comparison](#the-claude-assessment-and-the-comparison)).
 
-The design is in [docs/specification.md](docs/specification.md) (the AWS Transform assessment), [docs/pipeline-2.md](docs/pipeline-2.md) (the Claude assessment) and [docs/pipeline-3.md](docs/pipeline-3.md) (the reconciliation), the stories are in [docs/plan.md](docs/plan.md), and the live test results are in [docs/acceptance.md](docs/acceptance.md).
+The reconciliation then turns the two assessments into one recommended set, decided against the source code, and **the design** (`reframe design`) turns that into the modernized application: modern screens with every legacy field mapped, a clickable prototype, a final specification for every capability, and an AI-DLC package for Kiro, Claude Code and Spec Kit.
+
+**New here? Read [How to run Reframe](docs/how-to-run.md)**, one page from install to handover.
+
+The design is in [docs/specification.md](docs/specification.md) (the AWS Transform assessment), [docs/pipeline-2.md](docs/pipeline-2.md) (the Claude assessment), [docs/pipeline-3.md](docs/pipeline-3.md) (the reconciliation) and [docs/pipeline-4.md](docs/pipeline-4.md) (the design), the stories are in [docs/plan.md](docs/plan.md), and the live test results are in [docs/acceptance.md](docs/acceptance.md).
 
 ## How it works
 
-![How a Reframe run works: start and snapshot, the AWS resources, then the AWS Transform assessment and the Claude assessment side by side on the same snapshot, the reports with the comparison, the reconciliation of the two against the source code (agree, decide against the code, one SME list, requirements and the page), sharing, and teardown only on request; you sign in, answer questions or set Claude's agent limit, review and compare, give the reconciliation your context and answers, and consent to teardown](docs/images/reframe.svg)
+![How a Reframe run works: start and snapshot, the AWS resources, then the AWS Transform assessment and the Claude assessment side by side on the same snapshot, the reports with the comparison, the reconciliation of the two against the source code (agree, decide against the code, one SME list, requirements and the page), the design (screens and flow, journeys and modern screens, the clickable prototype, specifications and the package), sharing, and teardown only on request; you sign in, answer questions or set Claude's agent limit, review and compare, give the reconciliation your context and answers, give the design the stack and context, and consent to teardown](docs/images/reframe.svg)
 
 | Step | What happens |
 |---|---|
@@ -20,10 +24,11 @@ The design is in [docs/specification.md](docs/specification.md) (the AWS Transfo
 | Claude assessment | Alongside AWS Transform, Claude's code-modernization plugin assesses the same snapshot. Reframe puts its results in AWS Transform's shape, with generated requirements, and loads Claude's graph into the same Neptune cluster. Optional, and offered by default. |
 | 3. Reports | AWS Transform's business review, Claude's business review in the same layout, and a page comparing the two. |
 | 4. Reconciliation | `reframe reconcile` turns the two assessments into one recommended set. Rules both tools describe the same way are agreed; Claude decides every other rule against the source code, with evidence Reframe checks; both tools' open questions become one SME list, with the possible defects found in the code; recommended requirements and the reconciliation page are written from the result. You can give it a context folder (documents, review marks, the answered SME list), and running it again redoes only what your answers bear on. It needs no AWS resources. |
-| 5. Share | `reframe publish` makes a copy of the reports, cleaned of your account's identifiers, that anyone can open; it includes the reconciliation. `reframe export --to xlsx` writes the reconciled requirements and business rules as one Excel workbook. |
-| 6. Teardown | Only when you run `reframe teardown`, after you consent to the full list. |
+| 5. The design | `reframe design` reads every legacy screen and how the screens connect, groups them into journeys, designs modern screens with every legacy field mapped, draws a clickable prototype beside the legacy screens, writes a final specification for every capability (final where its function is signed off) and an AI-DLC package in three forms. Each round redoes only what new context touches. It needs no AWS resources. |
+| 6. Share | `reframe publish` makes a copy of the reports, cleaned of your account's identifiers, that anyone can open; it includes the reconciliation, the design and the package. `reframe export --to xlsx` writes the reconciled requirements and business rules as one Excel workbook. |
+| 7. Teardown | Only when you run `reframe teardown`, after you consent to the full list. |
 
-Every change and step is written down before it starts and confirmed after, so a run that stops (an expired sign-in, Claude's usage limit) continues with `reframe resume` without repeating anything. The AWS Transform assessment takes about an hour; the Claude assessment about two, alongside it; the reconciliation about half an hour to an hour and a half of decisions on CardDemo. The stage-by-stage detail is in [docs/specification.md](docs/specification.md), [docs/pipeline-2.md](docs/pipeline-2.md) and [docs/pipeline-3.md](docs/pipeline-3.md).
+Every change and step is written down before it starts and confirmed after, so a run that stops (an expired sign-in, Claude's usage limit) continues with `reframe resume` without repeating anything. The AWS Transform assessment takes about an hour; the Claude assessment about two, alongside it; the reconciliation about half an hour to an hour and a half of decisions on CardDemo; the design about half an hour. The stage-by-stage detail is in [docs/specification.md](docs/specification.md), [docs/pipeline-2.md](docs/pipeline-2.md), [docs/pipeline-3.md](docs/pipeline-3.md) and [docs/pipeline-4.md](docs/pipeline-4.md).
 
 ## What you need
 
@@ -78,6 +83,8 @@ An action on a run asks which run, with the latest as the default. After each ac
 | `reframe reconcile [--context <folder>] [--open]` | The reconciliation: one recommended set from both assessments, decided against the source code |
 | `reframe review --context <folder>` | Each reviewer's coverage, sign-offs and disagreements in a folder of review downloads |
 | `reframe export --to xlsx [--out <file or folder>] [--open]` | The reconciled results as one Excel workbook, with the reviewers' marks |
+| `reframe design [--context <folder>] [--stack "<stack>"] [--plan] [--open]` | The design: screens, journeys, the prototype, final specifications and the AI-DLC package; a round redoes only what new context touches |
+| `reframe design --package <folder> \| --check <copy>` | Copy the package, cleaned, into an empty folder; list the placeholders left in a copy |
 | `reframe compare [--open]` | Build the comparison page again |
 | `reframe publish --to <folder or aws>` | A copy of the reports, cleaned of your account's identifiers |
 | `reframe reports [open \| download <project> \| teardown]` | The reports published to your AWS account: list, open or save one by project, or remove the bucket |
@@ -96,7 +103,7 @@ Reframe guides you through five steps and checks each answer before going on:
 1. **Prerequisites.** A table of what a run needs and what this computer has: Git, the AWS CLI v2, uv, Terraform 1.10 or later and the AWS Transform MCP server (Claude Code is listed as optional, for the Claude assessment). For anything missing it shows the install command for your operating system and offers to run it; nothing is installed without your yes. Reframe installs Terraform itself: the pinned HashiCorp release, checked against HashiCorp's SHA-256 sums, kept in `~/.reframe/tools` and used from there, so your PATH, your shell files and any older Terraform stay as they are.
 2. **AWS sign-in.** Choose one of your AWS CLI profiles and the region. If the profile is not signed in, Reframe offers to run `aws sso login` for you; you sign in in your browser, and Reframe never sees your credentials. With no profiles, it offers `aws configure sso`.
 3. **Source.** A GitHub or Git URL (checked with Git, and optionally a branch, tag or commit), a local folder, or a local ZIP file.
-4. **Choices.** Autonomous or interactive (see below), the project name (a short label such as `carddemo`: it names the run's folder, `~/.reframe/projects/<project>/runs/<run>/`, and starts the name of every AWS resource the run creates, `reframe-<project>-<run>`), a new Neptune graph or an existing cluster, and whether to assess the same snapshot with Claude as well (the Claude assessment; see below), with how Claude signs in and the agent limit for rule extraction.
+4. **Choices.** Autonomous or interactive (see below), the project name (a short label such as `carddemo`: it names the run's folder, `.reframe/<project>/<run>/` in your workspace, and starts the name of every AWS resource the run creates, `reframe-<project>-<run>`), a new Neptune graph or an existing cluster, and whether to assess the same snapshot with Claude as well (the Claude assessment; see below), with how Claude signs in and the agent limit for rule extraction.
 5. **Summary.** What will be created, then one yes to start. The run continues in the background.
 
 Your profile, region and tool paths are saved in `~/.reframe/config.json` as the next run's defaults. To check the prerequisites and sign in without starting a run:
@@ -190,10 +197,13 @@ To use a Neptune cluster you already have, pass `--graph existing` to choose fro
 
 ## Results
 
-Everything for a run is in `~/.reframe/projects/<project>/runs/<run id>/`:
+**Run Reframe from your workspace folder.** Everything for a run is there, in `.reframe/<project>/<run id>/`, one folder per project and one per run. Reframe's own tools and settings stay in `~/.reframe`. Keep `.reframe/` out of Git: run folders hold your account's identifiers. Share `reframe publish`'s cleaned copy instead.
 
 | Path | What it holds |
 |---|---|
+| `inputs/reconcile/` | What you add for the reconciliation: documents, review downloads, the answered SME list. Read when `--context` is not given. |
+| `inputs/design/` | What you add for the design: `personas.md`, `decisions.md`, `target-architecture.md`, `design-system/`, `style-reference/`, the prototype's and the reconciliation page's review downloads. |
+| `outputs/` | Everything Reframe makes for people to read: the reports below, `reconcile/`, and `design/` (the design page, the prototype, the package). |
 | `outputs/report/index.html` | The business review report. Rebuild it with `reframe report`. |
 | `outputs/requirements/` | AWS's requirements per business function, with `traceability.yaml` linking rules to requirements. |
 | `outputs/aws/` | AWS's assessment results. |
@@ -322,6 +332,44 @@ On GenApp (run 8e5a08, 25 November 2026) it wrote 417 requirements, 446 business
 
 **Part 2 on CardDemo** (25 November 2026). Round 3 decided all 431 units again in about 52 minutes and $32 at API prices: 1,185 recommended rules with Reframe's confidence (718 high, 463 medium, 4 low), a kind and worked examples, 1,131 requirements with 114 decision tables, and 182 possible defects shown once each. An audit of a new sample found no rule wrong by both judges and 56 of 65 correct, with 6 for the owner to settle, and every rule with an error rated medium. Two reviewers' files, one JSON and one CSV with a disagreement and two sign-offs, went through `reframe review`, and round 4 decided 1 unit again and wrote one function's requirements again. The figures are in [docs/pipeline-3.md](docs/pipeline-3.md), section 8.12.
 
+## The design
+
+When the reconciliation is done, `reframe design` designs the modernized application from it ([docs/pipeline-4.md](docs/pipeline-4.md)). It needs no AWS resources and runs on your Claude sign-in.
+
+```bash
+reframe design --plan        # what a round would redo, and why, with no Claude step
+reframe design --open        # run a round, then open the design page
+```
+
+A round runs every stage in order and keeps what has not changed:
+
+| Stage | What it makes | Claude |
+|---|---|---|
+| Screen inventory and flow | Every BMS map read into its fields and keys, drawn as a 3270 copy; how the screens and programs connect, each link citing its lines | No |
+| Journeys | The tasks people do, from where they start to where they finish, each with its capabilities and requirements | One step per domain |
+| Modern screens | Screens from Reframe's design system (or yours), and a mapping that takes every legacy screen, field and key to what replaces it, with the reason | One step per domain |
+| Prototype | One offline page: a route per screen, sample data, the rules' own messages, each screen beside the legacy screens it replaces, and marks reviewers can download | No |
+| Final specifications | Per capability: requirements, business rules (classed), acceptance criteria, screens, data contracts from the copybooks, decision tables with gaps, open questions; final where the function is signed off | One step per function, for summaries, criteria and design notes |
+| The package | Kiro, Claude Code and Spec Kit forms, every ID traced back to the legacy source, with `[FILL IN: ...]` placeholders for what your team gives and a `START-HERE.md` | No |
+
+**Adding context.** Put it in the run's `inputs/design/`, or pass `--context <folder>` once, and run `reframe design` again:
+- `personas.md` reaches the journeys;
+- a decision in `decisions.md` reaches only the parts it names;
+- a prototype download's *Needs change* reaches the domain that designed the screen;
+- a sign-off from the reconciliation page makes its function final, with no Claude step.
+
+Each round writes `design/changes-<round>.md`: what was redone and why, and what was kept. The package gets a new version, with its `CHANGES.md`.
+
+**The target stack** is yours to give; Reframe never chooses one. `reframe design --stack "React with TypeScript; Java 21 with Spring Boot; PostgreSQL"` adds the stack's code and column types to the data contracts, with no Claude step.
+
+**Handing over.** `reframe design --package ~/handover/<project>` copies the package, cleaned, into an empty folder. `START-HERE.md` there says what to fill in and how to prove it by building *Sign in*; `reframe design --check ~/handover/<project>` lists what is left.
+
+**On CardDemo** (run fa1f61, 25 and 26 November 2026), the design cost about $35 at API prices:
+- 21 legacy screens, 20 journeys, and 20 modern screens with all 683 legacy items mapped;
+- a 19-screen prototype;
+- 154 specifications (52 final) with 1,505 acceptance criteria;
+- a package of 1,113 files with 820 tasks.
+
 ## Sharing the reports
 
 ```bash
@@ -330,7 +378,8 @@ reframe publish --to reports/my-system
 
 This copies a run's reports into a folder that anyone can open in a browser, without Reframe or access to your AWS account:
 
-- AWS Transform's review, Claude's review and the comparison, with their links working inside the copy;
+- AWS Transform's review, Claude's review, the comparison and the reconciliation, with their links working inside the copy;
+- the design: the design page, the legacy screens, the flow, the journeys, the modern screens, the clickable prototype and the latest AI-DLC package, under `design/`;
 - the plugin's own report and interactive map;
 - an index page naming the source, its commit and SHA-256, and when each assessment ran.
 
@@ -364,7 +413,7 @@ reframe reports download carddemo --to ~/reframe-reports/carddemo
 
 `reframe reports teardown` removes the bucket and everything in it, after you consent to the list. Only the computer that published can do this.
 
-**Try it without running anything:** [the CardDemo reports](reports/carddemo/index.html) in this repository are a published copy of a full run of both assessments on AWS's CardDemo sample. Clone the repository and open `reports/carddemo/index.html` in a browser.
+**Try it without running anything:** [CardDemo](reports/carddemo/index.html) and [GenApp](reports/genapp/index.html) in this repository are published copies of full runs on two AWS mainframe samples: both assessments, the reconciliation, the design with its prototype, and the AI-DLC package. Clone the repository and open `reports/<project>/index.html` in a browser.
 
 ## Code layout
 
@@ -376,6 +425,7 @@ reframe reports download carddemo --to ~/reframe-reports/carddemo
 | `src/reframe/transform/` | AWS Transform: the MCP client, the workspace and connector, the job driver, answering questions, retrieval |
 | `src/reframe/claude/` | The Claude assessment: the pinned plugin, running Claude Code headless, the workspace, the plugin's steps, retrieval, the generated requirements and the graph load |
 | `src/reframe/reconcile/` | The reconciliation: the inputs and context folder, the agreed rules, units and batches, the decisions against the source, the SME list and the recommended requirements |
+| `src/reframe/design/` | The design: the screen inventory and flow, journeys, modern screens, the prototype, the final specifications and data contracts, the package and its hand-over, and design rounds |
 | `src/reframe/report/` | The business review reports, the comparison page, the reconciliation page and `reframe publish` |
 | `tests/` | Offline tests for each folder above; they run on every pull request |
 
@@ -389,9 +439,9 @@ python -m unittest discover -s tests -t .
 
 Next, in this order, in [docs/plan.md](docs/plan.md):
 
-1. **The reconciliation, part 2:** an accuracy audit on CardDemo, confidence and possible defects that mean something, and a review an SME can finish: a review-first view, sign-off by function, and every reviewer's marks read back.
-2. **Exports:** backlog items with acceptance criteria for Jira or Azure DevOps (requirements to a spreadsheet is built: `reframe export --to xlsx`).
-3. **Pipeline 4:** final requirements, an interactive clickable prototype of the modernized screens mapped one to one to the legacy ones, and an AI-DLC package for Claude Code or Kiro, updated as people add context.
+1. **The design's live acceptance (P4-10):** a second round on CardDemo with a design system, a persona and a prototype review, checked to change only what it should.
+2. **Golden datasets and the replacement order (P4-11, P4-12):** equivalence tests from the worked examples, and the order to replace capabilities by risk.
+3. **Exports:** backlog items with acceptance criteria for Jira or Azure DevOps (requirements to a spreadsheet is built: `reframe export --to xlsx`).
 4. **Proving it at scale:** a larger codebase, then Claude on Amazon Bedrock.
 
 Earlier work stays in the repository's history: the build before this rebuild ends at commit `000b816`, and releases are tagged on `main`: `v0.3.0`, the first, and `v0.4.0`, the three pipelines (AWS Transform assessment, Claude assessment and reconciliation).

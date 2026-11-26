@@ -33,9 +33,19 @@ STORAGE = {"COMP-3": "packed decimal", "COMPUTATIONAL-3": "packed decimal", "PAC
 # ---- copybooks ---------------------------------------------------------------------------------------------------------
 
 def copybooks(legacy: Path) -> dict[str, Path]:
-    """Data copybooks by name, from the cpy folders; the screen copybooks (cpy-bms) are left out."""
-    return {p.stem.upper(): p for p in sorted(legacy.rglob("*")) if p.is_file() and p.suffix.lower() in (".cpy", "")
-            and p.parent.name.lower().startswith("cpy") and "bms" not in p.parent.name.lower()}
+    """Data copybooks by name: every .cpy file wherever it is (GenApp keeps them beside the programs), and the files
+    without an extension in cpy folders. The screen copybooks are left out: those in a cpy-bms folder, and those named
+    after a BMS mapset in the snapshot."""
+    files = sorted(p for p in legacy.rglob("*") if p.is_file())
+    maps = {p.stem.upper() for p in files if p.suffix.lower() == ".bms"}
+    found: dict[str, Path] = {}
+    for p in files:
+        folder = p.parent.name.lower()
+        if "bms" in folder or p.stem.upper() in maps:
+            continue
+        if p.suffix.lower() == ".cpy" or (p.suffix == "" and folder.startswith("cpy")):
+            found.setdefault(p.stem.upper(), p)
+    return found
 
 
 def programs(legacy: Path) -> dict[str, Path]:

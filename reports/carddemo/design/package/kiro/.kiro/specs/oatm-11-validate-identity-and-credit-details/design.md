@@ -1,0 +1,183 @@
+# Design: Validate identity and credit details (OATM-C11)
+
+**Status: FINAL**, signed off by Sam (acceptance), 2026-11-25.
+
+## Overview
+
+Checks the customer's Social Security Number, date of birth and FICO score when the operator changes details. The SSN must be in three supplied, numeric, non-zero parts with an allowed first group, the birth date must be before today, and the FICO score must be between 300 and 850. Implausible identity or credit data must never be saved.
+
+Runs as online. Journeys: J02.
+
+## Screens and components
+
+### Update account (S-ACCOUNT-EDIT)
+
+Fetch an account, change its account and customer details in one form, see every error at its field, and save both records together only after reviewing the changes.
+
+Prototype: `ui-reference/index.html#/S-ACCOUNT-EDIT`. Replaces the legacy screens CACTUPA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Social Security number | text | One field, formatted NNN-NN-NNNN as typed | First 3 digits must be supplied, numeric and not zero: 'SSN: First 3 chars must be supplied.' / 'SSN: First 3 chars must be all numeric.' / 'SSN: First 3 chars must not be zero.'; and not 666 or 900-999: 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'. The 4th-5th digits and the last 4 digits must each be supplied, numeric and not zero (messages 'SSN 4th & 5th chars ...' and 'SSN Last 4 chars ...'). |  | OATM-REQ-F-095, OATM-REQ-F-096 |
+| Date of birth | date |  | Year, month and day must all be supplied: 'Date of Birth : Year must be supplied.', 'Date of Birth : Month must be supplied.', 'Date of Birth : Day must be supplied.'. The year must be 4 digits: 'Date of Birth must be 4 digit number.', starting 19 or 20: 'Date of Birth : Century is not valid.'. 'Date of Birth: Month must be a number between 1 and 12.'; 'Date of Birth:day must be a number between 1 and 31.'; 'Date of Birth:Cannot have 31 days in this month.'; 'Date of Birth:Cannot have 30 days in this month.'; 'Date of Birth:Not a leap year.Cannot have 29 days in this month.'; the date must be a real calendar date: 'Date of Birth validation error ...'. Must be before today: 'Date of Birth:cannot be in the future '. |  | OATM-REQ-F-099 |
+| FICO score | number |  | Required: 'FICO Score must be supplied.'; 3 digits: 'FICO Score must be all numeric.'; not zero: 'FICO Score must not be zero.'; 300 to 850 inclusive: 'FICO Score: should be between 300 and 850'. |  | OATM-REQ-F-100, OATM-REQ-F-101 |
+
+
+## Data models
+
+#### CSMSG02Y
+
+File record of COACTUPC. Source: `app/cpy/CSMSG02Y.cpy`.
+
+Record `ABEND-DATA`:
+
+| Field | In | PIC | Type | Code type | Column type | Values |
+|---|---|---|---|---|---|---|
+| ABEND-CODE |  | X(4) | text, 4 characters |  |  |  |
+| ABEND-CULPRIT |  | X(8) | text, 8 characters |  |  |  |
+| ABEND-REASON |  | X(50) | text, 50 characters |  |  |  |
+| ABEND-MSG |  | X(72) | text, 72 characters |  |  |  |
+
+#### CVACT01Y
+
+File record of COACTUPC. Source: `app/cpy/CVACT01Y.cpy`.
+
+Record `ACCOUNT-RECORD`:
+
+| Field | In | PIC | Type | Code type | Column type | Values |
+|---|---|---|---|---|---|---|
+| ACCT-ID |  | 9(11) | unsigned integer, 11 digits (zoned decimal) |  |  |  |
+| ACCT-ACTIVE-STATUS |  | X(01) | text, 1 character |  |  |  |
+| ACCT-CURR-BAL |  | S9(10)V99 | signed decimal, 10 integer and 2 fraction digits (zoned decimal) |  |  |  |
+| ACCT-CREDIT-LIMIT |  | S9(10)V99 | signed decimal, 10 integer and 2 fraction digits (zoned decimal) |  |  |  |
+| ACCT-CASH-CREDIT-LIMIT |  | S9(10)V99 | signed decimal, 10 integer and 2 fraction digits (zoned decimal) |  |  |  |
+| ACCT-OPEN-DATE |  | X(10) | text, 10 characters |  |  |  |
+| ACCT-EXPIRAION-DATE |  | X(10) | text, 10 characters |  |  |  |
+| ACCT-REISSUE-DATE |  | X(10) | text, 10 characters |  |  |  |
+| ACCT-CURR-CYC-CREDIT |  | S9(10)V99 | signed decimal, 10 integer and 2 fraction digits (zoned decimal) |  |  |  |
+| ACCT-CURR-CYC-DEBIT |  | S9(10)V99 | signed decimal, 10 integer and 2 fraction digits (zoned decimal) |  |  |  |
+| ACCT-ADDR-ZIP |  | X(10) | text, 10 characters |  |  |  |
+| ACCT-GROUP-ID |  | X(10) | text, 10 characters |  |  |  |
+| FILLER |  | X(178) | text, 178 characters |  |  |  |
+
+#### CVACT03Y
+
+File record of COACTUPC. Source: `app/cpy/CVACT03Y.cpy`.
+
+Record `CARD-XREF-RECORD`:
+
+| Field | In | PIC | Type | Code type | Column type | Values |
+|---|---|---|---|---|---|---|
+| XREF-CARD-NUM |  | X(16) | text, 16 characters |  |  |  |
+| XREF-CUST-ID |  | 9(09) | unsigned integer, 9 digits (zoned decimal) |  |  |  |
+| XREF-ACCT-ID |  | 9(11) | unsigned integer, 11 digits (zoned decimal) |  |  |  |
+| FILLER |  | X(14) | text, 14 characters |  |  |  |
+
+#### CVCUS01Y
+
+File record of COACTUPC. Source: `app/cpy/CVCUS01Y.cpy`.
+
+Record `CUSTOMER-RECORD`:
+
+| Field | In | PIC | Type | Code type | Column type | Values |
+|---|---|---|---|---|---|---|
+| CUST-ID |  | 9(09) | unsigned integer, 9 digits (zoned decimal) |  |  |  |
+| CUST-FIRST-NAME |  | X(25) | text, 25 characters |  |  |  |
+| CUST-MIDDLE-NAME |  | X(25) | text, 25 characters |  |  |  |
+| CUST-LAST-NAME |  | X(25) | text, 25 characters |  |  |  |
+| CUST-ADDR-LINE-1 |  | X(50) | text, 50 characters |  |  |  |
+| CUST-ADDR-LINE-2 |  | X(50) | text, 50 characters |  |  |  |
+| CUST-ADDR-LINE-3 |  | X(50) | text, 50 characters |  |  |  |
+| CUST-ADDR-STATE-CD |  | X(02) | text, 2 characters |  |  |  |
+| CUST-ADDR-COUNTRY-CD |  | X(03) | text, 3 characters |  |  |  |
+| CUST-ADDR-ZIP |  | X(10) | text, 10 characters |  |  |  |
+| CUST-PHONE-NUM-1 |  | X(15) | text, 15 characters |  |  |  |
+| CUST-PHONE-NUM-2 |  | X(15) | text, 15 characters |  |  |  |
+| CUST-SSN |  | 9(09) | unsigned integer, 9 digits (zoned decimal) |  |  |  |
+| CUST-GOVT-ISSUED-ID |  | X(20) | text, 20 characters |  |  |  |
+| CUST-DOB-YYYY-MM-DD |  | X(10) | text, 10 characters |  |  |  |
+| CUST-EFT-ACCOUNT-ID |  | X(10) | text, 10 characters |  |  |  |
+| CUST-PRI-CARD-HOLDER-IND |  | X(01) | text, 1 character |  |  |  |
+| CUST-FICO-CREDIT-SCORE |  | 9(03) | unsigned integer, 3 digits (zoned decimal) |  |  |  |
+| FILLER |  | X(168) | text, 168 characters |  |  |  |
+
+- COCOM01Y (working storage of COACTUPC): see data-contracts.md.
+- COTTL01Y (working storage of COACTUPC): see data-contracts.md.
+- CSDAT01Y (working storage of COACTUPC): see data-contracts.md.
+- CSLKPCDY (working storage of COACTUPC): see data-contracts.md.
+- CSMSG01Y (working storage of COACTUPC): see data-contracts.md.
+- CSSETATY (working storage of COACTUPC): see data-contracts.md.
+- CSSTRPFY (working storage of COACTUPC): see data-contracts.md.
+- CSUSR01Y (working storage of COACTUPC): see data-contracts.md.
+- CSUTLDPY (working storage of COACTUPC): see data-contracts.md.
+- CSUTLDWY (working storage of COACTUPC): see data-contracts.md.
+- CVCRD01Y (working storage of COACTUPC): see data-contracts.md.
+
+## Business rules
+
+Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error handling* keeps its messages; a *side effect* is kept; a *historical artifact* is carried only after asking the owner; a *design note* is for the build, below.
+
+| ID | Name | Class | Rule | Confidence | Evidence |
+|---|---|---|---|---|---|
+| OATM-BR-098 | Stage social security number parts | design note | WHEN the operator enters a Social Security Number part as '*' or leaves it blank, THE account update screen SHALL treat that part as not supplied; otherwise it SHALL take the entered part as the proposed value. | high | app/cbl/COACTUPC.cbl:1231-1252, app/cbl/COACTUPC.cbl:1529-1531, app/cbl/COACTUPC.cbl:2431-2491, app/cbl/COACTUPC.cbl:118-123 |
+| OATM-BR-099 | Validate social security number | business rule | WHEN the first three SSN characters are blank, not all numeric or zero, THE account update validation SHALL reject them with 'SSN: First 3 chars must be supplied.', 'SSN: First 3 chars must be all numeric.' or 'SSN: First 3 chars must not be zero.' respectively, and SHALL not check the other two SSN parts. | high | app/cbl/COACTUPC.cbl:1231-1252, app/cbl/COACTUPC.cbl:1529-1531, app/cbl/COACTUPC.cbl:2431-2491, app/cbl/COACTUPC.cbl:118-123 |
+| OATM-BR-100 | Validate SSN, birth date and FICO | business rule | WHEN changed details are checked, THE account update SHALL also check the SSN and require the date of birth to be a valid date earlier than today, rejecting a later date or today with 'Date of Birth:cannot be in the future '. | high | app/cbl/COACTUPC.cbl:1277-1284, app/cbl/COACTUPC.cbl:1529-1556, app/cbl/COACTUPC.cbl:845-849, app/cbl/COACTUPC.cbl:2109-2176 |
+| OATM-BR-101 | Validate social security number | business rule | WHEN the first three SSN characters are numeric and equal 666 or fall between 900 and 999, THE account update validation SHALL reject them with 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999'. | high | app/cbl/COACTUPC.cbl:1231-1252, app/cbl/COACTUPC.cbl:1529-1531, app/cbl/COACTUPC.cbl:2431-2491, app/cbl/COACTUPC.cbl:118-123 |
+| OATM-BR-102 | Validate social security number | business rule | WHEN the first three SSN characters are numeric and non-zero, THE account update validation SHALL require the 4th-5th characters and the last 4 characters each to be supplied, all numeric and non-zero, giving 'SSN 4th & 5th chars …' or 'SSN Last 4 chars …' with 'must be supplied.', 'must be all numeric.' or 'must not be zero.'. | high | app/cbl/COACTUPC.cbl:1231-1252, app/cbl/COACTUPC.cbl:1529-1531, app/cbl/COACTUPC.cbl:2431-2491, app/cbl/COACTUPC.cbl:118-123 |
+| OATM-BR-103 | Reject future date of birth | business rule | WHEN a valid calendar date of birth is today or later, THE account update validation SHALL reject it, flag the day, month and year fields, and show 'Date of Birth:cannot be in the future ' if no earlier error message is already set. | high | app/cbl/COACTUPC.cbl:1254-1275, app/cbl/COACTUPC.cbl:1533-1543, app/cpy/CSUTLDPY.cpy:341-370 |
+| OATM-BR-104 | Stage credit score entry | business rule | WHEN the FICO score is entered as blank or '*', THE account update SHALL treat it as not supplied and reject it with 'FICO Score must be supplied.' | high | app/cbl/COACTUPC.cbl:1277-1284, app/cbl/COACTUPC.cbl:1529-1556, app/cbl/COACTUPC.cbl:845-849, app/cbl/COACTUPC.cbl:2109-2176 |
+| OATM-BR-105 | Validate SSN, birth date and FICO | business rule | WHEN the FICO score is not all three digits, THE account update SHALL reject it with 'FICO Score must be all numeric.', and WHEN it is zero, SHALL reject it with 'FICO Score must not be zero.' | high | app/cbl/COACTUPC.cbl:1277-1284, app/cbl/COACTUPC.cbl:1529-1556, app/cbl/COACTUPC.cbl:845-849, app/cbl/COACTUPC.cbl:2109-2176 |
+| OATM-BR-106 | Validate FICO score range | business rule | WHEN a numeric, non-zero FICO score is below 300 or above 850, THE account update SHALL mark the FICO score in error and reject the input with 'FICO Score: should be between 300 and 850'; 300 and 850 themselves are accepted. | high | app/cbl/COACTUPC.cbl:1277-1284, app/cbl/COACTUPC.cbl:1529-1556, app/cbl/COACTUPC.cbl:845-849, app/cbl/COACTUPC.cbl:2109-2176 |
+
+### Worked examples
+
+- OATM-BR-100: Date of birth = 1985-04-12 → Accepted
+- OATM-BR-101: SSN = 912-12-3456 → Rejected with the same message.
+- OATM-BR-101: SSN = 123-45-6789 → Accepted.
+- OATM-BR-103: Today = 2026-11-23; Date of birth = 1980-05-14 → Accepted.
+- OATM-BR-106: FICO score = 300 → Accepted
+
+## Decision tables
+
+#### FICO score checks
+
+| Supplied (not blank or '*') | All three digits | Zero | Between 300 and 850 inclusive | Validation result | Rule |
+|---|---|---|---|---|---|
+| No | - | - | - | Reject with 'FICO Score must be supplied.' | OATM-BR-104 |
+| Yes | No | - | - | Reject with 'FICO Score must be all numeric.' | OATM-BR-105 |
+| Yes | Yes | Yes | - | Reject with 'FICO Score must not be zero.' | OATM-BR-105 |
+| Yes | Yes | No | No | Mark in error, reject with 'FICO Score: should be between 300 and 850' | OATM-BR-106 |
+| Yes | Yes | No | Yes | Accept | OATM-BR-106 |
+
+#### SSN first three characters checks
+
+| Supplied | All numeric | Zero | 666 or 900-999 | Validation result | Rule |
+|---|---|---|---|---|---|
+| No | - | - | - | 'SSN: First 3 chars must be supplied.'; other parts not checked | OATM-BR-099 |
+| Yes | No | - | - | 'SSN: First 3 chars must be all numeric.'; other parts not checked | OATM-BR-099 |
+| Yes | Yes | Yes | - | 'SSN: First 3 chars must not be zero.'; other parts not checked | OATM-BR-099 |
+| Yes | Yes | No | Yes | 'SSN: First 3 chars: should not be 000, 666, or between 900 and 999' | OATM-BR-101 |
+| Yes | Yes | No | No | Go on to check 4th-5th and last 4 characters | OATM-BR-102 |
+| Yes | Yes | No | Yes | **Gap:** No rule says whether the 4th-5th and last 4 characters are still checked when the first three are 666 or 900-999. | |
+
+
+## Design notes
+
+- OATM-BR-098: Input binding for the three SSN parts (3, 2 and 4 digits): each part that is blank or '*' becomes null; otherwise the entered part is kept as the proposed value for the SSN validator.
+
+## Open questions
+
+- SME-056: Can the customer identifier be changed on the account update screen, or should it be shown read-only? (Account servicing business owner) On OATM-BR-104, OATM-BR-098.
+- SME-057: Please supply the complete, authoritative list of valid general-purpose phone area codes. Today it is described only as running from '201' to '989'. (Data governance team) On OATM-BR-103, OATM-BR-106, OATM-BR-102.
+- SME-058: Please supply the complete, authoritative list of valid state and ZIP-prefix combinations. Is this rough check enough, or is a finer-grained address check required? (Data governance team) On OATM-BR-106, OATM-BR-102.
+- SME-059: When the date-checking utility rejects a date, the date is still marked valid even though an input error is raised. Should a rejected date stay invalid, including for later checks such as 'date of birth cannot be in the future'? (Account servicing business owner) On OATM-BR-103.
+- SME-060: Should date validation check that the month is numeric before checking that it is between 1 and 12? (Account servicing business owner) On OATM-BR-103.
+- SME-061: Only years in the 1900s and 2000s are accepted for all four account and customer dates. Should this restriction still apply to card expiry and reissue dates? (Account servicing business owner) On OATM-BR-103.
+- SME-063: At present, a phone number counts as 'not supplied' when the area code and exchange are blank, even if a line number was entered. Is that intended, or should a phone count as not supplied only when all three parts are blank? (Business analyst) On OATM-BR-103, OATM-BR-106, OATM-BR-102.
+- SME-064: Should the second and third parts of a social security number be validated only when the first part is valid, or always? (Business analyst) On OATM-BR-103, OATM-BR-106, OATM-BR-102.
+- DEF-037: Is this intended? A date of birth equal to today is rejected with a message saying it is in the future, which it is not. (Subject-matter expert) On OATM-BR-103.
+- DEF-042: Is this intended? The IF on part 1 being valid has no END-IF, so the SSN 4th-5th and last-4 checks are skipped whenever part 1 is blank, non-numeric or zero; the 000 branch of the forbidden-value message can never be shown. (Subject-matter expert) On OATM-BR-098, OATM-BR-102.
+
+## Testing
+
+Every acceptance criterion in requirements.md is a test named by its ID (13 in all).
