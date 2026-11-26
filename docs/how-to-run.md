@@ -1,20 +1,29 @@
 # How to run Reframe
 
-One page, start to finish. Each step links to the detail in the [README](../README.md); every command and option is in [cli.md](cli.md).
+One page, start to finish. The detail of each step is in [the guide](guide.md); every command and option is in [cli.md](cli.md).
 
 ![How a Reframe run works](images/reframe.svg)
 
 ## 0. Install, once
 
 ```bash
-uv tool install --reinstall --editable ~/path/to/reframe
+uv tool install "git+https://github.com/sknampally/reframe@v1.0.0"
+```
+
+Then choose what this computer will run:
+
+```bash
+reframe setup --tools claude
 ```
 
 ```bash
 reframe setup
 ```
 
-`reframe setup` checks Git, the AWS CLI, Terraform and the AWS Transform MCP server, offers to install what is missing, and signs you in to AWS (`aws sso login`). The Claude steps use Claude Code with your Claude subscription.
+- **Claude only** (`--tools claude`) needs Git, [Claude Code](https://docs.anthropic.com/en/docs/claude-code) signed in with your Claude subscription, and the code-modernization plugin, which Reframe fetches. You don't need an AWS account.
+- **Both tools** also need an AWS account with AWS Transform. `reframe setup` checks the AWS CLI, Terraform and the AWS Transform MCP server, offers to install what is missing, and signs you in to AWS (`aws sso login`).
+
+To work on Reframe itself, install a clone instead: `uv tool install --reinstall --editable <clone>`.
 
 ## 1. Work from your workspace folder
 
@@ -35,13 +44,21 @@ Run every `reframe` command from the same folder: your workspace. Reframe keeps 
 
 `reframe` on its own shows the runs in this workspace and the next step. Reframe's own tools and settings stay in `~/.reframe`. Keep `.reframe/` out of Git: run folders hold your account's identifiers. Share the cleaned copy that `reframe publish` makes instead (step 7).
 
-## 2. Assess the code: AWS Transform and Claude
+## 2. Assess the code
 
 ```bash
 reframe run
 ```
 
-The guided run asks for your AWS profile, the source (a folder, a ZIP file or a GitHub URL) and a project name. Then it runs both assessments on one snapshot, in the background: AWS Transform takes about an hour, and Claude's code-modernization plugin about two, alongside it.
+The guided run first asks: *AWS Transform and Claude, or Claude only?* Then it asks for the source (a folder, a ZIP file or a GitHub URL) and a project name, plus your AWS profile when both tools are used. The assessments run on one snapshot, in the background:
+- Claude's code-modernization plugin takes about two hours;
+- AWS Transform takes about an hour, alongside it.
+
+Without questions, for Claude only:
+
+```bash
+reframe run --tools claude --source https://github.com/aws-samples/aws-mainframe-modernization-carddemo
+```
 
 ```bash
 reframe status
@@ -63,15 +80,15 @@ reframe report --open
 reframe compare --open
 ```
 
-These open AWS Transform's business review and the comparison of the two tools. Reviewers mark items *Agree*, *Needs change* or *Question* and download their marks. Put the downloads in `inputs/reconcile/`.
+These open AWS Transform's business review and the comparison of the two tools. On a Claude-only run, `reframe report --open` opens Claude's business review, and there is no comparison. Reviewers mark items *Agree*, *Needs change* or *Question* and download their marks. Put the downloads in `inputs/reconcile/`.
 
-## 4. Reconcile the two against the code
+## 4. Reconcile against the code
 
 ```bash
 reframe reconcile
 ```
 
-Reframe shows the estimate and stops above the batch limit. Go ahead with `reframe reconcile --max-batches <n>`. Then read the result:
+Reframe shows the estimate and stops above the batch limit. On a Claude-only run every Claude rule is checked against the code, in Claude's own domains and functions. Go ahead with `reframe reconcile --max-batches <n>`. Then read the result:
 
 ```bash
 reframe reconcile --open
@@ -132,19 +149,27 @@ reframe publish --to aws
 
 Only if you choose to, this puts the run in one private Reframe bucket in your account, under `<project>/<run>/`: `source/` (the snapshot both tools read), `results/` (what AWS Transform and Claude wrote) and `reports/` (the cleaned copy). Anyone whose AWS sign-in can read the bucket opens it with `reframe reports open <project>`. The bucket outlives teardown, so this works before or after step 8.
 
+Or publish the cleaned copy to a GitHub Pages site, for anyone with the address:
+
+```bash
+reframe publish --to pages --repo my-org/reframe-reports
+```
+
+A Pages site is public, so Reframe names the repository and the address first and pushes only after you type `yes`.
+
 ## 8. Remove the AWS resources
 
 ```bash
 reframe teardown
 ```
 
-This lists everything the run created in AWS and deletes it only after you type `yes`. The reconciliation and the design need no AWS resources, so tear down as soon as both assessments are done.
+This lists everything the run created in AWS and deletes it only after you type `yes`. The reconciliation and the design need no AWS resources, so tear down as soon as both assessments are done. A Claude-only run created nothing in AWS, so it has nothing to remove.
 
 ## What it takes
 
 | Step | Time | Claude, at API prices (CardDemo) |
 |---|---|---|
 | 2. Assess | about 1 hour (AWS Transform), about 2 (Claude), side by side | the plugin's agents, within your agent limit |
-| 4. Reconcile | 30 to 90 minutes | about $30 to $70 for a full round; a later round only what changed |
-| 5. Design | about 30 minutes | about $35 for a first round; a later round only what changed |
+| 4. Reconcile | 30 to 90 minutes | about $30 to $70 for a full round; a later round only what changed; with Claude only, every rule is checked: estimated $15 to $40 |
+| 5. Design | 30 to 60 minutes | about $35 for a first round; a round that redoes every screen about $60; a later round only what changed |
 | 6, 7, 8 | seconds to minutes | none |

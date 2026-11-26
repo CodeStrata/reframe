@@ -99,9 +99,9 @@ def parser() -> argparse.ArgumentParser:
                         help="load Claude's graph into the cluster (default: yes on a graph the run created, no on an existing cluster)")
     claude.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
 
-    reconcile = command("reconcile", "The reconciliation: decide every rule the two assessments do not agree on against the source code, with "
-                        "evidence Reframe checks, then write recommended requirements, one SME list and the reconciliation page; needs both "
-                        "assessments done, and no AWS resources")
+    reconcile = command("reconcile", "The reconciliation: decide every rule the two assessments do not agree on (with Claude only, every rule) "
+                        "against the source code, with evidence Reframe checks, then write recommended requirements, one SME list and the "
+                        "reconciliation page; needs the run's assessments done, and no AWS resources")
     _run_option(reconcile)
     reconcile.add_argument("--context", help="a folder of context: documents (Markdown, text, PDF, Word), review exports and answered questions")
     reconcile.add_argument("--auth", choices=("subscription", "bedrock"), default=None,

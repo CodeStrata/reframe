@@ -1,6 +1,6 @@
 # Reframe command reference
 
-Every command, its options and examples, as `reframe --help` and `reframe <command> --help` show them. The [README](../README.md) explains what each pipeline does; this page is the list to keep open while you work.
+Every command, its options and examples, as `reframe --help` and `reframe <command> --help` show them. [The guide](guide.md) explains what each pipeline does; this page is the list to keep open while you work.
 
 ## The home screen
 
@@ -8,7 +8,7 @@ Every command, its options and examples, as `reframe --help` and `reframe <comma
 
 ![The reframe home screen: the runs table, the suggested next step and the numbered menu](images/cli-home.svg)
 
-*The home screen with one example run that has finished both assessments and the reconciliation.*
+*The home screen with two example runs: a Claude-only run and a run with both tools, each reconciled.*
 
 | # | Menu entry | Runs |
 |---|---|---|
@@ -21,19 +21,32 @@ Every command, its options and examples, as `reframe --help` and `reframe <comma
 | 7 | Open the comparison | `reframe compare --open` |
 | 8 | Reconcile the two assessments | `reframe reconcile` |
 | 9 | Open the reconciliation | `reframe reconcile --open` |
-| 10 | Publish a run's reports to AWS | `reframe publish --to aws` |
-| 11 | Published reports | `reframe reports` |
-| 12 | Event log | `reframe events` |
-| 13 | Tear down a run | `reframe teardown` |
-| 14 | Set up prerequisites and sign-in | `reframe setup` |
-| 15 | Help | `reframe --help` |
+| 10 | Design the modern application | `reframe design --open` |
+| 11 | Publish a run to AWS (optional) | `reframe publish --to aws` |
+| 12 | Published reports | `reframe reports` |
+| 13 | Event log | `reframe events` |
+| 14 | Tear down a run | `reframe teardown` |
+| 15 | Set up prerequisites and sign-in | `reframe setup` |
+| 16 | Help | `reframe --help` |
 | 0 | Exit | |
 
 ## `reframe --help`
 
 ![reframe --help: the commands, common examples and options](images/cli-help.svg)
 
-## A full run, start to finish
+## Claude only, start to finish
+
+```bash
+reframe setup --tools claude                         # Git, Claude Code and the plugin; no AWS
+reframe run --tools claude --source <source>         # the snapshot and the Claude assessment, in the background
+reframe status                                       # where the run is and what to do next
+reframe report --open                                # Claude's business review
+reframe reconcile                                    # every rule checked against the source code
+reframe design --open                                # the design, the prototype and the AI-DLC package
+reframe publish --to reports/<project>               # optional: a cleaned copy to share
+```
+
+## A full run with both tools, start to finish
 
 The short version, with the folder layout, is [How to run Reframe](how-to-run.md). Run every command from your workspace folder: each run lives in its `.reframe/<project>/<run>/`.
 
@@ -73,7 +86,7 @@ Every command acts on your latest run; add `--run <run id>` for another one. The
 
 **The agent limit** is a ceiling, not a target: before rule extraction Reframe compares the plugin's upper estimate with it, and stops to ask if the estimate is higher. On CardDemo the estimate is 38 to 41 shards, up to about 615 agents, and a run uses about 430 to 480; a limit of 650 to 900 lets it go ahead without asking.
 
-**The reconciliation** needs both assessments done and no AWS resources, so it can run after `reframe teardown`. The context folder holds documents (Markdown, text, PDF, Word), review downloads (JSON or CSV) from any number of reviewers, with their sign-offs, and the SME list (`reconcile/questions.csv` in the run folder) with its `answer` column filled in. Run `reframe reconcile` again with more answers or marks and only the rules and functions they bear on are done again; a rule marked *Agree* is kept. If Claude's usage limit stops it, `reframe resume` continues. On CardDemo the estimate is 113 batches, 29 to 87 minutes, $56 to $130 at API prices; the acceptance run used about $67.
+**The reconciliation** needs the run's assessments done (both, or Claude's on a Claude-only run) and no AWS resources, so it can run after `reframe teardown`. The context folder holds documents (Markdown, text, PDF, Word), review downloads (JSON or CSV) from any number of reviewers, with their sign-offs, and the SME list (`reconcile/questions.csv` in the run folder) with its `answer` column filled in. Run `reframe reconcile` again with more answers or marks and only the rules and functions they bear on are done again; a rule marked *Agree* is kept. If Claude's usage limit stops it, `reframe resume` continues. On CardDemo the estimate is 113 batches, 29 to 87 minutes, $56 to $130 at API prices; the acceptance run used about $67.
 
 **Starting the Claude assessment later.** If your Claude usage limit is close, answer no to Claude in the guided run and run `reframe claude` once the limit resets. On a run whose AWS resources are still being created, it is recorded and starts as soon as they exist; on a run that is further along, it starts at once, alongside AWS Transform.
 
@@ -81,7 +94,7 @@ Every command acts on your latest run; add `--run <run id>` for another one. The
 
 ### `reframe run`
 
-Assess mainframe source with AWS Transform: with no options, a guided run that checks and sets up everything first; the AWS resources stay until reframe teardown.
+Assess mainframe source with AWS Transform and Claude, or with Claude only (--tools claude, no AWS): with no options, a guided run that checks and sets up everything first; the AWS resources stay until reframe teardown.
 
 | Option | What it does |
 |---|---|
@@ -94,10 +107,13 @@ Assess mainframe source with AWS Transform: with no options, a guided run that c
 | `--graph <graph>` | new, existing (choose from a list) or the name of an existing Neptune cluster (default: interactive mode asks; autonomous mode creates a new graph) |
 | `--terraform <terraform>` | the Terraform binary to use (default: REFRAME_TERRAFORM, then the one Reframe installed, then terraform on PATH) |
 | `--foreground` | run in this terminal instead of a background worker |
+| `--tools both\|claude` | both: AWS Transform and Claude (needs an AWS account); claude: Claude only, with no AWS at all |
+| `--max-agents <max_agents>` | with --tools claude: the agent limit for Claude's rule extraction (default 600) |
 
 ```bash
 reframe run                                             # guided: asks for everything it needs
 reframe run --source https://github.com/<owner>/<repo>  # a GitHub repository, latest commit
+reframe run --tools claude --source app.zip             # Claude only, with no AWS: the assessment, then reframe reconcile and reframe design
 reframe run --source ~/code/app --ref release-1         # a local Git checkout, at a branch, tag or commit
 reframe run --source app.zip --mode interactive         # a ZIP file; you answer AWS's questions with reframe answer
 ```
@@ -105,6 +121,15 @@ reframe run --source app.zip --mode interactive         # a ZIP file; you answer
 ### `reframe setup`
 
 Check and set up the prerequisites and the AWS sign-in, without starting a run.
+
+| Option | What it does |
+|---|---|
+| `--tools both\|claude` | both: everything, with the AWS sign-in; claude: only Git, Claude Code and the plugin, with no AWS |
+
+```bash
+reframe setup                 # everything a run with both tools needs, and the AWS sign-in
+reframe setup --tools claude  # only Git, Claude Code and the plugin, for a Claude-only run
+```
 
 ### `reframe status`
 
@@ -194,7 +219,7 @@ reframe claude --max-agents 650  # a higher agent limit, so a larger estimate do
 
 ### `reframe reconcile`
 
-The reconciliation: decide every rule the two assessments do not agree on against the source code, with evidence Reframe checks, then write recommended requirements, one SME list and the reconciliation page; needs both assessments done, and no AWS resources.
+The reconciliation: decide every rule the two assessments do not agree on (with Claude only, every rule) against the source code, with evidence Reframe checks, then write recommended requirements, one SME list and the reconciliation page; needs the run's assessments done, and no AWS resources.
 
 | Option | What it does |
 |---|---|
@@ -289,18 +314,20 @@ reframe compare --open  # build the comparison page again and open it
 
 ### `reframe publish`
 
-Optional: copy a run's reports, cleaned of the AWS account's identifiers, into a folder others can open, or upload the run's source, results and reports to your account's private bucket. Nothing is copied or uploaded unless you run it.
+Optional: copy a run's reports, cleaned of the AWS account's identifiers, into a folder others can open, upload the run's source, results and reports to your account's private bucket, or publish the copy to a GitHub Pages site. Nothing is copied, uploaded or published unless you run it.
 
 | Option | What it does |
 |---|---|
 | `--run <run>` | the run to act on (default: the latest run) |
-| `--to <to>` | a folder to write the copy into (for example reports/carddemo), or aws to upload the run (source/, results/ and the cleaned reports/) to the private Reframe bucket in your AWS account |
+| `--to <to>` | a folder to write the copy into (for example reports/carddemo); aws to upload the run (source/, results/ and the cleaned reports/) to the private Reframe bucket in your AWS account; or pages to publish the copy to a GitHub Pages site, which is public, after you type yes |
+| `--repo <repo>` | for --to pages: the GitHub repository, <owner>/<name>; the copy goes on its gh-pages branch |
 | `--profile <profile>` | for --to aws: the AWS profile (default: the one saved by reframe setup) |
 | `--region <region>` | for --to aws: the AWS region (default: the saved one, then us-east-1) |
 
 ```bash
 reframe publish --to aws                # upload the run's source, results and reports to the private bucket in your AWS account
 reframe publish --to reports/my-system  # write the copy into a folder
+reframe publish --to pages --repo my-org/reports  # publish the copy to a public GitHub Pages site, after you type yes
 ```
 
 ### `reframe reports`
