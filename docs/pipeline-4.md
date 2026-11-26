@@ -162,7 +162,7 @@ A stub-DOM run of the page's script (`tests/design/render_prototype.js`) renders
 
 ### D6 Final specifications (P4-07)
 
-Per capability, one model step writes the parts that need words, and Reframe assembles the rest:
+Reframe assembles each capability's specification with no model. One model step per function, in batches of up to 12 capabilities, writes only the parts that need words: a summary, an acceptance criterion for each requirement no worked example covers, and a design note for each technical rule.
 
 | Part | From |
 |---|---|
@@ -178,6 +178,19 @@ Each specification also carries (added 25 November 2026, from the research's bus
 - **Classes:** each rule and requirement classed as a *business rule*, *formatting*, *error handling*, *side effect* or *historical artifact*, taken from the rule's kind (P3-21): business, validation and compliance rules are business rules; display is formatting; error handling stays; side effect stays; leftover is a historical artifact; technical steps go to the design notes. The forward build keeps business rules exactly, may restyle formatting, and asks before carrying a historical artifact.
 
 A capability in a signed-off function is **final**; every other one is **draft**, marked so in the specification, the page and the package. **Checked:** every requirement, rule, screen and copybook cited exists; every requirement of the capability is in its specification.
+
+**Command:** `python -m reframe.design.specs [--run <run>] [--stack "<front end>; <back end>; <data>"]` writes `design/specs/` (one specification per capability), `design/contracts.json` and the design page, `outputs/design/index.html`.
+- **Acceptance criteria:** one per worked example of the capability's rules, the Given from the example's inputs, the When from the rule's trigger (`WHEN x, THE y SHALL z` gives *x*) and the Then the example's own; each cites its rule and every requirement the rule is behind. The step writes one more for each requirement no example covers, citing that requirement's own rules.
+- **Data contracts:** each copybook a capability's programs copy (`COPY`, `EXEC SQL INCLUDE`), read with no model into records of typed fields, with 88-level values, OCCURS and REDEFINES. A copybook is a *file record* where the program reads into, writes or rewrites it, or copies it in its FILE SECTION; otherwise *working storage*. The screen copybooks (`cpy-bms`) are left out.
+- **The target stack:** `--stack` is recorded in `design/stack.json` with when it was given. Reframe adds the code and column types from a table it knows (Java, Kotlin, C#, Python, TypeScript, Go; PostgreSQL, MySQL, SQL Server, Oracle, Db2). Without a stack, or for one the table does not know, the neutral types stand and the page says so. Changing the stack redoes only the contracts, with no model step.
+- **Runs as:** online where the rules' entry points are CICS transactions or the programs are behind screens, a scheduled job where they are JCL, else a service.
+
+**On CardDemo** (26 November 2026), 16 steps and 2 retries took about 26 minutes of step time, $11.21 at API prices, with no stack given yet:
+- **154 specifications**, 52 final (the two signed-off functions, Daily Transaction Processing and Reporting and Online Account and Transaction Management) and 102 draft; 89 online, 61 scheduled jobs, 1 both, 3 services.
+- **1,136 requirements and 1,185 rules**, classed: 570 business rules, 172 error handling, 170 formatting, 12 side effects, 17 historical artifacts, 262 design notes.
+- **1,505 acceptance criteria**: 1,291 from worked examples and 214 written for the 191 requirements no example covers. 262 design notes, one per technical rule.
+- **40 data contracts**, 113 decision tables with 82 gaps, 485 open SME questions.
+- **Checks:** every citation exists, every requirement has a criterion and every technical rule a note; nothing failed. The page is 3.1 MB.
 
 ### D7 Package (P4-08)
 
@@ -258,10 +271,10 @@ Before any model step, Reframe shows the steps by stage (journeys per domain, sc
 
 | Path | What it holds |
 |---|---|
-| `design/` | Working results: `screens.json`, `flow.json`, `journeys.json`, `screens-modern.json`, `mapping.json`, `specs/`, step logs, `changes-<round>.md` |
+| `design/` | Working results: `screens.json`, `flow.json`, `journeys.json`, `modern.json` (the modern screens and the mapping), `specs.json` (the specification steps and their log), `specs/` (one specification per capability), `contracts.json`, `stack.json` (the target stack, with who gave it and when), `changes-<round>.md` |
 | `outputs/design/` | `index.html`, `legacy/`, `prototype/`, `package/v<round>/` |
 
-Code in `src/reframe/design/`: `inventory.py` (BMS), `flow.py`, `journeys.py`, `screens.py`, `prototype.py` with its template, `specs.py`, `package.py`, `pipeline.py`, and the page in `src/reframe/report/design.html`.
+Code in `src/reframe/design/`: `inventory.py` (BMS), `flow.py`, `journeys.py`, `screens.py`, `prototype.py` with its template, `specs.py`, `contracts.py` (the data contracts), `package.py` and `pipeline.py`; each stage's page beside it, the design page in `designpage.py`.
 
 ## 8. Acceptance (P4-10)
 
