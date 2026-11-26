@@ -102,10 +102,11 @@ class Pages:
         return f"{self.address(site)}{project}/{run}/"
 
 
-def index(site: Path) -> str:
-    """The site's front page: every published run, newest first, from each copy's manifest."""
+def index(site: Path, pattern: str = "*/*/manifest.json", title: str = "Reframe reports") -> str:
+    """The site's front page: every published run, newest first, from each copy's manifest. This repository's demo
+    (reports/<project>/, S-17) is one level shallower."""
     runs = []
-    for manifest in site.glob("*/*/manifest.json"):
+    for manifest in site.glob(pattern):
         try:
             data = json.loads(manifest.read_text())
         except ValueError:
@@ -115,11 +116,11 @@ def index(site: Path) -> str:
                     f'<p>Run {html.escape(str(d.get("run") or ""))}, published {html.escape(at[:10])}</p></a>'
                     for at, path, d in sorted(runs, reverse=True))
     return ("<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-            "<title>Reframe reports</title><style>:root{--bg:#f6f6f3;--panel:#fff;--ink:#1d1d1b;--muted:#5f5f5a;--line:#e1e0da;--accent:#2f5d8a}"
+            "<title>" + html.escape(title) + "</title><style>:root{--bg:#f6f6f3;--panel:#fff;--ink:#1d1d1b;--muted:#5f5f5a;--line:#e1e0da;--accent:#2f5d8a}"
             "@media (prefers-color-scheme:dark){:root{--bg:#151514;--panel:#1e1e1c;--ink:#ecebe6;--muted:#a5a49e;--line:#33332f;--accent:#8db6df}}"
             "body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}"
             "main{max-width:900px;margin:0 auto;padding:32px 24px}.muted{color:var(--muted)}"
             ".card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:12px;"
             "text-decoration:none;color:var(--ink)}.card:hover{border-color:var(--accent)}.card h2{margin:0 0 4px;font-size:18px}.card p{margin:0;color:var(--muted)}"
-            "</style></head><body><main><h1>Reframe reports</h1><p class=\"muted\">Mainframe assessments published by Reframe, cleaned of the "
+            "</style></head><body><main><h1>" + html.escape(title) + "</h1><p class=\"muted\">Mainframe assessments published by Reframe, cleaned of the "
             "identifiers of the accounts that ran them. Each is model output, for people to review.</p>" + cards + "</main></body></html>\n")

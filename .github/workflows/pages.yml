@@ -1,0 +1,35 @@
+# The demo (docs/release-1.md, section 3, S-17): reports/ served on this repository's GitHub Pages site, deployed on every
+# push to main that changes it. It runs only in sknampally/reframe, so a fork publishes nothing unless its owner changes
+# this line and turns Pages on (Settings, Pages, Source: GitHub Actions).
+name: Demo site
+
+on:
+  push:
+    branches: [main]
+    paths: ["reports/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'sknampally/reframe'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: reports
+      - id: deployment
+        uses: actions/deploy-pages@v4
