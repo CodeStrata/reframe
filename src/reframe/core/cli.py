@@ -123,13 +123,14 @@ def parser() -> argparse.ArgumentParser:
     _run_option(review)
     review.add_argument("--context", required=True, help="the folder holding the review downloads (JSON or CSV)")
 
-    export = command("export", "Write a run's reconciled results as one Excel workbook: domains, functions, capabilities, requirements, business "
-                     "rules, decision tables, open questions and the SME list, with the reviewers' marks; runs nothing")
+    export = command("export", "Write a run's results for other tools: the reconciled results as one Excel workbook (xlsx), or the design's "
+                     "capabilities as a backlog to import into Jira or Azure DevOps, with acceptance criteria; runs nothing")
     _run_option(export)
-    export.add_argument("--to", required=True, choices=("xlsx",), help="the format: xlsx, an Excel workbook")
-    export.add_argument("--out", help="the file or folder to write it to (default: outputs/reconcile/<project>-<run>-requirements.xlsx in the run folder)")
-    export.add_argument("--context", help="a folder of review downloads whose marks to add (default: the reconciliation's context folder)")
-    export.add_argument("--open", action="store_true", help="open the workbook when written")
+    export.add_argument("--to", required=True, choices=("xlsx", "jira", "azure-devops"),
+                        help="xlsx: an Excel workbook of the reconciled results; jira or azure-devops: that tool's CSV import file of the design's backlog")
+    export.add_argument("--out", help="the file or folder to write it to (default: in the run folder's outputs/)")
+    export.add_argument("--context", help="xlsx only: a folder of review downloads whose marks to add (default: the reconciliation's context folder)")
+    export.add_argument("--open", action="store_true", help="open the file when written")
 
     design = command("design", "The design (pipeline 4): legacy and modern screens, journeys, the clickable prototype, final specifications "
                               "and the AI-DLC package, from the reconciled results; a round redoes only what new context touches")

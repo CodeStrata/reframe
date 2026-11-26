@@ -257,20 +257,22 @@ On CardDemo (25 November 2026) it read a JSON and a CSV download, showed each re
 
 ### `reframe export`
 
-Write a run's reconciled results as one Excel workbook: domains, functions, capabilities, requirements, business rules, decision tables, open questions and the SME list, with the reviewers' marks; runs nothing.
+Write a run's results for other tools: the reconciled results as one Excel workbook (xlsx), or the design's capabilities as a backlog to import into Jira or Azure DevOps, with acceptance criteria; runs nothing.
 
 | Option | What it does |
 |---|---|
 | `--run <run>` | the run to act on (default: the latest run) |
-| `--to xlsx` | the format: xlsx, an Excel workbook |
-| `--out <out>` | the file or folder to write it to (default: outputs/reconcile/<project>-<run>-requirements.xlsx in the run folder) |
-| `--context <context>` | a folder of review downloads whose marks to add (default: the reconciliation's context folder) |
-| `--open` | open the workbook when written |
+| `--to xlsx\|jira\|azure-devops` | xlsx: an Excel workbook of the reconciled results; jira or azure-devops: that tool's CSV import file of the design's backlog |
+| `--out <out>` | the file or folder to write it to (default: in the run folder's outputs/) |
+| `--context <context>` | xlsx only: a folder of review downloads whose marks to add (default: the reconciliation's context folder) |
+| `--open` | open the file when written |
 
 ```bash
 reframe export --to xlsx                               # the latest run's reconciled results as an Excel workbook in its run folder
 reframe export --to xlsx --out ~/Desktop --open        # write it to a folder and open it
 reframe export --to xlsx --context ~/carddemo-context  # with the reviewers' marks from the downloads in a folder
+reframe export --to jira                 # the design's backlog: an epic per function, a story per capability, for Jira's CSV import
+reframe export --to azure-devops --out ~/backlogs   # Epic, Feature and User Story rows for Azure DevOps
 ```
 
 It opens on the Requirements sheet; every sheet has a frozen header row and filters. Requirements, business rules, capabilities and open questions carry **Mark** (every reviewer's marks combined, as the next round combines them), **Reviewers' marks** (each one, with the comment) and **Key**. Only downloads from the reconciled review of the same snapshot are read, from the run's own page or a published copy; the About sheet lists the files read and ignored. Every cell is text, never a formula, and cleaned as `reframe publish` cleans its copy; if anything is left, nothing is written. Reframe does not read the workbook back. See [sharing.md](sharing.md), section 7.
