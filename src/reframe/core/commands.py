@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from reframe.core.errors import EXIT_CODES, NotSent, Outcome, ReframeError, Stop
-from reframe.core.runfolder import RunFolder, find_run, iso, new_run, project_name
+from reframe.core.runfolder import RunFolder, claude_only, find_run, iso, new_run, project_name
 
 def say(text: str) -> None:
     sys.stdout.write(text)  # the current stdout, so output can be redirected
@@ -44,6 +44,9 @@ def run(args) -> int:
     if not args.source:
         from reframe.core import guide
         return guide.run(args)
+    if getattr(args, "tools", "both") == "claude":
+        return start_claude_only(source=args.source, ref=args.ref, mode=args.mode, project=args.project, foreground=args.foreground,
+                                 max_agents=getattr(args, "max_agents", None))
     from reframe.core.setup import load_config
     saved = load_config()
     profile = args.profile or saved.get("profile")
@@ -95,6 +98,36 @@ def start(*, source: str, profile: str, ref: str | None, mode: str, region: str,
     return 0
 
 
+def start_claude_only(*, source: str, ref: str | None, mode: str, project: str | None, foreground: bool,
+                      max_agents: int | None = None) -> int:
+    """A Claude-only run (docs/release-1.md, section 2): the snapshot and the Claude assessment, in one worker, with no AWS."""
+    from reframe.claude import pipeline as claude_pipeline
+    from reframe.core import pipeline, ui
+    from reframe.source.snapshot import kind
+    try:
+        kind(source)
+        source = source if kind(source) == "git-url" else str(Path(source).expanduser().resolve())
+        project = project or project_name(source.rstrip("/").removesuffix(".zip"))
+        folder = new_run(project)
+    except (Stop, ReframeError) as error:
+        return _fail(error if isinstance(error, Stop) else Stop(Outcome.REFUSED, str(error)))
+    folder.update(tools="claude", project=project, source=source, ref=ref, mode=mode, started_at=iso(), stage="snapshot", status="RUNNING")
+    claude_pipeline.request(pipeline.Context.load(folder), auth="subscription", max_agents=max_agents, mode=mode)
+    ui.section(f"Run {folder.root.name} · Claude only")
+    ui.hint(f"{project} · {mode} mode · no AWS · run folder {folder.root}")
+    if foreground:
+        return worker(type("Args", (), {"folder": str(folder.root), "task": "claude"})())
+    pid = _start_worker(folder, "claude")
+    folder.event("claude_worker_started", pid=pid)
+    ui.console.print()
+    ui.panel(f"The Claude assessment runs in the background (process {pid}); on CardDemo it takes about two hours. It uses no AWS, so "
+             "there is nothing to tear down.\n"
+             "Follow it:        reframe status   ·   reframe events --follow\n"
+             + ("Answer Claude:    reframe answer\n" if mode == "interactive" else "")
+             + "When it is done:  reframe report --open   ·   then reframe reconcile", "Started", "green")
+    return 0
+
+
 def _claude_wanted(folder: RunFolder) -> bool:
     claude_state = folder.state.get("claude") or {}
     return bool(claude_state.get("requested_at")) and claude_state.get("status") != Outcome.DONE.value
@@ -121,7 +154,7 @@ def resume(args) -> int:
         return _fail(stop)
     state = folder.state
     started = []
-    if state.get("status") != Outcome.DONE.value:
+    if state.get("status") != Outcome.DONE.value and not claude_only(state):
         pid = folder.worker_pid("run")
         if pid:
             say(f"Run {folder.root.name}: the AWS Transform assessment is already running (process {pid}).\n")
@@ -141,7 +174,7 @@ def resume(args) -> int:
         pid = folder.worker_pid("claude")
         if pid:
             say(f"Run {folder.root.name}: the Claude assessment is already running (process {pid}).\n")
-        elif args.foreground and state.get("status") == Outcome.DONE.value:
+        elif args.foreground and (state.get("status") == Outcome.DONE.value or claude_only(state)):
             return worker(type("Args", (), {"folder": str(folder.root), "task": "claude"})())
         else:
             new = start_claude_if_ready(folder)
@@ -158,7 +191,7 @@ def resume(args) -> int:
             started.append(f"the reconciliation (process {_start_worker(folder, 'reconcile')})")
     if started:
         say(f"Run {folder.root.name} resumed in the background: {' and '.join(started)}. Follow it with reframe status.\n")
-    elif state.get("status") == Outcome.DONE.value and not _claude_wanted(folder):
+    elif (state.get("status") == Outcome.DONE.value or claude_only(state)) and not _claude_wanted(folder):
         say(f"Run {folder.root.name} is done. {state.get('message', '')}\n")
     return 0
 
@@ -326,6 +359,8 @@ def worker(args) -> int:
         folder.event("worker_started", pid=os.getpid(), task=task)
         if task == "claude":
             return _claude_work(ctx)
+        if task == "run" and claude_only(folder.state):
+            raise Stop(Outcome.REFUSED, "this run is Claude-only: it has no AWS Transform assessment; reframe resume continues the Claude assessment")
         if task == "run" and folder.state.get("status") != Outcome.DONE.value:
             outcome = pipeline.work(ctx, on_resources=lambda: start_claude_if_ready(folder))
             say(f"{outcome.value}: {folder.state.get('message', '')}\n")
@@ -378,7 +413,7 @@ def _claude_work(ctx) -> int:
     except Stop as stop:
         claude_pipeline.record_stop(ctx, stop)
         return _fail(stop)
-    except NotSent as error:  # an expired AWS sign-in (graph stage) waits for the person, like pipeline 1
+    except NotSent as error:  # an expired AWS sign-in (graph stage) waits for the person, like pipeline 1; a Claude-only run makes no AWS call
         stop = Stop(Outcome.WAITING_SIGNIN, f"{error}. Sign in with aws sso login --profile {ctx.state.get('profile')}, then run reframe resume")
         claude_pipeline.record_stop(ctx, stop)
         return _fail(stop)
@@ -433,6 +468,8 @@ def compare(args) -> int:
     from reframe.report import compare as comparison
     try:
         folder = find_run(args.run)
+        if claude_only(folder.state):
+            raise Stop(Outcome.REFUSED, "this run is Claude-only, so there is nothing to compare; reframe report --open shows Claude's review")
         if not folder.exists("outputs/claude/model.json"):
             raise Stop(Outcome.REFUSED, "this run has no Claude results yet; run reframe claude first")
     except Stop as stop:
@@ -548,7 +585,9 @@ def status(args) -> int:
         return _fail(stop)
     state, pid = folder.state, folder.worker_pid()
     ui.section(f"Run {folder.root.name} · {state.get('project')}")
-    ui.hint(f"{state.get('source')} · {state.get('mode')} mode" + (f" · worker running (process {pid})" if pid else ""))
+    alone = claude_only(state)
+    ui.hint(f"{state.get('source')} · {state.get('mode')} mode" + (" · Claude only, no AWS" if alone else "")
+            + (f" · worker running (process {pid})" if pid else ""))
     ui.state("Status", f"{state.get('status')} · stage {state.get('stage')}", STATUS_STYLE.get(str(state.get("status")), "bold yellow"))
     if state.get("graph"):
         graph = state["graph"]
@@ -568,9 +607,9 @@ def status(args) -> int:
         ui.state("Report", str(folder.path(state["report"])), "bright_cyan")
     hint = NEXT.get(str(state.get("status")))
     claude_state = state.get("claude") or {}
-    if hint and not pid:
+    if hint and not pid and not alone:  # a Claude-only run's next step is the Claude assessment's, below
         ui.state("Next", hint.format(profile=state.get("profile")), "bright_cyan")
-    elif state.get("status") == Outcome.DONE.value and not state.get("torn_down") and not claude_state:
+    elif state.get("status") == Outcome.DONE.value and not state.get("torn_down") and not claude_state and not alone:
         ui.state("Next", "open the report with reframe report --open; assess the same snapshot with Claude: reframe claude; "
                          "remove the AWS resources with reframe teardown", "bright_cyan")
     _claude_status(folder, state)
@@ -630,6 +669,10 @@ def claude_next(state: dict[str, Any]) -> str:
     """What to do once both assessments are done. The reconciliation needs no AWS resources, so the teardown comes first
     (found on GenApp, 25 November 2026, where status named every next step but the reconciliation)."""
     torn_down, reconciled = bool(state.get("torn_down")), bool(state.get("reconcile"))
+    if claude_only(state):
+        return "; ".join((["reframe reconcile checks every rule against the code"] if not reconciled else
+                          ["reframe design designs the modern application", "reframe reconcile --open shows the reconciliation"])
+                         + ["reframe report --open shows Claude's business review"])
     steps = []
     if not reconciled:
         steps.append("reframe reconcile reconciles the two assessments" if torn_down else
@@ -768,10 +811,19 @@ def report(args) -> int:
     from reframe.report import build
     try:
         folder = find_run(args.run)
-        if not folder.exists("outputs/requirements"):
+        alone = claude_only(folder.state)
+        if alone and not folder.exists("outputs/claude/model.json"):
+            raise Stop(Outcome.REFUSED, "this run has no Claude results yet; reframe status shows where the Claude assessment is")
+        if not alone and not folder.exists("outputs/requirements"):
             raise Stop(Outcome.REFUSED, "this run has no downloaded results yet")
     except Stop as stop:
         return _fail(stop)
+    if alone:
+        path = build.build_claude(folder)
+        say(f"Claude's report: {path}\n")
+        if args.open:
+            subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(path)], check=False)
+        return 0
     path = build.build(folder)
     say(f"Report: {path}\n")
     if folder.exists("outputs/claude/model.json"):
@@ -788,6 +840,9 @@ def teardown(args) -> int:
         folder = find_run(args.run)
     except Stop as stop:
         return _fail(stop)
+    if claude_only(folder.state):
+        say(f"Run {folder.root.name} is Claude-only: it created no AWS resources, so there is nothing to tear down.\n")
+        return 0
     pid = folder.worker_pid("run") or folder.worker_pid("claude")
     if pid:
         return _fail(Stop(Outcome.REFUSED, f"a worker is still running this run (process {pid}); wait for it to stop, or stop it, first"))

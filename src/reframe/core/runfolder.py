@@ -81,6 +81,11 @@ def default_context(folder: "RunFolder", name: str) -> Path | None:
     return path if path.is_dir() and any(p.name != "README.md" for p in path.iterdir()) else None
 
 
+def claude_only(state: dict[str, Any]) -> bool:
+    """A run made with reframe run --tools claude (docs/release-1.md, section 2): no AWS resources, no AWS Transform."""
+    return state.get("tools") == "claude"
+
+
 def project_name(repo: str) -> str:
     """A project name from a repository path or URL: lower-case letters, digits and hyphens, at most 30."""
     base = repo.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git").casefold()

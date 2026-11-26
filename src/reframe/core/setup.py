@@ -187,6 +187,17 @@ def check(m: Machine, which: Callable[[str], str | None] = shutil.which) -> list
     return tools
 
 
+CLAUDE_ONLY = ("git", "claude", "plugin")
+
+
+def for_claude_only(tools: list[Tool]) -> list[Tool]:
+    """What a Claude-only run needs (docs/release-1.md, section 2): Git, Claude Code and the plugin, all required; no AWS tools."""
+    kept = [t for t in tools if t.key in CLAUDE_ONLY]
+    for t in kept:
+        t.optional, t.note = False, "" if t.key == "git" else t.note.replace("for the Claude assessment", "").strip()
+    return kept
+
+
 def _cached_mcp() -> bool:
     try:
         return subprocess.run(["uvx", "--offline", "--from", MCP_SERVER, "python", "-c", "pass"], capture_output=True,

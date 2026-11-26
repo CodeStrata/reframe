@@ -104,5 +104,32 @@ class PrerequisitesTest(unittest.TestCase):
         ran.assert_not_called()
 
 
+    def test_a_claude_only_run_needs_no_aws_tools(self):
+        tools = self.tools(uv_ready=False) + [setup.Tool("aws", "AWS CLI", "version 2", None, False, install="brew install awscli"),
+                                              setup.Tool("plugin", "code-modernization plugin", "1.1.0", "1.1.0", True, optional=True)]
+        tools[3].ready, tools[3].found = True, "2.1.0"  # Claude Code
+        with mock.patch.object(setup, "check", return_value=tools), mock.patch("reframe.core.ui.yes", return_value=False) as asked, \
+                contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertTrue(guide.prerequisites(MAC, "claude"))
+        asked.assert_not_called()  # uv, the MCP server and the AWS CLI are missing, and not needed
+        self.assertNotIn("AWS CLI", out.getvalue())
+        self.assertEqual([t.key for t in setup.for_claude_only(self.tools(True))], ["git", "claude"])
+        self.assertFalse(setup.for_claude_only(self.tools(True))[1].optional)
+
+    def test_the_guided_claude_only_run_asks_nothing_about_aws(self):
+        from reframe.core import commands
+        picked = {"mode": "autonomous", "project": "genapp", "claude": {"auth": "subscription", "max_agents": 600}}
+        with mock.patch("reframe.core.ui.interactive", return_value=True), mock.patch.object(setup, "machine", return_value=MAC), \
+                mock.patch.object(guide, "which_tools", return_value="claude"), mock.patch.object(guide, "prerequisites", return_value=True) as pre, \
+                mock.patch.object(guide, "source", return_value=("/src/genapp.zip", None)), \
+                mock.patch.object(guide, "claude_only_choices", return_value=picked), mock.patch.object(guide, "claude_only_summary", return_value=True), \
+                mock.patch.object(guide, "sign_in") as sign, mock.patch.object(commands, "start_claude_only", return_value=0) as start, \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(guide.run(type("Args", (), {})()), 0)
+        sign.assert_not_called()
+        pre.assert_called_once_with(MAC, "claude")
+        start.assert_called_once_with(source="/src/genapp.zip", ref=None, mode="autonomous", project="genapp", foreground=False, max_agents=600)
+
+
 if __name__ == "__main__":
     unittest.main()

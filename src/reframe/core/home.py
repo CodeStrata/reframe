@@ -17,7 +17,7 @@ from rich.table import Table
 from rich.text import Text
 
 from reframe.core import ui
-from reframe.core.runfolder import RunFolder, home, runs_home
+from reframe.core.runfolder import RunFolder, claude_only, home, runs_home
 
 SHOWN = 8
 MENU = [  # (title, needs a run, the command line)
@@ -30,7 +30,8 @@ MENU = [  # (title, needs a run, the command line)
     ("Open the comparison", True, ["compare", "--open"]),
     ("Reconcile the two assessments", True, ["reconcile"]),
     ("Open the reconciliation", True, ["reconcile", "--open"]),
-    ("Publish a run's reports to AWS", True, ["publish", "--to", "aws"]),
+    ("Design the modern application", True, ["design", "--open"]),
+    ("Publish a run to AWS (optional)", True, ["publish", "--to", "aws"]),
     ("Published reports", False, ["reports"]),
     ("Event log", True, ["events"]),
     ("Tear down a run", True, ["teardown"]),
@@ -51,6 +52,8 @@ class Run:
 
     @property
     def resources(self) -> str:
+        if claude_only(self.state):
+            return "none (Claude only)"
         if self.state.get("torn_down"):
             return "removed"
         changes = self.folder.root / "changes"
@@ -91,9 +94,19 @@ def next_step(latest: Run | None) -> str:
         return f"choose {number('run')} to start another run"
     claude = latest.state.get("claude") or {}
     rec = latest.state.get("reconcile") or {}
+    if claude_only(latest.state):
+        if claude.get("status") != "DONE":
+            return f"the Claude assessment stopped ({claude.get('status')}): choose {number('status')} for the reason; choose {number('resume')} to resume"
+        if rec.get("status") == "DONE":
+            return (f"choose {number('design', '--open')} to design the modern application from run {latest.id}; choose "
+                    f"{number('reconcile', '--open')} to open its reconciliation")
+        if rec.get("status"):
+            return f"the reconciliation stopped ({rec.get('status')}): choose {number('status')} for the reason; choose {number('resume')} to resume"
+        return (f"choose {number('report')} to open Claude's business review of run {latest.id}; choose {number('reconcile')} to check "
+                "every rule against the code")
     if status == "DONE" and claude.get("status") == "DONE" and rec.get("status") == "DONE":
-        return (f"choose {number('reconcile', '--open')} to open the reconciliation of run {latest.id}; answer its SME list and choose "
-                f"{number('reconcile')} to run it again")
+        return (f"choose {number('design', '--open')} to design the modern application from run {latest.id}; answer the reconciliation's "
+                f"SME list and choose {number('reconcile')} to run it again")
     if status == "DONE" and claude.get("status") == "DONE" and rec.get("status"):
         return f"the reconciliation stopped ({rec.get('status')}): choose {number('status')} for the reason; choose {number('resume')} to resume"
     if status == "DONE" and claude.get("status") == "DONE":
@@ -115,8 +128,8 @@ def dashboard(all_runs: list[Run]) -> None:
     ui.header()
     ui.console.print()
     if not all_runs:
-        ui.console.print(Panel("Choose 1 to start a guided run. Reframe checks what this computer needs, signs you in to AWS, takes the "
-                               "source and asks each choice before anything is created.", title="Welcome", border_style="blue"))
+        ui.console.print(Panel("Choose 1 to start a guided run. Reframe checks what this computer needs, asks whether to use AWS Transform "
+                               "and Claude or Claude only, takes the source and asks each choice before anything is created.", title="Welcome", border_style="blue"))
     else:
         grid = Table(box=box.SIMPLE, expand=True, show_edge=False)
         for name, style in (("Run", "bold"), ("Project", None), ("Status", None), ("Stage", None), ("Claude", None), ("Reconcile", None), ("Started", "dim"),
