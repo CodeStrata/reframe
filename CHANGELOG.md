@@ -15,6 +15,9 @@ What changed in each release. Releases are tagged on `main`; the stories behind 
 - The reconciliation and the design check a Bedrock sign-in against the run's profile; before, `--auth bedrock` always failed their preflight.
 - Estimates say who is billed, and `reframe publish` replaces an API key it finds.
 
+**Evidence**
+- The larger-codebase spike (SC-01) compares the public candidates, their sizes and licences, with cost estimates for the owner's choice.
+
 **The design (pipeline 4)**
 - Golden datasets (P4-11): per capability, the cases the new system must answer as the legacy one does, from the worked examples and the decision-table rows, in `golden/` in every form of the package. `golden/compare.py` compares a new system's answers and reports formatting apart from business differences. Until legacy outputs are captured, the expected outputs come from the rules.
 
