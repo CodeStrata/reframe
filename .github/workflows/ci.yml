@@ -15,7 +15,8 @@ concurrency:
 
 jobs:
   test:
-    name: Offline tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    # the Linux jobs keep the names branch protection requires: Offline tests (3.10), Offline tests (3.12)
+    name: ${{ matrix.os == 'ubuntu-latest' && format('Offline tests ({0})', matrix.python) || format('Offline tests (macOS, {0})', matrix.python) }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
