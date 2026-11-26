@@ -54,10 +54,11 @@ class Item:
     occurs: int
     line: int
     file: str
+    usage: str = ""
 
 
 def data_items(text: str, file: str) -> list[Item]:
-    """The data description entries of a source or copybook: level, name, PIC, VALUE (a literal), REDEFINES, OCCURS."""
+    """The data description entries of a source or copybook: level, name, PIC, VALUE (a literal), REDEFINES, OCCURS, USAGE."""
     entries, current, start = [], "", 0
     for n, body in enumerate(lines_of(text), 1):
         stripped = body.strip()
@@ -84,7 +85,8 @@ def data_items(text: str, file: str) -> list[Item]:
             val = val[1:-1].replace("''", "'")
         items.append(Item(int(m.group(1)), (m.group(2) or "FILLER").upper(), (re.search(r"\bPIC(?:TURE)?\s+(?:IS\s+)?(\S+)", rest, re.I) or [None, ""])[1],
                           val, ((re.search(rf"\bREDEFINES\s+({NAME})", rest, re.I) or [None, ""])[1]).upper(),
-                          int((re.search(r"\bOCCURS\s+(\d+)", rest, re.I) or [None, 0])[1]), line, file))
+                          int((re.search(r"\bOCCURS\s+(\d+)", rest, re.I) or [None, 0])[1]), line, file,
+                          ((re.search(r"\b(COMP(?:UTATIONAL)?(?:-[1-5])?|BINARY|PACKED-DECIMAL|DISPLAY)\b", rest, re.I) or [None, ""])[1]).upper()))
     return items
 
 
