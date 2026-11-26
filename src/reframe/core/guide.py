@@ -288,7 +288,7 @@ def _also_claude() -> bool:
     return ui.yes("Assess the same snapshot with Claude as well?", default=True)
 
 
-def _claude_settings(auth: str) -> dict[str, Any]:
+def _claude_settings(auth: str, limit_too: bool = True) -> dict[str, Any]:
     from reframe.claude import plugin, preflight
     from reframe.claude.pipeline import DEFAULT_MAX_AGENTS
     from reframe.claude.runner import environment
@@ -306,6 +306,8 @@ def _claude_settings(auth: str) -> dict[str, Any]:
             with ui.console.status("Fetching the plugin…"):
                 plugin.fetch()
             ui.ok(f"Plugin {plugin.VERSION} ready.")
+    if not limit_too:
+        return {"auth": auth}
     ui.hint("Rule extraction starts many agents at once: on CardDemo about 370 to 555, up to about 9 million tokens and an hour.")
     limit = ui.ask("Agent limit for rule extraction (Reframe stops and asks if the estimate is higher)", str(DEFAULT_MAX_AGENTS),
                    check=lambda v: None if v.isdigit() and int(v) > 0 else "Enter a whole number of agents")
@@ -375,12 +377,21 @@ def setup_only(args) -> int:
     if not ui.interactive():
         ui.fail("reframe setup asks questions, so it needs a terminal.")
         return 2
-    ui.header("SETUP · prerequisites and AWS sign-in")
+    alone = getattr(args, "tools", "both") == "claude"
+    ui.header("SETUP · prerequisites" + ("" if alone else " and AWS sign-in"))
     m = setup.machine()
     if m.system == "windows":
         ui.fail("Reframe runs on macOS and Linux. On Windows, install WSL2 and run Reframe inside it.")
         return 2
     try:
+        if alone:
+            if not prerequisites(m, "claude"):
+                return 1
+            _claude_settings("subscription", limit_too=False)  # Claude Code's sign-in and the plugin
+            ui.console.print()
+            ui.ok("Set up for Claude only. Start a run with:")
+            ui.command("reframe run --tools claude --source <folder | file.zip | github-url>")
+            return 0
         if not prerequisites(m) or sign_in() is None:
             return 1
     except (EOFError, KeyboardInterrupt):

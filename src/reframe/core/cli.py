@@ -64,7 +64,9 @@ def parser() -> argparse.ArgumentParser:
                      help="both: AWS Transform and Claude (needs an AWS account); claude: Claude only, with no AWS at all")
     run.add_argument("--max-agents", type=int, help="with --tools claude: the agent limit for Claude's rule extraction (default 600)")
 
-    command("setup", "Check and set up the prerequisites and the AWS sign-in, without starting a run")
+    setup = command("setup", "Check and set up the prerequisites and the AWS sign-in, without starting a run")
+    setup.add_argument("--tools", choices=("both", "claude"), default="both",
+                       help="both: everything, with the AWS sign-in; claude: only Git, Claude Code and the plugin, with no AWS")
 
     status = command("status", "The run's stage, the job's plan steps, any waiting question and the next step")
     _run_option(status)
