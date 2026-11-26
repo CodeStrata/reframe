@@ -486,6 +486,8 @@ def publish(args) -> int:
     from reframe.report.publish import publish as make
     try:
         folder = find_run(args.run)
+        if args.to == "pages":
+            return _publish_pages(folder, getattr(args, "repo", None))
         if args.to != "aws":
             manifest = make(folder, Path(args.to).expanduser().resolve())
             target = Path(args.to).expanduser()
@@ -515,6 +517,34 @@ def publish(args) -> int:
         f"  save this one in a folder:         reframe reports download {prefix.rstrip('/')} --to <folder>\n"
         f"  without Reframe:                   download {prefix}reports/report.zip from the bucket in the S3 console\n")
     return 0
+
+
+def _publish_pages(folder: RunFolder, repo: str | None) -> int:
+    """S-16 (docs/release-1.md, section 3): the cleaned copy on the repository's gh-pages branch, after a typed yes."""
+    import tempfile
+    from reframe.report.pages import Pages
+    from reframe.report.publish import publish as make
+    if not repo:
+        raise Stop(Outcome.REFUSED, "say which repository: reframe publish --to pages --repo <owner>/<name>")
+    if not sys.stdin.isatty():
+        raise Stop(Outcome.REFUSED, "publishing to GitHub Pages makes a public site, so it asks you first and needs a terminal")
+    pages = Pages(repo)
+    pages.signed_in()
+    with tempfile.TemporaryDirectory() as scratch:
+        copy = Path(scratch) / "copy"
+        manifest = make(folder, copy)
+        project, run = str(manifest["project"]), str(manifest["run"])
+        say(pages.warning(project, run))
+        if _prompt("Type yes to publish this public site, or anything else to stop: ").strip() != "yes":
+            say("Nothing was published.\n")
+            return 0
+        address = pages.push(copy, project, run)
+    folder.merge("pages", repo=repo, address=address, published_at=iso())
+    folder.event("published_pages", repo=repo, address=address, files=len(manifest["files"]))
+    say(f"Published {len(manifest['files'])} pages to the gh-pages branch of {repo}. It is public at:\n  {address}\n"
+        "GitHub can take a minute or two to build the site the first time.\n")
+    return 0
+
 
 
 def reports(args) -> int:
