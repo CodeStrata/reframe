@@ -106,7 +106,7 @@ One model step per domain groups the screens into journeys: the tasks people do 
 
 ### D4 Modern screens and mapping (P4-05)
 
-One model step per journey designs its modern screens as a structured tree of components from the design system's list (section 5): page, section, form, field, table, list, tabs, button, link, message, dialog. Each component says what it shows or does, the requirements and rules it serves (by key), its validation and messages taken from the rules, and its keyboard access.
+One model step per domain (not per journey, so that a screen many journeys share, such as the sign-on or a menu, is designed once, and a list and its detail can become one screen) designs the modern screens for the domain's journeys as a structured tree of components from the design system's list (section 5): page, section, form, field, table, list, tabs, button, link, message, dialog. Each component says what it shows or does, the requirements and rules it serves (by key), its validation and messages taken from the rules, and its keyboard access.
 
 The mapping table takes **every legacy screen and field** to what replaces it:
 
@@ -119,6 +119,12 @@ The mapping table takes **every legacy screen and field** to what replaces it:
 | – | a new component | new | a need the 3270 screen could not meet, citing the requirement |
 
 The steps follow the UI guardrails from the research behind part 2 of the reconciliation ([pipeline-3.md](pipeline-3.md), section 8.2): do not recreate poor 3270 usability; never hide a validation in the screen only, every validation keeps its rule; keep keyboard-heavy flows fast for the people who use them; meet WCAG 2.2 AA.
+
+**On CardDemo** (25 November 2026), 4 steps and one links pass took about 25 minutes, $19.60 at API prices.
+- **Screens:** 20 modern screens and one shared application shell. The main and admin menus became one Home screen; card view and update became one card detail.
+- **Mapping:** all 683 legacy screens, fields and keys mapped: 234 kept, 347 merged, 52 split, 50 dropped.
+- **Checks:** every validation rule is shown, and no check failed.
+- **Links pass:** the domains ran in parallel, so the menu domain first guessed other domains' screen ids. Reframe now merges screens of one id that replace no legacy screen (the shell) into one shared screen. It then asks a domain that links to screens nobody designed once more, giving it every other domain's screens.
 
 **Checked:** no legacy field is left unmapped and none is mapped twice; every component is from the design system; every key cited exists; every rule of kind *validation* that a screen's program applies is shown by a component of that screen.
 
