@@ -55,6 +55,9 @@ SCHEMA = {"type": "object", "required": ["decisions"], "properties": {"decisions
         "depends": {"type": "string"},
         "context": {"type": "array", "items": {"type": "string"}}}}}}}
 
+ONE_TOOL = (('written by two tools that assessed the same source: "aws" (AWS Transform) and "claude" (Claude\'s code-modernization plugin)',
+             'written by one tool, "claude" (Claude\'s code-modernization plugin): every unit is a rule only it found, so keep it only where the code supports it'),)
+
 PROMPT = """Read {input}. It holds units of business rules from programs of a legacy system, written by two tools that assessed the same source: "aws" (AWS Transform) and "claude" (Claude's code-modernization plugin). The source is read-only under {legacy}/. Each rule gives the source lines its tool cited.{context}
 
 Decide each unit against the source code, not by preferring either tool. Read the cited lines and what is around them; follow a PERFORM, CALL or copybook if the decision depends on it.
@@ -206,8 +209,9 @@ class Batch:
                        + (f"documents {', '.join(f'analysis/{project}/{d}' for d in documents)}" if documents else "")
                        + ("; " if documents and answers else "")
                        + (f"answered SME questions in analysis/{project}/reframe/reconcile/{self.name}-answers.json" if answers else "") + ".")
-        return PROMPT.format(input=f"analysis/{project}/{path.relative_to(self.places['analysis']).as_posix()}",
-                             legacy=f"legacy/{project}", context=context, kinds=KIND_GUIDE, examples=EXAMPLE_GUIDE)
+        from reframe.reconcile.units import one_tool
+        return one_tool(self.folder, PROMPT.format(input=f"analysis/{project}/{path.relative_to(self.places['analysis']).as_posix()}",
+                                                   legacy=f"legacy/{project}", context=context, kinds=KIND_GUIDE, examples=EXAMPLE_GUIDE), ONE_TOOL)
 
     def answers(self) -> list[dict[str, Any]]:
         """The answered questions this batch's units were given (units.answers_for), each once."""

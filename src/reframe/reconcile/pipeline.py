@@ -73,9 +73,10 @@ def page(folder: RunFolder) -> None:
     """R7: the reconciliation page, and the other three pages built again so that they link to it."""
     from reframe.report import build, compare, reconciled
     reconciled.build_reconciled(folder)
-    build.build(folder)
     build.build_claude(folder)
-    compare.build(folder)
+    if folder.state.get("tools") != "claude":  # a Claude-only run has no AWS review and no comparison
+        build.build(folder)
+        compare.build(folder)
     update(folder, page=reconciled.PAGE)
 
 
@@ -152,7 +153,8 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
     c = listed["counts"]
     update(folder, stage="done", status=Outcome.DONE.value, finished_at=iso(),
            message=f"Round {round_}: {result['decided']} units decided against the source, {result['kept_from_before']} kept from before; "
-                   f"{len(agreed)} rules agreed by both tools. SME list: {c['questions']} questions from {listed['originals']} originals "
+                   + ("" if folder.state.get("tools") == "claude" else f"{len(agreed)} rules agreed by both tools. ")
+                   + f"SME list: {c['questions']} questions from {listed['originals']} originals "
                    f"({c.get('answered', 0)} answered, {c.get('settled', 0)} settled by your context), and {c['defects']} possible defects. "
                    f"{written['requirements']} recommended requirements citing {written['rules_cited']} of {written['rules_total']} recommended rules"
                    + (f" ({written['dropped']} dropped for citing no rule)." if written["dropped"] else "."))

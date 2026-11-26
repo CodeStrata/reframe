@@ -32,14 +32,16 @@ MARKS = {"Agree": "agree", "Needs change": "change", "Question": "question"}
 def preflight(folder: RunFolder, context: Path | None, auth: str = "subscription", claude_check=None) -> None:
     """Checked before anything runs; each failure stops with the fix. Pipeline 3 needs no AWS resources."""
     from reframe.claude import workspace
+    from reframe.core.runfolder import claude_only
     state = folder.state
     claude = state.get("claude") or {}
-    if state.get("status") != Outcome.DONE.value or not state.get("retrieved_at"):
+    alone = claude_only(state)  # docs/release-1.md, section 2: every Claude rule is checked against the code
+    if not alone and (state.get("status") != Outcome.DONE.value or not state.get("retrieved_at")):
         raise Stop(Outcome.REFUSED, "the AWS Transform assessment is not done on this run; the reconciliation reconciles both assessments")
     if claude.get("status") != Outcome.DONE.value:
         raise Stop(Outcome.REFUSED, "the Claude assessment is not done on this run; run reframe claude (or reframe resume) first")
     pairing = folder.load("outputs/comparison/ai-pairs.json") or {}
-    if not pairing.get("complete"):
+    if not alone and not pairing.get("complete"):
         raise Stop(Outcome.REFUSED, "the comparison's AI pairing of rules is not complete; reframe resume finishes it")
     places = workspace.paths(folder)
     if not places["hashes"].exists() or not places["legacy"].is_dir():

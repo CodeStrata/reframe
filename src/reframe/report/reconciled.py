@@ -20,6 +20,8 @@ from reframe.core.runfolder import RunFolder, iso
 TOOL = {"key": "reconciled", "name": "Reframe's reconciliation", "short": "Reframe", "generated": True,
         "generated_note": "Recommended by Reframe from both assessments: AWS Transform's and Claude's rules reconciled against the source code, "
                           "with requirements written from them. It is model output, for people to review."}
+TOOL_ONE = {**TOOL, "generated_note": "Recommended by Reframe from Claude's assessment: every rule checked against the source code, with "
+                                       "requirements written from the rules the code supports. It is model output, for people to review."}
 EARS = {"ubiquitous": "Ubiquitous", "event-driven": "Event-driven", "state-driven": "State-driven", "unwanted behaviour": "Unwanted",
         "optional feature": "Optional", "complex": "Complex"}
 EXCERPT_LINES = 40
@@ -51,9 +53,10 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
     state = folder.state
     rec = state.get("reconcile") or {}
     legacy = paths(folder)["legacy"]
-    aws_data = collect(folder)
-    aws_links, claude_links = _links(aws_data, "../report/index.html"), _links(collect_claude(folder), "../claude/report/index.html")
-    tech = {f["id"]: f.get("technical") for f in aws_data["functions"]}
+    alone = state.get("tools") == "claude"  # a Claude-only run: Claude's frame, and no AWS review or comparison to link to
+    aws_data, claude_data = collect(folder), collect_claude(folder)
+    aws_links, claude_links = _links(aws_data, "../report/index.html"), _links(claude_data, "../claude/report/index.html")
+    tech = {f["id"]: f.get("technical") for f in (claude_data if alone else aws_data)["functions"]}
     inputs = gathered.get("rules") or {}
     agreed = (gathered.get("context") or {}).get("agreed") or {}
 
@@ -129,12 +132,12 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
         q["holds_up"] = [{"key": k, "tool": inputs[k]["tool"], "name": inputs[k].get("name", ""), "program": inputs[k].get("program", ""),
                           "link": (aws_links if inputs[k]["tool"] == "aws" else claude_links).get(k)} for k in q["rules"] or [] if k in inputs][:20]
     return {
-        "generated_at": iso(), "run": folder.root.name, "project": state.get("project"), "tool": TOOL,
+        "generated_at": iso(), "run": folder.root.name, "project": state.get("project"), "tool": TOOL_ONE if alone else TOOL,
         "source": {"form": snapshot.get("form"), "commit": snapshot.get("commit"), "files": snapshot.get("files"), "sha256": snapshot.get("sha256"),
                    "name": Path(str(snapshot.get("source") or "")).name or snapshot.get("source")},
         "started_at": rec.get("started_at"), "retrieved_at": rec.get("finished_at"),
         "domains": domains, "functions": functions, "capabilities": capabilities, "requirements": requirements, "rules": rules, "questions": questions,
-        "data_model": "", "sections": [{"title": "How this was reconciled", "open": True, "html": _how(rec, written, sme)}],
+        "data_model": "", "sections": [{"title": "How this was reconciled", "open": True, "html": _how_one(rec, written, sme) if alone else _how(rec, written, sme)}],
         "classification": [], "unclassified": [], "issues": [], "decisions": [], "links": {"pages": []},
         "reconcile": {"rules": dict(decided), "units": dict(units), "defect_calls": dict(Counter(d.get("defect_call") or "uncalled"
                       for d in (folder.load("reconcile/decisions.json", {}) or {}).values() if str(d.get("defect") or "").strip())), "confidence": dict(Counter(r["confidence"] for r in rules)), "kinds": dict(Counter(r["kind"] or "unclassed" for r in rules)),
@@ -142,7 +145,8 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
                       "rounds": dict(Counter(str(r["round"]) for r in rules)), "sme": sme.get("counts") or {}, "originals": sme.get("originals", 0),
                       "dropped": written.get("dropped", 0), "tables": written.get("tables", 0), "risk": written.get("risk") or {}},
         "evidence": {k: v for k, v in evidence.items() if v}, "sme": sme_list, "signoffs": _signoffs(rec.get("signoffs") or [], aws_data),
-        "nav": [["AWS Transform's review", "../report/index.html"], ["Claude's review", "../claude/report/index.html"],
+        "nav": [["Claude's review", "../claude/report/index.html"]] if alone else
+               [["AWS Transform's review", "../report/index.html"], ["Claude's review", "../claude/report/index.html"],
                 ["AWS Transform and Claude compared", "../comparison/index.html"]],
     }
 
@@ -158,6 +162,18 @@ def _signoffs(read: list[dict[str, Any]], aws_data: dict[str, Any]) -> dict[str,
         if fid:
             found.setdefault(fid, []).append({"reviewer": x["reviewer"], "at": x["at"], "comment": x["comment"], "page": x["page"]})
     return found
+
+
+def _how_one(rec: dict[str, Any], written: dict[str, Any], sme: dict[str, Any]) -> str:
+    """The method on a Claude-only run (docs/release-1.md, section 2)."""
+    i = rec.get("inputs") or {}
+    return ("<p>This run used Claude's assessment only. Every rule Claude's plugin found was checked by a headless Claude step that read the "
+            "source code: kept where the code supports it, rejected where it does not, and sent to a subject-matter expert where the code cannot "
+            "settle it. Reframe checked every decision: the cited lines exist in the snapshot, and every input rule is covered. Requirements were "
+            "then written from the recommended rules in Claude's frame of domains and functions; "
+            f"{written.get('dropped', 0)} that cited no rule were dropped.</p><p>Inputs: {i.get('rules', 0)} rules, "
+            f"{i.get('questions', 0)} open questions; context: {i.get('documents', 0)} documents, {i.get('marks', 0)} review marks, "
+            f"{i.get('answers', 0)} answered questions. The SME list holds {sme.get('originals', 0)} original questions. Round {html.escape(str(rec.get('round', '')))}.</p>")
 
 
 def _how(rec: dict[str, Any], written: dict[str, Any], sme: dict[str, Any]) -> str:

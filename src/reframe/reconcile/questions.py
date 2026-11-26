@@ -34,6 +34,9 @@ SCHEMA = {"type": "object", "required": ["questions"], "properties": {"questions
                    "members": {"type": "array", "items": {"type": "string"}},
                    "settled_by": {"type": "string"}, "settled_answer": {"type": "string"}}}}}}
 
+ONE_TOOL = (('from two tools that assessed the same source ("AWS Transform" and "Claude\'s plugin") and from Reframe\'s own decisions',
+             'from Claude\'s plugin, which assessed the source, and from Reframe\'s own decisions'),)
+
 PROMPT = """Read {input}. It holds open questions for subject-matter experts about a legacy system, from two tools that assessed the same source ("AWS Transform" and "Claude's plugin") and from Reframe's own decisions. Each has an id, where it came from, its text, who should answer it, and the business rules it holds up.{context}
 
 Make one list of questions for the experts:
@@ -167,7 +170,8 @@ def merge_batch(folder: RunFolder, claude, places: dict[str, Any], name: str, ba
                    + ("; " if documents and answers else "") + ("answered questions, in the file's \"answered\" list" if answers else "") + ".")
     path = folder_in / f"{name}.json"
     path.write_text(json.dumps(data, indent=1))
-    prompt = PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", context=context)
+    from reframe.reconcile.units import one_tool
+    prompt = one_tool(folder, PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", context=context), ONE_TOOL)
     merged: list[dict[str, Any]] = []
     for attempt in (1, 2):
         step = claude.run(f"{name}{'-retry' if attempt == 2 else ''}", prompt, timeout=3600, schema=SCHEMA)
@@ -181,7 +185,7 @@ def merge_batch(folder: RunFolder, claude, places: dict[str, Any], name: str, ba
             wrong = problems(ids, merged, sources)
             if not wrong:
                 break
-        prompt = PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", context=context) + "\n\n" + \
+        prompt = one_tool(folder, PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", context=context), ONE_TOOL) + "\n\n" + \
             RETRY.format(problems="\n".join(f"- {w}" for w in wrong))
     merged = repair(ids, merged, sources, texts)
     return [{**q, "members": [back[m] for m in q["members"]]} for q in merged], None
