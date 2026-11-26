@@ -33,7 +33,9 @@ class PlanCheckTest(unittest.TestCase):
             terraform.only_deletes(plan(("a", ["update"])), {"a"})
 
     def test_inits_across_runs_wait_for_each_other(self):
-        import os, threading, time
+        import os
+        import threading
+        import time
         from unittest import mock
         with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"REFRAME_HOME": tmp}):
             order = []

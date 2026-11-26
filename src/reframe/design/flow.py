@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from reframe.design.inventory import AID, CONDITION, code_only, key_name
+from reframe.design.inventory import code_only
 
 NAME = r"[A-Z0-9][A-Z0-9-]*"
 CALLER = "(the screen it came from)"

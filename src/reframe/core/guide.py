@@ -70,7 +70,7 @@ def _install(tool: setup.Tool, m: setup.Machine) -> None:
     if tool.optional:
         prompt, default = f"Install {tool.name} now? ({tool.note})", False
     else:
-        prompt, default = f"Run it now?", True
+        prompt, default = "Run it now?", True
     if ui.yes(prompt, default):
         if setup.run_in_terminal(tool.install or ""):
             ui.ok(f"{tool.name}: the install command finished")

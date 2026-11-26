@@ -59,7 +59,7 @@ def entry_screen(edges: dict[str, set[str]]) -> str | None:
     """The screen most other screens transfer to: on CardDemo the sign-on, where every program goes when it starts
     without a session."""
     incoming: dict[str, int] = defaultdict(int)
-    for a, targets in edges.items():
+    for targets in edges.values():
         for b in targets:
             incoming[b] += 1
     if not incoming:
@@ -71,7 +71,7 @@ def entry_screen(edges: dict[str, set[str]]) -> str | None:
 def layers(maps: list[str], edges: dict[str, set[str]]) -> list[list[str]]:
     """Screens in columns by their distance from the screens nothing leads forward to (sign-on, on CardDemo)."""
     incoming = {m: 0 for m in maps}
-    for a, targets in edges.items():
+    for targets in edges.values():
         for b in targets:
             incoming[b] = incoming.get(b, 0) + 1
     roots = [m for m in maps if not incoming.get(m)] or maps[:1]

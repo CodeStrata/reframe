@@ -151,9 +151,6 @@ def _names(decision: dict[str, str], names: set[str]) -> bool:
 def routers(folder, got: dict[str, Any], routed: set[str] | None = None):
     """The extra input each stage's parts get this round; the titles of the decisions handed out go into `routed`."""
     from reframe.design import package
-    requirements = folder.load("outputs/reconcile/requirements.json") or {}
-    names = requirements.get("names") or {}
-    function_names = {fid: (names.get(fid) or {}).get("name", "") for fid in requirements.get("functions") or {}}
     modern = folder.load("design/modern.json") or {}
     designed = {key: {s["id"] for s in d.get("screens") or []} for key, d in (modern.get("domains") or {}).items()}
     for s in modern.get("screens") or []:  # a shared screen belongs to every domain that designed it

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from rich import box
@@ -17,7 +16,7 @@ from rich.table import Table
 from rich.text import Text
 
 from reframe.core import ui
-from reframe.core.runfolder import RunFolder, claude_only, home, runs_home
+from reframe.core.runfolder import RunFolder, claude_only, runs_home
 
 SHOWN = 8
 MENU = [  # (title, needs a run, the command line)

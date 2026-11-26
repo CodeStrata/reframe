@@ -123,7 +123,7 @@ def collect_reconciled(folder: RunFolder) -> dict[str, Any]:
 
     decided = Counter(r["decision"] for r in rules)
     units = Counter()
-    for u, d in (folder.load("reconcile/decisions.json", {}) or {}).items():
+    for d in (folder.load("reconcile/decisions.json", {}) or {}).values():
         units[d.get("decision")] += 1
     snapshot = folder.load("snapshot.json") or {}
     sme_list = [{k: q.get(k) for k in ("id", "kind", "call", "question", "owner", "status", "rules", "originals", "from", "evidence", "settled_by",

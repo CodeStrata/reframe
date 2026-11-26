@@ -29,6 +29,10 @@ classifiers = [
 ]
 dependencies = ["mcp>=2,<3", "PyYAML>=6,<7", "rich>=13,<15"]
 
+[project.optional-dependencies]
+# what CI checks with (the lint job and the coverage floor); pinned so a new release of a checker cannot fail a PR
+dev = ["ruff==0.17.6"]
+
 [project.urls]
 Homepage = "https://github.com/sknampally/reframe"
 Documentation = "https://github.com/sknampally/reframe/blob/main/docs/how-to-run.md"
@@ -46,4 +50,13 @@ where = ["src"]
 "reframe.infrastructure" = ["terraform/*/*.tf", "terraform/modules/*/*.tf"]
 "reframe.report" = ["template.html", "compare.html"]
 "reframe.design" = ["prototype.html"]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+# correctness, not style: pyflakes, syntax and statement errors, and bugbear
+select = ["E4", "E7", "E9", "F", "B"]
+# E731 (a lambda given a name) and E741 (a variable named l) are style; B905 (zip without strict=) would change behaviour
+ignore = ["E731", "E741", "B905"]
 

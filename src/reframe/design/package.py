@@ -118,7 +118,7 @@ def ids(specs: list[dict[str, Any]], registry: dict[str, Any]) -> dict[str, Any]
         if s["function"] not in functions:
             functions[s["function"]] = _code(s["function_name"], set(functions.values()))
     used: dict[str, int] = defaultdict(int)
-    for key, rid in rules.items():
+    for rid in rules.values():
         code, _, n = rid.rpartition("-BR-")
         used[code] = max(used[code], int(n))
     for s in specs:

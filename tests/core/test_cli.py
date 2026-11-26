@@ -19,7 +19,8 @@ class CliTest(unittest.TestCase):
         self.assertIn("setup", cli.parser().format_help())
 
     def test_guided_run_needs_a_terminal(self):
-        import os, tempfile
+        import os
+        import tempfile
         from unittest import mock
         with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"REFRAME_HOME": tmp}), \
                 mock.patch("reframe.core.ui.interactive", return_value=False), contextlib.redirect_stdout(io.StringIO()) as out:
@@ -27,7 +28,8 @@ class CliTest(unittest.TestCase):
         self.assertIn("needs a terminal", out.getvalue())
 
     def test_run_with_source_needs_a_profile_from_somewhere(self):
-        import os, tempfile
+        import os
+        import tempfile
         from unittest import mock
         with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"REFRAME_HOME": tmp}), \
                 contextlib.redirect_stderr(io.StringIO()) as err:
@@ -70,7 +72,8 @@ class CliTest(unittest.TestCase):
         self.assertIn("unrecognized arguments: --nonsense", err.getvalue())
 
     def test_answer_hint_without_options(self):
-        import os, tempfile
+        import os
+        import tempfile
         from unittest import mock
         from reframe.core import commands
         from reframe.core.runfolder import new_run
