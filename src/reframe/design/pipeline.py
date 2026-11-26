@@ -4,7 +4,8 @@ A round runs every stage in order: the screen inventory and the flow (no model),
 prototype (no model), the final specifications, the design page and the package (no model). Each model stage keeps each
 part with what it was made from, so a round redoes only the parts whose input changed, and says why.
 
-The design context folder (given once with --context, remembered for later rounds) is read and each piece sent only to
+The design context folder (given once with --context and remembered for later rounds; otherwise the run's own
+inputs/design/) is read and each piece sent only to
 the parts it touches:
 
 | In the context folder | Goes to |
@@ -234,7 +235,8 @@ def run(folder, claude, context: Path | None = None, stack: str | None = None, p
     from reframe.claude.workspace import paths
     from reframe.design import designpage, flow, flowpage, inventory, journeypage, journeys, legacy, modernpage, package, prototype, screens, specs
     state = folder.state.get("design") or {}
-    context = context or (Path(state["context"]) if state.get("context") else None)
+    from reframe.core.runfolder import default_context
+    context = context or (Path(state["context"]) if state.get("context") else None) or default_context(folder, "design")
     if context and not context.is_dir():
         raise ValueError(f"the context folder {context} does not exist")
     number = state.get("round", 0) if state.get("status") == "running" else state.get("round", 0) + 1

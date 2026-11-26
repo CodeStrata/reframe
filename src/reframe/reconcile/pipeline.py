@@ -83,7 +83,8 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
     from reframe.reconcile import decide, describe, inputs, questions, requirements, units
     settings = state(folder)
     auth = settings.get("auth") or "subscription"
-    context = Path(settings["context"]).expanduser() if settings.get("context") else None
+    from reframe.core.runfolder import default_context
+    context = Path(settings["context"]).expanduser() if settings.get("context") else default_context(folder, "reconcile")
     round_ = int(settings.get("round") or 1)
     update(folder, started_at=settings.get("started_at") or iso(), round=round_)
 

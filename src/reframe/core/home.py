@@ -17,7 +17,7 @@ from rich.table import Table
 from rich.text import Text
 
 from reframe.core import ui
-from reframe.core.runfolder import RunFolder, home
+from reframe.core.runfolder import RunFolder, home, runs_home
 
 SHOWN = 8
 MENU = [  # (title, needs a run, the command line)
@@ -59,7 +59,7 @@ class Run:
 
 def runs() -> list[Run]:
     found = []
-    for path in (home() / "projects").glob("*/runs/*/run.json"):
+    for path in runs_home().glob("*/*/run.json"):
         try:
             state = json.loads(path.read_text())
         except (OSError, ValueError):

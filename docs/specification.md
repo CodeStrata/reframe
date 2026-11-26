@@ -222,12 +222,13 @@ Later pipelines get their own folders (for example `src/reframe/claude/` for the
 
 ## 7. Run folder
 
-`~/.reframe/projects/<project>/runs/<run>/`, owner-only permissions:
+`<workspace>/.reframe/<project>/<run>/` (the folder Reframe is run from; changed from `~/.reframe/projects/<project>/runs/<run>/` on 26 November 2026, S-14), owner-only permissions:
 
 - `run.json`: inputs, mode, stage, status;
 - `events.jsonl`: every event;
 - `changes/`: intent and receipt for every AWS change;
 - `decisions.json`: every answer Reframe gave and why;
+- `inputs/`: the context people add, `reconcile/` and `design/`, each with a README saying what goes there;
 - `outputs/`: the downloads, the manifest, the summary and the report;
 - `terraform/`: the roots, saved plans and the bootstrap state;
 - `teardown/`: the inventory, the consent and the deletion records.
