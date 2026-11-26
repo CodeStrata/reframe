@@ -50,10 +50,26 @@ Reframe creates it the first time a report is uploaded, from a plan checked to o
 
 | Command | What it does |
 |---|---|
-| `reframe publish [--run <id>] --to aws` | Makes the cleaned copy of section 2 and uploads it under `<project>/<run>/` in the bucket, with a receipt. |
+| `reframe publish [--run <id>] --to aws` | Uploads the run under `<project>/<run>/` in the bucket, with a receipt: `source/`, `results/` and `reports/` (S-15, below). |
 | `reframe reports` | Lists the reports in the bucket: project, run, source and when each was published. |
 | `reframe reports open <project>/<run>` | Downloads that report with your AWS sign-in into `~/.reframe/reports-store/cache/`, and opens it in your browser. |
 | `reframe reports teardown` | Lists the bucket and how many objects it holds from the store's own records, asks for `yes`, and removes the bucket with its contents. |
+
+**A run's three folders (S-15).** The owner's request (26 November 2026): when the work is done, an engineer publishes the whole run to one bucket, with a folder each for the source, the results and the reports. The owner chose the standing bucket over each run's source bucket, which `reframe teardown` deletes, so a run can be published after teardown too.
+
+```text
+reframe-reports-xxxxxxxx/
+  <project>/<run>/
+    source/       <sha>.zip, the snapshot both tools read, and source.json (its checksum, files and origin)
+    results/
+      aws/        what AWS Transform wrote, as Reframe retrieved it
+      claude/     what Claude's code-modernization plugin wrote
+    reports/      the cleaned copy: every report, the design and the AI-DLC package, and report.zip
+```
+
+`source/` and `results/` are the run's own files, not cleaned. Anyone who can read the bucket can read the source code and the raw results, so give read access only to people who may see the code. The bucket is apart from every run, so `reframe teardown` leaves it and what is in it; publish after teardown as well as before.
+
+Each folder is sent only if the run has it: a run with no Claude results has no `results/claude/`. A report published before S-15 sits at `<project>/<run>/` itself; `reframe reports` lists it and `open` and `download` still find it.
 
 **Who can open them (S-04).** Only someone whose AWS sign-in may read the bucket: `s3:ListBucket` and `s3:GetObject` on it. That is anyone the account already trusts with S3 reads, and no one else. Readers can also download a report from the S3 console. Nothing is reachable without signing in to the account.
 
@@ -73,7 +89,7 @@ The owner's direction (24 November 2026): an engineer runs and publishes; an arc
 | `reframe reports open <project> --run <run>` | The same for an older run (`reframe reports` lists them) |
 | `reframe reports download <project> [--run <run>] --to <folder>` | Saves the copy in a folder, to keep or send on; warns, as `publish` does, about a macOS-protected folder |
 
-**Without Reframe (S-11).** `reframe publish --to aws` also uploads `report.zip`, the same cleaned copy in one file, with everything in one folder `<project>-<run>/`, next to the pages. `reframe reports open` and `download` leave it out. A reader signs in to the AWS console, opens the bucket in S3, and downloads `<project>/<run>/report.zip`: the console downloads single files, not folders. They unzip it and open `index.html`.
+**Without Reframe (S-11).** `reframe publish --to aws` also uploads `report.zip`, the same cleaned copy in one file, with everything in one folder `<project>-<run>/`, next to the pages in `reports/`. `reframe reports open` and `download` leave it out. A reader signs in to the AWS console, opens the bucket in S3, and downloads `<project>/<run>/reports/report.zip`: the console downloads single files, not folders. They unzip it and open `index.html`.
 
 Pre-signed download links are left out on purpose: they work for anyone who has the link, with no sign-in.
 

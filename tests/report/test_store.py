@@ -193,7 +193,7 @@ class StoreTest(unittest.TestCase):
     def test_each_report_also_has_one_zip_for_the_console(self):
         prefix = self.store.upload(self.copy("abc123"), "demo", "abc123")
         archive = Path(self.tmp.name) / "report.zip"
-        archive.write_bytes(self.aws.objects[prefix + "report.zip"])
+        archive.write_bytes(self.aws.objects[prefix + "reports/report.zip"])
         with zipfile.ZipFile(archive) as z:
             self.assertEqual(sorted(z.namelist()), ["demo-abc123/aws/index.html", "demo-abc123/index.html", "demo-abc123/manifest.json"])
             self.assertEqual(z.read("demo-abc123/index.html").decode(), "<h1>demo abc123</h1>")
@@ -201,6 +201,48 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(len(zip_cp), 1)
         self.assertIn("--sse", zip_cp[0])
         self.assertEqual([r["run"] for r in self.store.reports()], ["abc123"])  # the zip is not a report of its own
+
+    def run_folder(self):
+        folder = RunFolder(Path(self.tmp.name) / ".reframe" / "demo" / "abc123")
+        folder.save("snapshot.json", {"archive": "source/archive.zip", "sha256": "1c228d219be10541ab4cd65e", "form": "zip", "files": 3,
+                                      "bytes": 9, "source": "/Users/someone/sources/demo.zip"})
+        folder.path("source").mkdir(parents=True)
+        folder.path("source/archive.zip").write_bytes(b"the code")
+        folder.save("outputs/aws/results/manifest.json", {"tool": "aws"})  # the tools' own manifests are not reports
+        folder.save("outputs/aws/business-functions/f.json", {"name": "f"})
+        folder.path("claude/analysis").mkdir(parents=True)
+        folder.path("claude/analysis/summary.md").write_text("# summary")
+        return folder
+
+    def test_a_run_is_published_with_its_source_results_and_reports(self):
+        copy, run = self.copy("abc123"), self.run_folder()
+        prefix = self.store.upload(copy, "demo", "abc123", run)
+        self.assertEqual(prefix, "demo/abc123/")
+        objects = self.aws.objects
+        self.assertEqual(objects["demo/abc123/source/1c228d219be10541.zip"], b"the code")
+        note = json.loads(objects["demo/abc123/source/source.json"])
+        self.assertEqual((note["sha256"], note["source"]), ("1c228d219be10541ab4cd65e", "demo.zip"))  # no local path
+        self.assertIn("demo/abc123/results/aws/business-functions/f.json", objects)
+        self.assertEqual(objects["demo/abc123/results/claude/analysis/summary.md"], b"# summary")
+        self.assertIn("demo/abc123/reports/index.html", objects)
+        self.assertIn("demo/abc123/reports/report.zip", objects)
+        self.assertEqual(self.store.sent, ["reports/", "results/", "source/"])
+        self.assertTrue(all("--sse" in c for c in self.aws.calls if c[:2] == ("s3", "cp")))
+        self.assertEqual([r["path"] for r in self.store.reports()], ["demo/abc123"])
+        target = Path(self.tmp.name) / "opened"
+        self.assertEqual(self.store.download("demo/abc123", target).read_text(), "<h1>demo abc123</h1>")
+        self.assertFalse((target / "results").exists())
+        # publishing the same copy again is settled by its receipt: nothing is sent twice
+        before = [c for c in self.aws.calls if c[:2] == ("s3", "cp")]
+        self.store.upload(copy, "demo", "abc123", run)
+        self.assertEqual([c for c in self.aws.calls if c[:2] == ("s3", "cp")], before)
+
+    def test_reports_published_before_the_three_folders_still_open(self):
+        self.store.ensure()
+        self.aws.objects.update({"demo/old111/index.html": b"<h1>old</h1>", "demo/old111/report.zip": b"zip",
+                                 "demo/old111/manifest.json": json.dumps({"project": "demo", "run": "old111", "published_at": "2026-11-20"}).encode()})
+        self.assertEqual([r["path"] for r in self.store.reports()], ["demo/old111"])
+        self.assertEqual(self.store.download("demo/old111").read_text(), "<h1>old</h1>")
 
 
 if __name__ == "__main__":
