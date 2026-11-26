@@ -113,7 +113,7 @@ Since v1.
 
 ## The design round
 
-2026-11-26. Context folder: ~/Documents/workspace-intraedge/reframe/.reframe/aws-carddemo/fa1f61/inputs/design.
+2026-11-26. Context folder: inputs/design.
 
 ## The context
 

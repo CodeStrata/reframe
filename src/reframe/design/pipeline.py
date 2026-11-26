@@ -206,8 +206,19 @@ def words(stage: str, keys: list[str]) -> str:
     return "; ".join(dict.fromkeys(WORDS[stage].get(k) or WORDS[""].get(k) or k for k in keys))
 
 
+def shown_context(folder, context: Path | None) -> str:
+    """The context folder as the round's notes name it: inside the run, its path from the run folder (inputs/design);
+    elsewhere, its name alone. The notes go into the package that is handed over, so they never hold a local path."""
+    if not context:
+        return ""
+    try:
+        return context.resolve().relative_to(folder.root.resolve()).as_posix()
+    except ValueError:
+        return f"{context.name} (outside the run folder)"
+
+
 def changes_md(n: int, report: dict[str, Any]) -> str:
-    out = [f"# Design round {n}", "", f"{report['at'][:10]}. Context folder: {report['context'] or 'none'}.", ""]
+    out = [f"# Design round {n}", "", f"{report['at'][:10]}. Context folder: {report.get('context_shown') or 'none'}.", ""]
     ctx = report["context_files"]
     if ctx["added"] or ctx["changed"] or ctx["removed"]:
         out += ["## The context", ""] + [f"- Added {f}" for f in ctx["added"]] + [f"- Changed {f}" for f in ctx["changed"]] + [f"- Removed {f}" for f in ctx["removed"]] + [""]
@@ -245,7 +256,7 @@ def run(folder, claude, context: Path | None = None, stack: str | None = None, p
     routed: set[str] = set()
     for_journeys, for_screens, for_specs = routers(folder, got, routed)
     before = state.get("context_files") or {}
-    report: dict[str, Any] = {"at": iso(), "context": str(context) if context else "", "stages": {},
+    report: dict[str, Any] = {"at": iso(), "context": str(context) if context else "", "context_shown": shown_context(folder, context), "stages": {},
                               "context_files": {"added": sorted(set(got["files"]) - set(before)), "removed": sorted(set(before) - set(got["files"])),
                                                 "changed": sorted(f for f in got["files"] if f in before and before[f] != got["files"][f])},
                               "signoffs": got["signoffs"], "journey_signoffs": got["journey_signoffs"], "ignored": got["ignored"]}

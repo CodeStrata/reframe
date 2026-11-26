@@ -39,6 +39,14 @@ class Cleaner:
         if re.fullmatch(r"\d{12}", account):
             self.exact.append((account, "<account>"))
         home = str(Path.home())
+        # the workspace the run lives in (<workspace>/.reframe/<project>/<run>), before the home folder that holds it:
+        # its folder names can say whose machine or which organisation it is
+        base = folder.root.parent.parent
+        if base.name == ".reframe" and base.parent not in (Path.home(), Path(base.parent.anchor)):
+            workspace = str(base.parent)
+            self.exact.append((workspace, "<workspace>"))
+            if workspace.startswith(home + os.sep):
+                self.exact.append(("~" + workspace[len(home):], "<workspace>"))
         self.exact.append((home, "~"))
         user = os.environ.get("USER", "")
         if len(user) >= 4:

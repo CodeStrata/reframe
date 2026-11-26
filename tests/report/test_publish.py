@@ -50,6 +50,24 @@ class CleanerTest(unittest.TestCase):
         self.assertEqual(self.cleaner.clean(text), text)
 
 
+class WorkspaceCleanerTest(unittest.TestCase):
+    """The workspace's folder names can say whose machine or which organisation it is: a published copy never holds them."""
+
+    def test_the_workspace_folder_is_replaced(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as home:
+            workspace = Path(tmp) / "workspace-acme" / "reframe"
+            workspace.mkdir(parents=True)
+            with mock.patch.dict(os.environ, {"REFRAME_HOME": home, "REFRAME_WORKSPACE": str(workspace), "USER": "someone"}):
+                folder = new_run("demo")
+                self.assertEqual(folder.root.parent.parent, workspace / ".reframe")
+                cleaner = Cleaner(folder)
+                cleaned = cleaner.clean(f"Context folder: {folder.root}/inputs/design.")
+                self.assertNotIn("workspace-acme", cleaned)
+                self.assertEqual(cleaned, f"Context folder: <workspace>/.reframe/demo/{folder.root.name}/inputs/design.")
+                self.assertIn("a local path", cleaner.left(f"{workspace}/x"))
+                self.assertEqual(cleaner.left(cleaned), [])
+
+
 
 class ProtectedFolderTest(unittest.TestCase):
     def test_macos_private_folders_are_named(self):
