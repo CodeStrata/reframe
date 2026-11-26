@@ -9,6 +9,9 @@ What changed in each release. Releases are tagged on `main`; the stories behind 
 - CI lints with ruff, type-checks with mypy and fails below 80% line coverage, with the checkers pinned in the `dev` extra.
 - The drivers of both assessments and the command handlers are tested stage by stage.
 
+**The design (pipeline 4)**
+- Golden datasets (P4-11): per capability, the cases the new system must answer as the legacy one does, from the worked examples and the decision-table rows, in `golden/` in every form of the package. `golden/compare.py` compares a new system's answers and reports formatting apart from business differences. Until legacy outputs are captured, the expected outputs come from the rules.
+
 ## 1.0.0 (2026)
 
 The first release for anyone to try: with Claude only, or with Claude and AWS Transform.

@@ -332,6 +332,7 @@ A round runs every stage in order and keeps what has not changed:
 | Prototype | One offline page: a route per screen, sample data, the rules' own messages, each screen beside the legacy screens it replaces, and marks reviewers can download | No |
 | Final specifications | Per capability: requirements, business rules (classed), acceptance criteria, screens, data contracts from the copybooks, decision tables with gaps, open questions; final where the function is signed off | One step per function, for summaries, criteria and design notes |
 | The package | Kiro, Claude Code and Spec Kit forms, every ID traced back to the legacy source, with `[FILL IN: ...]` placeholders for what your team gives and a `START-HERE.md` | No |
+| Golden datasets | In each form's `golden/`: per capability, the cases the new system must answer as the legacy one does, and `compare.py`, which sets formatting differences apart from business ones. The expected outputs come from the rules | No |
 
 **Adding context.** Put it in the run's `inputs/design/`, or pass `--context <folder>` once, and run `reframe design` again:
 - `personas.md` reaches the journeys;
