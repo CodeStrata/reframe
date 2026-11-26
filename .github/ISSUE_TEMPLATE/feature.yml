@@ -1,0 +1,22 @@
+name: Idea or request
+description: Something Reframe should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The modernization task, and where Reframe falls short today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: The kind of codebase (size, CICS or batch, copybooks), or the tools you build with. No client code or data, please.

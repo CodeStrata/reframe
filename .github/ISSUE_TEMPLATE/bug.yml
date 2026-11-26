@@ -1,0 +1,48 @@
+name: Bug report
+description: Something Reframe did that it should not, or did not do
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Please remove account IDs, ARNs, bucket names, e-mail addresses, local paths and any client code or data before you paste anything. Report a security problem privately, as SECURITY.md says, not here.
+  - type: input
+    id: version
+    attributes:
+      label: reframe --version
+      placeholder: reframe 1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: tools
+    attributes:
+      label: Which tools did the run use?
+      options: [Claude only, AWS Transform and Claude, Not a run]
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Operating system and Python
+      placeholder: macOS 15, Python 3.12
+  - type: textarea
+    id: ran
+    attributes:
+      label: What you ran
+      description: The command, and the source if it is public (for example CardDemo or GenApp).
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: The message, and what reframe status says. Lines from worker.log help, with identifiers removed.
+    validations:
+      required: true
