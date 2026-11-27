@@ -4,6 +4,10 @@ What changed in each release. Releases are tagged on `main`; the stories behind 
 
 ## Unreleased
 
+**The licence**
+- Reframe is now under the GNU Affero General Public License, version 3 only (AGPL-3.0-only), with other licences, such as a commercial one, from the copyright holder. Versions before the change, v0.4.0 and earlier, stay under the MIT License. `reframe --version` shows the notice.
+- Only CardDemo's example reports are published, with CardDemo's licence and notice beside them; other codebases Reframe is tested on are run locally, and nothing from them is committed.
+
 **Code quality**
 - Reframe is classed as Beta.
 - CI lints with ruff, type-checks with mypy and fails below 80% line coverage, with the checkers pinned in the `dev` extra.
@@ -45,7 +49,7 @@ The first release for anyone to try: with Claude only, or with Claude and AWS Tr
 - Every run lives in `<workspace>/.reframe/<project>/<run>/`, with `inputs/` for added context and `outputs/` for what Reframe makes.
 - `reframe publish --to aws` uploads the run's `source/`, `results/` and cleaned `reports/` to the standing private bucket. Publishing is optional.
 - `reframe publish --to pages` publishes the cleaned copy to a GitHub Pages site, after a typed yes to a warning that the site is public.
-- The example reports (CardDemo and GenApp) are on this repository's Pages site.
+- The CardDemo example reports are on this repository's Pages site.
 
 **The repository**
 - A shorter README, the full guide in `docs/guide.md`, CONTRIBUTING, this changelog and issue templates.

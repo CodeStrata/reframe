@@ -5,14 +5,14 @@
 [![CI](https://github.com/sknampally/reframe/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sknampally/reframe/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/sknampally/reframe?sort=semver)](https://github.com/sknampally/reframe/releases)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-3776ab)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Live demo](https://img.shields.io/badge/demo-CardDemo%20%26%20GenApp-8250df)](https://sknampally.github.io/reframe/)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+[![Live demo](https://img.shields.io/badge/demo-CardDemo-8250df)](https://sknampally.github.io/reframe/)
 
 Reframe reads a COBOL and CICS codebase and tells you, in plain words a business can review, what it does. It assesses the code with Claude's [code-modernization plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-modernization), and with AWS Transform as well if you have it, then checks every business rule against the source code itself. From that it designs the modern application, down to a package an AI coding tool can build from.
 
 It is for modernization teams, architects and the business people who have to say "yes, that is what the system does" before anything is rebuilt.
 
-**See what it makes, with nothing to install:** [CardDemo](https://sknampally.github.io/reframe/carddemo/) (AWS's sample, 44 COBOL programs) and [GenApp](https://sknampally.github.io/reframe/genapp/) (IBM's sample, 31 programs), each run end to end.
+**See what it makes, with nothing to install:** [CardDemo](https://sknampally.github.io/reframe/carddemo/) (AWS's sample, 44 COBOL programs), run end to end.
 
 ## What it makes
 
@@ -125,4 +125,6 @@ Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) says ho
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+The GNU Affero General Public License, version 3 only (AGPL-3.0-only); see [LICENSE](LICENSE) and [NOTICE](NOTICE). You may use, change and share Reframe under it. If you share a changed version, or offer it to others over a network, you share your changes under the same licence. The copyright holder also licenses Reframe on other terms, such as a commercial licence without those obligations.
+
+Versions published before the change, v0.4.0 and earlier, stay under the MIT License.

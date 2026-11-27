@@ -29,7 +29,7 @@ body:
     id: ran
     attributes:
       label: What you ran
-      description: The command, and the source if it is public (for example CardDemo or GenApp).
+      description: The command, and the source if it is public (for example CardDemo).
       render: bash
     validations:
       required: true

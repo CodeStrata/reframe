@@ -732,7 +732,7 @@ def _reconcile_status(folder: RunFolder, state: dict[str, Any]) -> None:
 
 def claude_next(state: dict[str, Any]) -> str:
     """What to do once both assessments are done. The reconciliation needs no AWS resources, so the teardown comes first
-    (found on GenApp, 25 November 2026, where status named every next step but the reconciliation)."""
+    (found on a test run, 25 November 2026, where status named every next step but the reconciliation)."""
     torn_down, reconciled = bool(state.get("torn_down")), bool(state.get("reconcile"))
     if claude_only(state):
         return "; ".join((["reframe reconcile checks every rule against the code"] if not reconciled else

@@ -26,7 +26,7 @@ Status: draft for the owner's agreement, with [the specification](specification.
 | P1-07 | Job creation and the driver loop | §4 stages 5, 6 | The job is polled and its tasks classified; done means every plan step SUCCEEDED with "Generate requirements" in the plan |
 | P1-08 | Autonomous answers: plan, source location, function selection, confirmation, defaults | §4 stage 6, §5 | Autonomous answers recorded in `decisions.json` |
 | P1-25 | Autonomous answers: the readiness menu after the selection | §4 stage 6 | The readiness menu is answered with its one choice that proceeds; "no further action is needed" is a notice; the catalog's review form is never submitted while a question offering choices waits; offline tests for each wording recorded on 23 November 2026 |
-| P1-26 | Autonomous answers: a name that is both a domain and a function | §4 stage 6 | When AWS asks whether a name in the selection means the business domain or the business function, autonomous mode answers the domain in the words AWS asks for; interactive mode offers both readings; offline tests for each wording recorded on GenApp on 25 November 2026 |
+| P1-26 | Autonomous answers: a name that is both a domain and a function | §4 stage 6 | When AWS asks whether a name in the selection means the business domain or the business function, autonomous mode answers the domain in the words AWS asks for; interactive mode offers both readings; offline tests for each wording recorded on a second test codebase on 25 November 2026 |
 | P1-09 | Interactive mode: `reframe answer` | §5 | Every waiting question can be answered from the CLI |
 | P1-10 | Retrieval: download, check, unpack, manifest, summary | §4 stage 7 | Requirements and assessment downloaded and summarized |
 | P1-16 | HTML report | §4 stage 8 | One self-contained report covers the overview, functions, requirements, business rules, open questions, data model, assessment and decisions |
@@ -189,7 +189,7 @@ The owner's direction (26 November 2026): release v1.0.0 so anyone can try Refra
 | C1-02 | The Claude assessment alone | [release 1.0](release-1.md) | #435 · Done 26 November 2026: the Claude worker takes the snapshot; C7 keeps the graph as a file |
 | C1-03 | Reconciliation from one tool | [release 1.0](release-1.md) | #436 · Done 26 November 2026: every rule checked against the code in Claude's frame; the two-tool prompts are unchanged |
 | C1-04 | Design and publish on a Claude-only run | [release 1.0](release-1.md) | #437 · Done 26 November 2026: the design is unchanged; a published copy has no AWS review or comparison |
-| C1-05 | Claude-only live on GenApp | [release 1.0](release-1.md) | #438 |
+| C1-05 | Claude-only live on a second codebase | [release 1.0](release-1.md) | #438 |
 | S-16 | Publish to GitHub Pages, optional | [release 1.0](release-1.md) | #439 · Done 26 November 2026: `reframe publish --to pages --repo <owner>/<name>`, after a typed yes |
 | S-17 | The demo on GitHub Pages | [release 1.0](release-1.md) | #440 · Done 26 November 2026: `reports/index.html` and `.github/workflows/pages.yml`; Pages is turned on for the repository at the release |
 | R1-01 | README for anyone | [release 1.0](release-1.md) | #441 · Done 26 November 2026: a 128-line README with badges, the demo and a quick start; the detail in `docs/guide.md` |

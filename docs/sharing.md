@@ -87,7 +87,7 @@ reframe publish --to pages --repo <owner>/<name>
 - It uses the person's own GitHub sign-in through `git` and `gh`. It turns Pages on for the branch if it is off, then prints the address.
 - **A Pages site is public**: anyone with the address can read it, on a public repository and on a private one too (only GitHub Enterprise Cloud can limit who reads a Pages site). So before anything is pushed, Reframe names the repository and the address, says the site is public, and asks the person to type `yes`. With no terminal it refuses.
 
-**The demo (S-17).** This repository's own Pages site, <https://sknampally.github.io/reframe/>, serves `reports/`: the CardDemo and GenApp copies of section 3 and a front page for them. A workflow deploys it on every push to `main` that changes `reports/`. It runs only in `sknampally/reframe`, so a fork publishes nothing unless its owner chooses to.
+**The demo (S-17).** This repository's own Pages site, <https://sknampally.github.io/reframe/>, serves `reports/`: the CardDemo copy of section 3 and a front page for it. Only CardDemo's reports are published; other codebases Reframe is tested on are run locally, and nothing from them is committed (the owner, 26 November 2026). A workflow deploys it on every push to `main` that changes `reports/`. It runs only in `sknampally/reframe`, so a fork publishes nothing unless its owner chooses to.
 
 ## 6. Opening and downloading by project (S-09 to S-11)
 

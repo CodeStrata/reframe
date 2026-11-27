@@ -70,13 +70,23 @@ For a small fix, an issue and a pull request are enough.
 - **Plain words.** Commands, messages and pages say what happens in words a business reader understands. Say it once, and don't invent jargon.
 - **Nothing outward without a record.** Every change Reframe makes outside the run folder has an intent, a receipt and a way to settle it after a crash. Anything that deletes, or makes something public, asks for a typed `yes` first.
 - **Model output is labelled.** Pages say what a model wrote and what Reframe checked.
-- **No secrets, no client data.** Read [SECURITY.md](SECURITY.md) before you attach logs, screenshots or examples. Use the public samples (CardDemo, GenApp) or clearly labelled synthetic data.
+- **No secrets, no client data.** Read [SECURITY.md](SECURITY.md) before you attach logs, screenshots or examples. Use a public sample such as CardDemo, or clearly labelled synthetic data, and attach only what Reframe wrote, not the sample's own source.
 
 ## Pull requests
 
 - Say what changed and why, and what you checked, using the template.
 - Keep each pull request to one purpose.
 - Say when AI helped write it.
+
+## Licensing your contribution
+
+Reframe is under the AGPL-3.0-only, and its copyright holder also licenses it on other terms, such as a commercial licence. So that both stay possible, by opening a pull request you agree that:
+
+- the contribution is your own work, or you have the right to submit it;
+- it is licensed under the AGPL-3.0-only, like the rest of Reframe; and
+- you grant the copyright holder, and those the copyright holder licenses Reframe to, a perpetual, worldwide, non-exclusive, royalty-free and irrevocable licence to use, copy, change, sublicense and distribute it on any terms, commercial ones included.
+
+Sign off each commit (`git commit -s`) to say so. You keep the copyright in what you wrote.
 
 ## Reporting a problem
 

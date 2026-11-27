@@ -31,7 +31,7 @@ Run every `reframe` command from the same folder: your workspace. Reframe keeps 
 
 ```text
 <workspace>/.reframe/
-  <project>/                    for example genapp, aws-carddemo
+  <project>/                    for example aws-carddemo
     <run-id>/                   six letters and digits, one per run
       inputs/
         reconcile/              what you add for the reconciliation: documents, review downloads, the answered SME list
