@@ -31,6 +31,16 @@ class RunnerTest(unittest.TestCase):
         nothing = summarize("x", [], 1, 1)
         self.assertEqual((nothing.ok, nothing.problem), (False, "failed"))
 
+    def test_a_trailing_task_notice_does_not_hide_the_usage_limit(self):
+        # what Claude Code wrote on the second test codebase's rule extraction, 26 November 2026: the limit, then an empty "success" for a background task
+        lines = [result_line(is_error=True, subtype="success", api_error="usage_limit_reached", result="You've hit your 5-hour limit · resets 11am (America/Phoenix)"),
+                 result_line(result="", origin={"kind": "task-notification", "producer": "session-task"})]
+        r = summarize("extract-rules", lines, 591, 0)
+        self.assertEqual((r.ok, r.problem), (False, "limit"))
+        self.assertIn("5-hour limit", r.text)
+        notice_only = summarize("x", [result_line(), result_line(result="", origin={"kind": "task-notification"})], 1, 0)
+        self.assertEqual((notice_only.ok, notice_only.text), (True, "done"))  # the step's own answer, not the empty notice
+
     def test_denials_are_kept_short(self):
         r = summarize("x", [result_line(permission_denials=[{"tool_name": "Write", "tool_input": {"file_path": "/a" * 300}}])], 1, 0)
         self.assertEqual(r.denials[0]["tool"], "Write")
