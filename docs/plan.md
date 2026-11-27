@@ -195,9 +195,9 @@ The owner's direction (26 November 2026): release v1.0.0 so anyone can try Refra
 | R1-01 | README for anyone | [release 1.0](release-1.md) | #441 · Done 26 November 2026: a 128-line README with badges, the demo and a quick start; the detail in `docs/guide.md` |
 | R1-02 | Package metadata | [release 1.0](release-1.md) | #442 · Done 26 November 2026: 1.0.0 metadata; CI on Linux and macOS, Python 3.10 to 3.13, and a built-package check |
 | R1-03 | Contributing | [release 1.0](release-1.md) | #443 · Done 26 November 2026: CONTRIBUTING.md, CHANGELOG.md, issue templates, SECURITY.md updated |
-| R1-04 | A clean machine | [release 1.0](release-1.md) | #444 |
-| A1-01 | End-to-end runs | [release 1.0](release-1.md) | #445 |
-| REL-1 | Release v1.0.0 | [release 1.0](release-1.md) | #446 |
+| R1-04 | A clean machine | [release 1.0](release-1.md) | #444 · Done 26 November 2026 ([results](release-1.md)): Linux container and macOS installs; a fresh macOS user account needs the Mac's administrator, so CI's clean macOS runners stand in |
+| A1-01 | End-to-end runs | [release 1.0](release-1.md) | #445 · Done 27 November 2026 ([results](release-1.md)): the second test codebase with both tools and with Claude only. CardDemo with both tools was not run again for 1.0: its full run of 22 to 26 November stands, and AWS runs wait for the owner's own AWS account (the owner, 27 November 2026) |
+| REL-1 | Release v1.0.0 | [release 1.0](release-1.md) | #446 · Released 27 November 2026, from CodeStrata/reframe |
 
 ## Credibility: code quality
 
