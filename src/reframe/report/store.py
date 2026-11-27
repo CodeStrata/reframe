@@ -236,7 +236,7 @@ class Store:
             count = int(listed or 0)
         say(f"Reframe will delete the reports bucket {bucket} with its {count} stored object versions (every published run's source, "
             "results and reports), and these settings, all created by Reframe for the published runs:\n\n" + "".join(f"  {n:>2}. {i['type']}  {i.get('name') or i['address']}\n" for n, i in enumerate(items, 1)))
-        answer = prompt(f"Type yes to delete the bucket and everything published in it, or anything else to keep it: ").strip()
+        answer = prompt("Type yes to delete the bucket and everything published in it, or anything else to keep it: ").strip()
         if answer != "yes":
             say("Nothing was deleted.\n")
             return False

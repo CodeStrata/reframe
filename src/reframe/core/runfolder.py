@@ -25,7 +25,7 @@ import re
 import secrets
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from reframe.core.errors import NotSent, Outcome, Rejected, ReframeError, Stop, Uncertain
 
@@ -42,12 +42,12 @@ def home(environment: dict[str, str] | None = None) -> Path:
     return Path(env.get("REFRAME_HOME") or Path.home() / ".reframe")
 
 
-def workspace(environment: dict[str, str] | None = None) -> Path:
+def workspace(environment: Mapping[str, str] | None = None) -> Path:
     env = os.environ if environment is None else environment
     return Path(env.get("REFRAME_WORKSPACE") or os.getcwd())
 
 
-def runs_home(environment: dict[str, str] | None = None) -> Path:
+def runs_home(environment: Mapping[str, str] | None = None) -> Path:
     """Where the runs are: <workspace>/.reframe; under REFRAME_HOME when that is set and REFRAME_WORKSPACE is not."""
     env = os.environ if environment is None else environment
     if env.get("REFRAME_HOME") and not env.get("REFRAME_WORKSPACE"):

@@ -159,7 +159,8 @@ This package was written by Reframe from {project}'s legacy source, its reconcil
 those settle. What only your team can give is marked `[FILL IN: ...]`. These steps make it ready for forward engineering.
 
 {where}
-- Every form: `data-contracts.md` (the copybooks as typed records) and `traceability.md` (every ID back to the legacy source).
+- Every form: `data-contracts.md` (the copybooks as typed records), `traceability.md` (every ID back to the legacy source) and `golden/`
+  (each capability's golden dataset, the cases the new system must answer as the legacy one does, and `compare.py`).
 
 ## 1. Copy the package
 
@@ -202,12 +203,15 @@ placeholder is left and the capabilities you are building are final.
 In a scratch repository, with the Claude Code form and the stack filled in, ask Claude Code to build the sign-in slice:
 {proof}
 
-Use the `build-capability` and `write-acceptance-tests` skills. Record whether it builds and which acceptance criteria pass, by ID. A failure
-here is a gap in the package or the placeholders: fix it before the full build.
+Use the `build-capability` and `write-acceptance-tests` skills. Record whether it builds and which acceptance criteria pass, by ID, then run
+the slice's golden datasets through `golden/compare.py` (`golden/README.md` says how). A failure here is a gap in the package or the
+placeholders: fix it before the full build.
 
 ## 7. Build
 
 Final capabilities first; each task names its role and the requirement, rule and criterion IDs it implements. Keep every ID in code and tests.
+A capability is done when its acceptance criteria pass and its golden dataset shows no business difference. Until legacy outputs are
+captured, the golden datasets' expected outputs come from the rules: they assert equivalence, they do not prove it.
 """
 
 

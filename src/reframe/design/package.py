@@ -41,7 +41,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from reframe.design import handover
+from reframe.design import golden, golden_compare, handover
 from reframe.design.specs import SPECS, STACK
 
 FOLDER = "outputs/design/package"
@@ -70,7 +70,8 @@ ROLES = {
              "Name the rules and requirements each endpoint or job implements."]),
     "test-generation": ("Test generation", "Writes an automated test for every acceptance criterion, named by its ID.",
                         ["One test per acceptance criterion, named by its ID, asserting the Then exactly (messages word for word).",
-                         "Use the worked examples' values; add golden datasets when they exist (P4-11).",
+                         "Run the capability's golden dataset (golden/<capability>.json): each case's input through its target, the answers compared with "
+                         "golden/compare.py. A formatting difference is reported apart from a business one; a business difference fails.",
                          "A criterion that cannot be tested as written is reported, not changed."]),
     "compliance": ("Compliance", "Reviews capabilities that touch money, card data, personal data, security or audit.",
                    ["Check card numbers, personal data and credentials are protected in storage, logs and screens.",
@@ -118,7 +119,7 @@ def ids(specs: list[dict[str, Any]], registry: dict[str, Any]) -> dict[str, Any]
         if s["function"] not in functions:
             functions[s["function"]] = _code(s["function_name"], set(functions.values()))
     used: dict[str, int] = defaultdict(int)
-    for key, rid in rules.items():
+    for rid in rules.values():
         code, _, n = rid.rpartition("-BR-")
         used[code] = max(used[code], int(n))
     for s in specs:
@@ -142,7 +143,7 @@ def label(s: dict[str, Any], registry: dict[str, Any]) -> dict[str, Any]:
 
 # ---- tasks -------------------------------------------------------------------------------------------------------------
 
-def tasks(s: dict[str, Any]) -> list[dict[str, Any]]:
+def tasks(s: dict[str, Any], dataset: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Build tasks for a capability, each for a role and citing requirements and rules; every requirement is in one of
     the implementing tasks (business rules, errors and messages, services)."""
     reqs, rid = s["requirements"], s["rule_ids"]
@@ -186,9 +187,12 @@ def tasks(s: dict[str, Any]) -> list[dict[str, Any]]:
             [f"To the prototype: ui-reference/index.html#/{x['id']}."] + [f"{c.get('type', '')} \"{c.get('label', '')}\"" + (f": {c['validation']}" if c.get("validation") else "")
                                                                          for c in x["components"]],
             service, screen=x["id"])
-    add("test-generation", "Write a test for every acceptance criterion", reqs,
-        [f"{len(s['acceptance'])} acceptance criteria, each a test named by its ID."], [t["id"] for t in found], rules=[],
-        criteria=[s["ac_ids"][x["id"]] for x in s["acceptance"]])
+    cases = (dataset or {}).get("cases") or []
+    add("test-generation", "Write a test for every acceptance criterion" + (", and run the golden dataset" if cases else ""), reqs,
+        [f"{len(s['acceptance'])} acceptance criteria, each a test named by its ID."]
+        + ([f"Golden dataset golden/{s['id']}.json: {len(cases)} cases, {sum(1 for c in cases if c['edge'])} of them edge cases, compared with "
+            "golden/compare.py. The expected outputs come from the rules until legacy outputs are captured."] if cases else []),
+        [t["id"] for t in found], rules=[], criteria=[s["ac_ids"][x["id"]] for x in s["acceptance"]], golden=[c["id"] for c in cases])
     touched = [SENSITIVE[t] for t in s.get("touches") or [] if t in SENSITIVE]
     if touched:
         add("compliance", f"Review the handling of {', '.join(touched)}", reqs, ["Check storage, logs, screens and audit against the rules."],
@@ -303,6 +307,8 @@ def task_lines(s: dict[str, Any], ts: list[dict[str, Any]], checkbox: str = "- [
             out.append(f"  - _Rules: {', '.join(t['rules'])}_")
         if t.get("criteria"):
             out.append(f"  - _Criteria: {', '.join(t['criteria'])}_")
+        if t.get("golden"):
+            out.append(f"  - _Golden cases: {', '.join(t['golden'])}_")
         if t["depends"]:
             out.append(f"  - _After: {', '.join(t['depends'])}_")
     return out
@@ -379,6 +385,7 @@ def speckit_tasks(s: dict[str, Any], ts: list[dict[str, Any]]) -> str:
     for t in ts:
         out.append(f"- [ ] {t['id']} [{t['role']}] {md(t['title'])}. Requirements: {', '.join(t['requirements'])}"
                    + (f". Rules: {', '.join(t['rules'])}" if t["rules"] else "") + (f". Criteria: {', '.join(t['criteria'])}" if t.get("criteria") else "")
+                   + (f". Golden cases: {', '.join(t['golden'])}" if t.get("golden") else "")
                    + (f". After: {', '.join(t['depends'])}" if t["depends"] else "") + ".")
         out += [f"  - {md(d)}" for d in t["details"]]
     return "\n".join(out) + "\n"
@@ -415,7 +422,8 @@ def conventions() -> list[str]:
             "- The legacy source is read-only and only for reference. Use synthetic data only, never production or personal data.",
             "- Build a draft capability only after the owner confirms it; build final ones first.",
             "- Money is an exact decimal, never a float; keep each field's precision from the data contracts.",
-            "- The screens follow the prototype in the Claude Code form's ui-reference/ and the screen specifications; meet WCAG 2.2 AA."]
+            "- The screens follow the prototype in the Claude Code form's ui-reference/ and the screen specifications; meet WCAG 2.2 AA.",
+            "- A capability is done when its acceptance criteria pass and its golden dataset in golden/ shows no business difference (golden/README.md)."]
 
 
 def structure_md(specs: list[dict[str, Any]]) -> str:
@@ -447,13 +455,18 @@ def traceability_md(specs: list[dict[str, Any]], ts: dict[str, list[dict[str, An
             out.append(f"| {s['rule_ids'][r['key']]} | {r['program']} | `{r['key']}` | {md(', '.join(r['evidence']))} |")
     out += ["", "## Capabilities", "", "| ID | Title | Status | Run key |", "|---|---|---|---|"]
     out += [f"| {s['id']} | {md(s['title'])} | {s['status']} | `{s['key']}` |" for s in specs]
+    tests = [(c, t["id"]) for s in specs for t in ts[s["id"]] for c in t.get("golden") or []]
+    if tests:
+        out += ["", "## Golden cases", "", "Each case is in `golden/<capability>.json`, with its input, expected output and legacy source.", "",
+                "| ID | Run by task |", "|---|---|"] + [f"| {c} | {t} |" for c, t in tests]
     return "\n".join(out) + "\n"
 
 
 def write(root: Path, specs: list[dict[str, Any]], books: dict[str, Any], stack: dict[str, Any] | None, journeys: list[dict[str, Any]],
           prototype: Path | None, project: str, context: dict[str, str], programs: dict[str, list[str]] | None = None) -> dict[str, list[dict[str, Any]]]:
     """Every form of the package under root. Returns the tasks by capability."""
-    ts = {s["id"]: tasks(s) for s in specs}
+    datasets = {s["id"]: golden.dataset(s) for s in specs}
+    ts = {s["id"]: tasks(s, datasets[s["id"]]) for s in specs}
     contracts = "# Data contracts\n\nThe copybooks the capabilities' programs copy, as typed records, read from the legacy source.\n\n" + \
                 "\n".join(contract_md(c) for c in books.values())
     trace = traceability_md(specs, ts)
@@ -462,10 +475,16 @@ def write(root: Path, specs: list[dict[str, Any]], books: dict[str, Any], stack:
     files: dict[str, str] = {}
     known = handover.facts(specs, journeys, programs or {})
     files["START-HERE.md"] = handover.start_here(known, project, stack, None)
+    kept = [d for d in datasets.values() if d["cases"] or d["uncovered"]]
+    comparer = Path(golden_compare.__file__).read_text()
     for form in FORMS:
         files[f"{form}/START-HERE.md"] = handover.start_here(known, project, stack, form)
         files[f"{form}/data-contracts.md"] = contracts
         files[f"{form}/traceability.md"] = trace
+        files[f"{form}/golden/README.md"] = golden.readme(kept)
+        files[f"{form}/golden/compare.py"] = comparer
+        for d in kept:
+            files[f"{form}/golden/{d['capability']}.json"] = json.dumps(d, indent=1) + "\n"
     house = "# House conventions\n\nWhat your team builds to. Reframe cannot know these; fill them in.\n\n" + handover.house(context.get("style", "")) + "\n\n## From the design\n\n" + \
         "\n".join(conventions()) + "\n"
     for name in handover.SKILLS:
@@ -535,11 +554,17 @@ def check(root: Path, specs: list[dict[str, Any]], ts: dict[str, list[dict[str, 
     shared = ("traceability.md", "data-contracts.md")  # they name every ID; each must also be in the form's own files
     seen = {form: {t for p in (root / form).rglob("*.md") if p.name not in shared for t in token.findall(p.read_text())} for form in FORMS}
     for s in specs:
-        wanted = list(s["req_ids"].values()) + list(s["rule_ids"].values()) + list(s["ac_ids"].values()) + [t["id"] for t in ts[s["id"]]]
+        cases = [c for t in ts[s["id"]] for c in t.get("golden") or []]
+        wanted = list(s["req_ids"].values()) + list(s["rule_ids"].values()) + list(s["ac_ids"].values()) + [t["id"] for t in ts[s["id"]]] + cases
         for form in FORMS:
             missing = [i for i in wanted if i not in seen[form]]
             if missing:
                 found.append(f"{form}: {s['id']} is missing {', '.join(missing[:6])}" + (f" and {len(missing) - 6} more" if len(missing) > 6 else ""))
+            if cases:  # the golden dataset holds exactly the cases its task runs
+                path = root / form / "golden" / f"{s['id']}.json"
+                held = [c["id"] for c in json.loads(path.read_text())["cases"]] if path.is_file() else None
+                if held != cases:
+                    found.append(f"{form}: golden/{s['id']}.json " + ("is missing" if held is None else "does not hold the cases its task runs"))
         implemented = {r for t in ts[s["id"]] if t["role"] in ("business-rules", "api", "ui-modernization") for r in t["requirements"]}
         found += [f"{s['id']}: requirement {r} is in no implementing task" for r in s["req_ids"].values() if r not in implemented]
         found += [f"{t['id']}: cites no requirement" for t in ts[s["id"]] if not t["requirements"]]
@@ -564,6 +589,7 @@ def manifest(specs: list[dict[str, Any]], ts: dict[str, list[dict[str, Any]]], s
         "requirements": {s["req_ids"][q["code"]]: _hash([q["text"], q["rules"]]) for q in s["requirements"]},
         "rules": {s["rule_ids"][r["key"]]: _hash([r["text"], r["class"]]) for r in s["rules"]},
         "criteria": {s["ac_ids"][x["id"]]: _hash([x["given"], x["when"], x["then"]]) for x in s["acceptance"]},
+        "golden": {c["id"]: _hash([c["input"], c["expected"], c["target"]]) for c in golden.dataset(s)["cases"]},
         "tasks": [t["id"] for t in ts[s["id"]]], "hash": _hash(s)} for s in specs}}
 
 
@@ -576,16 +602,20 @@ def changes(before: dict[str, Any] | None, now: dict[str, Any], version: int, no
     if before.get("stack") != now.get("stack"):
         out.append(f"- The target stack: {before.get('stack') or 'not given'} → {now.get('stack') or 'not given'}.")
     old, new = before.get("capabilities") or {}, now["capabilities"]
+    had_golden = any("golden" in c for c in old.values())  # a version from before P4-11 has none: say so once, not per capability
+    if not had_golden and any(c.get("golden") for c in new.values()):
+        out.append(f"- Golden datasets added (P4-11): {sum(len(c.get('golden') or {}) for c in new.values())} cases for "
+                   f"{sum(1 for c in new.values() if c.get('golden'))} capabilities, in golden/.")
     out += [f"- Added {k}: {new[k]['title']} ({new[k]['status']})." for k in new if k not in old]
     out += [f"- Removed {k}: {old[k]['title']}." for k in old if k not in new]
     for k in new:
-        if k not in old or old[k].get("hash") == new[k]["hash"]:
+        if k not in old or (old[k].get("hash") == new[k]["hash"] and (not had_golden or old[k].get("golden") == new[k].get("golden"))):
             continue
         line = []
         if old[k]["status"] != new[k]["status"]:
             line.append(f"now {new[k]['status']} (was {old[k]['status']})")
-        for part in ("requirements", "rules", "criteria"):
-            a, b = old[k].get(part) or {}, new[k][part]
+        for part in ("requirements", "rules", "criteria", "golden") if had_golden else ("requirements", "rules", "criteria"):
+            a, b = old[k].get(part) or {}, new[k].get(part) or {}
             added, removed = [i for i in b if i not in a], [i for i in a if i not in b]
             changed = [i for i in b if i in a and a[i] != b[i]]
             for word, items in (("added", added), ("removed", removed), ("changed", changed)):
@@ -650,7 +680,9 @@ def run(folder, context: Path | None = None, notes: str = "") -> dict[str, Any]:
     return {"version": version, "new": not same, "path": str(target), "files": len(files), "problems": problems,
             "counts": {"capabilities": len(specs), "final": sum(1 for s in specs if s["status"] == "final"),
                        "tasks": sum(len(t) for t in ts.values()), "roles": {r: sum(1 for t in ts.values() for x in t if x["role"] == r) for r in ROLES},
-                       "requirements": sum(len(s["req_ids"]) for s in specs), "rules": len(registry["rules"])}}
+                       "requirements": sum(len(s["req_ids"]) for s in specs), "rules": len(registry["rules"]),
+                       "golden": {"cases": sum(len(t.get("golden") or []) for v in ts.values() for t in v),
+                                  "datasets": sum(1 for v in ts.values() if any(t.get("golden") for t in v))}}}
 
 
 def copy_out(folder, target: Path, form: str = "all") -> dict[str, Any]:

@@ -140,7 +140,7 @@ def take(folder: RunFolder, source: str, ref: str | None, runner: Runner = run_s
     archive.chmod(0o600)
     files = check_archive(archive)
     data = archive.read_bytes()
-    record = {"source": source, "ref": ref, "form": form, "commit": commit, "files": files, "sha256": sha256_hex(data),
+    record: dict[str, Any] = {"source": source, "ref": ref, "form": form, "commit": commit, "files": files, "sha256": sha256_hex(data),
               "bytes": len(data), "archive": "source/archive.zip"}
     folder.save("snapshot.json", record)
     folder.event("snapshot", form=form, commit=(commit or "")[:12], files=files, sha256=record["sha256"][:16], bytes=len(data))

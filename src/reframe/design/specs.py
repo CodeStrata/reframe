@@ -419,7 +419,8 @@ def run(folder, claude, stack: str | None = None, more=None, plan_only: bool = F
     kept, log = saved.get("batches") or {}, saved.get("log") or []
     folder_in = places["analysis"] / "reframe" / "design"
     folder_in.mkdir(parents=True, exist_ok=True)
-    lock, stopped, todo, why = threading.Lock(), [], [], []
+    stopped: list[Any] = []
+    lock, todo, why = threading.Lock(), [], []
     plan = batches(built["specs"])
     for name, mine in plan:
         data = batch_input(mine)
@@ -520,7 +521,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m reframe.design.specs", description="The final specifications (P4-07)")
     parser.add_argument("--run", help="the run (default: the latest run)")
     parser.add_argument("--stack", help='the target stack, "<front end>; <back end>; <data>"; recorded in the run')
-    parser.add_argument("--auth", choices=("subscription", "bedrock"), default="subscription")
+    parser.add_argument("--auth", choices=("subscription", "api-key", "bedrock"), default="subscription")
     args = parser.parse_args(argv)
     folder = find_run(args.run)
     from reframe.claude import preflight

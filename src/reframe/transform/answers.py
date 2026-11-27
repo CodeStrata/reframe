@@ -52,7 +52,7 @@ PLEASE_CONFIRM = re.compile(r"^please confirm\b")
 # 15 business functions and 25 unassigned programs", "Switch selection ...", "Drop unassigned programs ...") closing
 # with "Please reply with your choice." It has no question mark, so it is recognised by that closing line.
 REPLY_CHOICE = re.compile(r"^(please )?reply with (your|the|one) (choice|option|selection|number)\b")
-# A name that is both a business domain and a business function (GenApp, live run, 25 November 2026). AWS lists the two
+# A name that is both a business domain and a business function (a live test run, 25 November 2026). AWS lists the two
 # readings as options, bulleted or numbered, in its own words: "domain Web Service Interface Generation — reimagine all
 # business functions in that domain" and "function Web Service Interface Generation — reimagine only that one business
 # function", and asks which was meant ("Which did you intend?", "Which would you prefer?", or "Please reply with either

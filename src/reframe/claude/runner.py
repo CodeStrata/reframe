@@ -57,6 +57,10 @@ def environment(auth: str, aws_credentials: Callable[[], dict[str, str]] | None 
            "PATH": os.pathsep.join(home + p[1:] if p.startswith("~") else p for p in PATH_DIRS),
            "CODE_MODERNIZATION_TELEMETRY": "0", "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS": "0"}
     env.update({name: source[name] for name in PASSED if source.get(name)})
+    if auth == "api-key":  # the person's Anthropic API key, from the shell that runs Reframe; passed on, never written
+        for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"):
+            if source.get(name):
+                env[name] = source[name]
     if auth == "bedrock":
         env["CLAUDE_CODE_USE_BEDROCK"] = "1"
         env["AWS_REGION"] = region or source.get("AWS_REGION", "us-east-1")
@@ -75,7 +79,7 @@ def summarize(name: str, lines: list[dict[str, Any]], seconds: float, returncode
         problem = "signin" if any(w in tail.casefold() for w in SIGNIN_WORDS) else "limit" if any(w in tail.casefold() for w in LIMIT_WORDS) else "failed"
         return StepResult(name, False, text=f"no result (exit {returncode}) {tail}", session_id=session, seconds=seconds, problem=problem)
     # Claude Code can end with an empty "success" result for a background task's notice, after the step's real result
-    # (found on GenApp, 26 November 2026: the real one was the usage limit). That notice is not the step's answer.
+    # (found on the second test codebase, 26 November 2026: the real one was the usage limit). That notice is not the step's answer.
     real = [r for r in results if not ((r.get("origin") or {}).get("kind") == "task-notification" and not str(r.get("result") or "").strip())]
     last = (real or results)[-1]
     limited = next((r for r in results if r.get("api_error") == "usage_limit_reached"

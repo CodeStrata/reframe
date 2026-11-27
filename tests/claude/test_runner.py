@@ -32,7 +32,7 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual((nothing.ok, nothing.problem), (False, "failed"))
 
     def test_a_trailing_task_notice_does_not_hide_the_usage_limit(self):
-        # what Claude Code wrote on GenApp's rule extraction, 26 November 2026: the limit, then an empty "success" for a background task
+        # what Claude Code wrote on the second test codebase's rule extraction, 26 November 2026: the limit, then an empty "success" for a background task
         lines = [result_line(is_error=True, subtype="success", api_error="usage_limit_reached", result="You've hit your 5-hour limit · resets 11am (America/Phoenix)"),
                  result_line(result="", origin={"kind": "task-notification", "producer": "session-task"})]
         r = summarize("extract-rules", lines, 591, 0)

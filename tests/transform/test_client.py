@@ -1,4 +1,4 @@
-"""The AWS Transform client: a server that starts "not configured" is started again (GenApp, 26 November 2026)."""
+"""The AWS Transform client: a server that starts "not configured" is started again (the second test codebase, 26 November 2026)."""
 import tempfile
 import unittest
 from pathlib import Path

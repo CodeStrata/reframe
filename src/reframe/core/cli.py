@@ -12,6 +12,9 @@ import sys
 
 from reframe import __version__
 
+# how Claude signs in; the same as reframe.claude.preflight.AUTHS, kept here so the CLI starts without loading it
+AUTHS = ("subscription", "api-key", "bedrock")
+
 HANDLERS = {
     "run": "reframe.core.commands:run",
     "setup": "reframe.core.guide:setup_only",
@@ -40,7 +43,8 @@ def _run_option(parser: argparse.ArgumentParser) -> None:
 def parser() -> argparse.ArgumentParser:
     from reframe.core.helptext import Parser
     top = Parser(prog="reframe", description="Run an AWS Transform mainframe assessment end to end and bring back its requirements.")
-    top.add_argument("--version", action="version", version=f"reframe {__version__}")
+    top.add_argument("--version", action="version", version=f"reframe {__version__}\nCopyright (C) 2026 Satish Kumar Nampally. "
+                     "License AGPL-3.0-only: you may share and change it; there is no warranty. See LICENSE and NOTICE.")
     commands = top.add_subparsers(dest="command", metavar="<command>")
 
     def command(name: str, help: str) -> argparse.ArgumentParser:
@@ -64,6 +68,9 @@ def parser() -> argparse.ArgumentParser:
                      help="both: AWS Transform and Claude, side by side (needs an AWS account); claude: Claude only, with no AWS at all; aws: "
                           "AWS Transform only (reframe claude adds Claude later)")
     run.add_argument("--max-agents", type=int, help="the agent limit for Claude's rule extraction (default 600; use 650 or more for CardDemo)")
+    run.add_argument("--auth", choices=AUTHS, default=None,
+                     help="how Claude signs in: your Claude subscription (default), an Anthropic API key in ANTHROPIC_API_KEY, or Amazon Bedrock "
+                          "(with --tools claude, --profile and --region are used for Bedrock only)")
 
     setup = command("setup", "Check and set up the prerequisites and the AWS sign-in, without starting a run")
     setup.add_argument("--tools", choices=("both", "claude"), default="both",
@@ -92,8 +99,9 @@ def parser() -> argparse.ArgumentParser:
     claude = command("claude", "The Claude assessment: assess the same snapshot with Claude's code-modernization plugin, show it in the same "
                      "business review, load its graph into the run's Neptune cluster, and compare it with AWS Transform's results")
     _run_option(claude)
-    claude.add_argument("--auth", choices=("subscription", "bedrock"), default=None,
-                        help="how Claude signs in: your Claude subscription (default) or Amazon Bedrock with the run's AWS profile")
+    claude.add_argument("--auth", choices=AUTHS, default=None,
+                        help="how Claude signs in: your Claude subscription (default), an Anthropic API key in ANTHROPIC_API_KEY, or Amazon Bedrock "
+                             "with the run's AWS profile or AWS_BEARER_TOKEN_BEDROCK")
     claude.add_argument("--max-agents", type=int, default=None, help="the agent limit for rule extraction (default: 600)")
     claude.add_argument("--mode", choices=("autonomous", "interactive"), default=None, help="default: the run's mode")
     claude.add_argument("--graph-load", choices=("yes", "no"), default=None,
@@ -105,7 +113,7 @@ def parser() -> argparse.ArgumentParser:
                         "reconciliation page; needs the run's assessments done, and no AWS resources")
     _run_option(reconcile)
     reconcile.add_argument("--context", help="a folder of context: documents (Markdown, text, PDF, Word), review exports and answered questions")
-    reconcile.add_argument("--auth", choices=("subscription", "bedrock"), default=None,
+    reconcile.add_argument("--auth", choices=AUTHS, default=None,
                            help="how Claude signs in (default: as for the Claude assessment)")
     reconcile.add_argument("--max-batches", type=int, default=None, help="the limit for the decisions; Reframe stops and asks above it (default: 120)")
     reconcile.add_argument("--foreground", action="store_true", help="run in this terminal instead of a background worker")
@@ -116,13 +124,14 @@ def parser() -> argparse.ArgumentParser:
     _run_option(review)
     review.add_argument("--context", required=True, help="the folder holding the review downloads (JSON or CSV)")
 
-    export = command("export", "Write a run's reconciled results as one Excel workbook: domains, functions, capabilities, requirements, business "
-                     "rules, decision tables, open questions and the SME list, with the reviewers' marks; runs nothing")
+    export = command("export", "Write a run's results for other tools: the reconciled results as one Excel workbook (xlsx), or the design's "
+                     "capabilities as a backlog to import into Jira or Azure DevOps, with acceptance criteria; runs nothing")
     _run_option(export)
-    export.add_argument("--to", required=True, choices=("xlsx",), help="the format: xlsx, an Excel workbook")
-    export.add_argument("--out", help="the file or folder to write it to (default: outputs/reconcile/<project>-<run>-requirements.xlsx in the run folder)")
-    export.add_argument("--context", help="a folder of review downloads whose marks to add (default: the reconciliation's context folder)")
-    export.add_argument("--open", action="store_true", help="open the workbook when written")
+    export.add_argument("--to", required=True, choices=("xlsx", "jira", "azure-devops"),
+                        help="xlsx: an Excel workbook of the reconciled results; jira or azure-devops: that tool's CSV import file of the design's backlog")
+    export.add_argument("--out", help="the file or folder to write it to (default: in the run folder's outputs/)")
+    export.add_argument("--context", help="xlsx only: a folder of review downloads whose marks to add (default: the reconciliation's context folder)")
+    export.add_argument("--open", action="store_true", help="open the file when written")
 
     design = command("design", "The design (pipeline 4): legacy and modern screens, journeys, the clickable prototype, final specifications "
                               "and the AI-DLC package, from the reconciled results; a round redoes only what new context touches")
@@ -134,7 +143,8 @@ def parser() -> argparse.ArgumentParser:
     design.add_argument("--form", choices=("kiro", "claude-code", "spec-kit", "all"), default="all", help="with --package: which form (default: all)")
     design.add_argument("--check", metavar="COPY", help="list the placeholders left in a copy of the package; runs nothing")
     design.add_argument("--open", action="store_true", help="open the design page when done")
-    design.add_argument("--auth", choices=("subscription", "bedrock"), default="subscription", help="how Claude signs in (default: your subscription)")
+    design.add_argument("--auth", choices=AUTHS, default="subscription",
+                        help="how Claude signs in: subscription (default), api-key (ANTHROPIC_API_KEY) or bedrock")
 
     compare = command("compare", "Build the page comparing AWS Transform's and Claude's results again")
     _run_option(compare)

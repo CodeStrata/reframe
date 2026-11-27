@@ -36,7 +36,8 @@ def draw(folder, value: dict[str, Any]) -> Path:
         s = screens.get(m)
         return f'<a href="legacy/{html.escape(m)}.html">{html.escape((s or {}).get("title") or m)}</a> <code>{html.escape(m)}</code>'
 
-    parts, by_domain = [], {}
+    parts: list[str] = []
+    by_domain: dict[str, Any] = {}
     for j in value["journeys"]:
         by_domain.setdefault(j["domain_name"], []).append(j)
     for name, journeys in by_domain.items():

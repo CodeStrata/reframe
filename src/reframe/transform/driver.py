@@ -81,7 +81,7 @@ STUCK = ("AWS Transform says a reimagine workflow is already in progress and ref
 RECOVERY = ("Which reimagine workflow is in progress, and since when? The plan shows no reimagine steps and nothing has run since it was "
             "reported as initiated. If that workflow is stuck, please cancel it and start the reimagine again for the confirmed selection.")
 STUCK_ASK = ("AWS Transform refuses the selection because a reimagine workflow is already in progress, but its plan shows no reimagine "
-             "steps. Reframe can ask AWS what is running and to start again; on GenApp that brought back its readiness menu, and Proceed "
+             "steps. Reframe can ask AWS what is running and to start again; on a live run that brought back its readiness menu, and Proceed "
              "started the plan.")
 
 
@@ -243,8 +243,9 @@ class Driver:
             else:
                 self.folder.decide(body.get("title") or "catalog review form", content, reason, task=task_id)
             self.changes.apply(step, "complete_task", {"taskId": task_id, "content": content},
-                               lambda: self.client.change("complete_task", {**self._identity(), "taskId": task_id,
-                                                                            "content": json.dumps(content), "action": "APPROVE"}))
+                               # apply() calls this at once, inside this iteration, so the loop variables are the current ones
+                               lambda: self.client.change("complete_task", {**self._identity(), "taskId": task_id,  # noqa: B023
+                                                                            "content": json.dumps(content), "action": "APPROVE"}))  # noqa: B023
             self.folder.event("catalog_form_submitted", task=task_id, reason=reason)
             self._answered(step)
             pending_now = self.folder.load("question.json")
@@ -378,7 +379,7 @@ class Driver:
 
     def _recover(self, message: dict[str, Any], step: str, summary: dict[str, Any]) -> None:
         """AWS refused the selection because "a reimagine workflow is already in progress", while its plan has no reimagine
-        steps (GenApp, 26 November 2026). Resending the selection or the review form only loops. Asked once in plain words what
+        steps (the second test codebase, 26 November 2026). Resending the selection or the review form only loops. Asked once in plain words what
         is running, AWS showed its readiness menu again, and its Proceed started the plan; a second refusal waits for the person."""
         message_id = str(message["messageId"])
         identity = self._identity()

@@ -59,7 +59,9 @@ def _sha(path: Path) -> str:
 
 def decisions_of(text: str) -> list[dict[str, str]]:
     """decisions.md as one decision per heading (any level), with its text."""
-    found, title, body = [], "", []
+    found: list[dict[str, str]] = []
+    title = ""
+    body: list[str] = []
     for line in text.splitlines():
         m = re.match(r"^#{1,6}\s+(.+)$", line)
         if m:
@@ -151,9 +153,6 @@ def _names(decision: dict[str, str], names: set[str]) -> bool:
 def routers(folder, got: dict[str, Any], routed: set[str] | None = None):
     """The extra input each stage's parts get this round; the titles of the decisions handed out go into `routed`."""
     from reframe.design import package
-    requirements = folder.load("outputs/reconcile/requirements.json") or {}
-    names = requirements.get("names") or {}
-    function_names = {fid: (names.get(fid) or {}).get("name", "") for fid in requirements.get("functions") or {}}
     modern = folder.load("design/modern.json") or {}
     designed = {key: {s["id"] for s in d.get("screens") or []} for key, d in (modern.get("domains") or {}).items()}
     for s in modern.get("screens") or []:  # a shared screen belongs to every domain that designed it
@@ -206,8 +205,19 @@ def words(stage: str, keys: list[str]) -> str:
     return "; ".join(dict.fromkeys(WORDS[stage].get(k) or WORDS[""].get(k) or k for k in keys))
 
 
+def shown_context(folder, context: Path | None) -> str:
+    """The context folder as the round's notes name it: inside the run, its path from the run folder (inputs/design);
+    elsewhere, its name alone. The notes go into the package that is handed over, so they never hold a local path."""
+    if not context:
+        return ""
+    try:
+        return context.resolve().relative_to(folder.root.resolve()).as_posix()
+    except ValueError:
+        return f"{context.name} (outside the run folder)"
+
+
 def changes_md(n: int, report: dict[str, Any]) -> str:
-    out = [f"# Design round {n}", "", f"{report['at'][:10]}. Context folder: {report['context'] or 'none'}.", ""]
+    out = [f"# Design round {n}", "", f"{report['at'][:10]}. Context folder: {report.get('context_shown') or 'none'}.", ""]
     ctx = report["context_files"]
     if ctx["added"] or ctx["changed"] or ctx["removed"]:
         out += ["## The context", ""] + [f"- Added {f}" for f in ctx["added"]] + [f"- Changed {f}" for f in ctx["changed"]] + [f"- Removed {f}" for f in ctx["removed"]] + [""]
@@ -245,7 +255,7 @@ def run(folder, claude, context: Path | None = None, stack: str | None = None, p
     routed: set[str] = set()
     for_journeys, for_screens, for_specs = routers(folder, got, routed)
     before = state.get("context_files") or {}
-    report: dict[str, Any] = {"at": iso(), "context": str(context) if context else "", "stages": {},
+    report: dict[str, Any] = {"at": iso(), "context": str(context) if context else "", "context_shown": shown_context(folder, context), "stages": {},
                               "context_files": {"added": sorted(set(got["files"]) - set(before)), "removed": sorted(set(before) - set(got["files"])),
                                                 "changed": sorted(f for f in got["files"] if f in before and before[f] != got["files"][f])},
                               "signoffs": got["signoffs"], "journey_signoffs": got["journey_signoffs"], "ignored": got["ignored"]}
@@ -301,7 +311,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--context", help="the design context folder; remembered for later rounds")
     parser.add_argument("--stack", help='the target stack, "<front end>; <back end>; <data>"')
     parser.add_argument("--plan", action="store_true", help="say what a round would redo, and why, without a model step")
-    parser.add_argument("--auth", choices=("subscription", "bedrock"), default="subscription")
+    parser.add_argument("--auth", choices=("subscription", "api-key", "bedrock"), default="subscription")
     args = parser.parse_args(argv)
     folder = find_run(args.run)
     context = Path(args.context).expanduser() if args.context else None

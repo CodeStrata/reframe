@@ -27,6 +27,8 @@ ARN = re.compile(r"\barn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:\d{0,12}:[^\s\"'<>\\]+
 S3_URI = re.compile(r"\bs3://[a-z0-9][a-z0-9.\-]{1,62}", re.I)
 EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 ACCOUNT = re.compile(r"(?<![\d.])\d{12}(?![\d.])")
+# a key that should never be in a run's files; if one is, the copy has it replaced and the check names it
+API_KEY = re.compile(r"\bsk-ant-[A-Za-z0-9_-]{16,}")
 
 
 class Cleaner:
@@ -39,6 +41,14 @@ class Cleaner:
         if re.fullmatch(r"\d{12}", account):
             self.exact.append((account, "<account>"))
         home = str(Path.home())
+        # the workspace the run lives in (<workspace>/.reframe/<project>/<run>), before the home folder that holds it:
+        # its folder names can say whose machine or which organisation it is
+        base = folder.root.parent.parent
+        if base.name == ".reframe" and base.parent not in (Path.home(), Path(base.parent.anchor)):
+            workspace = str(base.parent)
+            self.exact.append((workspace, "<workspace>"))
+            if workspace.startswith(home + os.sep):
+                self.exact.append(("~" + workspace[len(home):], "<workspace>"))
         self.exact.append((home, "~"))
         user = os.environ.get("USER", "")
         if len(user) >= 4:
@@ -58,13 +68,15 @@ class Cleaner:
         # each distinct ID gets a stable stand-in, so keys and links that use it stay unique
         text = UUID.sub(lambda m: "id-" + hashlib.sha256(m.group(0).lower().replace("_", "-").encode()).hexdigest()[:10], text)
         text = EMAIL.sub("<email>", text)
+        text = API_KEY.sub("<api key>", text)
         if self.profile is not None:
             text = self.profile.sub("<profile>", text)
         return text
 
     def left(self, text: str) -> list[str]:
         found = []
-        for name, pattern in (("an ARN", ARN), ("an S3 location", re.compile(r"s3://(?!<bucket>)[a-z0-9]", re.I)), ("an ID", UUID), ("an e-mail address", EMAIL)):
+        for name, pattern in (("an ARN", ARN), ("an S3 location", re.compile(r"s3://(?!<bucket>)[a-z0-9]", re.I)), ("an ID", UUID), ("an e-mail address", EMAIL),
+                              ("an API key", API_KEY)):
             if pattern.search(text):
                 found.append(name)
         for old, _ in self.exact:

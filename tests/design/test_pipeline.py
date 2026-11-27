@@ -28,6 +28,17 @@ class RoundsTest(SpecsTest):
         self.context = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(self.context, ignore_errors=True))
 
+    def test_the_round_notes_never_hold_a_local_path(self):
+        inside = self.folder.root / "inputs" / "design"
+        inside.mkdir(parents=True, exist_ok=True)
+        self.assertEqual(pipeline.shown_context(self.folder, inside), "inputs/design")
+        self.assertEqual(pipeline.shown_context(self.folder, None), "")
+        self.assertEqual(pipeline.shown_context(self.folder, self.context), f"{self.context.name} (outside the run folder)")
+        pipeline.run(self.folder, self.claude, self.context)
+        notes = self.folder.path("design/changes-1.md").read_text()
+        self.assertIn(f"Context folder: {self.context.name} (outside the run folder).", notes)
+        self.assertNotIn(str(self.context.parent), notes)
+
     def calls(self, prefix):
         return [c for c in self.claude.other_calls if c[0].startswith(prefix)]
 

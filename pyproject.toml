@@ -8,12 +8,12 @@ version = "1.0.0"
 description = "From mainframe source to reviewed requirements, business rules and a design to build from, with Claude, or Claude and AWS Transform"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
-license-files = ["LICENSE"]
+license = "AGPL-3.0-only"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Satish Kumar Nampally" }]
 keywords = ["mainframe", "cobol", "modernization", "legacy", "reverse-engineering", "requirements", "claude", "aws-transform", "ai-dlc"]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
@@ -28,6 +28,10 @@ classifiers = [
     "Topic :: Software Development :: Documentation",
 ]
 dependencies = ["mcp>=2,<3", "PyYAML>=6,<7", "rich>=13,<15"]
+
+[project.optional-dependencies]
+# what CI checks with (the lint job and the coverage floor); pinned so a new release of a checker cannot fail a PR
+dev = ["ruff==0.17.6", "mypy==2.4.1", "types-PyYAML==6.0.12.20261122", "coverage==7.15.4"]
 
 [project.urls]
 Homepage = "https://github.com/sknampally/reframe"
@@ -46,3 +50,57 @@ where = ["src"]
 "reframe.infrastructure" = ["terraform/*/*.tf", "terraform/modules/*/*.tf"]
 "reframe.report" = ["template.html", "compare.html"]
 "reframe.design" = ["prototype.html"]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+# correctness, not style: pyflakes, syntax and statement errors, and bugbear
+select = ["E4", "E7", "E9", "F", "B"]
+# E731 (a lambda given a name) and E741 (a variable named l) are style; B905 (zip without strict=) would change behaviour
+ignore = ["E731", "E741", "B905"]
+
+[tool.coverage.run]
+source = ["reframe"]
+
+[tool.coverage.report]
+# the floor CI holds (Q1-04): raise it as tests are added, never lower it
+fail_under = 80
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/reframe"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# Modules with type errors still to fix (Q1-03). The list only shrinks: take a module off once it is clean.
+[[tool.mypy.overrides]]
+module = [
+    "reframe.claude.graph",
+    "reframe.claude.load",
+    "reframe.claude.runner",
+    "reframe.claude.steps",
+    "reframe.core.commands",
+    "reframe.core.pipeline",
+    "reframe.core.teardown",
+    "reframe.design.flow",
+    "reframe.design.inventory",
+    "reframe.design.journeys",
+    "reframe.design.package",
+    "reframe.infrastructure.network",
+    "reframe.reconcile.audit",
+    "reframe.reconcile.decide",
+    "reframe.reconcile.inputs",
+    "reframe.reconcile.questions",
+    "reframe.reconcile.requirements",
+    "reframe.report.build",
+    "reframe.report.compare",
+    "reframe.report.store",
+    "reframe.source.s3",
+    "reframe.transform.answers",
+    "reframe.transform.api",
+    "reframe.transform.documents",
+    "reframe.transform.retrieve",
+]
+ignore_errors = true

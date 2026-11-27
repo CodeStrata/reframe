@@ -304,7 +304,8 @@ def run(folder, claude, context: Path | None = None, more=None, plan_only: bool 
     kept, log = saved.get("domains") or {}, saved.get("log") or []
     folder_in = places["analysis"] / "reframe" / "design"
     folder_in.mkdir(parents=True, exist_ok=True)
-    lock, stopped, todo, inputs, why = threading.Lock(), [], [], {}, []
+    stopped: list[Any] = []
+    lock, todo, inputs, why = threading.Lock(), [], {}, []
     for key, mine in sorted(by_domain.items()):
         data = domain_input(key, names.get(key, key), mine, screens, flow, journeyed["journeys"], rules, requirements, parts)
         data.update(more(key, data) if more else {})
@@ -399,7 +400,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m reframe.design.screens", description="Modern screens and their mapping (P4-05)")
     parser.add_argument("--run", help="the run (default: the latest run)")
     parser.add_argument("--context", help="a folder with design-system/components.md")
-    parser.add_argument("--auth", choices=("subscription", "bedrock"), default="subscription")
+    parser.add_argument("--auth", choices=("subscription", "api-key", "bedrock"), default="subscription")
     args = parser.parse_args(argv)
     folder = find_run(args.run)
     from reframe.claude import preflight

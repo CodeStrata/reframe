@@ -126,7 +126,7 @@ class TransformClient:
     def session(self, calls: list[tuple[str, dict[str, Any]]]) -> list[Any]:
         """The calls in one server session. A server that starts "not connected to AWS Transform" while nothing was sent is
         started again a few times: its region discovery can fail for us-east-1 with an empty error and work a minute later
-        (GenApp, 26 November 2026), which is not an expired sign-in."""
+        (the second test codebase, 26 November 2026), which is not an expired sign-in."""
         import time
         for wait in (*self.RETRY_WAITS, None):
             try:

@@ -249,9 +249,9 @@ Each round writes `design/changes-<round>.md`: what changed, why, and what was k
 
 **On CardDemo** (26 November 2026): `--plan` with nothing new redoes nothing: 4 journey domains, 4 screen domains and 16 specification batches kept. The tests cover a round with a persona, a *Needs change* mark, an *Agree* and a sign-off: only the marked domain's screens and the journeys are redone, the signed-off capability becomes final with no step, and the package's CHANGES.md says so.
 
-**On GenApp** (run 8e5a08, 26 November 2026), the first design round from `reframe design` took about 25 minutes and $11.40 at API prices. It read 6 legacy maps and made 6 journeys; the claim screen is listed unused, because no link reaches it. There are 9 modern screens, with all 90 legacy items mapped, and 57 specifications (all draft, since nothing is signed off) with 537 acceptance criteria and 196 design notes. The package is in three forms. The round also found two faults, now fixed:
+**On a second test codebase** (run 8e5a08, 26 November 2026, kept locally), the first design round from `reframe design` took about 25 minutes and $11.40 at API prices. It read 6 legacy maps and made 6 journeys; the claim screen is listed unused, because no link reaches it. There are 9 modern screens, with all 90 legacy items mapped, and 57 specifications (all draft, since nothing is signed off) with 537 acceptance criteria and 196 design notes. The package is in three forms. The round also found two faults, now fixed:
 - **Batches of one function shared an input file.** Their names were cut to 60 characters, so two batches running at once read each other's input, and one batch failed its checks. Each batch's file name now carries a hash of its full name.
-- **No data contracts.** GenApp keeps its copybooks beside the programs as `.cpy` files, so copybooks are now found by extension wherever they are; the screen copybooks are left out.
+- **No data contracts.** That codebase keeps its copybooks beside the programs as `.cpy` files, so copybooks are now found by extension wherever they are; the screen copybooks are left out.
 
 A part that failed its checks is now done again in the next round, which says so. Round 2 redid only the failed batch, in 2 minutes, and left 0 problems and 2 data contracts.
 
@@ -266,6 +266,17 @@ Per capability, Reframe writes a golden dataset from the worked examples and dec
 - the comparison method and tolerance.
 
 Comparisons are exact for money, dates, status codes, IDs and counts, and a difference in formatting (padding, case, an edited amount's layout) is reported apart from a difference in business behaviour. The datasets go into the package as test fixtures with the test-generation role's tasks. Until P4-13 captures real legacy outputs, the expected outputs come from the rules and say so: equivalence is then asserted from the rules, not proven against the running legacy system.
+
+**Written** with the package, with no model: every round and `python -m reframe.design.package` write `golden/<capability>.json` into each form, with `golden/README.md` and `golden/compare.py` (built 26 November 2026).
+- **Cases:** one for each worked example of a capability's rules, and one for each row of its decision tables, with IDs `<capability>-GD-<n>`. A design note's examples are left out: a technical step is built from its note, not checked as behaviour. A table's gaps go into the dataset as `uncovered`, for the owner, not as cases.
+- **Expected output:** the outcome in words, and the messages and codes it quotes (`literals`), which the new system must show word for word.
+- **Kinds:** each input field is money, a date, a status, an ID, a count or text, from the words of its name, else the shape of its value.
+- **Edge cases:** a validation or error-handling rule's examples, and any case whose outcome is a rejection, an error, a failure, an abend or a record not found.
+- **What it is run against:** online, the modern screens whose components cite the rule (else every screen of the capability); a scheduled job, the rule's legacy program, which the job replaces; otherwise the capability's service.
+- **The comparison:** `golden/compare.py <dataset> <answers>`, using the Python standard library only. Answers are given by case ID. Money is read from any layout (sign, padding, separators, currency), dates from the common layouts, IDs and counts as numbers. The same value written differently is *formatting*, a different value is *business*, and no answer is *missing*. A dataset is equivalent when no case is business or missing; the exit code says so.
+- **In the package:** each capability's test-generation task names its dataset and every case ID. `traceability.md` lists each case with its task. The check requires every form to hold the dataset its task runs. The manifest keeps a hash per case, so `CHANGES.md` names cases added, removed or changed; the first version with datasets says so once.
+
+**On CardDemo** (run fa1f61, from its 154 specifications, with no model, 26 November 2026): 1,595 cases for 139 capabilities, 633 of them for final capabilities. 1,000 come from worked examples and 595 from decision-table rows; 746 are edge cases, and 900 quote a message or code. 82 combinations are left uncovered for the owner. The cases run against 1,186 screens, 292 jobs and 117 services. The package grew to 1,536 files, and no check failed. The other 15 capabilities have only design notes, so they have no cases.
 
 ### D11 Risk and replacement order (P4-12)
 
