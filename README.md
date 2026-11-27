@@ -19,11 +19,11 @@
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-2f5d8a" alt="Python 3.10 to 3.13" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2f5d8a" alt="MIT License" /></a>
   <a href="docs/pipeline-3.md#81-the-accuracy-audit-p3-11"><img src="https://img.shields.io/badge/audited%20accuracy-91%25%20of%20rules-2f5d8a" alt="Audited accuracy: 91% of sampled rules correct" /></a>
-  <a href="https://sknampally.github.io/reframe/"><img src="https://img.shields.io/badge/live%20demo-CardDemo-2f5d8a" alt="Live demo: CardDemo" /></a>
+  <a href="https://sknampally.github.io/reframe/"><img src="https://img.shields.io/badge/example%20output-CardDemo-2f5d8a" alt="Example output: CardDemo" /></a>
 </p>
 
 <p align="center">
-  <a href="https://sknampally.github.io/reframe/"><b>See the demo</b></a>
+  <a href="https://sknampally.github.io/reframe/"><b>Example output</b></a>
   &nbsp;·&nbsp;
   <a href="#quick-start">Quick start</a>
   &nbsp;·&nbsp;
@@ -88,7 +88,7 @@ Every legacy field, key and message is mapped to what replaces it, and the proto
   <img src="docs/images/readme/design-light.png" alt="The design page for CardDemo: 21 legacy screens, 20 modern screens, 17 journeys, 683 legacy items mapped, 154 capabilities, 1,136 requirements and 1,503 acceptance criteria" width="100%" />
 </picture>
 
-**See it all, with nothing to install:** the [CardDemo demo](https://sknampally.github.io/reframe/carddemo/) (AWS's sample, 44 COBOL programs), run end to end. It is also in this repository: clone it and open `reports/carddemo/index.html`.
+**See what it makes before you run it:** the [example output for CardDemo](https://sknampally.github.io/reframe/carddemo/) (AWS's sample, 44 COBOL programs), from one run end to end: every review, the prototype, the design and the package, to click through. It is a showcase of the results, not a hosted service: Reframe runs on your own machine, on your own code. It is also in this repository: clone it and open `reports/carddemo/index.html`.
 
 ## What it makes
 
