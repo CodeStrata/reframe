@@ -43,8 +43,7 @@ def _run_option(parser: argparse.ArgumentParser) -> None:
 def parser() -> argparse.ArgumentParser:
     from reframe.core.helptext import Parser
     top = Parser(prog="reframe", description="Run an AWS Transform mainframe assessment end to end and bring back its requirements.")
-    top.add_argument("--version", action="version", version=f"reframe {__version__}\nCopyright (C) 2026 Satish Kumar Nampally. "
-                     "License AGPL-3.0-only: you may share and change it; there is no warranty. See LICENSE and NOTICE.")
+    top.add_argument("--version", action="version", version=f"reframe {__version__}")
     commands = top.add_subparsers(dest="command", metavar="<command>")
 
     def command(name: str, help: str) -> argparse.ArgumentParser:
