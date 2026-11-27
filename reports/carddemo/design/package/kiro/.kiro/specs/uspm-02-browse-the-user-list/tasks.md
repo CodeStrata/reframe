@@ -1,0 +1,48 @@
+# Implementation plan: Browse the user list (USPM-C02)
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+- [ ] 1. USPM-C02-T1 [data] Model the data the capability reads and writes
+  - File records: CSUSR01Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSMSG01Y.
+  - _Requirements: USPM-REQ-F-015, USPM-REQ-F-016, USPM-REQ-F-017, USPM-REQ-F-018, USPM-REQ-F-019, USPM-REQ-F-020, USPM-REQ-F-021, USPM-REQ-F-022, USPM-REQ-F-023, USPM-REQ-F-024, USPM-REQ-F-025, USPM-REQ-F-026, USPM-REQ-F-027, USPM-REQ-F-028, USPM-REQ-F-029, USPM-REQ-F-030, USPM-REQ-F-031, USPM-REQ-F-032, USPM-REQ-F-033_
+- [ ] 2. USPM-C02-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: USPM-REQ-F-015, USPM-REQ-F-017, USPM-REQ-F-018, USPM-REQ-F-023, USPM-REQ-F-024, USPM-REQ-F-025, USPM-REQ-F-026, USPM-REQ-F-028, USPM-REQ-F-029, USPM-REQ-F-031_
+  - _Rules: USPM-BR-018, USPM-BR-020, USPM-BR-021, USPM-BR-026, USPM-BR-027, USPM-BR-028, USPM-BR-029, USPM-BR-030, USPM-BR-032, USPM-BR-033, USPM-BR-035_
+  - _After: USPM-C02-T1_
+- [ ] 3. USPM-C02-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: USPM-REQ-F-027, USPM-REQ-F-032, USPM-REQ-F-016, USPM-REQ-F-019, USPM-REQ-F-020_
+  - _Rules: USPM-BR-019, USPM-BR-022, USPM-BR-023, USPM-BR-031, USPM-BR-036_
+  - _After: USPM-C02-T1_
+- [ ] 4. USPM-C02-T4 [api] Build the services behind the screens
+  - USPM-BR-024: Remember the User ID shown in the first row of the current page. Paging backward uses it as a cursor: fetch the up to ten users whose IDs sort before it, in descending key order, then show them in ascending order.
+  - USPM-BR-025: Remember the User ID shown in the last row (row 10) of the current page. Paging forward uses it as a cursor: fetch the next up to ten users whose IDs sort after it.
+  - USPM-BR-034: Any backward-page request sets the list's 'next page available' state to yes, even when it is refused at the top, so that a forward page is allowed afterwards. Keep this flag in the paging state.
+  - USPM-BR-037: Keep the list's paging state (page number, first and last User ID shown, next-page flag) in the user's session or the request between interactions, so that the next action continues from the same page.
+  - _Requirements: USPM-REQ-F-021, USPM-REQ-F-022, USPM-REQ-F-030, USPM-REQ-F-033_
+  - _Rules: USPM-BR-024, USPM-BR-025, USPM-BR-034, USPM-BR-037_
+  - _After: USPM-C02-T1, USPM-C02-T2, USPM-C02-T3_
+- [ ] 5. USPM-C02-T5 [ui-modernization] Build the screen Users (S-USER-LIST)
+  - To the prototype: ui-reference/index.html#/S-USER-LIST.
+  - **lookup field** "Start from user ID": If the users cannot be read, 'Unable to lookup User...' shows above the table with a Try again link.
+  - **data table** "Users": Previous is disabled on page 1 and Next on the last page. The disabled buttons say 'You are already at the top of the page...' and 'You are already at the bottom of the page...', and the last page says 'You have reached the bottom of the page...'. The actions are buttons on each row, so the 'Invalid selection. Valid values are U and D' error cannot happen. If the users cannot be read while paging: 'Unable to lookup User...'.
+  - _Requirements: USPM-REQ-F-016, USPM-REQ-F-017, USPM-REQ-F-018, USPM-REQ-F-019, USPM-REQ-F-020, USPM-REQ-F-023, USPM-REQ-F-024, USPM-REQ-F-026, USPM-REQ-F-027, USPM-REQ-F-028, USPM-REQ-F-029, USPM-REQ-F-032_
+  - _Rules: USPM-BR-019, USPM-BR-020, USPM-BR-021, USPM-BR-022, USPM-BR-023, USPM-BR-026, USPM-BR-027, USPM-BR-028, USPM-BR-030, USPM-BR-031, USPM-BR-032, USPM-BR-033, USPM-BR-036_
+  - _After: USPM-C02-T2, USPM-C02-T3, USPM-C02-T4_
+- [ ] 6. USPM-C02-T6 [ui-modernization] Build the screen CardDemo header and navigation (S-APP-HEADER)
+  - To the prototype: ui-reference/index.html#/S-APP-HEADER.
+  - **data table** "Navigation": Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home.
+  - _Requirements: USPM-REQ-F-015_
+  - _Rules: USPM-BR-018_
+  - _After: USPM-C02-T2, USPM-C02-T3, USPM-C02-T4_
+- [ ] 7. USPM-C02-T7 [test-generation] Write a test for every acceptance criterion
+  - 25 acceptance criteria, each a test named by its ID.
+  - _Requirements: USPM-REQ-F-015, USPM-REQ-F-016, USPM-REQ-F-017, USPM-REQ-F-018, USPM-REQ-F-019, USPM-REQ-F-020, USPM-REQ-F-021, USPM-REQ-F-022, USPM-REQ-F-023, USPM-REQ-F-024, USPM-REQ-F-025, USPM-REQ-F-026, USPM-REQ-F-027, USPM-REQ-F-028, USPM-REQ-F-029, USPM-REQ-F-030, USPM-REQ-F-031, USPM-REQ-F-032, USPM-REQ-F-033_
+  - _Criteria: USPM-C02-AC-01, USPM-C02-AC-02, USPM-C02-AC-03, USPM-C02-AC-04, USPM-C02-AC-05, USPM-C02-AC-06, USPM-C02-AC-07, USPM-C02-AC-08, USPM-C02-AC-09, USPM-C02-AC-10, USPM-C02-AC-11, USPM-C02-AC-12, USPM-C02-AC-13, USPM-C02-AC-14, USPM-C02-AC-15, USPM-C02-AC-16, USPM-C02-AC-17, USPM-C02-AC-18, USPM-C02-AC-19, USPM-C02-AC-20, USPM-C02-AC-21, USPM-C02-AC-22, USPM-C02-AC-23, USPM-C02-AC-24, USPM-C02-AC-25_
+  - _After: USPM-C02-T1, USPM-C02-T2, USPM-C02-T3, USPM-C02-T4, USPM-C02-T5, USPM-C02-T6_
+- [ ] 8. USPM-C02-T8 [compliance] Review the handling of personal data, security
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: USPM-REQ-F-015, USPM-REQ-F-016, USPM-REQ-F-017, USPM-REQ-F-018, USPM-REQ-F-019, USPM-REQ-F-020, USPM-REQ-F-021, USPM-REQ-F-022, USPM-REQ-F-023, USPM-REQ-F-024, USPM-REQ-F-025, USPM-REQ-F-026, USPM-REQ-F-027, USPM-REQ-F-028, USPM-REQ-F-029, USPM-REQ-F-030, USPM-REQ-F-031, USPM-REQ-F-032, USPM-REQ-F-033_
+  - _After: USPM-C02-T1, USPM-C02-T2, USPM-C02-T3, USPM-C02-T4, USPM-C02-T5, USPM-C02-T6_

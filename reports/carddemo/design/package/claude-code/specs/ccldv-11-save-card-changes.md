@@ -1,0 +1,122 @@
+# Save card changes (CCLDV-C11)
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+Customer Data Setup · Credit Card List Detail View and Update · runs as online · risk medium
+
+## Introduction
+
+After the card operations user confirms, the card record is saved with the new embossed name, active status and expiry date, and the user is told whether the save worked. The card number and account must never change in the save. It must only write when the stored record still matches what was originally shown.
+
+**User story:** As a card operations user, I want my changes to a card's embossed name, active status and expiry date saved to the card record, so that the card holds the updated details and I know whether the save worked.
+
+## Requirements
+
+### Requirement 1: CCLDV-REQ-F-104 (business rule)
+
+#### Acceptance criteria
+
+1. When the locked card record is unchanged since it was fetched, the system shall rewrite the card with the entered embossed name, active status and expiry date built as year-month-day, keeping the card number and account, and show 'Changes committed to database'. (rules CCLDV-BR-121)
+2. GIVEN card 4111111111111111 on account 00000000001 was fetched and validated changes await confirmation with name 'JANE SMITH', status 'N', expiry year '2028', expiry month '06' and the returned expiry day '15', and the locked card record still matches the values originally fetched WHEN the operator presses PF5 and the card is rewritten THEN the card record holds embossed name 'JANE SMITH', active status 'N' and an expiry date built as year-month-day from 2028, 06 and 15, still with card number 4111111111111111 and account 00000000001, and the screen shows 'Changes committed to database' (CCLDV-C11-AC-02; CCLDV-BR-121)
+
+### Requirement 2: CCLDV-REQ-F-105 (error handling)
+
+#### Acceptance criteria
+
+1. If the rewrite of the locked card record fails, then the system shall show 'Update of record failed' and 'Changes unsuccessful. Please try again'. (rules CCLDV-BR-122)
+2. GIVEN Rewrite result: not normal WHEN the rewrite of the locked card record fails THEN 'Update of record failed'; 'Changes unsuccessful. Please try again' (CCLDV-C11-AC-01; CCLDV-BR-122)
+
+## Screens and components
+
+### Cards (S-CARD-LIST)
+
+Find a caller's card by account number and/or card number and open it from its row, with the status as a badge. Row links replace typed S/U codes and the table pager replaces F7/F8.
+
+Prototype: `ui-reference/index.html#/S-CARD-LIST`. Replaces the legacy screens CCRDLIA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
+### Card details (S-CARD-DETAIL)
+
+View a card's embossed name, status and expiry and change them on the same screen, replacing the separate view and update screens. Opened from a card row with account and card filled in, or used alone by searching. Save checks and saves in one step and is refused if someone else changed the card meanwhile.
+
+Prototype: `ui-reference/index.html#/S-CARD-DETAIL`. Replaces the legacy screens CCRDSLA, CCRDUPA.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Save card | **primary button** | Checks name, status, expiry month and expiry year, shows each failing field's message beside it with a summary at the top, and saves when all pass; enabled once a card is found. Results: 'Changes committed to database'; 'Record changed by some one else. Please review' with the stored values reloaded; 'Could not lock record for update' or 'Update of record failed' with 'Changes unsuccessful. Please try again'. Esc discards unsaved edits. | Nothing differs from the stored values (ignoring case): 'No change detected with respect to values fetched.' Fields are checked in the order name, status, expiry month, expiry year. |  | CCLDV-REQ-F-104 |
+
+
+## Data models
+
+#### CSMSG02Y
+
+File record of COCRDUPC. Source: `app/cpy/CSMSG02Y.cpy`.
+
+Record `ABEND-DATA`:
+
+| Field | In | PIC | Type | Code type | Column type | Values |
+|---|---|---|---|---|---|---|
+| ABEND-CODE |  | X(4) | text, 4 characters |  |  |  |
+| ABEND-CULPRIT |  | X(8) | text, 8 characters |  |  |  |
+| ABEND-REASON |  | X(50) | text, 50 characters |  |  |  |
+| ABEND-MSG |  | X(72) | text, 72 characters |  |  |  |
+
+#### CVACT02Y
+
+File record of COCRDUPC. Source: `app/cpy/CVACT02Y.cpy`.
+
+Record `CARD-RECORD`:
+
+| Field | In | PIC | Type | Code type | Column type | Values |
+|---|---|---|---|---|---|---|
+| CARD-NUM |  | X(16) | text, 16 characters |  |  |  |
+| CARD-ACCT-ID |  | 9(11) | unsigned integer, 11 digits (zoned decimal) |  |  |  |
+| CARD-CVV-CD |  | 9(03) | unsigned integer, 3 digits (zoned decimal) |  |  |  |
+| CARD-EMBOSSED-NAME |  | X(50) | text, 50 characters |  |  |  |
+| CARD-EXPIRAION-DATE |  | X(10) | text, 10 characters |  |  |  |
+| CARD-ACTIVE-STATUS |  | X(01) | text, 1 character |  |  |  |
+| FILLER |  | X(59) | text, 59 characters |  |  |  |
+
+- COCOM01Y (working storage of COCRDUPC): see data-contracts.md.
+- COTTL01Y (working storage of COCRDUPC): see data-contracts.md.
+- CSDAT01Y (working storage of COCRDUPC): see data-contracts.md.
+- CSMSG01Y (working storage of COCRDUPC): see data-contracts.md.
+- CSSTRPFY (working storage of COCRDUPC): see data-contracts.md.
+- CSUSR01Y (working storage of COCRDUPC): see data-contracts.md.
+- CVCRD01Y (working storage of COCRDUPC): see data-contracts.md.
+- CVCUS01Y (working storage of COCRDUPC): see data-contracts.md.
+
+## Business rules
+
+Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error handling* keeps its messages; a *side effect* is kept; a *historical artifact* is carried only after asking the owner; a *design note* is for the build, below.
+
+| ID | Name | Class | Rule | Confidence | Evidence |
+|---|---|---|---|---|---|
+| CCLDV-BR-121 | Write updated card record | business rule | WHEN the locked card record is unchanged since it was fetched, THE card update SHALL rewrite the card with the entered embossed name, active status and expiry date built as year-month-day, keeping card number and account, and SHALL show 'Changes committed to database'. | high | app/cbl/COCRDUPC.cbl:988-1001, app/cbl/COCRDUPC.cbl:1420-1494, app/cbl/COCRDUPC.cbl:1498-1521, app/cbl/COCRDUPC.cbl:1151-1156 |
+| CCLDV-BR-122 | Write updated card record | error handling | WHEN the rewrite of the locked card record fails, THE card update SHALL show 'Update of record failed' and 'Changes unsuccessful. Please try again'. | high | app/cbl/COCRDUPC.cbl:988-1001, app/cbl/COCRDUPC.cbl:1420-1494, app/cbl/COCRDUPC.cbl:1498-1521, app/cbl/COCRDUPC.cbl:1151-1156 |
+
+### Worked examples
+
+- CCLDV-BR-122: Rewrite result = not normal → 'Update of record failed'; 'Changes unsuccessful. Please try again'
+
+## Decision tables
+
+None.
+
+## Design notes
+
+None.
+
+## Open questions
+
+- SME-108: When a card record cannot be locked for update, the message is given as 'Could not lock record (CARDDAT) for update' in one place and 'Could not lock record for update' in another. Which text is correct, and does the outcome shown to the operator depend on the exact wording? (Card operations business analyst) On CCLDV-BR-122.
+- SME-109: When updating a card, where should the expiry day come from? The screen shows the original day as not changeable, yet the saved day is taken from a hidden screen field without checks. Should the saved day be the original stored day, be recalculated (for example, the last day of the month), or be the entered value? And should the new expiry date have to be in the future, or no earlier than the current expiry? (Card operations subject-matter expert) On CCLDV-BR-122.
+- SME-110: When a card is updated, the saved CVV comes from an 'updated CVV' value that no rule captures or checks. Should the saved CVV always be the original stored CVV? (Card operations business analyst) On CCLDV-BR-122.
+- SME-111: After the operator confirms a card update, if a file error or other message is already pending, the result is reported as 'changes saved'. Is that intended? (Card operations business analyst) On CCLDV-BR-122.
+- DEF-083: Is this intended? The rewrite takes the CVV from a new-details field that is cleared on every screen receive and never filled, so a saved card has its CVV overwritten instead of keeping the stored value. (Subject-matter expert) On CCLDV-BR-122.
+
+## Testing
+
+Every acceptance criterion in requirements.md is a test named by its ID (2 in all).

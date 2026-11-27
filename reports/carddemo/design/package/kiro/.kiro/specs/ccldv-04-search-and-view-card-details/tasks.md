@@ -1,0 +1,36 @@
+# Implementation plan: Search and view card details (CCLDV-C04)
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+- [ ] 1. CCLDV-C04-T1 [data] Model the data the capability reads and writes
+  - File records: CSMSG02Y, CVACT02Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSMSG01Y, CSSTRPFY, CSUSR01Y, CVCRD01Y, CVCUS01Y.
+  - _Requirements: CCLDV-REQ-F-034, CCLDV-REQ-F-035, CCLDV-REQ-F-036, CCLDV-REQ-F-037, CCLDV-REQ-F-038, CCLDV-REQ-F-039, CCLDV-REQ-F-040, CCLDV-REQ-F-041, CCLDV-REQ-F-042, CCLDV-REQ-F-043, CCLDV-REQ-F-044, CCLDV-REQ-F-045, CCLDV-REQ-F-046, CCLDV-REQ-F-047, CCLDV-REQ-F-048, CCLDV-REQ-F-049, CCLDV-REQ-F-050, CCLDV-REQ-F-051, CCLDV-REQ-F-052, CCLDV-REQ-F-053_
+- [ ] 2. CCLDV-C04-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: CCLDV-REQ-F-034, CCLDV-REQ-F-035, CCLDV-REQ-F-036, CCLDV-REQ-F-037, CCLDV-REQ-F-038, CCLDV-REQ-F-039, CCLDV-REQ-F-040, CCLDV-REQ-F-041, CCLDV-REQ-F-042, CCLDV-REQ-F-043, CCLDV-REQ-F-044, CCLDV-REQ-F-046_
+  - _Rules: CCLDV-BR-032, CCLDV-BR-033, CCLDV-BR-034, CCLDV-BR-035, CCLDV-BR-036, CCLDV-BR-037, CCLDV-BR-038, CCLDV-BR-039, CCLDV-BR-040, CCLDV-BR-041, CCLDV-BR-042, CCLDV-BR-043, CCLDV-BR-045_
+  - _After: CCLDV-C04-T1_
+- [ ] 3. CCLDV-C04-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: CCLDV-REQ-F-047, CCLDV-REQ-F-045, CCLDV-REQ-F-048, CCLDV-REQ-F-049, CCLDV-REQ-F-050, CCLDV-REQ-F-051, CCLDV-REQ-F-052, CCLDV-REQ-F-053_
+  - _Rules: CCLDV-BR-044, CCLDV-BR-046, CCLDV-BR-047, CCLDV-BR-048, CCLDV-BR-049, CCLDV-BR-050, CCLDV-BR-051, CCLDV-BR-052_
+  - _After: CCLDV-C04-T1_
+- [ ] 4. CCLDV-C04-T4 [ui-modernization] Build the screen Card details (S-CARD-DETAIL)
+  - To the prototype: ui-reference/index.html#/S-CARD-DETAIL.
+  - **lookup field** "Account number": Required, an 11-digit number other than zeros: 'Account number not provided. Enter the 11-digit account number.' or 'Account filter, if supplied, must be an 11 digit number. Enter digits only.' Both fields empty: 'No input received. Enter the account and card number.' Account is checked before card, and focus moves to the first field in error.
+  - **lookup field** "Card number": Required, a 16-digit number other than zeros: 'Card number not provided. Enter the 16-digit card number.' or 'Card ID filter, if supplied, must be a 16 digit number. Enter digits only.' No card with that number: 'Did not find cards for this search condition. Check the card number.'
+  - **summary card** "Card"
+  - **status badge** "Current status"
+  - _Requirements: CCLDV-REQ-F-044, CCLDV-REQ-F-045, CCLDV-REQ-F-046, CCLDV-REQ-F-047, CCLDV-REQ-F-051, CCLDV-REQ-F-053_
+  - _Rules: CCLDV-BR-043, CCLDV-BR-044, CCLDV-BR-045, CCLDV-BR-046, CCLDV-BR-050, CCLDV-BR-052_
+  - _After: CCLDV-C04-T2, CCLDV-C04-T3_
+- [ ] 5. CCLDV-C04-T5 [test-generation] Write a test for every acceptance criterion
+  - 33 acceptance criteria, each a test named by its ID.
+  - _Requirements: CCLDV-REQ-F-034, CCLDV-REQ-F-035, CCLDV-REQ-F-036, CCLDV-REQ-F-037, CCLDV-REQ-F-038, CCLDV-REQ-F-039, CCLDV-REQ-F-040, CCLDV-REQ-F-041, CCLDV-REQ-F-042, CCLDV-REQ-F-043, CCLDV-REQ-F-044, CCLDV-REQ-F-045, CCLDV-REQ-F-046, CCLDV-REQ-F-047, CCLDV-REQ-F-048, CCLDV-REQ-F-049, CCLDV-REQ-F-050, CCLDV-REQ-F-051, CCLDV-REQ-F-052, CCLDV-REQ-F-053_
+  - _Criteria: CCLDV-C04-AC-01, CCLDV-C04-AC-02, CCLDV-C04-AC-03, CCLDV-C04-AC-04, CCLDV-C04-AC-05, CCLDV-C04-AC-06, CCLDV-C04-AC-07, CCLDV-C04-AC-08, CCLDV-C04-AC-09, CCLDV-C04-AC-10, CCLDV-C04-AC-11, CCLDV-C04-AC-12, CCLDV-C04-AC-13, CCLDV-C04-AC-14, CCLDV-C04-AC-15, CCLDV-C04-AC-16, CCLDV-C04-AC-17, CCLDV-C04-AC-18, CCLDV-C04-AC-19, CCLDV-C04-AC-20, CCLDV-C04-AC-21, CCLDV-C04-AC-22, CCLDV-C04-AC-23, CCLDV-C04-AC-24, CCLDV-C04-AC-25, CCLDV-C04-AC-26, CCLDV-C04-AC-27, CCLDV-C04-AC-28, CCLDV-C04-AC-29, CCLDV-C04-AC-30, CCLDV-C04-AC-31, CCLDV-C04-AC-32, CCLDV-C04-AC-33_
+  - _After: CCLDV-C04-T1, CCLDV-C04-T2, CCLDV-C04-T3, CCLDV-C04-T4_
+- [ ] 6. CCLDV-C04-T6 [compliance] Review the handling of card data, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: CCLDV-REQ-F-034, CCLDV-REQ-F-035, CCLDV-REQ-F-036, CCLDV-REQ-F-037, CCLDV-REQ-F-038, CCLDV-REQ-F-039, CCLDV-REQ-F-040, CCLDV-REQ-F-041, CCLDV-REQ-F-042, CCLDV-REQ-F-043, CCLDV-REQ-F-044, CCLDV-REQ-F-045, CCLDV-REQ-F-046, CCLDV-REQ-F-047, CCLDV-REQ-F-048, CCLDV-REQ-F-049, CCLDV-REQ-F-050, CCLDV-REQ-F-051, CCLDV-REQ-F-052, CCLDV-REQ-F-053_
+  - _After: CCLDV-C04-T1, CCLDV-C04-T2, CCLDV-C04-T3, CCLDV-C04-T4_

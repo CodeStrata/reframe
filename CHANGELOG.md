@@ -1,0 +1,75 @@
+# Changelog
+
+What changed in each release. Releases are tagged on `main`; the stories behind each are in [docs/plan.md](docs/plan.md).
+
+## 1.0.0 (27 November 2026)
+
+The first release for anyone to try: with Claude only, or with Claude and AWS Transform. Tested end to end on mainframe code; open source under the MIT License, at github.com/CodeStrata/reframe.
+
+**Published examples**
+- Only CardDemo's example reports are published, with CardDemo's licence and notice beside them; other codebases Reframe is tested on are run locally, and nothing from them is committed.
+
+**Code quality**
+- Reframe is classed as Beta.
+- CI lints with ruff, type-checks with mypy and fails below 80% line coverage, with the checkers pinned in the `dev` extra.
+- The drivers of both assessments and the command handlers are tested stage by stage.
+
+**Signing in**
+- `--auth api-key` signs Claude in with an Anthropic API key (`ANTHROPIC_API_KEY`, and `ANTHROPIC_BASE_URL` for a gateway), on every command that runs Claude and in the guided run. The key is passed to Claude Code and never written.
+- Amazon Bedrock on a Claude-only run: `--auth bedrock --profile <profile>` uses the profile for Bedrock only, with no AWS resources; a Bedrock API key needs no profile.
+- The reconciliation and the design check a Bedrock sign-in against the run's profile; before, `--auth bedrock` always failed their preflight.
+- Estimates say who is billed, and `reframe publish` replaces an API key it finds.
+
+**Exports**
+- `reframe export --to jira` and `--to azure-devops` write the design's backlog as each tool's CSV import file: epics, features (Azure DevOps) and a story per capability, with its requirements, rules, open questions and acceptance criteria, all with the AI-DLC package's IDs.
+
+**Evidence**
+- `python -m reframe.reconcile.expert` gives the accuracy audit's sample to a mainframe expert, blind, as one page and a CSV to fill in, and reads their verdicts back: their accuracy figures, their agreement with each judge and with the audit, and the rules they call wrong.
+- The larger-codebase spike (SC-01) compares the public candidates, their sizes and licences, with cost estimates for the owner's choice.
+
+**The design (pipeline 4)**
+- Golden datasets (P4-11): per capability, the cases the new system must answer as the legacy one does, from the worked examples and the decision-table rows, in `golden/` in every form of the package. `golden/compare.py` compares a new system's answers and reports formatting apart from business differences. Until legacy outputs are captured, the expected outputs come from the rules.
+
+
+**The design (pipeline 4), `reframe design`**
+- The screen inventory and how screens connect: every BMS map drawn as a 3270 copy, each link citing its source lines.
+- User journeys, and modern screens with every legacy screen, field and key mapped to what replaces it.
+- A clickable prototype beside the legacy screens, with marks reviewers can download.
+- A final specification for every capability, with acceptance criteria, data contracts from the copybooks, decision tables and open questions. It is final where the function is signed off and draft otherwise.
+- The AI-DLC package in Kiro, Claude Code and Spec Kit forms, with traced IDs, `[FILL IN: ...]` placeholders and `START-HERE.md`. `--package` copies it and `--check` lists what is left.
+- Rounds with more context (personas, decisions, a design system, a style reference, prototype reviews, sign-offs). A round redoes only what the context touches, and says why in `changes-<round>.md`. `--plan` says it beforehand.
+
+**Claude only**
+- `reframe run --tools claude` and `reframe setup --tools claude`: a run with no AWS account, no AWS resources and nothing to tear down.
+- The reconciliation checks every Claude rule against the source code, in Claude's own domains and functions. The design and publishing work unchanged.
+
+**Sharing**
+- Every run lives in `<workspace>/.reframe/<project>/<run>/`, with `inputs/` for added context and `outputs/` for what Reframe makes.
+- `reframe publish --to aws` uploads the run's `source/`, `results/` and cleaned `reports/` to the standing private bucket. Publishing is optional.
+- `reframe publish --to pages` publishes the cleaned copy to a GitHub Pages site, after a typed yes to a warning that the site is public.
+- The CardDemo example reports are on this repository's Pages site.
+
+**The repository**
+- A shorter README, the full guide in `docs/guide.md`, CONTRIBUTING, this changelog and issue templates.
+- CI on Linux and macOS with Python 3.10 to 3.13, plus a check that the built package installs and runs.
+
+## 0.4.0 (24 November 2026)
+
+**The reconciliation (pipeline 3), `reframe reconcile`**
+- Rules both tools describe the same way are agreed. Claude decides every other rule against the source code, and Reframe checks the evidence.
+- One SME list, recommended requirements in AWS Transform's frame, and the reconciliation page.
+- Part 2 added Reframe's own confidence, rule kinds, worked examples, possible defects, decision tables, risk per capability, *Review first*, and the review loop with several reviewers and sign-offs.
+- `reframe review`, and `reframe export --to xlsx`.
+
+**The Claude assessment (pipeline 2), `reframe claude`**
+- Claude's code-modernization plugin runs on the same snapshot, alongside AWS Transform, with requirements generated by Reframe and the graph loaded into Neptune.
+- A comparison page for the two tools.
+
+**Sharing**
+- `reframe publish`: a copy cleaned of the account's identifiers.
+- A private reports bucket in the AWS account, opened by project with `reframe reports`.
+
+## 0.3.0 (17 November 2026)
+
+- The AWS Transform assessment (pipeline 1) end to end from one command: the snapshot, Terraform for the AWS resources, the job, the reimagine connector, retrieval and the business review report.
+- `reframe teardown` deletes only what the run's own records say it created, after consent.

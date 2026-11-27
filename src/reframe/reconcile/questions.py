@@ -26,13 +26,16 @@ from reframe.reconcile.units import PARALLEL, named_rules
 
 BATCH_QUESTIONS = 40
 TOOLS = {"aws": "AWS Transform", "claude": "Claude's plugin", "r4": "Reframe's decisions"}
-COLUMNS = ["id", "kind", "question", "owner", "status", "rules", "originals", "from", "evidence", "settled_by", "settled_answer", "answer"]
+COLUMNS = ["id", "kind", "call", "question", "owner", "status", "rules", "originals", "from", "evidence", "settled_by", "settled_answer", "answer"]
 
 SCHEMA = {"type": "object", "required": ["questions"], "properties": {"questions": {"type": "array", "items": {
     "type": "object", "required": ["text", "owner", "members", "settled_by", "settled_answer"],
     "properties": {"text": {"type": "string"}, "owner": {"type": "string"},
                    "members": {"type": "array", "items": {"type": "string"}},
                    "settled_by": {"type": "string"}, "settled_answer": {"type": "string"}}}}}}
+
+ONE_TOOL = (('from two tools that assessed the same source ("AWS Transform" and "Claude\'s plugin") and from Reframe\'s own decisions',
+             'from Claude\'s plugin, which assessed the source, and from Reframe\'s own decisions'),)
 
 PROMPT = """Read {input}. It holds open questions for subject-matter experts about a legacy system, from two tools that assessed the same source ("AWS Transform" and "Claude's plugin") and from Reframe's own decisions. Each has an id, where it came from, its text, who should answer it, and the business rules it holds up.{context}
 
@@ -72,8 +75,8 @@ def originals(gathered: dict[str, Any], found: list[dict[str, Any]], kept: dict[
             asked.append({"key": f"r4:{u['key']}", "tool": "r4", "code": u["key"], "text": d["question"], "owner": "Subject-matter expert",
                           "rules": members})
         if str(d.get("defect") or "").strip():
-            defects.append({"key": f"defect:{u['key']}", "unit": u["key"], "text": d["defect"], "evidence": d.get("evidence") or [],
-                            "rules": members, "program": u["program"]})
+            defects.append({"key": f"defect:{u['key']}", "unit": u["key"], "text": d["defect"], "call": d.get("defect_call") or "",
+                            "evidence": d.get("defect_evidence") or d.get("evidence") or [], "rules": members, "program": u["program"]})
     for q in asked:
         q["program"] = Counter(rules[k]["program"] for k in q["rules"] if k in rules and rules[k]["program"]).most_common(1)[0][0] \
             if any(k in rules and rules[k]["program"] for k in q["rules"]) else ""
@@ -167,7 +170,8 @@ def merge_batch(folder: RunFolder, claude, places: dict[str, Any], name: str, ba
                    + ("; " if documents and answers else "") + ("answered questions, in the file's \"answered\" list" if answers else "") + ".")
     path = folder_in / f"{name}.json"
     path.write_text(json.dumps(data, indent=1))
-    prompt = PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", context=context)
+    from reframe.reconcile.units import one_tool
+    prompt = one_tool(folder, PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", context=context), ONE_TOOL)
     merged: list[dict[str, Any]] = []
     for attempt in (1, 2):
         step = claude.run(f"{name}{'-retry' if attempt == 2 else ''}", prompt, timeout=3600, schema=SCHEMA)
@@ -181,7 +185,7 @@ def merge_batch(folder: RunFolder, claude, places: dict[str, Any], name: str, ba
             wrong = problems(ids, merged, sources)
             if not wrong:
                 break
-        prompt = PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", context=context) + "\n\n" + \
+        prompt = one_tool(folder, PROMPT.format(input=f"analysis/{project}/{path.relative_to(places['analysis']).as_posix()}", context=context), ONE_TOOL) + "\n\n" + \
             RETRY.format(problems="\n".join(f"- {w}" for w in wrong))
     merged = repair(ids, merged, sources, texts)
     return [{**q, "members": [back[m] for m in q["members"]]} for q in merged], None
@@ -258,7 +262,8 @@ def build(folder: RunFolder, claude, gathered: dict[str, Any], found: list[dict[
                            "from": [f"{TOOLS[m['tool']]} {m['code']}".strip() for m in members], "evidence": [],
                            "settled_by": q.get("settled_by") or "", "settled_answer": q.get("settled_answer") or "", "program": members[0]["program"]})
     for d in defects:
-        listed.append({"kind": "defect", "question": f"Is this intended? {d['text']}", "owner": "Subject-matter expert", "rules": d["rules"],
+        ask = "Confirm this is deliberate:" if d["call"] == "deliberate" else "Is this intended?"
+        listed.append({"kind": "defect", "question": f"{ask} {d['text']}", "owner": "Subject-matter expert", "rules": d["rules"], "call": d["call"],
                        "originals": [d["key"]], "from": [f"Reframe's decision on {d['unit']}"], "evidence": d["evidence"], "settled_by": "",
                        "settled_answer": "", "program": d["program"]})
     numbers = Counter()
@@ -286,6 +291,6 @@ def to_csv(listed: list[dict[str, Any]]) -> str:
     writer = csv.writer(out)
     writer.writerow(COLUMNS)
     for q in listed:
-        writer.writerow([q["id"], q["kind"], q["question"], q["owner"], q["status"], " ".join(q["rules"]), " ".join(q["originals"]),
+        writer.writerow([q["id"], q["kind"], q.get("call", ""), q["question"], q["owner"], q["status"], " ".join(q["rules"]), " ".join(q["originals"]),
                          "; ".join(q["from"]), " ".join(q["evidence"]), q["settled_by"], q["settled_answer"], q["answer"]])
     return out.getvalue()

@@ -19,7 +19,8 @@ class CliTest(unittest.TestCase):
         self.assertIn("setup", cli.parser().format_help())
 
     def test_guided_run_needs_a_terminal(self):
-        import os, tempfile
+        import os
+        import tempfile
         from unittest import mock
         with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"REFRAME_HOME": tmp}), \
                 mock.patch("reframe.core.ui.interactive", return_value=False), contextlib.redirect_stdout(io.StringIO()) as out:
@@ -27,13 +28,45 @@ class CliTest(unittest.TestCase):
         self.assertIn("needs a terminal", out.getvalue())
 
     def test_run_with_source_needs_a_profile_from_somewhere(self):
-        import os, tempfile
+        import os
+        import tempfile
         from unittest import mock
         with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"REFRAME_HOME": tmp}), \
                 contextlib.redirect_stderr(io.StringIO()) as err:
             code = cli.main(["run", "--source", tmp])
         self.assertNotEqual(code, 0)
         self.assertIn("reframe setup", err.getvalue())
+
+    def test_run_with_source_starts_both_tools_unless_told_otherwise(self):
+        from unittest import mock
+        from reframe.core import commands
+        with mock.patch("reframe.core.setup.load_config", return_value={"profile": "p", "region": "us-east-1"}), \
+                mock.patch.object(commands, "start", return_value=0) as start:
+            cli.main(["run", "--source", "/src/app", "--max-agents", "650"])
+            cli.main(["run", "--source", "/src/app", "--tools", "aws"])
+        self.assertEqual(start.call_args_list[0].kwargs["claude"], {"auth": "subscription", "max_agents": 650})
+        self.assertIsNone(start.call_args_list[1].kwargs["claude"])
+
+    def test_one_design_round_at_a_time(self):
+        # 26 November 2026: a round started in a terminal while another ran wrote the same parts and paid Claude twice
+        import os
+        import tempfile
+        import types
+        from unittest import mock
+        from reframe.core import commands
+        from reframe.core.runfolder import new_run
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"REFRAME_HOME": tmp}):
+            folder = new_run("demo")
+            folder.update(project="demo")
+            folder.path("design.lock").write_text(str(os.getppid()))  # another live process holds it
+            args = types.SimpleNamespace(check=None, run=folder.root.name, package=None, context=None, plan=False, auth="subscription",
+                                         stack=None, open=False, form="all")
+            with mock.patch("reframe.claude.preflight.check", return_value=mock.Mock(ok=True)), \
+                    mock.patch("reframe.reconcile.pipeline.claude_code"), mock.patch("reframe.design.pipeline.run") as run, \
+                    contextlib.redirect_stderr(io.StringIO()) as err, contextlib.redirect_stdout(io.StringIO()):
+                self.assertNotEqual(commands.design(args), 0)
+            run.assert_not_called()
+            self.assertIn("is running this run", err.getvalue())
 
     def test_no_command_without_a_terminal_prints_help(self):
         from unittest import mock
@@ -60,7 +93,8 @@ class CliTest(unittest.TestCase):
         self.assertIn("unrecognized arguments: --nonsense", err.getvalue())
 
     def test_answer_hint_without_options(self):
-        import os, tempfile
+        import os
+        import tempfile
         from unittest import mock
         from reframe.core import commands
         from reframe.core.runfolder import new_run
@@ -77,3 +111,16 @@ class CliTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ClaudeNextTest(unittest.TestCase):
+    def test_reconcile_suggested_once_both_assessments_are_done(self):
+        from reframe.core.commands import claude_next
+        first = claude_next({"claude": {"status": "DONE"}})
+        self.assertTrue(first.startswith("reframe teardown removes the AWS resources, which the reconciliation does not need; then reframe reconcile"))
+        torn = claude_next({"claude": {"status": "DONE"}, "torn_down": "2026-11-25T20:30:00Z"})
+        self.assertTrue(torn.startswith("reframe reconcile reconciles the two assessments"))
+        self.assertNotIn("teardown", torn)
+        done = claude_next({"claude": {"status": "DONE"}, "reconcile": {"status": "DONE"}})
+        self.assertNotIn("reframe reconcile", done)  # the reconciliation's own section says what comes next
+        self.assertTrue(done.endswith("reframe teardown removes the AWS resources"))

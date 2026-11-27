@@ -12,6 +12,7 @@ A chat question is recognised by its closing line, because AWS puts it at the en
 | the business function catalog (SELECT) | spike 1, 21 November 2026        | every business domain and the unassigned programs    |
 | "Do you want to proceed?" after it     | spike 1, 21 November 2026        | "Yes, proceed."                                      |
 | the readiness menu after it            | 23 November 2026                 | its one numbered choice that starts with "Proceed"   |
+| a name that is a domain and a function | 25 November 2026                 | the domain, as AWS asks for it                       |
 | the source-location form               | 17, 20 and 21 November 2026      | the uploaded snapshot's S3 location                  |
 
 Interactive mode turns each of these into a Question for reframe answer; the source-location form is
@@ -51,6 +52,13 @@ PLEASE_CONFIRM = re.compile(r"^please confirm\b")
 # 15 business functions and 25 unassigned programs", "Switch selection ...", "Drop unassigned programs ...") closing
 # with "Please reply with your choice." It has no question mark, so it is recognised by that closing line.
 REPLY_CHOICE = re.compile(r"^(please )?reply with (your|the|one) (choice|option|selection|number)\b")
+# A name that is both a business domain and a business function (a live test run, 25 November 2026). AWS lists the two
+# readings as options, bulleted or numbered, in its own words: "domain Web Service Interface Generation — reimagine all
+# business functions in that domain" and "function Web Service Interface Generation — reimagine only that one business
+# function", and asks which was meant ("Which did you intend?", "Which would you prefer?", or "Please reply with either
+# "domain" or "function""). Recognised by those two options, not by the closing line.
+CLASH_OPTION = re.compile(r"^\s*(?:[-*\u2022]|\d+\.)\s+(domain|function)\s+(.+?)\s*(?:\u2014|\u2013|\s-\s|:|$)", re.I | re.M)
+BARE_WORD = re.compile(r'\breply with either\s+"?domain"?\s+or\s+"?function"?', re.I)
 
 
 # AWS spelling out the reply it wants ("To move forward, please reply: **Yes, proceed**"); sent as given when affirmative.
@@ -98,6 +106,17 @@ def offers_choices(text: str) -> bool:
     return bool(menu_options(plain(text))) or bool(re.search(r"\breply\b", closing_line(text)))
 
 
+def name_clashes(text: str) -> list[str]:
+    """The names AWS offers both as "domain <name>" and as "function <name>", in its order."""
+    readings: dict[str, set[str]] = {}
+    names: dict[str, str] = {}
+    for reading, name in CLASH_OPTION.findall(plain(text)):
+        key = normalize(name).strip('"\u201c\u201d')
+        readings.setdefault(key, set()).add(reading.casefold())
+        names.setdefault(key, name.strip().strip('"\u201c\u201d'))
+    return [names[key] for key, seen in readings.items() if seen == {"domain", "function"}]
+
+
 def setup_message(choice: str) -> str:
     """One reply with every setup answer, so AWS has nothing left to ask before it builds the plan. It names no
     workspace, job, connector or archive: AWS refuses identifiers in its chat."""
@@ -123,7 +142,7 @@ class Question:
 
     id: str
     kind: str
-    """plan, catalog, reselect, confirm, choice, select, chat or form"""
+    """plan, catalog, reselect, confirm, choice, clash, select, chat or form"""
     text: str
     options: tuple[str, ...] = ()
     replies: tuple[str, ...] = ()
@@ -190,6 +209,13 @@ def chat_question(message: dict[str, Any], awaiting: bool = False) -> Question |
         if everything:
             labels, replies = [EVERYTHING, *labels], [everything, *replies]
         return Question(message_id, kind, text, tuple(labels), tuple(replies), interaction_origin_id=message_id)
+    clashes = name_clashes(text)
+    if clashes:
+        bare = BARE_WORD.search(plain(text)) and len(clashes) == 1
+        replies = ("domain", "function") if bare else tuple(", ".join(f"{reading} {name}" for name in clashes) for reading in ("domain", "function"))
+        listed = ", ".join(f'"{name}"' for name in clashes)
+        return Question(message_id, "clash", text, (f"The business domain {listed}: every business function in it",
+                                                    f"The business function {listed} only"), replies)
     if closing in PLAN_MENU:
         numbered = menu_options(text)
         return Question(message_id, "plan", text, tuple(label for _, label in numbered),
@@ -239,6 +265,9 @@ def autonomous(question: Question) -> Answer | None:
             return Answer(proceed[0], "AWS's readiness menu after the selection: the one choice that proceeds with everything selected, "
                                       "so the full source is assessed")
         return None
+    if question.kind == "clash":
+        return Answer(question.replies[0], "a name that is both a business domain and a business function: Reframe's selection names "
+                                           "business domains only, so it meant the domain")
     if question.kind == "select":
         return None  # AWS marks no default on the SELECT interactions recorded so far
     return None

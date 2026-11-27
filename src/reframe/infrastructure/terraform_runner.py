@@ -219,7 +219,7 @@ def own_providers(providers: Path) -> list[Path]:
     terraform init rewrites the cached provider in place even when it is already there, so a run that was planning or
     applying through a link read a half-written provider ("does not match any of the checksums", "Plugin did not
     respond") whenever another run started (live round 2). An APFS clone on macOS costs no space."""
-    replaced = []
+    replaced: list[Path] = []
     if not providers.is_dir():
         return replaced
     for link in sorted(p for p in providers.rglob("*") if p.is_symlink()):

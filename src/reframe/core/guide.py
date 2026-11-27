@@ -70,7 +70,7 @@ def _install(tool: setup.Tool, m: setup.Machine) -> None:
     if tool.optional:
         prompt, default = f"Install {tool.name} now? ({tool.note})", False
     else:
-        prompt, default = f"Run it now?", True
+        prompt, default = "Run it now?", True
     if ui.yes(prompt, default):
         if setup.run_in_terminal(tool.install or ""):
             ui.ok(f"{tool.name}: the install command finished")
@@ -79,20 +79,21 @@ def _install(tool: setup.Tool, m: setup.Machine) -> None:
         setup.use_saved_paths()
 
 
-def prerequisites(m: setup.Machine) -> bool:
+def prerequisites(m: setup.Machine, tools_wanted: str = "both") -> bool:
     ui.section("1  Prerequisites")
+    pick = setup.for_claude_only if tools_wanted == "claude" else (lambda found: found)
     ui.hint(f"What a run needs, checked on {m.name}.")
     offered: set[str] = set()
     while True:
         with ui.console.status("Checking…"):
-            tools = setup.check(m)
+            tools = pick(setup.check(m))
         _show(tools)
         required = [t for t in tools if not t.ready and not t.optional]
         optional = [t for t in tools if not t.ready and t.optional and t.install and t.key not in offered]
         if not required and not optional:
             ui.ok("Everything a run needs is ready.")
             return True
-        uv_missing = not next(t for t in tools if t.key == "uv").ready
+        uv_missing = not next((t for t in tools if t.key == "uv"), setup.Tool("uv", "", "", ready=True)).ready  # a Claude-only run has no uv
         claude_missing = not next(t for t in tools if t.key == "claude").ready
         todo = [t for t in required + optional if t.key not in offered and not (t.key == "mcp" and uv_missing)
                 and not (t.key == "plugin" and claude_missing)]
@@ -106,7 +107,7 @@ def prerequisites(m: setup.Machine) -> bool:
                 continue
             _install(tool, m)
         setup.use_saved_paths()
-    missing = [t for t in setup.check(m) if not t.ready and not t.optional]
+    missing = [t for t in pick(setup.check(m)) if not t.ready and not t.optional]
     if not missing:
         ui.ok("Everything a run needs is ready.")
         return True
@@ -228,25 +229,71 @@ def choices(chosen_source: str) -> dict[str, Any]:
     graph = ("new", "existing")[ui.choose("Neptune graph for AWS Transform", [
         ("A new graph for this run", "its own private network; billed until reframe teardown"),
         ("An existing Neptune cluster", "Reframe lists the clusters in the region and checks each; used as it is, never changed")]) - 1]
-    picked = {"mode": mode, "project": project, "graph": graph, "claude": None}
+    picked: dict[str, Any] = {"mode": mode, "project": project, "graph": graph, "claude": None}
     picked["claude"] = claude_choice()
     return picked
 
 
-def claude_choice() -> dict[str, Any] | None:
-    """Pipeline 2, offered with yes as the default: after AWS Transform finishes, the same snapshot is assessed with Claude."""
+def which_tools() -> str:
+    """Asked first (docs/release-1.md, section 2): a Claude-only run needs no AWS account and asks nothing about AWS."""
+    ui.section("Tools")
+    return ("both", "claude")[ui.choose("Which assessments should this run use?", [
+        ("AWS Transform and Claude", "both assessments, compared and reconciled against the code; needs an AWS account with AWS Transform"),
+        ("Claude only", "Claude's code-modernization plugin, every rule checked against the code; no AWS at all")]) - 1]
+
+
+def claude_only_choices(chosen_source: str) -> dict[str, Any]:
+    from reframe.core.runfolder import PROJECT, project_name
+    ui.section("4  Choices")
+    mode = ("autonomous", "interactive")[ui.choose("How should the plugin's questions be answered?", [
+        ("Autonomous", "Reframe answers them and records why (recommended)"),
+        ("Interactive", "you answer each one with reframe answer")]) - 1]
+    try:
+        default = project_name(chosen_source.rstrip("/").removesuffix(".zip"))
+    except Exception:  # noqa: BLE001 - a name Reframe cannot derive is simply asked for
+        default = None
+    project = ui.ask("Project name (lower-case letters, digits and hyphens)", default,
+                     check=lambda v: None if PROJECT.match(v) else "Use 1 to 30 lower-case letters, digits or hyphens, starting with a letter or digit")
+    return {"mode": mode, "project": project, "claude": claude_choice(alone=True)}
+
+
+def claude_only_summary(chosen_source: str, ref: str | None, picked: dict[str, Any]) -> bool:
+    ui.section("5  Summary")
+    ui.table(("", ""), [("Source", chosen_source + (f" @ {ref}" if ref else "")), ("Tools", "Claude only, with your Claude subscription"),
+                        ("Mode", picked["mode"]), ("Project", picked["project"]), ("Agent limit", str(picked["claude"]["max_agents"]))], ("bold", None))
+    ui.say("Reframe creates nothing outside this computer: the snapshot and every result stay in the run folder. On CardDemo the assessment "
+           "takes about two hours.")
+    return ui.yes("Start the run?")
+
+
+def claude_choice(alone: bool = False) -> dict[str, Any] | None:
+    """Pipeline 2, offered with yes as the default: after AWS Transform finishes, the same snapshot is assessed with Claude.
+    On a Claude-only run it is the run itself, signed in with the Claude subscription or an Anthropic API key (Amazon Bedrock
+    on a Claude-only run is chosen with reframe run --tools claude --auth bedrock --profile <profile>)."""
+    ui.section("Claude assessment")
+    signins = [("Your Claude subscription", "Claude Code's own sign-in (claude auth login)"),
+               ("An Anthropic API key", "ANTHROPIC_API_KEY in this shell, billed at API prices; passed to Claude Code and never written")]
+    if alone:
+        auth = ("subscription", "api-key")[ui.choose("How should Claude sign in?", signins) - 1]
+    elif not _also_claude():
+        ui.hint("Later, run: reframe claude")
+        return None
+    else:
+        auth = ("subscription", "api-key", "bedrock")[ui.choose("How should Claude sign in?", signins + [
+            ("Amazon Bedrock", "Claude models billed to the AWS account, with this AWS profile or AWS_BEARER_TOKEN_BEDROCK")]) - 1]
+    return _claude_settings(auth)
+
+
+def _also_claude() -> bool:
+    ui.say("Reframe can also assess the same snapshot with Claude's code-modernization plugin, alongside AWS Transform: it starts as "
+           "soon as the run's Neptune graph exists, shows its results in the same business review, and builds a page comparing the two.")
+    return ui.yes("Assess the same snapshot with Claude as well?", default=True)
+
+
+def _claude_settings(auth: str, limit_too: bool = True) -> dict[str, Any]:
     from reframe.claude import plugin, preflight
     from reframe.claude.pipeline import DEFAULT_MAX_AGENTS
     from reframe.claude.runner import environment
-    ui.section("Claude assessment")
-    ui.say("Reframe can also assess the same snapshot with Claude's code-modernization plugin, alongside AWS Transform: it starts as "
-           "soon as the run's Neptune graph exists, shows its results in the same business review, and builds a page comparing the two.")
-    if not ui.yes("Assess the same snapshot with Claude as well?", default=True):
-        ui.hint("Later, run: reframe claude")
-        return None
-    auth = ("subscription", "bedrock")[ui.choose("How should Claude sign in?", [
-        ("Your Claude subscription", "Claude Code's own sign-in (claude auth login)"),
-        ("Amazon Bedrock", "Claude models billed to the AWS account, with this AWS profile or AWS_BEARER_TOKEN_BEDROCK")]) - 1]
     if auth == "subscription":
         status = preflight.auth_status(environment("subscription"))
         if status.get("loggedIn"):
@@ -255,12 +302,21 @@ def claude_choice() -> dict[str, Any] | None:
             ui.warn("Claude Code is not signed in.")
             if ui.yes("Run claude auth login now? You sign in in your browser.", default=True):
                 setup.run_in_terminal("claude auth login")
+    elif auth == "api-key":
+        import os
+        if os.environ.get("ANTHROPIC_API_KEY", "").strip():
+            ui.ok("ANTHROPIC_API_KEY is set; Claude's steps are billed to it at API prices.")
+        else:
+            ui.warn("ANTHROPIC_API_KEY is not set in this shell. Export it, then start the run again; Reframe passes it to Claude Code "
+                    "and never writes it.")
     if not plugin.fetched():
         ui.say(f"Reframe uses the code-modernization plugin {plugin.VERSION}, fetched from Anthropic's plugin repository at a pinned commit.")
         if ui.yes("Fetch it now?", default=True):
             with ui.console.status("Fetching the plugin…"):
                 plugin.fetch()
             ui.ok(f"Plugin {plugin.VERSION} ready.")
+    if not limit_too:
+        return {"auth": auth}
     ui.hint("Rule extraction starts many agents at once: on CardDemo about 370 to 555, up to about 9 million tokens and an hour.")
     limit = ui.ask("Agent limit for rule extraction (Reframe stops and asks if the estimate is higher)", str(DEFAULT_MAX_AGENTS),
                    check=lambda v: None if v.isdigit() and int(v) > 0 else "Enter a whole number of agents")
@@ -292,6 +348,20 @@ def run(args) -> int:
         ui.fail("Reframe runs on macOS and Linux. On Windows, install WSL2 and run Reframe inside it.")
         return 2
     try:
+        if which_tools() == "claude":
+            if not prerequisites(m, "claude"):
+                return 1
+            picked_source = source()
+            if picked_source is None:
+                return 1
+            chosen, ref = picked_source
+            picked = claude_only_choices(chosen)
+            if not claude_only_summary(chosen, ref, picked):
+                ui.hint("Nothing was started or created.")
+                return 0
+            return commands.start_claude_only(source=chosen, ref=ref, mode=picked["mode"], project=picked["project"],
+                                              foreground=bool(getattr(args, "foreground", False)), max_agents=picked["claude"]["max_agents"],
+                                              auth=picked["claude"]["auth"])
         if not prerequisites(m):
             return 1
         sign = sign_in()
@@ -317,12 +387,21 @@ def setup_only(args) -> int:
     if not ui.interactive():
         ui.fail("reframe setup asks questions, so it needs a terminal.")
         return 2
-    ui.header("SETUP · prerequisites and AWS sign-in")
+    alone = getattr(args, "tools", "both") == "claude"
+    ui.header("SETUP · prerequisites" + ("" if alone else " and AWS sign-in"))
     m = setup.machine()
     if m.system == "windows":
         ui.fail("Reframe runs on macOS and Linux. On Windows, install WSL2 and run Reframe inside it.")
         return 2
     try:
+        if alone:
+            if not prerequisites(m, "claude"):
+                return 1
+            _claude_settings("subscription", limit_too=False)  # Claude Code's sign-in and the plugin
+            ui.console.print()
+            ui.ok("Set up for Claude only. Start a run with:")
+            ui.command("reframe run --tools claude --source <folder | file.zip | github-url>")
+            return 0
         if not prerequisites(m) or sign_in() is None:
             return 1
     except (EOFError, KeyboardInterrupt):

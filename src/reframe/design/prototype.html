@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{title}}</title>
+<style>
+:root{--bg:#f4f6f8;--fg:#18202a;--muted:#5d6876;--line:#d6dce3;--card:#fff;--accent:#1d5fc2;--accent-fg:#fff;--warn:#a4441c;--ok:#1d7a46;--soft:#eaf1fb}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13171c;--fg:#e7eaee;--muted:#9ba6b2;--line:#2c343d;--card:#1b2027;--accent:#7eb0ff;--accent-fg:#0d1520;--warn:#f0a070;--ok:#6fd39b;--soft:#1f2a38}}
+:root[data-theme="dark"]{--bg:#13171c;--fg:#e7eaee;--muted:#9ba6b2;--line:#2c343d;--card:#1b2027;--accent:#7eb0ff;--accent-fg:#0d1520;--warn:#f0a070;--ok:#6fd39b;--soft:#1f2a38}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--accent)}.skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px;background:var(--card);padding:6px 10px;z-index:9}
+header.app{display:flex;align-items:center;gap:16px;padding:10px 20px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header.app b{font-size:17px}.muted{color:var(--muted)}.grow{flex:1}
+.layout{display:flex;min-height:calc(100vh - 52px)}nav.side{width:230px;flex:none;border-right:1px solid var(--line);padding:14px 10px;background:var(--card)}
+nav.side a{display:block;padding:5px 10px;border-radius:6px;text-decoration:none;color:var(--fg);font-size:14px}nav.side a.on{background:var(--soft);color:var(--accent);font-weight:600}
+nav.side .grp{font-size:12px;color:var(--muted);margin:12px 10px 4px;text-transform:uppercase;letter-spacing:.04em}
+main{flex:1;padding:22px 28px 60px;max-width:1100px}h1{font-size:22px;margin:0 0 2px}h2{font-size:16px;margin:22px 0 8px}
+.purpose{color:var(--muted);margin:0 0 14px}.sec{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+.sec>h2{margin:0 0 10px;font-size:15px}.field{display:grid;grid-template-columns:200px 1fr;gap:10px;align-items:center;margin:8px 0}
+.field label,.field .k{color:var(--muted);font-size:14px}.field input,.field select{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);max-width:380px;width:100%}
+.field input:focus,.field select:focus,button:focus,a:focus{outline:2px solid var(--accent);outline-offset:2px}.hint{font-size:12.5px;color:var(--muted);grid-column:2}
+.v{font-weight:500}button,.btn{font:inherit;cursor:pointer;border-radius:7px;padding:6px 14px;border:1px solid var(--accent);background:var(--card);color:var(--accent);text-decoration:none;display:inline-block;margin:4px 6px 4px 0}
+.btn.primary,button.primary{background:var(--accent);color:var(--accent-fg)}.actions{margin-top:10px}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
+tr.click{cursor:pointer}tr.click:hover{background:var(--soft)}.banner{border-radius:8px;padding:9px 12px;margin:10px 0}.banner.err{background:rgba(200,80,40,.12);color:var(--warn)}
+.banner.ok{background:rgba(40,160,90,.12);color:var(--ok)}.kbd{font:12px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--muted)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px}.tag{font-size:12px;border:1px solid var(--line);border-radius:10px;padding:1px 8px;color:var(--muted)}
+.legacy{background:#000;border-radius:8px;padding:12px 14px;overflow-x:auto;margin:10px 0}.legacy pre{margin:0;font:14px/1.35 ui-monospace,Menlo,monospace;color:#4cf06a}
+.legacy .in{text-decoration:underline}.legacy .dk{opacity:.35}.legacy .ph{opacity:.45}.legacy .br{font-weight:700}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);max-width:560px;width:92%}
+.mark{display:flex;gap:6px;align-items:center;font-size:13px;margin:2px 0}.mark select,.mark input{font:inherit;font-size:13px;padding:2px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg)}
+.mark input{flex:1;min-width:120px}.revrow{display:grid;grid-template-columns:1fr 150px 1fr;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.marked{border-left:3px solid var(--accent);padding-left:8px}
+@media (max-width:760px){.layout{display:block}nav.side{width:auto;border-right:0;border-bottom:1px solid var(--line)}.field{grid-template-columns:1fr}.hint{grid-column:1}main{padding:16px}.revrow{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header class="app"><b id="app"></b><span class="muted" id="where"></span><span class="grow"></span>
+<span class="muted" id="user"></span><a href="#/journeys">Journeys</a><button id="reviewBtn">Your review</button></header>
+<div class="layout"><nav class="side" id="nav" aria-label="Main navigation"></nav><main id="main" tabindex="-1"></main></div>
+<dialog id="dlg"><h2 id="dlgTitle"></h2><p id="dlgBody"></p><div class="actions"><button class="primary" id="dlgOk">OK</button><button id="dlgCancel">Cancel</button></div></dialog>
+<dialog id="review"><h2>Your review</h2>
+<p class="muted">Marks are kept in this browser only. Download them and send the file to whoever leads the review; <code>reframe design</code> reads it in the next round.</p>
+<p><label>Your name <input id="reviewer" style="font:inherit;padding:4px 8px"></label></p><p id="counts"></p>
+<div class="actions"><button class="primary" id="dlJson">Download as JSON</button><button id="dlCsv">Download for a spreadsheet (CSV)</button><button id="closeReview">Close</button></div></dialog>
+<script>
+const D = /*DATA*/;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const byId = Object.fromEntries(D.screens.map(s => [s.id, s]));
+let marks = {}, signoffs = {}, reviewer = '';
+try { marks = JSON.parse(localStorage.getItem('reframe-design-marks') || '{}'); signoffs = JSON.parse(localStorage.getItem('reframe-design-signoffs') || '{}'); reviewer = localStorage.getItem('reframe-reviewer') || ''; } catch (e) {}
+const save = () => { try { localStorage.setItem('reframe-design-marks', JSON.stringify(marks)); localStorage.setItem('reframe-design-signoffs', JSON.stringify(signoffs)); } catch (e) {} };
+const STATUS = {agree: 'Agree', change: 'Needs change', question: 'Question'};
+
+$('app').textContent = D.app;
+$('user').textContent = 'Prototype · sample data';
+function navHtml(current) {
+  let h = `<a href="#/${esc(D.home)}" class="${current === D.home ? 'on' : ''}">Home</a>`, group = null;
+  for (const n of D.nav) {
+    if (n.to === D.home) continue;
+    if (n.group !== group) { group = n.group; if (group) h += `<div class="grp">${esc(group.replace(/^Main navigation\s*\(?|\)$/g, '') || 'Go to')}</div>`; }
+    h += `<a href="#/${esc(n.to)}" class="${current === n.to ? 'on' : ''}">${esc(n.label)}</a>`;
+  }
+  return h + `<div class="grp">Review</div><a href="#/journeys" class="${current === 'journeys' ? 'on' : ''}">Journeys</a><a href="#/${esc(D.start)}">Sign out</a>`;
+}
+function markControl(key) {
+  const m = marks[key] || {};
+  return `<span class="mark" data-key="${esc(key)}"><select aria-label="Mark"><option value="">Mark…</option>` +
+    Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${m.status === k ? 'selected' : ''}>${v}</option>`).join('') +
+    `</select><input placeholder="Comment" value="${esc(m.comment || '')}" aria-label="Comment"></span>`;
+}
+function component(s, c) {
+  const id = `c-${esc(c.id)}`, hint = [c.keyboard ? `<span class="kbd">${esc(c.keyboard)}</span>` : '', c.shows && c.type !== 'display' ? esc(c.shows) : ''].filter(Boolean).join(' ');
+  switch (c.type) {
+    case 'page': case 'header': case 'nav': return '';
+    case 'form': return c.label ? `<p class="muted">${esc(c.label)}</p>` : '';
+    case 'display': return `<div class="field"><span class="k">${esc(c.label)}</span><span class="v">${esc(c.value)}</span></div>`;
+    case 'select': case 'radio': return `<div class="field"><label for="${id}">${esc(c.label)}</label><select id="${id}" data-c="${esc(c.id)}"><option></option><option>${esc(c.sample)}</option></select>${hint ? `<span class="hint">${hint}</span>` : ''}</div>`;
+    case 'checkbox': return `<div class="field"><label for="${id}">${esc(c.label)}</label><input type="checkbox" id="${id}" style="width:auto"></div>`;
+    case 'table': {
+      const rows = c.rows.map(r => `<tr class="${s.row_target ? 'click' : ''}" ${s.row_target ? `tabindex="0" data-go="${esc(s.row_target)}"` : ''}>${r.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('');
+      return `<div style="overflow-x:auto"><table><caption class="muted" style="text-align:left">${esc(c.label)}${s.row_target ? ' · open a row to see it' : ''}</caption><tr>${c.columns.map(h => `<th>${esc(h)}</th>`).join('')}</tr>${rows}</table></div>`;
+    }
+    case 'list': return `<p class="muted">${esc(c.shows || c.label)}</p>`;
+    case 'link': return c.goes_to ? `<a class="btn" href="#/${esc(c.goes_to)}">${esc(c.label)}</a>` : `<button data-act="${esc(c.id)}">${esc(c.label)}</button>`;
+    case 'button': return `<button class="primary" data-act="${esc(c.id)}">${esc(c.label)}</button>`;  // its checks run first, then it opens its screen
+    case 'message': return '';
+    case 'dialog': return `<button data-dialog="${esc(c.id)}">${esc(c.label)}</button>`;
+    default:
+      return `<div class="field"><label for="${id}">${esc(c.label)}</label><input id="${id}" data-c="${esc(c.id)}" type="${c.type === 'password' ? 'password' : 'text'}" ` +
+        `placeholder="${esc(c.type === 'search' ? 'Search' : c.sample)}" ${c.required ? 'aria-required="true"' : ''}>${hint ? `<span class="hint">${hint}</span>` : ''}</div>`;
+  }
+}
+function screen(s) {
+  const sections = [];
+  for (const c of s.components) {
+    const name = c.section || '';
+    let sec = sections.find(x => x.name === name);
+    if (!sec) sections.push(sec = {name, parts: []});
+    sec.parts.push(component(s, c));
+  }
+  const legacy = s.replaces.map(m => `<a href="#" data-legacy="${esc(m)}">${esc((D.legacy[m] || {}).title || m)}</a>`).join(', ');
+  return `<h1>${esc(s.title)}</h1><p class="purpose">${esc(s.purpose)}</p>
+    <div class="tools"><span class="tag">${esc(s.domain)}</span>${s.journeys.map(j => `<span class="tag">${esc(j)}</span>`).join('')}<span class="tag">replaces ${legacy}</span>
+    <button data-showlegacy="1">Show the legacy screen</button><button data-reviewscreen="1">Review this screen</button></div>
+    <div id="banner"></div><div id="legacyPanel" hidden></div><div id="reviewPanel" hidden></div>` +
+    sections.filter(x => x.parts.join('').trim()).map(x => `<section class="sec">${x.name ? `<h2>${esc(x.name)}</h2>` : ''}${x.parts.join('')}</section>`).join('');
+}
+function legacyPanel(s) {
+  return s.replaces.map(m => {
+    const l = D.legacy[m]; if (!l) return '';
+    const rows = l.mapping.filter(x => x.kind !== 'screen').map(x => `<tr><td><code>${esc(x.legacy)}</code></td><td>${esc(x.how)}</td><td>${esc(x.becomes)}</td><td class="muted">${esc(x.why)}</td></tr>`).join('');
+    return `<section class="sec"><h2>${esc(l.title)} <code>${esc(m)}</code></h2><div class="legacy">${l.grid}</div>
+      <details><summary>How its fields and keys are carried</summary><div style="overflow-x:auto"><table><tr><th>Legacy</th><th>How</th><th>Becomes</th><th>Why</th></tr>${rows}</table></div></details></section>`;
+  }).join('');
+}
+function reviewPanel(s) {
+  const rows = [`<div class="revrow"><b>The whole screen</b>${markControl('design/' + s.id)}</div>`].concat(
+    s.components.filter(c => !['page', 'header', 'nav'].includes(c.type)).map(c => `<div class="revrow"><span>${esc(c.label)} <span class="muted">${esc(c.type)}</span></span>${markControl('design/' + s.id + '/' + c.id)}</div>`));
+  return `<section class="sec"><h2>Review this screen</h2>${rows.join('')}</section>`;
+}
+function journeysPage() {
+  return `<h1>Journeys</h1><p class="purpose">Each journey walked through the modern screens. Open a step to try it; sign off a journey when it works for the people who do it.</p>` +
+    D.journeys.map(j => {
+      const signed = signoffs[j.id];
+      return `<section class="sec"><h2>${esc(j.id)} ${esc(j.name)}</h2><p class="muted">${esc(j.role)} · ${esc(j.goal)}</p><ol>` +
+        j.steps.map(st => `<li><a href="#/${esc(st.screen)}">${esc((byId[st.screen] || {}).title || st.screen)}</a>: ${esc(st.action)}</li>`).join('') + `</ol>
+        <button data-signoff="${esc(j.id)}">${signed ? 'Signed off ' + esc(String(signed.at).slice(0, 10)) + ' (undo)' : 'Sign off this journey'}</button></section>`;
+    }).join('');
+}
+function render() {
+  const id = decodeURIComponent((location.hash || '').replace(/^#\/?/, '')) || D.start;
+  $('nav').innerHTML = navHtml(id);
+  if (id === 'journeys') { $('main').innerHTML = journeysPage(); $('where').textContent = 'Journeys'; }
+  else {
+    const s = byId[id] || byId[D.start];
+    $('main').innerHTML = screen(s);
+    $('where').textContent = s.title;
+    document.title = s.title + ' · ' + D.app + ' prototype';
+  }
+  $('main').focus({preventScroll: true});
+  window.scrollTo(0, 0);
+}
+function banner(kind, text) { $('banner').innerHTML = `<div class="banner ${kind}" role="${kind === 'err' ? 'alert' : 'status'}">${esc(text)}</div>`; }
+function act(s, button) {
+  const empty = s.components.filter(c => c.required).find(c => { const el = document.querySelector(`[data-c="${CSS.escape(c.id)}"]`); return el && !el.value.trim(); });
+  if (empty) {
+    banner('err', (empty.messages[0] || `${empty.label} is required`));
+    const el = document.querySelector(`[data-c="${CSS.escape(empty.id)}"]`); if (el) { el.setAttribute('aria-invalid', 'true'); el.focus(); }
+    return;
+  }
+  if (button && button.goes_to) { location.hash = '#/' + button.goes_to; return; }
+  banner('ok', s.success || `${button.label}: done (a prototype; nothing is saved)`);
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-go],[data-act],[data-dialog],[data-showlegacy],[data-reviewscreen],[data-legacy],[data-signoff]');
+  if (!t) return;
+  const s = byId[decodeURIComponent((location.hash || '').replace(/^#\/?/, '')) || D.start];
+  if (t.dataset.go) { location.hash = '#/' + t.dataset.go; return; }
+  if (t.dataset.act) { act(s, s.components.find(c => c.id === t.dataset.act)); return; }
+  if (t.dataset.dialog) { const c = s.components.find(x => x.id === t.dataset.dialog); $('dlgTitle').textContent = c.label; $('dlgBody').textContent = c.shows || ''; $('dlg').showModal(); return; }
+  if (t.dataset.showlegacy || t.dataset.legacy) { e.preventDefault(); const p = $('legacyPanel'); p.innerHTML = legacyPanel(s); p.hidden = t.dataset.legacy ? false : !p.hidden; if (!p.hidden) p.scrollIntoView({block: 'nearest'}); return; }
+  if (t.dataset.reviewscreen) { const p = $('reviewPanel'); p.hidden = !p.hidden; p.innerHTML = reviewPanel(s); return; }
+  if (t.dataset.signoff) { const j = t.dataset.signoff; if (signoffs[j]) delete signoffs[j]; else signoffs[j] = {at: new Date().toISOString(), name: (D.journeys.find(x => x.id === j) || {}).name}; save(); render(); }
+});
+document.addEventListener('keydown', e => { const row = e.target.closest && e.target.closest('tr[data-go]'); if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); location.hash = '#/' + row.dataset.go; } });
+document.addEventListener('change', onMark); document.addEventListener('input', onMark);
+function onMark(e) {
+  const box = e.target.closest && e.target.closest('.mark'); if (!box) return;
+  const status = box.querySelector('select').value, comment = box.querySelector('input').value;
+  if (status || comment) marks[box.dataset.key] = {status, comment, at: new Date().toISOString()}; else delete marks[box.dataset.key];
+  save();
+}
+['dlgOk', 'dlgCancel'].forEach(id => $(id).addEventListener('click', () => $('dlg').close()));
+$('reviewBtn').addEventListener('click', () => { $('reviewer').value = reviewer; const n = Object.values(marks).filter(m => m.status).length; $('counts').textContent = `${n} item(s) marked, ${Object.keys(signoffs).length} journey(s) signed off.`; $('review').showModal(); });
+$('closeReview').addEventListener('click', () => $('review').close());
+$('reviewer').addEventListener('input', e => { reviewer = e.target.value.trim(); try { localStorage.setItem('reframe-reviewer', reviewer); } catch (err) {} });
+function rows() {
+  return Object.entries(marks).filter(([, m]) => m.status).map(([key, m]) => {
+    const [, sid, cid] = key.split('/'); const s = byId[sid] || {}; const c = (s.components || []).find(x => x.id === cid) || {};
+    return {key, type: cid ? 'component' : 'screen', id: cid || sid, text: cid ? c.label : s.title, status: STATUS[m.status], comment: m.comment || '', marked_at: m.at || ''};
+  });
+}
+function download(name, type, body) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([body], {type})); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+const fileName = ext => `review-${D.project || 'run'}-design-${(reviewer || 'reviewer').replace(/[^A-Za-z0-9_-]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.${ext}`;
+$('dlJson').addEventListener('click', () => download(fileName('json'), 'application/json', JSON.stringify({format: 'reframe-review/1', tool: D.tool, project: D.project, run: D.run,
+  source: D.source, reviewer, exported_at: new Date().toISOString(), marks: rows().map(r => ({key: r.key, status: r.status, comment: r.comment, marked_at: r.marked_at})),
+  signoffs: Object.entries(signoffs).map(([j, x]) => ({function: 'design/' + j, name: x.name || j, comment: '', at: x.at}))}, null, 2)));
+$('dlCsv').addEventListener('click', () => {
+  const cols = ['key', 'tool', 'type', 'id', 'text', 'status', 'comment', 'reviewer', 'marked_at', 'project', 'run', 'source_sha256'];
+  const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const all = rows().concat(Object.entries(signoffs).map(([j, x]) => ({key: 'signoff:design/' + j, type: 'sign-off', id: j, text: x.name || j, status: 'Signed off', comment: '', marked_at: x.at})));
+  download(fileName('csv'), 'text/csv;charset=utf-8', '﻿' + [cols.join(',')].concat(all.map(r => cols.map(c => cell(c === 'tool' ? D.tool : c === 'reviewer' ? reviewer : c === 'project' ? D.project : c === 'run' ? D.run : c === 'source_sha256' ? D.source.sha256 : r[c])).join(','))).join('\r\n'));
+});
+window.addEventListener('hashchange', render);
+render();
+</script>
+</body>
+</html>

@@ -1,6 +1,10 @@
 """The run folder, its event log, and the intent-and-receipt rule for every change (specification sections 4, 6 and 7).
 
-~/.reframe/projects/<project>/runs/<run>/ (REFRAME_HOME replaces ~/.reframe). Folders are 700 and files 600.
+<workspace>/.reframe/<project>/<run>/, where <workspace> is the folder Reframe is run from (REFRAME_WORKSPACE names
+another). Each run holds inputs/ (the context people add: inputs/reconcile/ and inputs/design/) and outputs/ (everything
+Reframe makes for people to read), beside its working records. Reframe's own tools, settings and caches stay in
+~/.reframe. REFRAME_HOME replaces ~/.reframe and, unless REFRAME_WORKSPACE is set, holds the runs too (for tests and
+isolated use). Folders are 700 and files 600.
 Every JSON record is written whole (temporary file, then rename), so a stopped run never leaves half a record.
 
 Every change to AWS goes through Changes.apply:
@@ -21,7 +25,7 @@ import re
 import secrets
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from reframe.core.errors import NotSent, Outcome, Rejected, ReframeError, Stop, Uncertain
 
@@ -36,6 +40,50 @@ def iso(moment: float | None = None) -> str:
 def home(environment: dict[str, str] | None = None) -> Path:
     env = os.environ if environment is None else environment
     return Path(env.get("REFRAME_HOME") or Path.home() / ".reframe")
+
+
+def workspace(environment: Mapping[str, str] | None = None) -> Path:
+    env = os.environ if environment is None else environment
+    return Path(env.get("REFRAME_WORKSPACE") or os.getcwd())
+
+
+def runs_home(environment: Mapping[str, str] | None = None) -> Path:
+    """Where the runs are: <workspace>/.reframe; under REFRAME_HOME when that is set and REFRAME_WORKSPACE is not."""
+    env = os.environ if environment is None else environment
+    if env.get("REFRAME_HOME") and not env.get("REFRAME_WORKSPACE"):
+        return Path(env["REFRAME_HOME"])
+    return workspace(env) / ".reframe"
+
+
+INPUTS = {
+    "reconcile": "Context for the reconciliation (reframe reconcile): documents (.md, .txt, .pdf, .docx), review downloads from the "
+                 "review pages, and the answered SME list (questions.csv). reframe reconcile reads this folder when --context is not given.",
+    "design": "Context for the design (pipeline 4): personas.md, decisions.md (one decision per heading), target-architecture.md, "
+              "design-system/ (components.md, tokens.json), style-reference/, and review downloads from the prototype and the "
+              "reconciliation page. A design round reads this folder when --context is not given.",
+}
+
+
+def make_inputs(root: Path) -> None:
+    """inputs/reconcile/ and inputs/design/, each with a README saying what to put there."""
+    for name, what in INPUTS.items():
+        folder = root / "inputs" / name
+        folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+        readme = folder / "README.md"
+        if not readme.exists():
+            readme.write_text(f"# inputs/{name}\n\n{what}\n")
+            readme.chmod(0o600)
+
+
+def default_context(folder: "RunFolder", name: str) -> Path | None:
+    """The run's own inputs/<name>/ when it holds anything besides its README."""
+    path = folder.root / "inputs" / name
+    return path if path.is_dir() and any(p.name != "README.md" for p in path.iterdir()) else None
+
+
+def claude_only(state: dict[str, Any]) -> bool:
+    """A run made with reframe run --tools claude (docs/release-1.md, section 2): no AWS resources, no AWS Transform."""
+    return state.get("tools") == "claude"
 
 
 def project_name(repo: str) -> str:
@@ -184,13 +232,14 @@ class RunFolder:
 def new_run(project: str, environment: dict[str, str] | None = None) -> RunFolder:
     if not PROJECT.match(project):
         raise ReframeError("a project name is 1 to 30 lower-case letters, digits and hyphens, starting with a letter or digit")
-    base = home(environment)
+    base = runs_home(environment)
     for _ in range(20):
         run = secrets.token_hex(3)
-        root = base / "projects" / project / "runs" / run
-        if not root.exists():
+        root = base / project / run
+        if not root.exists() and not list(base.glob(f"*/{run}")):
             folder = RunFolder(root)
             base.chmod(0o700)
+            make_inputs(root)
             pointer = base / "latest"
             pointer.write_text(str(root))
             pointer.chmod(0o600)
@@ -199,17 +248,17 @@ def new_run(project: str, environment: dict[str, str] | None = None) -> RunFolde
 
 
 def find_run(run: str | None, environment: dict[str, str] | None = None) -> RunFolder:
-    base = home(environment)
+    base = runs_home(environment)
     if run is None:
         pointer = base / "latest"
         if not pointer.exists():
-            raise Stop(Outcome.REFUSED, "no run yet; start one with reframe run")
+            raise Stop(Outcome.REFUSED, f"no run yet in {base}; start one with reframe run, from your workspace folder")
         return RunFolder(Path(pointer.read_text().strip()))
     if not RUN_ID.match(run):
         raise Stop(Outcome.REFUSED, "a run id is six hexadecimal characters, as reframe status prints it")
-    matches = sorted((base / "projects").glob(f"*/runs/{run}"))
+    matches = sorted(p for p in base.glob(f"*/{run}") if (p / "run.json").exists())
     if len(matches) != 1:
-        raise Stop(Outcome.REFUSED, f"no single run {run} under {base / 'projects'}")
+        raise Stop(Outcome.REFUSED, f"no single run {run} under {base}; Reframe looks in .reframe/ of the folder it is run from")
     return RunFolder(matches[0])
 
 

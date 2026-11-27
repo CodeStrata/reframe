@@ -121,7 +121,7 @@ def check(raw: dict[str, Any], known_rules: set[str], lines: dict[str, int]) -> 
 
 def number(domains: list[dict[str, Any]]) -> None:
     """Codes per function, as AWS Transform numbers them: REQ-F-001, REQ-N-001, OQ-001."""
-    for d_index, domain in enumerate(domains, 1):
+    for domain in domains:
         for f_index, function in enumerate(domain["functions"], 1):
             function["id"] = f"claude/{domain['key']}/{f_index:02d}"
             counters = {"functional": 0, "non-functional": 0, "question": 0}

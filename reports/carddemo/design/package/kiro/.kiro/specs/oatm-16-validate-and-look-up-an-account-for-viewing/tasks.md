@@ -1,0 +1,46 @@
+# Implementation plan: Validate and look up an account for viewing (OATM-C16)
+
+**Status: FINAL**, signed off by Sam (acceptance), 2026-11-25.
+
+- [ ] 1. OATM-C16-T1 [data] Model the data the capability reads and writes
+  - File records: CSMSG02Y, CVACT01Y, CVACT03Y, CVCUS01Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSMSG01Y, CSSTRPFY, CSUSR01Y, CVACT02Y, CVCRD01Y.
+  - _Requirements: OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126, OATM-REQ-F-127, OATM-REQ-F-128, OATM-REQ-F-129, OATM-REQ-F-130, OATM-REQ-F-131, OATM-REQ-F-132, OATM-REQ-F-133, OATM-REQ-F-134, OATM-REQ-F-135, OATM-REQ-F-136_
+- [ ] 2. OATM-C16-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126, OATM-REQ-F-128, OATM-REQ-F-136_
+  - _Rules: OATM-BR-126, OATM-BR-127, OATM-BR-128, OATM-BR-129, OATM-BR-131, OATM-BR-139_
+  - _After: OATM-C16-T1_
+- [ ] 3. OATM-C16-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: OATM-REQ-F-129, OATM-REQ-F-131, OATM-REQ-F-132, OATM-REQ-F-134, OATM-REQ-F-135_
+  - _Rules: OATM-BR-132, OATM-BR-134, OATM-BR-135, OATM-BR-137, OATM-BR-138_
+  - _After: OATM-C16-T1_
+- [ ] 4. OATM-C16-T4 [api] Build the services behind the screens
+  - OATM-BR-130: Needs a lookup of the card-to-account link by account number (a secondary index or query on account ID). When a link is found, the customer number and card number it holds are kept in the user's session for the rest of the interaction and used by the later customer lookup.
+  - OATM-BR-133: Needs a read of the account by its 11-digit account number, which is the primary key. A successful read sets an 'account found' flag that tells the view to show the account's financial details.
+  - OATM-BR-136: Needs a read of the customer by the customer number taken from the card-to-account link, not from anything the user typed. A successful read sets a 'customer found' flag that tells the view to show the customer details.
+  - _Requirements: OATM-REQ-F-127, OATM-REQ-F-130, OATM-REQ-F-133_
+  - _Rules: OATM-BR-130, OATM-BR-133, OATM-BR-136_
+  - _After: OATM-C16-T1, OATM-C16-T2, OATM-C16-T3_
+- [ ] 5. OATM-C16-T5 [ui-modernization] Build the screen Account (S-ACCOUNT-VIEW)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-VIEW.
+  - **lookup field** "Account or card number": Blank: 'No input received' - enter an account number (11 digits) or a card number (16 digits). Not digits, wrong length or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number' (or a 16-digit card number). Not in the card cross-reference: 'Account:<number> not found in Cross ref file.' - check the number with the caller. The error shows under the field.
+  - _Requirements: OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126, OATM-REQ-F-127, OATM-REQ-F-128, OATM-REQ-F-129, OATM-REQ-F-130, OATM-REQ-F-131, OATM-REQ-F-132, OATM-REQ-F-133, OATM-REQ-F-134, OATM-REQ-F-135, OATM-REQ-F-136_
+  - _Rules: OATM-BR-126, OATM-BR-127, OATM-BR-128, OATM-BR-129, OATM-BR-130, OATM-BR-131, OATM-BR-132, OATM-BR-133, OATM-BR-134, OATM-BR-135, OATM-BR-136, OATM-BR-137, OATM-BR-138, OATM-BR-139_
+  - _After: OATM-C16-T2, OATM-C16-T3, OATM-C16-T4_
+- [ ] 6. OATM-C16-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - **lookup field** "Find account (account or card number)": Same checks as the account search on S-ACCOUNT-VIEW; an empty search says 'No input received' - enter an account number (11 digits) or a card number (16 digits).
+  - _Requirements: OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126_
+  - _Rules: OATM-BR-126, OATM-BR-127, OATM-BR-128, OATM-BR-129_
+  - _After: OATM-C16-T2, OATM-C16-T3, OATM-C16-T4_
+- [ ] 7. OATM-C16-T7 [test-generation] Write a test for every acceptance criterion
+  - 18 acceptance criteria, each a test named by its ID.
+  - _Requirements: OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126, OATM-REQ-F-127, OATM-REQ-F-128, OATM-REQ-F-129, OATM-REQ-F-130, OATM-REQ-F-131, OATM-REQ-F-132, OATM-REQ-F-133, OATM-REQ-F-134, OATM-REQ-F-135, OATM-REQ-F-136_
+  - _Criteria: OATM-C16-AC-01, OATM-C16-AC-02, OATM-C16-AC-03, OATM-C16-AC-04, OATM-C16-AC-05, OATM-C16-AC-06, OATM-C16-AC-07, OATM-C16-AC-08, OATM-C16-AC-09, OATM-C16-AC-10, OATM-C16-AC-11, OATM-C16-AC-12, OATM-C16-AC-13, OATM-C16-AC-14, OATM-C16-AC-15, OATM-C16-AC-16, OATM-C16-AC-17, OATM-C16-AC-18_
+  - _After: OATM-C16-T1, OATM-C16-T2, OATM-C16-T3, OATM-C16-T4, OATM-C16-T5, OATM-C16-T6_
+- [ ] 8. OATM-C16-T8 [compliance] Review the handling of card data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: OATM-REQ-F-123, OATM-REQ-F-124, OATM-REQ-F-125, OATM-REQ-F-126, OATM-REQ-F-127, OATM-REQ-F-128, OATM-REQ-F-129, OATM-REQ-F-130, OATM-REQ-F-131, OATM-REQ-F-132, OATM-REQ-F-133, OATM-REQ-F-134, OATM-REQ-F-135, OATM-REQ-F-136_
+  - _After: OATM-C16-T1, OATM-C16-T2, OATM-C16-T3, OATM-C16-T4, OATM-C16-T5, OATM-C16-T6_

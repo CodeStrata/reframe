@@ -82,10 +82,53 @@ class UnitsTest(unittest.TestCase):
         found = expand_marks(marks, covers)
         self.assertEqual(found["c2"]["status"], "change")
         self.assertEqual(found["a2"]["comment"], "why?\nwrong limit")  # a mark already on the rule keeps it, with both comments
-        self.assertEqual(found["a9"]["status"], "agree")
+        self.assertNotIn("a9", found)  # an Agree on the reconciled review keeps its unit: it is not passed on (section 8.11)
+        self.assertNotIn("rec/aws:a9/1", found)
         self.assertNotIn("rec/group:c2/1", found)
         data = inputs([pair("a2", "c2", "same")], marks=found)
         self.assertEqual(units.agreed(data), [])  # a Needs change mark on an agreed rule sends its group to an agent
+
+
+class AgreeKeepsTest(unittest.TestCase):
+    """P3-18: Agree keeps a rule."""
+
+    def setUp(self):
+        self.data = inputs([pair("a2", "c2", "overlapping")], extra=[("a9", "aws", "PROG2")],
+                           documents=[{"file": "glossary.md"}])
+        self.found = units.units(self.data)
+        two = [{"text": "r1", "covers": ["c2"]}, {"text": "r2", "covers": ["a2"]}]
+        self.saved = {u["key"]: {"hash": u["hash"], "core": u["core"], "rules": two if u["kind"] == "group" else [{"text": "r9", "covers": ["a9"]}]}
+                      for u in self.found}
+
+    def test_a_unit_whose_rules_were_all_agreed_is_locked_even_when_a_document_changes(self):
+        agreed = {"rec/group:c2/1": [{"reviewer": "Pat"}], "rec/group:c2/2": [{"reviewer": "Pat"}], "rec/aws:a9/1": [{"reviewer": "Pat"}]}
+        self.data["context"]["documents"] = [{"file": "glossary.md"}, {"file": "new-policy.pdf"}]
+        found = units.units(self.data)
+        self.assertTrue(all(u["hash"] != self.saved[u["key"]]["hash"] for u in found))  # a new document changes every unit's hash
+        self.assertEqual(units.lock(found, self.saved, agreed), ["group:c2", "aws:a9"])
+        from reframe.reconcile.decide import Decisions
+        decisions = Decisions.__new__(Decisions)
+        decisions.saved = self.saved
+        self.assertTrue(all(decisions.current(u) for u in found))  # kept: nothing is decided again
+
+    def test_a_later_mark_or_a_changed_rule_reopens_it(self):
+        agreed = {"rec/aws:a9/1": [{"reviewer": "Pat"}]}
+        self.data["context"]["marks"] = {"a9": {"status": "question", "comment": "Sam: really?"}}
+        self.assertEqual(units.lock(units.units(self.data), self.saved, agreed), [])
+        self.data["context"]["marks"] = {}
+        self.data["rules"]["a9"]["text"] = "changed by the tool"
+        self.assertEqual(units.lock(units.units(self.data), self.saved, agreed), [])
+
+    def test_some_rules_agreed_are_given_to_the_step_to_keep(self):
+        found = units.units(self.data)
+        self.assertEqual(units.lock(found, self.saved, {"rec/group:c2/2": [{"reviewer": "Pat"}]}), [])
+        group = next(u for u in found if u["kind"] == "group")
+        self.assertEqual(group["agreed_rules"], [{"text": "r2", "covers": ["a2"]}])
+
+    def test_an_agree_mark_on_a_tools_rule_does_not_reopen_its_unit(self):
+        before = {u["key"]: u["hash"] for u in units.units(self.data)}
+        self.data["context"]["marks"] = {"a9": {"status": "agree", "comment": ""}}
+        self.assertEqual({u["key"]: u["hash"] for u in units.units(self.data)}, before)
 
 
 class BatchesTest(unittest.TestCase):

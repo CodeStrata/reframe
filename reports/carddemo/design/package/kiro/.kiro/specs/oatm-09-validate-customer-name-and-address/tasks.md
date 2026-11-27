@@ -1,0 +1,35 @@
+# Implementation plan: Validate customer name and address (OATM-C09)
+
+**Status: FINAL**, signed off by Sam (acceptance), 2026-11-25.
+
+- [ ] 1. OATM-C09-T1 [data] Model the data the capability reads and writes
+  - File records: CSMSG02Y, CVACT01Y, CVACT03Y, CVCUS01Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSLKPCDY, CSMSG01Y, CSSETATY, CSSTRPFY, CSUSR01Y, CSUTLDPY, CSUTLDWY, CVCRD01Y.
+  - _Requirements: OATM-REQ-F-073, OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081_
+- [ ] 2. OATM-C09-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081_
+  - _Rules: OATM-BR-076, OATM-BR-077, OATM-BR-078, OATM-BR-079, OATM-BR-080, OATM-BR-081, OATM-BR-082, OATM-BR-083, OATM-BR-084_
+  - _After: OATM-C09-T1_
+- [ ] 3. OATM-C09-T3 [api] Build the services behind the screens
+  - OATM-BR-074: Treat blank or '*' entries for first, middle and last name, address lines 1 and 2, city and EFT account id as absent (null); otherwise they are the proposed values. The city goes into the customer's third address line, so map the City field to that address field.
+  - OATM-BR-075: Treat blank or '*' state and ZIP entries as absent (empty); otherwise keep the entered value for the state-code, ZIP and state/ZIP-prefix checks. Those checks need reference tables of valid US state codes and of valid state plus two-digit ZIP prefix combinations.
+  - _Requirements: OATM-REQ-F-073_
+  - _Rules: OATM-BR-074, OATM-BR-075_
+  - _After: OATM-C09-T1, OATM-C09-T2_
+- [ ] 4. OATM-C09-T4 [ui-modernization] Build the screen Update account (S-ACCOUNT-EDIT)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-EDIT.
+  - **summary card** "Name and address": '<field> must be supplied.' for First Name, Last Name, City, State, Country and Address Line 1; '<field> can have alphabets only.' for names, city, state and country; 'Middle Name can have alphabets only.'; 'State: is not a valid state code'; ZIP: 'ZIP must be supplied.', must be all numeric, 5 digits and not zero; 'Invalid zip code for state' - check the state and ZIP together.
+  - **summary card** "Phone and payments": A phone may be left wholly blank; otherwise '<Phone Number 1 or 2>: Area code must be supplied.', ': Area code must be A 3 digit number.', ': Area code cannot be zero', ': Not valid North America general purpose area code' (from the list of general-purpose codes), ': Prefix code must be supplied.', ': Prefix code must be A 3 digit number.', ': Prefix code cannot be zero', ': Line number code must be supplied.', ': Line number code must be A 4 digit number.', ': Line number code cannot be zero'. EFT account ID: 'EFT Account Id must be supplied.', all numeric, 10 digits, not zero. Primary card holder: 'Primary Card Holder must be supplied.' and must be Yes or No ('must be Y or N.').
+  - _Requirements: OATM-REQ-F-073, OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081_
+  - _Rules: OATM-BR-074, OATM-BR-075, OATM-BR-076, OATM-BR-077, OATM-BR-078, OATM-BR-079, OATM-BR-080, OATM-BR-081, OATM-BR-082, OATM-BR-083, OATM-BR-084_
+  - _After: OATM-C09-T2, OATM-C09-T3_
+- [ ] 5. OATM-C09-T5 [test-generation] Write a test for every acceptance criterion
+  - 16 acceptance criteria, each a test named by its ID.
+  - _Requirements: OATM-REQ-F-073, OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081_
+  - _Criteria: OATM-C09-AC-01, OATM-C09-AC-02, OATM-C09-AC-03, OATM-C09-AC-04, OATM-C09-AC-05, OATM-C09-AC-06, OATM-C09-AC-07, OATM-C09-AC-08, OATM-C09-AC-09, OATM-C09-AC-10, OATM-C09-AC-11, OATM-C09-AC-12, OATM-C09-AC-13, OATM-C09-AC-14, OATM-C09-AC-15, OATM-C09-AC-16_
+  - _After: OATM-C09-T1, OATM-C09-T2, OATM-C09-T3, OATM-C09-T4_
+- [ ] 6. OATM-C09-T6 [compliance] Review the handling of personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: OATM-REQ-F-073, OATM-REQ-F-074, OATM-REQ-F-075, OATM-REQ-F-076, OATM-REQ-F-077, OATM-REQ-F-078, OATM-REQ-F-079, OATM-REQ-F-080, OATM-REQ-F-081_
+  - _After: OATM-C09-T1, OATM-C09-T2, OATM-C09-T3, OATM-C09-T4_

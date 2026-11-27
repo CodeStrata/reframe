@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from reframe.core.errors import EXIT_CODES, NotSent, Outcome, ReframeError, Stop
-from reframe.core.runfolder import RunFolder, find_run, iso, new_run, project_name
+from reframe.core.runfolder import RunFolder, claude_only, find_run, iso, new_run, project_name
 
 def say(text: str) -> None:
     sys.stdout.write(text)  # the current stdout, so output can be redirected
@@ -44,13 +44,20 @@ def run(args) -> int:
     if not args.source:
         from reframe.core import guide
         return guide.run(args)
+    auth = getattr(args, "auth", None) or "subscription"
+    if getattr(args, "tools", "both") == "claude":
+        return start_claude_only(source=args.source, ref=args.ref, mode=args.mode, project=args.project, foreground=args.foreground,
+                                 max_agents=getattr(args, "max_agents", None), auth=auth,
+                                 profile=args.profile if auth == "bedrock" else None, region=args.region if auth == "bedrock" else None)
     from reframe.core.setup import load_config
     saved = load_config()
     profile = args.profile or saved.get("profile")
     if not profile:
         return _fail(Stop(Outcome.REFUSED, "no AWS profile: pass --profile, or run reframe setup once to choose and save one"))
+    both = getattr(args, "tools", "both") == "both"  # the Claude assessment alongside, as the guided run offers by default
     return start(source=args.source, profile=profile, ref=args.ref, mode=args.mode, region=args.region or saved.get("region") or "us-east-1",
-                 project=args.project, graph=args.graph, terraform=args.terraform, foreground=args.foreground)
+                 project=args.project, graph=args.graph, terraform=args.terraform, foreground=args.foreground,
+                 claude={"auth": auth, "max_agents": getattr(args, "max_agents", None)} if both else None)
 
 
 def start(*, source: str, profile: str, ref: str | None, mode: str, region: str, project: str | None, graph: str | None,
@@ -95,6 +102,40 @@ def start(*, source: str, profile: str, ref: str | None, mode: str, region: str,
     return 0
 
 
+def start_claude_only(*, source: str, ref: str | None, mode: str, project: str | None, foreground: bool,
+                      max_agents: int | None = None, auth: str = "subscription", profile: str | None = None, region: str | None = None) -> int:
+    """A Claude-only run (docs/release-1.md, section 2): the snapshot and the Claude assessment, in one worker, with no AWS resources.
+    With Amazon Bedrock, the AWS profile (or a Bedrock API key) is used to sign Claude in, and for nothing else."""
+    from reframe.claude import pipeline as claude_pipeline
+    from reframe.core import pipeline, ui
+    from reframe.source.snapshot import kind
+    try:
+        kind(source)
+        source = source if kind(source) == "git-url" else str(Path(source).expanduser().resolve())
+        project = project or project_name(source.rstrip("/").removesuffix(".zip"))
+        folder = new_run(project)
+    except (Stop, ReframeError) as error:
+        return _fail(error if isinstance(error, Stop) else Stop(Outcome.REFUSED, str(error)))
+    folder.update(tools="claude", project=project, source=source, ref=ref, mode=mode, started_at=iso(), stage="snapshot", status="RUNNING",
+                  **({"profile": profile, "region": region or "us-east-1"} if profile else {}))
+    claude_pipeline.request(pipeline.Context.load(folder), auth=auth, max_agents=max_agents, mode=mode)
+    ui.section(f"Run {folder.root.name} · Claude only")
+    signin = {"subscription": "your Claude subscription", "api-key": "your Anthropic API key",
+              "bedrock": f"Amazon Bedrock{' with profile ' + profile if profile else ''}"}[auth]
+    ui.hint(f"{project} · {mode} mode · Claude signs in with {signin} · no AWS resources · run folder {folder.root}")
+    if foreground:
+        return worker(type("Args", (), {"folder": str(folder.root), "task": "claude"})())
+    pid = _start_worker(folder, "claude")
+    folder.event("claude_worker_started", pid=pid)
+    ui.console.print()
+    ui.panel(f"The Claude assessment runs in the background (process {pid}); on CardDemo it takes about two hours. It uses no AWS, so "
+             "there is nothing to tear down.\n"
+             "Follow it:        reframe status   ·   reframe events --follow\n"
+             + ("Answer Claude:    reframe answer\n" if mode == "interactive" else "")
+             + "When it is done:  reframe report --open   ·   then reframe reconcile", "Started", "green")
+    return 0
+
+
 def _claude_wanted(folder: RunFolder) -> bool:
     claude_state = folder.state.get("claude") or {}
     return bool(claude_state.get("requested_at")) and claude_state.get("status") != Outcome.DONE.value
@@ -121,7 +162,7 @@ def resume(args) -> int:
         return _fail(stop)
     state = folder.state
     started = []
-    if state.get("status") != Outcome.DONE.value:
+    if state.get("status") != Outcome.DONE.value and not claude_only(state):
         pid = folder.worker_pid("run")
         if pid:
             say(f"Run {folder.root.name}: the AWS Transform assessment is already running (process {pid}).\n")
@@ -141,7 +182,7 @@ def resume(args) -> int:
         pid = folder.worker_pid("claude")
         if pid:
             say(f"Run {folder.root.name}: the Claude assessment is already running (process {pid}).\n")
-        elif args.foreground and state.get("status") == Outcome.DONE.value:
+        elif args.foreground and (state.get("status") == Outcome.DONE.value or claude_only(state)):
             return worker(type("Args", (), {"folder": str(folder.root), "task": "claude"})())
         else:
             new = start_claude_if_ready(folder)
@@ -158,7 +199,7 @@ def resume(args) -> int:
             started.append(f"the reconciliation (process {_start_worker(folder, 'reconcile')})")
     if started:
         say(f"Run {folder.root.name} resumed in the background: {' and '.join(started)}. Follow it with reframe status.\n")
-    elif state.get("status") == Outcome.DONE.value and not _claude_wanted(folder):
+    elif (state.get("status") == Outcome.DONE.value or claude_only(state)) and not _claude_wanted(folder):
         say(f"Run {folder.root.name} is done. {state.get('message', '')}\n")
     return 0
 
@@ -197,6 +238,153 @@ def reconcile(args) -> int:
     return 0
 
 
+def export(args) -> int:
+    """`reframe export --to xlsx` (docs/sharing.md, section 7): the reconciled results as one workbook; `--to jira` or
+    `--to azure-devops` (section 8): the design's backlog as that tool's CSV import file. Runs nothing."""
+    from reframe.core import ui
+    from reframe.report import export as exporter
+    if args.to in ("jira", "azure-devops"):
+        return _export_backlog(args)
+    try:
+        folder = find_run(args.run)
+        given = args.context or (folder.state.get("reconcile") or {}).get("context")
+        context = Path(given).expanduser().resolve() if given else None
+        if context and not context.is_dir():
+            raise Stop(Outcome.REFUSED, f"the context folder {given} does not exist")
+        target = Path(args.out).expanduser().resolve() if args.out else None
+        value = exporter.export(folder, target, context)
+    except Stop as stop:
+        return _fail(stop)
+    ui.section(f"Run {folder.root.name} · export to Excel")
+    ui.table(["Sheet", "Rows"], [[k, str(v)] for k, v in value["counts"].items()])
+    if context:
+        ui.hint(f"review downloads read from {context}: {len(value['read'])}, with marks on {value['marks']} item(s)")
+        for i in value["ignored"]:
+            ui.hint(f"ignored {i['file']}: {i['why']}")
+    else:
+        ui.hint("no context folder: the workbook has no reviewers' marks")
+    ui.ok(f"Workbook: {value['path']}")
+    if args.open:
+        subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(value["path"])], check=False)
+    return 0
+
+
+def _export_backlog(args) -> int:
+    from reframe.core import ui
+    from reframe.report import backlog
+    try:
+        folder = find_run(args.run)
+        if args.context:
+            raise Stop(Outcome.REFUSED, "--context adds reviewers' marks to the xlsx workbook; a backlog is built from the design's final specifications")
+        value = backlog.export(folder, args.to, Path(args.out).expanduser().resolve() if args.out else None)
+    except Stop as stop:
+        return _fail(stop)
+    c = value["counts"]
+    ui.section(f"Run {folder.root.name} · backlog for {value['tool']}")
+    rows = [["Epics", str(c["epics"])]] + ([["Features", str(c["features"])]] if args.to == "azure-devops" else []) + [
+        ["Stories", f"{c['stories']} ({c['final']} final)"], ["Requirements", str(c["requirements"])], ["Acceptance criteria", str(c["criteria"])]]
+    ui.table(["Item", "Count"], rows)
+    ui.ok(f"Import file: {value['path']}")
+    ui.hint("Import it with " + ("Jira's CSV import; map Issue ID and Parent so the stories join their epics, and Acceptance Criteria to your field "
+                                 "for it (the description holds them too)." if args.to == "jira" else
+                                 "Azure DevOps's Import work items (Boards, Queries); the Title 1 to 3 columns make the hierarchy."))
+    if args.open:
+        subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(value["path"])], check=False)
+    return 0
+
+
+def design(args) -> int:
+    """`reframe design` (docs/pipeline-4.md): a design round, its plan, the package copied out, or a copy's readiness."""
+    from reframe.core import ui
+    from reframe.design import handover, package, pipeline
+    if args.check:
+        found = handover.readiness(Path(args.check).expanduser())
+        ui.section(f"Package copy {args.check}")
+        ui.table(["File", "Placeholders left"], [[k, str(len(v))] for k, v in found["files"].items()] or [["–", "0"]])
+        if found["drafts"]:
+            ui.hint(f"{len(found['drafts'])} draft capabilities: confirm them with the owner before building them")
+        (ui.ok if found["ready"] else ui.hint)("ready for forward engineering" if found["ready"] else f"{found['placeholders']} placeholders to fill in; START-HERE.md says how")
+        return 0 if found["ready"] else 1
+    try:
+        folder = find_run(args.run)
+        if args.package:
+            done = package.copy_out(folder, Path(args.package).expanduser().resolve(), args.form)
+            if done["left"]:
+                raise Stop(Outcome.REFUSED, "; ".join(done["left"][:5]))
+            ui.ok(f"Package v{done['version']} copied to {done['path']}: {done['written']} files. Open START-HERE.md there.")
+            return 0
+        context = Path(args.context).expanduser().resolve() if args.context else None
+        claude = None
+        if not args.plan:
+            from reframe.claude import preflight
+            from reframe.reconcile.pipeline import claude_code
+            report = preflight.check(args.auth, aws_identity=preflight.run_identity(folder) if args.auth == "bedrock" else None)
+            if not report.ok:
+                raise Stop(Outcome.REFUSED, report.problems())
+            claude = claude_code(folder, args.auth)
+        if args.plan:
+            value = pipeline.run(folder, claude, context, args.stack, args.plan)
+        else:
+            folder.lock("design")  # one round at a time: two at once write the same parts and pay Claude twice (26 November 2026)
+            try:
+                value = pipeline.run(folder, claude, context, args.stack, args.plan)
+            finally:
+                folder.unlock("design")
+    except (Stop, ValueError) as stop:
+        return _fail(stop if isinstance(stop, Stop) else Stop(Outcome.REFUSED, str(stop)))
+    ui.section(f"Run {folder.root.name} · the design" + (" · plan" if args.plan else f" · round {value['round']}"))
+    ui.table(["Stage", "Redone", "Kept"], [[k, ", ".join(x["name"] or "No domain" for x in v["redone"]) or "–", str(len(v["kept"]))]
+                                            for k, v in value["stages"].items()])
+    if args.plan:
+        ui.hint(value["note"])
+        return 0
+    ui.ok(f"What changed: {value['changes']}")
+    ui.ok(f"Package v{value['package']['version']}" + (" (new)" if value["package"]["new"] else " (unchanged)") + f": {value['package']['path']}")
+    page = folder.path("outputs/design/index.html")
+    ui.ok(f"The design page: {page}")
+    if value.get("problems"):
+        ui.hint(f"{len(value['problems'])} problems the checks still found; they are on the design page")
+    if args.open:
+        subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(page)], check=False)
+    return 0
+
+
+def review(args) -> int:
+    """Several reviewers' files (docs/pipeline-3.md, section 8.11): coverage, sign-offs and disagreements; runs nothing."""
+    from reframe.core import ui
+    from reframe.reconcile import reviews
+    try:
+        folder = find_run(args.run)
+        context = Path(args.context).expanduser().resolve()
+        if not context.is_dir():
+            raise Stop(Outcome.REFUSED, f"the context folder {args.context} does not exist")
+    except Stop as stop:
+        return _fail(stop)
+    value = reviews.summary(folder, context)
+    ui.section(f"Run {folder.root.name} · reviews in {context}")
+    if not value["reviewers"]:
+        ui.warn("No review download of this run's snapshot in the folder. Download your marks from a review page (Your review) into it.")
+    else:
+        short = {"aws": "AWS Transform", "claude": "Claude", "reconciled": "Reconciled"}
+        ui.table(["Reviewer", "Page and file", "Agree / change / question", "Coverage", "Signed off"],
+                 [[r["reviewer"] or "(no name)", f"{short[r['page']]}: {r['file']}",
+                   f"{r['marks'].get('agree', 0)} / {r['marks'].get('change', 0)} / {r['marks'].get('question', 0)}",
+                   f"{r['marked']} of {r['items']} ({round(100 * r['coverage'])}%)", ", ".join(x["name"] or x["function"] for x in r["signoffs"]) or "–"]
+                  for r in value["reviewers"]])
+    if value["disagreements"]:
+        ui.state("Disagreements", f"{len(value['disagreements'])} item(s) marked differently; the next round takes Needs change or Question over Agree", "bold yellow")
+        names = {"agree": "Agree", "change": "Needs change", "question": "Question"}
+        ui.table(["Item", "Marks", "Next round"],
+                 [[d["key"], "; ".join(f"{m['reviewer'] or 'a reviewer'}: {names.get(m['status'], m['status'])}" + (f" ({m['comment']})" if m["comment"] else "")
+                                      for m in d["marks"]), names.get(d["combined"], d["combined"])] for d in value["disagreements"]])
+    elif value["reviewers"]:
+        ui.ok("No two reviewers marked an item differently.")
+    for i in value["ignored"]:
+        ui.hint(f"ignored {i['file']}: {i['why']}")
+    ui.state("Next", f"reframe reconcile --context {context} combines these marks in the next round", "bright_cyan")
+    return 0
+
+
 def worker(args) -> int:
     from reframe.core import pipeline
     folder = RunFolder(Path(args.folder))
@@ -213,6 +401,8 @@ def worker(args) -> int:
         folder.event("worker_started", pid=os.getpid(), task=task)
         if task == "claude":
             return _claude_work(ctx)
+        if task == "run" and claude_only(folder.state):
+            raise Stop(Outcome.REFUSED, "this run is Claude-only: it has no AWS Transform assessment; reframe resume continues the Claude assessment")
         if task == "run" and folder.state.get("status") != Outcome.DONE.value:
             outcome = pipeline.work(ctx, on_resources=lambda: start_claude_if_ready(folder))
             say(f"{outcome.value}: {folder.state.get('message', '')}\n")
@@ -265,7 +455,7 @@ def _claude_work(ctx) -> int:
     except Stop as stop:
         claude_pipeline.record_stop(ctx, stop)
         return _fail(stop)
-    except NotSent as error:  # an expired AWS sign-in (graph stage) waits for the person, like pipeline 1
+    except NotSent as error:  # an expired AWS sign-in (graph stage) waits for the person, like pipeline 1; a Claude-only run makes no AWS call
         stop = Stop(Outcome.WAITING_SIGNIN, f"{error}. Sign in with aws sso login --profile {ctx.state.get('profile')}, then run reframe resume")
         claude_pipeline.record_stop(ctx, stop)
         return _fail(stop)
@@ -320,6 +510,8 @@ def compare(args) -> int:
     from reframe.report import compare as comparison
     try:
         folder = find_run(args.run)
+        if claude_only(folder.state):
+            raise Stop(Outcome.REFUSED, "this run is Claude-only, so there is nothing to compare; reframe report --open shows Claude's review")
         if not folder.exists("outputs/claude/model.json"):
             raise Stop(Outcome.REFUSED, "this run has no Claude results yet; run reframe claude first")
     except Stop as stop:
@@ -336,6 +528,8 @@ def publish(args) -> int:
     from reframe.report.publish import publish as make
     try:
         folder = find_run(args.run)
+        if args.to == "pages":
+            return _publish_pages(folder, getattr(args, "repo", None))
         if args.to != "aws":
             manifest = make(folder, Path(args.to).expanduser().resolve())
             target = Path(args.to).expanduser()
@@ -351,17 +545,48 @@ def publish(args) -> int:
         with tempfile.TemporaryDirectory() as scratch:
             copy = Path(scratch) / "copy"
             manifest = make(folder, copy)
-            prefix = store.upload(copy, str(manifest["project"]), str(manifest["run"]))
+            prefix = store.upload(copy, str(manifest["project"]), str(manifest["run"]), folder)
     except Stop as stop:
         return _fail(stop)
     except NotSent as error:
         return _fail(Stop(Outcome.WAITING_SIGNIN, f"{error}. Sign in with aws sso login, then run it again"))
-    say(f"Published {len(manifest['files'])} pages to the private reports bucket in your AWS account, under {prefix}\n"
-        f"Anyone who can sign in to the account and read the bucket can now:\n"
+    what = {"source/": "the snapshot both tools read", "results/": "what AWS Transform and Claude's plugin wrote",
+            "reports/": f"{len(manifest['files'])} pages, cleaned, with report.zip"}
+    say(f"Published the run to the private Reframe bucket in your AWS account, under {prefix}:\n"
+        + "".join(f"  {prefix}{key:<10} {what[key]}\n" for key in ("source/", "results/", "reports/") if key in store.sent)
+        + f"Anyone who can sign in to the account and read the bucket can now:\n"
         f"  open the project's latest report:  reframe reports open {manifest['project']}\n"
         f"  save this one in a folder:         reframe reports download {prefix.rstrip('/')} --to <folder>\n"
-        f"  without Reframe:                   download {prefix}report.zip from the bucket in the S3 console\n")
+        f"  without Reframe:                   download {prefix}reports/report.zip from the bucket in the S3 console\n")
     return 0
+
+
+def _publish_pages(folder: RunFolder, repo: str | None) -> int:
+    """S-16 (docs/release-1.md, section 3): the cleaned copy on the repository's gh-pages branch, after a typed yes."""
+    import tempfile
+    from reframe.report.pages import Pages
+    from reframe.report.publish import publish as make
+    if not repo:
+        raise Stop(Outcome.REFUSED, "say which repository: reframe publish --to pages --repo <owner>/<name>")
+    if not sys.stdin.isatty():
+        raise Stop(Outcome.REFUSED, "publishing to GitHub Pages makes a public site, so it asks you first and needs a terminal")
+    pages = Pages(repo)
+    pages.signed_in()
+    with tempfile.TemporaryDirectory() as scratch:
+        copy = Path(scratch) / "copy"
+        manifest = make(folder, copy)
+        project, run = str(manifest["project"]), str(manifest["run"])
+        say(pages.warning(project, run))
+        if _prompt("Type yes to publish this public site, or anything else to stop: ").strip() != "yes":
+            say("Nothing was published.\n")
+            return 0
+        address = pages.push(copy, project, run)
+    folder.merge("pages", repo=repo, address=address, published_at=iso())
+    folder.event("published_pages", repo=repo, address=address, files=len(manifest["files"]))
+    say(f"Published {len(manifest['files'])} pages to the gh-pages branch of {repo}. It is public at:\n  {address}\n"
+        "GitHub can take a minute or two to build the site the first time.\n")
+    return 0
+
 
 
 def reports(args) -> int:
@@ -432,7 +657,9 @@ def status(args) -> int:
         return _fail(stop)
     state, pid = folder.state, folder.worker_pid()
     ui.section(f"Run {folder.root.name} · {state.get('project')}")
-    ui.hint(f"{state.get('source')} · {state.get('mode')} mode" + (f" · worker running (process {pid})" if pid else ""))
+    alone = claude_only(state)
+    ui.hint(f"{state.get('source')} · {state.get('mode')} mode" + (" · Claude only, no AWS" if alone else "")
+            + (f" · worker running (process {pid})" if pid else ""))
     ui.state("Status", f"{state.get('status')} · stage {state.get('stage')}", STATUS_STYLE.get(str(state.get("status")), "bold yellow"))
     if state.get("graph"):
         graph = state["graph"]
@@ -452,9 +679,9 @@ def status(args) -> int:
         ui.state("Report", str(folder.path(state["report"])), "bright_cyan")
     hint = NEXT.get(str(state.get("status")))
     claude_state = state.get("claude") or {}
-    if hint and not pid:
+    if hint and not pid and not alone:  # a Claude-only run's next step is the Claude assessment's, below
         ui.state("Next", hint.format(profile=state.get("profile")), "bright_cyan")
-    elif state.get("status") == Outcome.DONE.value and not state.get("torn_down") and not claude_state:
+    elif state.get("status") == Outcome.DONE.value and not state.get("torn_down") and not claude_state and not alone:
         ui.state("Next", "open the report with reframe report --open; assess the same snapshot with Claude: reframe claude; "
                          "remove the AWS resources with reframe teardown", "bright_cyan")
     _claude_status(folder, state)
@@ -496,13 +723,37 @@ def _reconcile_status(folder: RunFolder, state: dict[str, Any]) -> None:
     if rec.get("requirements"):
         r = rec["requirements"]
         ui.state("Requirements", f"{r['requirements']} recommended, citing {r['rules_cited']} of {r['rules_total']} rules; {r['dropped']} dropped", "")
+    if rec.get("signoffs"):
+        ui.state("Signed off", f"{len({(x['page'], x['function']) for x in rec['signoffs']})} function(s) in the review downloads read", "")
+        for x in rec["signoffs"]:
+            ui.hint(f"{x['page'] or 'a review'}: {x['name'] or x['function']}, by {x['reviewer'] or 'an unnamed reviewer'}"
+                    + (f" on {str(x['at'])[:10]}" if x.get("at") else ""))
     if rec.get("message"):
         ui.say(rec["message"])
     if status == "DONE" and rec.get("page"):
-        ui.state("Next", "reframe reconcile --open shows the reconciliation page; answer the SME list (reconcile/questions.csv) and run "
-                         "reframe reconcile --context <folder> again; reframe publish includes it", "bright_cyan")
+        ui.state("Next", "reframe reconcile --open shows the reconciliation page; reframe export --to xlsx writes it as a workbook; answer the "
+                         "SME list (reconcile/questions.csv) and run reframe reconcile --context <folder> again; reframe publish includes it", "bright_cyan")
     if status not in ("DONE", "RUNNING", "REQUESTED") and not pid:
         ui.state("Next", "fix what the message says, then reframe resume (or reframe reconcile with what it asks for)", "bright_cyan")
+
+
+def claude_next(state: dict[str, Any]) -> str:
+    """What to do once both assessments are done. The reconciliation needs no AWS resources, so the teardown comes first
+    (found on a test run, 25 November 2026, where status named every next step but the reconciliation)."""
+    torn_down, reconciled = bool(state.get("torn_down")), bool(state.get("reconcile"))
+    if claude_only(state):
+        return "; ".join((["reframe reconcile checks every rule against the code"] if not reconciled else
+                          ["reframe design designs the modern application", "reframe reconcile --open shows the reconciliation"])
+                         + ["reframe report --open shows Claude's business review"])
+    steps = []
+    if not reconciled:
+        steps.append("reframe reconcile reconciles the two assessments" if torn_down else
+                     "reframe teardown removes the AWS resources, which the reconciliation does not need; then reframe reconcile "
+                     "reconciles the two assessments")
+    steps += ["reframe compare --open shows the comparison", "reframe report --open each business review"]
+    if reconciled and not torn_down:
+        steps.append("reframe teardown removes the AWS resources")
+    return "; ".join(steps)
 
 
 def _claude_status(folder: RunFolder, state: dict[str, Any]) -> None:
@@ -533,8 +784,7 @@ def _claude_status(folder: RunFolder, state: dict[str, Any]) -> None:
         g = claude_state["graph"]
         ui.state("Neptune", f"Claude's graph loaded: {g.get('quads')} quads; {g.get('rules_joined_to_aws_programs')} rules join AWS's programs", "")
     if status == Outcome.DONE.value:
-        ui.state("Next", "reframe compare --open shows the comparison; reframe report --open each business review; reframe teardown removes "
-                         "the AWS resources", "bright_cyan")
+        ui.state("Next", claude_next(state), "bright_cyan")
     elif status in CLAUDE_NEXT and not folder.worker_pid("claude"):
         ui.state("Next", CLAUDE_NEXT[status], "bright_cyan")
 
@@ -633,10 +883,19 @@ def report(args) -> int:
     from reframe.report import build
     try:
         folder = find_run(args.run)
-        if not folder.exists("outputs/requirements"):
+        alone = claude_only(folder.state)
+        if alone and not folder.exists("outputs/claude/model.json"):
+            raise Stop(Outcome.REFUSED, "this run has no Claude results yet; reframe status shows where the Claude assessment is")
+        if not alone and not folder.exists("outputs/requirements"):
             raise Stop(Outcome.REFUSED, "this run has no downloaded results yet")
     except Stop as stop:
         return _fail(stop)
+    if alone:
+        path = build.build_claude(folder)
+        say(f"Claude's report: {path}\n")
+        if args.open:
+            subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(path)], check=False)
+        return 0
     path = build.build(folder)
     say(f"Report: {path}\n")
     if folder.exists("outputs/claude/model.json"):
@@ -653,6 +912,9 @@ def teardown(args) -> int:
         folder = find_run(args.run)
     except Stop as stop:
         return _fail(stop)
+    if claude_only(folder.state):
+        say(f"Run {folder.root.name} is Claude-only: it created no AWS resources, so there is nothing to tear down.\n")
+        return 0
     pid = folder.worker_pid("run") or folder.worker_pid("claude")
     if pid:
         return _fail(Stop(Outcome.REFUSED, f"a worker is still running this run (process {pid}); wait for it to stop, or stop it, first"))

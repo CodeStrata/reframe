@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 64 64" role="img" aria-labelledby="t">
+  <title id="t">Reframe</title>
+  <rect x="5" y="5" width="36" height="36" rx="7" fill="none" stroke="#6B7785" stroke-width="3" stroke-dasharray="5.5 4"/>
+  <rect x="19" y="19" width="40" height="40" rx="8" fill="#7FB2E5"/>
+  <path d="M27 31h20M27 38h24M27 45h11" stroke="#0D1117" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+  <path d="M42.5 46.5l3.6 3.6 7.4-7.6" stroke="#0D1117" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

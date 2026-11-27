@@ -15,18 +15,22 @@ EXAMPLES = {
         ("reframe", "the home screen: your runs, the next step and a menu"),
         ("reframe run", "a guided run: checks the prerequisites, the AWS sign-in and the source, then starts"),
         ("reframe run --source <folder | file.zip | github-url>", "start straight away, with no questions"),
+        ("reframe run --tools claude --source <source>", "Claude only: no AWS account, nothing to tear down"),
         ("reframe status", "where the latest run is, and what to do next"),
         ("reframe answer", "AWS's waiting question, in interactive mode"),
         ("reframe report --open", "open the business review in the browser"),
         ("reframe claude", "the Claude assessment: the same snapshot, assessed with Claude as well"),
         ("reframe compare --open", "open the page comparing AWS Transform and Claude"),
-        ("reframe publish --to aws", "upload a cleaned copy of the reports to your account's private bucket"),
+        ("reframe export --to xlsx", "the reconciled requirements and business rules as an Excel workbook"),
+        ("reframe design --open", "the design: screens, journeys, the prototype, final specifications and the AI-DLC package"),
+        ("reframe publish --to aws", "upload the run's source, results and cleaned reports to your account's private bucket"),
         ("reframe reports", "list the published reports; reframe reports open <project> opens the latest"),
         ("reframe teardown", "remove the AWS resources the run created"),
     ],
     "run": [
         ("reframe run", "guided: asks for everything it needs"),
         ("reframe run --source https://github.com/<owner>/<repo>", "a GitHub repository, latest commit"),
+        ("reframe run --tools claude --source app.zip", "Claude only, with no AWS: the assessment, then reframe reconcile and reframe design"),
         ("reframe run --source ~/code/app --ref release-1", "a local Git checkout, at a branch, tag or commit"),
         ("reframe run --source app.zip --mode interactive", "a ZIP file; you answer AWS's questions with reframe answer"),
     ],
@@ -45,13 +49,26 @@ EXAMPLES = {
                   ("reframe reconcile --context ~/carddemo-context", "with documents, review exports and answered questions"),
                   ("reframe reconcile --max-batches 120", "go ahead with a larger estimate"),
                   ("reframe reconcile --open", "open the reconciliation page")],
-    "publish": [("reframe publish --to aws", "upload to the private reports bucket in your AWS account"),
-                ("reframe publish --to reports/my-system", "write the copy into a folder")],
+    "review": [("reframe review --context ~/carddemo-context", "each reviewer's coverage, sign-offs and disagreements in the folder's review downloads")],
+    "export": [("reframe export --to xlsx", "the latest run's reconciled results as an Excel workbook in its run folder"),
+               ("reframe export --to xlsx --out ~/Desktop --open", "write it to a folder and open it"),
+               ("reframe export --to xlsx --context ~/carddemo-context", "with the reviewers' marks from the downloads in a folder")],
+    "design": [("reframe design", "a design round on the latest run: only what new context touches is redone"),
+               ("reframe design --plan", "what a round would redo, and why, with no Claude step"),
+               ('reframe design --stack "React; Java 21 with Spring Boot; PostgreSQL"', "give the target stack: the data contracts get its types"),
+               ("reframe design --package ~/handover/app", "copy the AI-DLC package, cleaned, into an empty folder"),
+               ("reframe design --check ~/handover/app", "the placeholders still to fill in a copy of the package"),
+               ("reframe design --open", "open the design page, with the prototype")],
+    "publish": [("reframe publish --to aws", "upload the run's source, results and reports to the private bucket in your AWS account"),
+                ("reframe publish --to reports/my-system", "write the copy into a folder"),
+                ("reframe publish --to pages --repo my-org/reports", "publish the copy to a public GitHub Pages site, after you type yes")],
     "reports": [("reframe reports", "list the published reports"),
                 ("reframe reports open <project>", "download the project's latest report with your AWS sign-in and open it"),
                 ("reframe reports open <project> --run <run>", "an older run of the project"),
                 ("reframe reports download <project> --to <folder>", "save the latest report in a folder, to keep or send on"),
                 ("reframe reports teardown", "remove the bucket and every report in it, after your consent")],
+    "setup": [("reframe setup", "everything a run with both tools needs, and the AWS sign-in"),
+              ("reframe setup --tools claude", "only Git, Claude Code and the plugin, for a Claude-only run")],
     "resume": [("reframe resume", "continue the latest run, and its Claude assessment or reconciliation if they stopped too")],
     "teardown": [("reframe teardown", "list the latest run's AWS resources, then remove them after you type yes")],
 }
@@ -72,7 +89,8 @@ def _option(action: argparse.Action) -> str:
         return names
     if action.choices:
         return f"{names} {'|'.join(map(str, action.choices))}"
-    return f"{names} <{(action.metavar or action.dest).lower()}>"
+    metavar = action.metavar if isinstance(action.metavar, str) and action.metavar else action.dest
+    return f"{names} <{metavar.lower()}>"
 
 
 def _options(parser: argparse.ArgumentParser) -> list[tuple[str, str]]:

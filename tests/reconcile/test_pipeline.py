@@ -40,9 +40,15 @@ class PipelineTest(InputsTest):
         self.assertEqual(rec["decisions"], {"agreed": 1, "merged": 1, "kept": 1})
         self.assertEqual(rec["inputs"]["questions"], 1)
         self.assertEqual(rec["questions"], {"questions": 1, "defects": 0, "open": 1})
-        self.assertEqual(rec["requirements"], {"requirements": 3, "dropped": 0, "rules_cited": 3, "rules_total": 3})
+        self.assertEqual(rec["requirements"], {"requirements": 3, "dropped": 0, "rules_cited": 3, "rules_total": 3, "tables": 0, "risk": {"low": 1}})
         self.assertTrue(self.folder.exists("reconcile/questions.csv"))
         self.assertEqual(len(self.folder.load("reconcile/agreed.json")), 1)
+        made = {r["decision"]: r for r in self.folder.load("outputs/reconcile/rules.json")["rules"]}
+        self.assertEqual({d: r["confidence"] for d, r in made.items()}, {"agreed": "medium", "merged": "high", "kept": "medium"})
+        self.assertEqual((made["merged"]["reachable"], made["merged"]["entry"], made["merged"]["model_confidence"]), ("yes", ["app/cbl/PROG1.cbl:1"], "high"))
+        self.assertEqual(rec["described"]["described"], 1)
+        self.assertEqual({d: r["kind"] for d, r in made.items()}, {"agreed": "validation", "merged": "business", "kept": "business"})
+        self.assertEqual({d: len(r["examples"]) for d, r in made.items()}, {"agreed": 1, "merged": 2, "kept": 2})  # this snapshot has a line 99
         self.assertEqual(pipeline.request(self.folder)["round"], 2)  # a finished round: the next request is a new one
         self.assertEqual((rec["estimate"]["batches"], rec["estimate"]["round"]), (1, 1))
         pipeline.update(self.folder, round=1, status="RUNNING")  # resumed in the same round, with nothing left to decide
@@ -84,6 +90,14 @@ class PipelineTest(InputsTest):
         self.assertEqual(merged["evidence"], ["app/cbl/PROG1.cbl:1-3"])
         self.assertEqual(data["evidence"]["app/cbl/PROG1.cbl:1-3"]["lines"], ["line 1", "line 2", "line 3"])  # read from the snapshot
         self.assertEqual(data["reconcile"]["rules"], {"agreed": 1, "merged": 1, "kept": 1})
+        self.assertEqual(data["reconcile"]["confidence"], {"medium": 2, "high": 1})
+        self.assertEqual(data["reconcile"]["kinds"], {"validation": 1, "business": 2})
+        self.assertEqual((merged["confidence"], merged["entry"]), ("high", ["app/cbl/PROG1.cbl:1"]))
+        self.assertEqual(data["evidence"]["app/cbl/PROG1.cbl:1"]["lines"], ["line 1"])  # the entry lines, read from the snapshot
+        self.assertIn("How the code is reached", page)
+        self.assertEqual((data["reconcile"]["examples"], data["reconcile"]["examples_removed"]), (5, 0))
+        self.assertIn("applies to the ' + r.unit_rules + ' rules of this decision", page)
+        self.assertIn("r.defect && !(r.decision && r.n > 1)", page)  # a unit's note is shown on its first rule only
         self.assertEqual([q["id"] for q in data["sme"]], ["SME-001"])
         self.assertEqual(len(data["requirements"]), 3)
         self.assertTrue(all(r["requirements"] for r in data["rules"]))  # every recommended rule backs a requirement
@@ -102,6 +116,105 @@ class PipelineTest(InputsTest):
         self.assertIn("../aws/index.html", copied)
         self.assertNotIn("../report/index.html", copied)
         self.assertIn('"reconciled": "../reconciled/index.html"', (target / "comparison" / "index.html").read_text())
+
+    def test_sign_offs_reach_the_status_and_the_reconciled_review(self):
+        import io
+        import json
+        import re
+        from contextlib import redirect_stdout
+        from reframe.core import commands
+        from reframe.report import reconciled
+        context = self.folder.root.parent / "context"
+        context.mkdir()
+        (context / "review-pat.json").write_text(json.dumps({"source": {"sha256": "a" * 64}, "reviewer": "Pat", "tool": "Reframe's reconciliation", "marks": [],
+                                                             "signoffs": [{"function": "rec/f", "name": "Pay bills", "at": "2026-11-25T10:00:00Z"}]}))
+        pipeline.request(self.folder, context=str(context), max_batches=5)
+        pipeline.work(self.folder, claude=self.fake(good), claude_check=lambda: Report(True))
+        self.assertEqual([x["reviewer"] for x in self.folder.state["reconcile"]["signoffs"]], ["Pat"])
+        page = self.folder.path(reconciled.PAGE).read_text()
+        data = json.loads(re.search(r'<script id="data" type="application/json">(.*?)</script>', page, re.S).group(1))
+        self.assertEqual(list(data["signoffs"]), ["rec/f"])
+        aws = {"functions": [{"id": "f"}]}
+        self.assertEqual(reconciled._signoffs([{"function": "f", "reviewer": "Sam", "at": "", "comment": "", "page": "AWS Transform"},
+                                               {"function": "claude-fn", "reviewer": "Lee", "at": "", "comment": "", "page": "Claude"}], aws),
+                         {"rec/f": [{"reviewer": "Sam", "at": "", "comment": "", "page": "AWS Transform"}]})  # AWS's function shows here; Claude's only in status
+        out = io.StringIO()
+        with redirect_stdout(out):
+            commands._reconcile_status(self.folder, self.folder.state)
+        self.assertIn("Pay bills, by Pat on 2026-11-25", out.getvalue())
+
+    def test_a_unit_agreed_on_the_page_is_kept_when_a_document_is_added(self):
+        import json
+        import re
+        from reframe.report import reconciled
+        context = self.folder.root.parent / "context"
+        context.mkdir()
+        pipeline.request(self.folder, context=str(context), max_batches=5)
+        first = self.fake(good)
+        pipeline.work(self.folder, claude=first, claude_check=lambda: Report(True))
+        self.assertEqual(sorted(k for c in first.calls for k in c[1]), ["aws:a9", "group:c2"])
+        (context / "review-pat.json").write_text(json.dumps({"source": {"sha256": "a" * 64}, "reviewer": "Pat", "tool": "Reframe's reconciliation",
+                                                             "marks": [{"key": "rec/aws:a9/1", "status": "Agree", "marked_at": "2026-11-25T09:00:00Z"}]}))
+        (context / "policy.md").write_text("# A new policy")  # a document is given to every unit
+        pipeline.request(self.folder, context=str(context), max_batches=5)
+        second = self.fake(good)
+        pipeline.work(self.folder, claude=second, claude_check=lambda: Report(True))
+        self.assertEqual([k for c in second.calls for k in c[1]], ["group:c2"])  # aws:a9 was agreed: kept
+        rec = self.folder.state["reconcile"]
+        self.assertEqual(rec["locked"], 1)
+        self.assertEqual(self.folder.load("reconcile/decisions.json")["aws:a9"]["round"], 1)
+        page = self.folder.path(reconciled.PAGE).read_text()
+        data = json.loads(re.search(r'<script id="data" type="application/json">(.*?)</script>', page, re.S).group(1))
+        kept = next(r for r in data["rules"] if r["key"] == "rec/aws:a9/1")
+        self.assertEqual(kept["agreed_by"], [{"reviewer": "Pat", "at": "2026-11-25T09:00:00Z"}])
+        self.assertIn("Agreed by", page)
+
+    def test_a_review_downloaded_from_a_published_copy_reaches_the_next_round(self):
+        import json
+        import re
+        from reframe.report import publish, reconciled
+        # AWS Transform IDs in rule keys and a function id: `reframe publish` replaces each with a stand-in
+        a2, a9 = "Payments/CardPayments/03f06db7_e63b_4ee8_9804_248082449101", "Payments/CardPayments/1f5b9b93-67ea-4ee8-9804-248082449102"
+        fid = "Payments/6f1c2d3e_1111_4222_8333_444455556666"
+        self.data = inputs([pair("a1", "c1", "same"), pair(a2, "c2", "overlapping")], extra=[(a9, "aws", "PROG1")])
+        for r in self.data["rules"].values():
+            r["function"] = fid
+        self.folder.save("outputs/comparison/ai-pairs.json", {"complete": True, "pairs": self.data["pairs"]})
+        frame = {"domains": [{"key": "payments", "name": "Payments", "kind": "business", "description": "", "functions": [fid]}],
+                 "functions": {fid: {"id": fid, "name": "Pay bills", "description": ""}}, "by_program": {"PROG1": [fid]}}
+        with mock.patch("reframe.reconcile.requirements.frame", lambda folder: frame):
+            pipeline.request(self.folder, max_batches=5)
+            pipeline.work(self.folder, claude=self.fake(good), claude_check=lambda: Report(True))
+            kept, changed, function = f"rec/aws:{a9}/1", "rec/group:c2/1", f"rec/{fid}"
+            clean = publish.Cleaner(self.folder).clean
+            self.assertTrue(all(clean(k) != k for k in (kept, function)))  # the published copy names them differently
+
+            def download(folder, name):
+                folder.mkdir()
+                (folder / "review-pat.json").write_text(json.dumps({
+                    "source": {"sha256": "a" * 64}, "reviewer": "Pat", "tool": "Reframe's reconciliation",
+                    "marks": [{"key": name(kept), "status": "Agree", "marked_at": "2026-11-25T09:00:00Z"},
+                              {"key": name(changed), "status": "Needs change", "comment": "the limit is 500"}],
+                    "signoffs": [{"function": name(function), "name": "Pay bills", "at": "2026-11-25T10:00:00Z"}]}))
+                return folder
+
+            own, copy = download(self.folder.root.parent / "own", lambda k: k), download(self.folder.root.parent / "copy", clean)
+            by_own, by_copy = inputlib.gather(self.folder, own)["context"], inputlib.gather(self.folder, copy)["context"]
+            for part in ("agreed", "marks", "signoffs"):
+                self.assertEqual(by_copy[part], by_own[part], part)
+            self.assertEqual(list(by_copy["agreed"]), [kept])
+            self.assertEqual(sorted(by_copy["marks"]), sorted([a2, "c2"]))  # the Needs change goes to the rules its recommended rule covers
+            self.assertEqual([x["function"] for x in by_copy["signoffs"]], [function])
+
+            pipeline.request(self.folder, context=str(copy), max_batches=5)
+            second = self.fake(good)
+            pipeline.work(self.folder, claude=second, claude_check=lambda: Report(True))
+        self.assertEqual([k for c in second.calls for k in c[1]], ["group:c2"])  # aws:<a9> was agreed: kept; group:c2 is decided again
+        self.assertEqual(self.folder.state["reconcile"]["locked"], 1)
+        page = self.folder.path(reconciled.PAGE).read_text()
+        data = json.loads(re.search(r'<script id="data" type="application/json">(.*?)</script>', page, re.S).group(1))
+        self.assertEqual(next(r for r in data["rules"] if r["key"] == kept)["agreed_by"], [{"reviewer": "Pat", "at": "2026-11-25T09:00:00Z"}])
+        self.assertEqual(list(data["signoffs"]), [function])
 
     def test_above_the_batch_limit_it_stops_and_says_how_to_go_ahead(self):
         pipeline.request(self.folder, max_batches=0)

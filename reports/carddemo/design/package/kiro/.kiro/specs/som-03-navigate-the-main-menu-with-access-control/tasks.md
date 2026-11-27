@@ -1,0 +1,49 @@
+# Implementation plan: Navigate the Main Menu with access control (SOM-C03)
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+- [ ] 1. SOM-C03-T1 [data] Model the data the capability reads and writes
+  - Working records it passes or builds: COCOM01Y, COMEN02Y, COTTL01Y, CSDAT01Y, CSMSG01Y, CSUSR01Y.
+  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
+- [ ] 2. SOM-C03-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-022, SOM-REQ-F-023_
+  - _Rules: SOM-BR-014, SOM-BR-017, SOM-BR-019, SOM-BR-020, SOM-BR-021, SOM-BR-022, SOM-BR-023, SOM-BR-024, SOM-BR-026, SOM-BR-027_
+  - _After: SOM-C03-T1_
+- [ ] 3. SOM-C03-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: SOM-REQ-F-024, SOM-REQ-F-015, SOM-REQ-F-021_
+  - _Rules: SOM-BR-018, SOM-BR-025, SOM-BR-028_
+  - _After: SOM-C03-T1_
+- [ ] 4. SOM-C03-T4 [api] Build the services behind the screens
+  - SOM-BR-015: Distinguish the first display of the menu from a submission: arriving at the menu (a GET or navigation) renders it, and only a submission (POST or action) reads the input and handles the key. Track this through the request type or a per-session screen state. Do not use a shared flag.
+  - SOM-BR-016: When the menu is entered fresh, for example after sign-on or on return from a function screen, set the session's menu state to 're-enter' and render a clean menu with no option value and no message. Do not process any input on this request.
+  - SOM-BR-017: On a submission, dispatch on the action: 'Enter' or submit processes the chosen option, 'PF3' (a Back or Exit action) returns to the sign-on screen, and any other action re-renders the menu with 'Invalid key pressed. Please see below...'. Map the legacy function keys to explicit actions or keyboard shortcuts in the new UI.
+  - SOM-BR-019: Normalise the typed option before validating it: trim trailing blanks, left-pad it to two digits with zeros, and echo the two-digit value back in the option field. A numeric input limited to two digits is enough in the new UI, provided the echo and the validation behave the same.
+  - SOM-BR-029: After any interaction that stays on the menu, keep the user's session, including user identity, type and navigation origin, so the next submission returns to the Main Menu. In a web application this is ordinary server-side or token session state between requests. Nothing needs to stay running while the application waits for the user.
+  - _Requirements: SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-025_
+  - _Rules: SOM-BR-015, SOM-BR-016, SOM-BR-017, SOM-BR-029_
+  - _After: SOM-C03-T1, SOM-C03-T2, SOM-C03-T3_
+- [ ] 5. SOM-C03-T5 [ui-modernization] Build the screen Home (S-HOME)
+  - To the prototype: ui-reference/index.html#/S-HOME.
+  - **data table** "Functions": Only the functions the role may use are listed, so the 'Please enter a valid option number...' error cannot happen. If a regular user still reaches an administrator function, the server refuses it with 'No access - Admin Only option... '. A coming-soon row opens nothing and says 'This option <name> is coming soon ...'. A function that is not installed opens nothing and says 'This option <name> is not installed...'. Only Enter and click act on a row, so the 'Invalid key pressed. Please see below...' message is no longer needed.
+  - **status badge** "Availability"
+  - _Requirements: SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
+  - _Rules: SOM-BR-015, SOM-BR-016, SOM-BR-017, SOM-BR-018, SOM-BR-019, SOM-BR-020, SOM-BR-022, SOM-BR-023, SOM-BR-024, SOM-BR-025, SOM-BR-026, SOM-BR-027, SOM-BR-028, SOM-BR-029_
+  - _After: SOM-C03-T2, SOM-C03-T3, SOM-C03-T4_
+- [ ] 6. SOM-C03-T6 [ui-modernization] Build the screen CardDemo header and navigation (S-APP-HEADER)
+  - To the prototype: ui-reference/index.html#/S-APP-HEADER.
+  - **data table** "Navigation": Every screen checks on the server that a session is signed in. With no session you are sent to Sign in with 'Please sign in to continue.' Administrator-only screens check the role on the server. A regular user who opens one sees 'No access - Admin Only option... ' and stays on Home.
+  - **primary button** "Sign out"
+  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-017_
+  - _Rules: SOM-BR-014, SOM-BR-017, SOM-BR-021_
+  - _After: SOM-C03-T2, SOM-C03-T3, SOM-C03-T4_
+- [ ] 7. SOM-C03-T7 [test-generation] Write a test for every acceptance criterion
+  - 23 acceptance criteria, each a test named by its ID.
+  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
+  - _Criteria: SOM-C03-AC-01, SOM-C03-AC-02, SOM-C03-AC-03, SOM-C03-AC-04, SOM-C03-AC-05, SOM-C03-AC-06, SOM-C03-AC-07, SOM-C03-AC-08, SOM-C03-AC-09, SOM-C03-AC-10, SOM-C03-AC-11, SOM-C03-AC-12, SOM-C03-AC-13, SOM-C03-AC-14, SOM-C03-AC-15, SOM-C03-AC-16, SOM-C03-AC-17, SOM-C03-AC-18, SOM-C03-AC-19, SOM-C03-AC-20, SOM-C03-AC-21, SOM-C03-AC-22, SOM-C03-AC-23_
+  - _After: SOM-C03-T1, SOM-C03-T2, SOM-C03-T3, SOM-C03-T4, SOM-C03-T5, SOM-C03-T6_
+- [ ] 8. SOM-C03-T8 [compliance] Review the handling of security
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: SOM-REQ-F-012, SOM-REQ-F-013, SOM-REQ-F-014, SOM-REQ-F-015, SOM-REQ-F-016, SOM-REQ-F-017, SOM-REQ-F-018, SOM-REQ-F-019, SOM-REQ-F-020, SOM-REQ-F-021, SOM-REQ-F-022, SOM-REQ-F-023, SOM-REQ-F-024, SOM-REQ-F-025_
+  - _After: SOM-C03-T1, SOM-C03-T2, SOM-C03-T3, SOM-C03-T4, SOM-C03-T5, SOM-C03-T6_

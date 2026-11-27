@@ -37,7 +37,8 @@ class Context:
     @classmethod
     def load(cls, folder: RunFolder) -> "Context":
         state = folder.state
-        return cls(folder, Aws(state["profile"], state["region"]), Changes(folder, f"{getpass.getuser()} (reframe)"))
+        # a Claude-only run has no profile; its Aws is never called (docs/release-1.md, section 2)
+        return cls(folder, Aws(state.get("profile") or "", state.get("region") or "us-east-1"), Changes(folder, f"{getpass.getuser()} (reframe)"))
 
     # Built when first needed, so commands that only read the run folder do not need AWS tools.
     def terraform(self):

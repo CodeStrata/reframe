@@ -11,9 +11,9 @@ from typing import Any
 
 from reframe.core.errors import Outcome, Stop
 from reframe.core.pipeline import Context
-from reframe.core.runfolder import iso
+from reframe.core.runfolder import claude_only, iso
 
-STAGES = ("preflight", "workspace", "plugin preflight", "assess", "map", "estimate", "extract rules", "retrieve", "requirements",
+STAGES = ("snapshot", "preflight", "workspace", "plugin preflight", "assess", "map", "estimate", "extract rules", "retrieve", "requirements",
           "graph", "report", "done")
 DEFAULT_MAX_AGENTS = 600
 
@@ -33,6 +33,8 @@ def stage(ctx: Context, name: str) -> None:
 
 def record_stop(ctx: Context, stop: Stop) -> None:
     update(ctx, status=stop.outcome.value, message=stop.message, updated_at=iso())
+    if claude_only(ctx.state):  # the run is this pipeline: its status is the run's
+        ctx.folder.update(status=stop.outcome.value, message=stop.message, updated_at=iso())
     ctx.folder.event("claude_stopped", outcome=stop.outcome.value, message=stop.message[:500])
 
 
@@ -47,7 +49,10 @@ def request(ctx: Context, *, auth: str = "subscription", max_agents: int | None 
 
 
 def ready(ctx: Context) -> bool:
-    """Pipeline 2 can start once pipeline 1 has the snapshot (stage 1) and the AWS resources (stage 2)."""
+    """Pipeline 2 can start once pipeline 1 has the snapshot (stage 1) and the AWS resources (stage 2); a Claude-only run
+    takes its own snapshot, so it can always start."""
+    if claude_only(ctx.state):
+        return True
     return ctx.folder.exists("snapshot.json") and ctx.changes.receipt("terraform-project-apply") is not None
 
 
@@ -75,7 +80,8 @@ def claude_code(ctx: Context):
     places = paths(ctx.folder)
     settings = state(ctx)
     auth = settings.get("auth", "subscription")
-    env = environment(auth, aws_credentials=ctx.aws.credentials_environment if auth == "bedrock" else None, region=ctx.state.get("region"))
+    profile = auth == "bedrock" and bool(ctx.state.get("profile"))  # else a Bedrock API key in AWS_BEARER_TOKEN_BEDROCK
+    env = environment(auth, aws_credentials=ctx.aws.credentials_environment if profile else None, region=ctx.state.get("region"))
     return ClaudeCode(places["root"], places["policy"], plugin.plugin_dir(), places["logs"], env)
 
 
@@ -94,6 +100,19 @@ def work(ctx: Context) -> Outcome:
     from reframe.claude import preflight, steps
     from reframe.claude import workspace as ws
     run = ctx.state
+    alone = claude_only(run)
+    auth = state(ctx).get("auth", "subscription")
+    if alone:
+        import os
+        if auth == "bedrock" and not run.get("profile") and not os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
+            raise Stop(Outcome.REFUSED, "Claude on Amazon Bedrock needs an AWS sign-in: start the run with --auth bedrock --profile <profile> "
+                                        "--region <region> (the profile is used for Bedrock only; the run creates no AWS resources), or set "
+                                        "AWS_BEARER_TOKEN_BEDROCK")
+        ctx.folder.update(stage="claude", status="RUNNING", message=None, updated_at=iso())
+        if not ctx.folder.exists("snapshot.json"):
+            stage(ctx, "snapshot")
+            from reframe.source import snapshot
+            snapshot.take(ctx.folder, run["source"], run.get("ref"))
     if not ready(ctx):
         raise Stop(Outcome.REFUSED, "the AWS Transform assessment has not made the run's snapshot and AWS resources yet; the Claude assessment starts when it has")
     if run.get("torn_down"):
@@ -103,7 +122,7 @@ def work(ctx: Context) -> Outcome:
     update(ctx, started_at=settings.get("started_at") or iso())
 
     stage(ctx, "preflight")
-    report = preflight.check(settings.get("auth", "subscription"), aws_identity=ctx.aws.identity)
+    report = preflight.check(auth, aws_identity=ctx.aws.identity if (not alone or (auth == "bedrock" and run.get("profile"))) else None)
     ctx.folder.save("claude-preflight.json", report.as_json())
     if not report.ok:
         signin = any(not c.ok and "sign-in" in c.name for c in report.checks)
@@ -136,7 +155,7 @@ def work(ctx: Context) -> Outcome:
     if not approved and (mode == "interactive" or size["agents_high"] > limit):
         reply = ask(ctx)("claude-estimate", f"Rule extraction will run {size['shards']} shards: about {size['agents_low']} to "
                          f"{size['agents_high']} agents, up to about {size['tokens_high'] / 1e6:.1f} million tokens and "
-                         f"{size['minutes_high']} minutes on your Claude account. The agent limit is {limit}.",
+                         f"{size['minutes_high']} minutes, {preflight.BILLED.get(auth, 'on your Claude account')}. The agent limit is {limit}.",
                          [f"Run it (raises the limit for this run to {max(limit, size['agents_high'])})", "Cancel the Claude assessment for now"])
         if reply.startswith("Cancel"):
             raise Stop(Outcome.REFUSED, "rule extraction was cancelled at the estimate; reframe claude starts it again")
@@ -173,6 +192,12 @@ def work(ctx: Context) -> Outcome:
     from reframe.report import build, compare
     path = build.build_claude(ctx.folder)
     update(ctx, report=str(path.relative_to(ctx.folder.root)))
+    if alone:
+        message = f"Claude's business review: {path}. Next: reframe reconcile checks every rule against the code."
+        update(ctx, stage="done", status=Outcome.DONE.value, finished_at=iso(), message=message)
+        ctx.folder.update(stage="done", status=Outcome.DONE.value, finished_at=iso(), message=message)
+        ctx.folder.event("claude_done")
+        return Outcome.DONE
     stage(ctx, "waiting for AWS Transform")
     wait_for_pipeline_1(ctx)
     stage(ctx, "comparison")

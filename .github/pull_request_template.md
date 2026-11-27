@@ -10,6 +10,7 @@ List the checks actually performed, their results, and the checks not performed.
 
 - [ ] All changed files and new history reviewed for secrets and confidential content
 - [ ] Original/licensed content only; synthetic examples labeled
+- [ ] No report, package or source excerpt from a codebase other than CardDemo
 - [ ] Personal GitHub authentication and author/committer attribution verified
 - [ ] AI assistance disclosed
 - [ ] Limitations and unimplemented capabilities stated accurately

@@ -1,0 +1,49 @@
+# Implementation plan: Inquire on an account's pending authorizations (CAFM-C09)
+
+**Status: DRAFT**: the function is not signed off yet. Confirm with the owner before building to it.
+
+- [ ] 1. CAFM-C09-T1 [data] Model the data the capability reads and writes
+  - File records: CVACT01Y, CVACT03Y, CVCUS01Y (see data-contracts.md).
+  - Working records it passes or builds: CIPAUDTY, CIPAUSMY, COCOM01Y, COTTL01Y, CSDAT01Y, CSMSG01Y, CSMSG02Y, CVACT02Y.
+  - _Requirements: CAFM-REQ-F-082, CAFM-REQ-F-083, CAFM-REQ-F-084, CAFM-REQ-F-085, CAFM-REQ-F-086, CAFM-REQ-F-087, CAFM-REQ-F-088, CAFM-REQ-F-089, CAFM-REQ-F-090, CAFM-REQ-F-091, CAFM-REQ-F-092, CAFM-REQ-F-093, CAFM-REQ-F-094, CAFM-REQ-F-095, CAFM-REQ-F-096, CAFM-REQ-F-097, CAFM-REQ-F-098, CAFM-REQ-F-099, CAFM-REQ-F-100_
+- [ ] 2. CAFM-C09-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: CAFM-REQ-F-083, CAFM-REQ-F-084, CAFM-REQ-F-085, CAFM-REQ-F-086, CAFM-REQ-F-099, CAFM-REQ-F-100_
+  - _Rules: CAFM-BR-085, CAFM-BR-086, CAFM-BR-087, CAFM-BR-088, CAFM-BR-089, CAFM-BR-103, CAFM-BR-104_
+  - _After: CAFM-C09-T1_
+- [ ] 3. CAFM-C09-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: CAFM-REQ-F-095, CAFM-REQ-F-096, CAFM-REQ-F-097, CAFM-REQ-F-098, CAFM-REQ-F-082, CAFM-REQ-F-087, CAFM-REQ-F-090, CAFM-REQ-F-091, CAFM-REQ-F-092, CAFM-REQ-F-093, CAFM-REQ-F-094_
+  - _Rules: CAFM-BR-084, CAFM-BR-090, CAFM-BR-093, CAFM-BR-094, CAFM-BR-095, CAFM-BR-096, CAFM-BR-097, CAFM-BR-098, CAFM-BR-099, CAFM-BR-100, CAFM-BR-101, CAFM-BR-102_
+  - _After: CAFM-C09-T1_
+- [ ] 4. CAFM-C09-T4 [api] Build the services behind the screens
+  - CAFM-BR-091: For a valid account number, the screen's backend runs four keyed lookups: the card cross-reference by account id, the account, the customer (by the customer id from the cross-reference) and the pending-authorization summary. It returns them as one view, and fetches the first page of authorization details only when a summary exists.
+  - CAFM-BR-092: Keep the customer ID and card number from the cross-reference in the operator's session (or pass them in the navigation state), so the detail and fraud screens can use them without another lookup.
+  - _Requirements: CAFM-REQ-F-088, CAFM-REQ-F-089_
+  - _Rules: CAFM-BR-091, CAFM-BR-092_
+  - _After: CAFM-C09-T1, CAFM-C09-T2, CAFM-C09-T3_
+- [ ] 5. CAFM-C09-T5 [ui-modernization] Build the screen Account authorizations (S-ACCOUNT-AUTHORIZATIONS)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-AUTHORIZATIONS.
+  - **lookup field** "Account ID": Blank: 'Please enter Acct Id' - type the account ID, then press Enter. Not all digits: 'Acct Id must be Numeric' - remove letters, spaces and symbols and use digits only. No card on file: 'Account <account> not found in XREF file' - check the account ID. No account record: 'Account <account> not found in ACCT file' - check the account ID. No customer record: 'Customer <customer> not found in CUST file' - report it to support. Any other read failure: 'System error while reading' with the file and code - try again, or report the code. On any error nothing is loaded, the field keeps the entry so it can be corrected, and focus returns to it.
+  - **summary card** "Customer"
+  - **summary card** "Limits and balances"
+  - **summary card** "Pending authorizations": Summary unreadable: 'System error while reading AUTH Summary: Code <code>' - try again, and report the code if it repeats. The totals and the table stay empty.
+  - **data table** "Authorizations": Previous page is disabled on the first page, with 'You are already on the first page'. Next page is disabled on the last page, with 'You are already on the last page'. Next authorization on the last one says 'Already at the last authorization' and keeps the current one open. Rows open directly, so no selection code is typed and 'Invalid selection. Valid value is S' cannot arise. There are no unsupported keys to warn about.
+  - _Requirements: CAFM-REQ-F-082, CAFM-REQ-F-083, CAFM-REQ-F-084, CAFM-REQ-F-085, CAFM-REQ-F-086, CAFM-REQ-F-087, CAFM-REQ-F-088, CAFM-REQ-F-089, CAFM-REQ-F-090, CAFM-REQ-F-091, CAFM-REQ-F-092, CAFM-REQ-F-093, CAFM-REQ-F-094, CAFM-REQ-F-095, CAFM-REQ-F-096, CAFM-REQ-F-097, CAFM-REQ-F-098, CAFM-REQ-F-100_
+  - _Rules: CAFM-BR-084, CAFM-BR-085, CAFM-BR-086, CAFM-BR-087, CAFM-BR-088, CAFM-BR-089, CAFM-BR-090, CAFM-BR-091, CAFM-BR-092, CAFM-BR-093, CAFM-BR-094, CAFM-BR-095, CAFM-BR-096, CAFM-BR-097, CAFM-BR-098, CAFM-BR-099, CAFM-BR-100, CAFM-BR-101, CAFM-BR-102, CAFM-BR-104_
+  - _After: CAFM-C09-T2, CAFM-C09-T3, CAFM-C09-T4_
+- [ ] 6. CAFM-C09-T6 [ui-modernization] Build the screen CardDemo header and navigation (S-APP-HEADER)
+  - To the prototype: ui-reference/index.html#/S-APP-HEADER.
+  - **primary button** "Main menu"
+  - _Requirements: CAFM-REQ-F-099_
+  - _Rules: CAFM-BR-103_
+  - _After: CAFM-C09-T2, CAFM-C09-T3, CAFM-C09-T4_
+- [ ] 7. CAFM-C09-T7 [test-generation] Write a test for every acceptance criterion
+  - 24 acceptance criteria, each a test named by its ID.
+  - _Requirements: CAFM-REQ-F-082, CAFM-REQ-F-083, CAFM-REQ-F-084, CAFM-REQ-F-085, CAFM-REQ-F-086, CAFM-REQ-F-087, CAFM-REQ-F-088, CAFM-REQ-F-089, CAFM-REQ-F-090, CAFM-REQ-F-091, CAFM-REQ-F-092, CAFM-REQ-F-093, CAFM-REQ-F-094, CAFM-REQ-F-095, CAFM-REQ-F-096, CAFM-REQ-F-097, CAFM-REQ-F-098, CAFM-REQ-F-099, CAFM-REQ-F-100_
+  - _Criteria: CAFM-C09-AC-01, CAFM-C09-AC-02, CAFM-C09-AC-03, CAFM-C09-AC-04, CAFM-C09-AC-05, CAFM-C09-AC-06, CAFM-C09-AC-07, CAFM-C09-AC-08, CAFM-C09-AC-09, CAFM-C09-AC-10, CAFM-C09-AC-11, CAFM-C09-AC-12, CAFM-C09-AC-13, CAFM-C09-AC-14, CAFM-C09-AC-15, CAFM-C09-AC-16, CAFM-C09-AC-17, CAFM-C09-AC-18, CAFM-C09-AC-19, CAFM-C09-AC-20, CAFM-C09-AC-21, CAFM-C09-AC-22, CAFM-C09-AC-23, CAFM-C09-AC-24_
+  - _After: CAFM-C09-T1, CAFM-C09-T2, CAFM-C09-T3, CAFM-C09-T4, CAFM-C09-T5, CAFM-C09-T6_
+- [ ] 8. CAFM-C09-T8 [compliance] Review the handling of card data, money, personal data
+  - Check storage, logs, screens and audit against the rules.
+  - _Requirements: CAFM-REQ-F-082, CAFM-REQ-F-083, CAFM-REQ-F-084, CAFM-REQ-F-085, CAFM-REQ-F-086, CAFM-REQ-F-087, CAFM-REQ-F-088, CAFM-REQ-F-089, CAFM-REQ-F-090, CAFM-REQ-F-091, CAFM-REQ-F-092, CAFM-REQ-F-093, CAFM-REQ-F-094, CAFM-REQ-F-095, CAFM-REQ-F-096, CAFM-REQ-F-097, CAFM-REQ-F-098, CAFM-REQ-F-099, CAFM-REQ-F-100_
+  - _After: CAFM-C09-T1, CAFM-C09-T2, CAFM-C09-T3, CAFM-C09-T4, CAFM-C09-T5, CAFM-C09-T6_

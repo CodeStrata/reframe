@@ -1,0 +1,41 @@
+# Implementation plan: Navigate the account view screen (OATM-C18)
+
+**Status: FINAL**, signed off by Sam (acceptance), 2026-11-25.
+
+- [ ] 1. OATM-C18-T1 [data] Model the data the capability reads and writes
+  - File records: CSMSG02Y, CVACT01Y, CVACT03Y, CVCUS01Y (see data-contracts.md).
+  - Working records it passes or builds: COCOM01Y, COTTL01Y, CSDAT01Y, CSMSG01Y, CSSTRPFY, CSUSR01Y, CVACT02Y, CVCRD01Y.
+  - _Requirements: OATM-REQ-F-143, OATM-REQ-F-144, OATM-REQ-F-145, OATM-REQ-F-146, OATM-REQ-F-147, OATM-REQ-F-148_
+- [ ] 2. OATM-C18-T2 [business-rules] Implement the business rules
+  - Keep each business rule exactly as specified.
+  - _Requirements: OATM-REQ-F-143, OATM-REQ-F-144, OATM-REQ-F-146_
+  - _Rules: OATM-BR-148, OATM-BR-149, OATM-BR-151_
+  - _After: OATM-C18-T1_
+- [ ] 3. OATM-C18-T3 [business-rules] Implement error handling and messages
+  - Show every message word for word; formatting rules may be restyled to the design system.
+  - _Requirements: OATM-REQ-F-148_
+  - _Rules: OATM-BR-153_
+  - _After: OATM-C18-T1_
+- [ ] 4. OATM-C18-T4 [api] Build the services behind the screens
+  - OATM-BR-150: When the view is opened with no session state, or opened from the main menu as a new visit, the application must create a new, empty view state and discard any data handed over by the previous screen. Only an explicit re-entry from the same view may reuse existing state.
+  - OATM-BR-152: The view is a request/response interaction that keeps its state between requests. Every time the screen is returned, the session must be marked as 're-entry' and the entered account number and lookup results kept, so that the user's next submission is handled as a continuation of the same Account View interaction.
+  - _Requirements: OATM-REQ-F-145, OATM-REQ-F-147_
+  - _Rules: OATM-BR-150, OATM-BR-152_
+  - _After: OATM-C18-T1, OATM-C18-T2, OATM-C18-T3_
+- [ ] 5. OATM-C18-T5 [ui-modernization] Build the screen Account (S-ACCOUNT-VIEW)
+  - To the prototype: ui-reference/index.html#/S-ACCOUNT-VIEW.
+  - **lookup field** "Account or card number": Blank: 'No input received' - enter an account number (11 digits) or a card number (16 digits). Not digits, wrong length or all zeros: 'Account Number if supplied must be a 11 digit Non-Zero Number' (or a 16-digit card number). Not in the card cross-reference: 'Account:<number> not found in Cross ref file.' - check the number with the caller. The error shows under the field.
+  - _Requirements: OATM-REQ-F-143, OATM-REQ-F-146_
+  - _Rules: OATM-BR-148, OATM-BR-151_
+  - _After: OATM-C18-T2, OATM-C18-T3, OATM-C18-T4_
+- [ ] 6. OATM-C18-T6 [ui-modernization] Build the screen Application header and navigation (S-APP-SHELL)
+  - To the prototype: ui-reference/index.html#/S-APP-SHELL.
+  - **primary button** "Account"
+  - _Requirements: OATM-REQ-F-144, OATM-REQ-F-145_
+  - _Rules: OATM-BR-149, OATM-BR-150_
+  - _After: OATM-C18-T2, OATM-C18-T3, OATM-C18-T4_
+- [ ] 7. OATM-C18-T7 [test-generation] Write a test for every acceptance criterion
+  - 8 acceptance criteria, each a test named by its ID.
+  - _Requirements: OATM-REQ-F-143, OATM-REQ-F-144, OATM-REQ-F-145, OATM-REQ-F-146, OATM-REQ-F-147, OATM-REQ-F-148_
+  - _Criteria: OATM-C18-AC-01, OATM-C18-AC-02, OATM-C18-AC-03, OATM-C18-AC-04, OATM-C18-AC-05, OATM-C18-AC-06, OATM-C18-AC-07, OATM-C18-AC-08_
+  - _After: OATM-C18-T1, OATM-C18-T2, OATM-C18-T3, OATM-C18-T4, OATM-C18-T5, OATM-C18-T6_

@@ -1,0 +1,184 @@
+# Design: Validate new transaction details (OATM-C32)
+
+**Status: FINAL**, signed off by Sam (acceptance), 2026-11-25.
+
+## Overview
+
+Checks every field of a new transaction in a fixed order: the eleven mandatory fields, numeric type and category codes, the amount format -99999999.99, real YYYY-MM-DD origination and processing dates, and a numeric merchant ID. It stops at the first problem and shows only that field's message. Nothing may be saved while any check fails.
+
+Runs as online. Journeys: J05.
+
+## Screens and components
+
+### Transactions (S-TRANSACTION-LIST)
+
+Browse transactions in a sortable, paged table or jump to a transaction ID, and open one with Enter or a click instead of typing S beside it. Tab order: search, table, pager, Add transaction.
+
+Prototype: `ui-reference/index.html#/S-TRANSACTION-LIST`. Replaces the legacy screens COTRN0A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+
+### Add transaction (S-TRANSACTION-ADD)
+
+Record a new transaction against an account or card, every field checked before it is added. One field takes the account or the card number; the resolved account and card show at once. Tab order: account or card, transaction details, merchant, Add transaction.
+
+Prototype: `ui-reference/index.html#/S-TRANSACTION-ADD`. Replaces the legacy screens COTRN2A.
+
+| Component | Type | Shows | Checks | Goes to | Requirements |
+|---|---|---|---|---|---|
+| Transaction details | **summary card** | Type code and Category code (choices from the transaction types), Source, Description (up to 60), Amount (money input, sign and two decimals), Original date and Processed date (date inputs). Hint under the heading: Alt+C copies the last transaction for this card; Alt+X clears the form | Each is required, in the rule's words: 'Type CD can NOT be empty...', 'Category CD can NOT be empty...', 'Source can NOT be empty...', 'Description can NOT be empty...', 'Amount can NOT be empty...', 'Orig Date can NOT be empty...', 'Proc Date can NOT be empty...'. 'Type CD must be Numeric...', 'Category CD must be Numeric...'. 'Amount should be in format -99999999.99'. 'Orig Date should be in format YYYY-MM-DD', 'Proc Date should be in format YYYY-MM-DD', and 'Orig Date - Not a valid date...' / 'Proc Date - Not a valid date...' for a date not on the calendar. Every failing field shows its message under it. |  | OATM-REQ-F-253, OATM-REQ-F-254, OATM-REQ-F-255, OATM-REQ-F-256, OATM-REQ-F-257, OATM-REQ-F-258, OATM-REQ-F-259, OATM-REQ-F-260, OATM-REQ-F-261, OATM-REQ-F-266, OATM-REQ-F-267, OATM-REQ-F-268, OATM-REQ-F-269, OATM-REQ-F-270, OATM-REQ-F-271, OATM-REQ-F-272, OATM-REQ-F-273, OATM-REQ-F-274, OATM-REQ-F-276 |
+| Merchant | **summary card** | Merchant ID (9 digits), Merchant name, Merchant city, Merchant ZIP | 'Merchant ID can NOT be empty...', 'Merchant Name can NOT be empty...', 'Merchant City can NOT be empty...', 'Merchant Zip can NOT be empty...'; 'Merchant ID must be Numeric...'. |  | OATM-REQ-F-262, OATM-REQ-F-263, OATM-REQ-F-264, OATM-REQ-F-265, OATM-REQ-F-275 |
+
+
+## Data models
+
+#### CVACT03Y
+
+File record of COTRN02C. Source: `app/cpy/CVACT03Y.cpy`.
+
+Record `CARD-XREF-RECORD`:
+
+| Field | In | PIC | Type | Code type | Column type | Values |
+|---|---|---|---|---|---|---|
+| XREF-CARD-NUM |  | X(16) | text, 16 characters |  |  |  |
+| XREF-CUST-ID |  | 9(09) | unsigned integer, 9 digits (zoned decimal) |  |  |  |
+| XREF-ACCT-ID |  | 9(11) | unsigned integer, 11 digits (zoned decimal) |  |  |  |
+| FILLER |  | X(14) | text, 14 characters |  |  |  |
+
+#### CVTRA05Y
+
+File record of COTRN02C. Source: `app/cpy/CVTRA05Y.cpy`.
+
+Record `TRAN-RECORD`:
+
+| Field | In | PIC | Type | Code type | Column type | Values |
+|---|---|---|---|---|---|---|
+| TRAN-ID |  | X(16) | text, 16 characters |  |  |  |
+| TRAN-TYPE-CD |  | X(02) | text, 2 characters |  |  |  |
+| TRAN-CAT-CD |  | 9(04) | unsigned integer, 4 digits (zoned decimal) |  |  |  |
+| TRAN-SOURCE |  | X(10) | text, 10 characters |  |  |  |
+| TRAN-DESC |  | X(100) | text, 100 characters |  |  |  |
+| TRAN-AMT |  | S9(09)V99 | signed decimal, 9 integer and 2 fraction digits (zoned decimal) |  |  |  |
+| TRAN-MERCHANT-ID |  | 9(09) | unsigned integer, 9 digits (zoned decimal) |  |  |  |
+| TRAN-MERCHANT-NAME |  | X(50) | text, 50 characters |  |  |  |
+| TRAN-MERCHANT-CITY |  | X(50) | text, 50 characters |  |  |  |
+| TRAN-MERCHANT-ZIP |  | X(10) | text, 10 characters |  |  |  |
+| TRAN-CARD-NUM |  | X(16) | text, 16 characters |  |  |  |
+| TRAN-ORIG-TS |  | X(26) | text, 26 characters |  |  |  |
+| TRAN-PROC-TS |  | X(26) | text, 26 characters |  |  |  |
+| FILLER |  | X(20) | text, 20 characters |  |  |  |
+
+- COCOM01Y (working storage of COTRN02C): see data-contracts.md.
+- COTTL01Y (working storage of COTRN02C): see data-contracts.md.
+- CSDAT01Y (working storage of COTRN02C): see data-contracts.md.
+- CSMSG01Y (working storage of COTRN02C): see data-contracts.md.
+- CVACT01Y (working storage of COTRN02C): see data-contracts.md.
+
+## Business rules
+
+Classes: a *business rule* is kept exactly; *formatting* may be restyled; *error handling* keeps its messages; a *side effect* is kept; a *historical artifact* is carried only after asking the owner; a *design note* is for the build, below.
+
+| ID | Name | Class | Rule | Confidence | Evidence |
+|---|---|---|---|---|---|
+| OATM-BR-269 | Mandatory transaction fields and numeric code checks | business rule | WHEN Enter is pressed on the Add Transaction screen and the account or card number has passed its checks, THE Transaction Add screen SHALL check the transaction fields for blanks in this order: Type CD, Category CD, Source, Description, Amount, Orig Date, Proc Date, Merchant ID, Merchant Name, Merchant City, Merchant Zip, and report only the first blank field. | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-270 | Mandatory transaction fields and numeric code checks | business rule | WHEN a mandatory transaction field is blank (spaces or low-values), THE Transaction Add screen SHALL show that field's message, put the cursor on that field, redisplay the screen and save nothing. | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-271 | Reject missing transaction type code | business rule | WHEN the transaction type code is blank, THE Transaction Add screen SHALL show 'Type CD can NOT be empty...' with the cursor on the type code (TTYPCDI). | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-272 | Reject missing transaction category code | business rule | WHEN the type code is entered and the category code is blank, THE Transaction Add screen SHALL show 'Category CD can NOT be empty...' with the cursor on the category code (TCATCDI). | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-273 | Reject missing transaction source | business rule | WHEN the type and category codes are entered and the source is blank, THE Transaction Add screen SHALL show 'Source can NOT be empty...' with the cursor on the source (TRNSRCI). | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-274 | Reject missing transaction description | business rule | WHEN type, category and source are entered and the description is blank, THE Transaction Add screen SHALL show 'Description can NOT be empty...' with the cursor on the description (TDESCI). | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-275 | Reject missing transaction amount | business rule | WHEN type, category, source and description are entered and the amount is blank, THE Transaction Add screen SHALL show 'Amount can NOT be empty...' with the cursor on the amount (TRNAMTI). | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-276 | Reject missing origination date | business rule | WHEN all fields up to the amount are entered and the origination date is blank, THE Transaction Add screen SHALL show 'Orig Date can NOT be empty...' with the cursor on the origination date (TORIGDTI). | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-277 | Reject missing processing date | business rule | WHEN all fields up to the origination date are entered and the processing date is blank, THE Transaction Add screen SHALL show 'Proc Date can NOT be empty...' with the cursor on the processing date (TPROCDTI). | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-278 | Reject missing merchant identifier | business rule | WHEN all fields up to the processing date are entered and the merchant ID is blank, THE Transaction Add screen SHALL show 'Merchant ID can NOT be empty...' with the cursor on the merchant ID (MIDI). | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-279 | Reject missing merchant name | business rule | WHEN all fields up to the merchant ID are entered and the merchant name is blank, THE Transaction Add screen SHALL show 'Merchant Name can NOT be empty...' with the cursor on the merchant name (MNAMEI). | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-280 | Reject missing merchant city | business rule | WHEN all fields up to the merchant name are entered and the merchant city is blank, THE Transaction Add screen SHALL show 'Merchant City can NOT be empty...' with the cursor on the merchant city (MCITYI). | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-281 | Reject missing merchant zip code | business rule | WHEN all fields up to the merchant city are entered and the merchant zip is blank, THE Transaction Add screen SHALL show 'Merchant Zip can NOT be empty...' with the cursor on the merchant zip (MZIPI). | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-282 | Accept complete mandatory transaction fields | business rule | WHEN all eleven mandatory transaction fields are entered, THE Transaction Add screen SHALL pass the blank check and go on to the numeric and format checks. | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-283 | Require numeric type and category codes | business rule | WHEN the transaction type code is not numeric, THE Transaction Add screen SHALL show 'Type CD must be Numeric...' with the cursor on the type code and save nothing. | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-284 | Require numeric type and category codes | business rule | WHEN the type code is numeric and the category code is not numeric, THE Transaction Add screen SHALL show 'Category CD must be Numeric...' with the cursor on the category code and save nothing. | high | app/cbl/COTRN02C.cbl:163-166, app/cbl/COTRN02C.cbl:250-320, app/cbl/COTRN02C.cbl:322-337, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-285 | Validate transaction amount format | business rule | WHEN the amount entered on the Transaction Add screen does not start with '-' or '+', followed by eight digits, a '.', and two digits, THE Transaction Add screen SHALL reject it with 'Amount should be in format -99999999.99' and save nothing. | high | app/cbl/COTRN02C.cbl:339-351, app/cbl/COTRN02C.cbl:383-386, app/cbl/COTRN02C.cbl:456-458, app/cbl/COTRN02C.cbl:53-59 |
+| OATM-BR-286 | Normalize entered transaction amount | design note | WHEN the amount passes the format check, THE Transaction Add screen SHALL convert it to a signed number with two decimals, show it back in the form +99999999.99, and store that value as the transaction amount when the transaction is added. | high | app/cbl/COTRN02C.cbl:339-351, app/cbl/COTRN02C.cbl:383-386, app/cbl/COTRN02C.cbl:456-458, app/cbl/COTRN02C.cbl:53-59 |
+| OATM-BR-287 | Validate origination date format | business rule | WHEN the origination date entered on the Transaction Add screen is not in the form YYYY-MM-DD (four digits, '-', two digits, '-', two digits), THE Transaction Add screen SHALL reject the entry, show 'Orig Date should be in format YYYY-MM-DD' and save nothing. | high | app/cbl/COTRN02C.cbl:353-381, app/cbl/COTRN02C.cbl:389-427, app/cbl/COTRN02C.cbl:60, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-288 | Validate processing date format | business rule | WHEN the processing date entered on the Transaction Add screen is not in the form YYYY-MM-DD, THE Transaction Add screen SHALL reject the entry, show 'Proc Date should be in format YYYY-MM-DD' and save nothing. | high | app/cbl/COTRN02C.cbl:353-381, app/cbl/COTRN02C.cbl:389-427, app/cbl/COTRN02C.cbl:60, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-289 | Verify origination date is a real date | business rule | WHEN the origination date has the right form but the date-check service (CSUTLDTC) does not confirm it as a real calendar date (severity not '0000' and message number not '2513'), THE Transaction Add screen SHALL show 'Orig Date - Not a valid date...' and save nothing. | high | app/cbl/COTRN02C.cbl:353-381, app/cbl/COTRN02C.cbl:389-427, app/cbl/COTRN02C.cbl:60, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-290 | Verify processing date is a real date | business rule | WHEN the origination date is accepted but the date-check service (CSUTLDTC) does not confirm the processing date as a real calendar date (severity not '0000' and message number not '2513'), THE Transaction Add screen SHALL show 'Proc Date - Not a valid date...' and save nothing. | high | app/cbl/COTRN02C.cbl:353-381, app/cbl/COTRN02C.cbl:389-427, app/cbl/COTRN02C.cbl:60, app/cbl/COTRN02C.cbl:516-534 |
+| OATM-BR-291 | Require numeric merchant identifier | business rule | WHEN all earlier checks pass and the Merchant ID is not entirely digits across its 9 positions, THE transaction add screen SHALL reject the entry, show 'Merchant ID must be Numeric...' and put the cursor on Merchant ID. | medium | app/cbl/COTRN02C.cbl:430-436, app/cpy-bms/COTRN02.CPY:114 |
+| OATM-BR-292 | Verify processing date is a real date | business rule | THE Transaction Add screen SHALL stop at the first failed check and show only that message, so a later check (such as the processing date) is made only after every earlier check has passed. | high | app/cbl/COTRN02C.cbl:353-381, app/cbl/COTRN02C.cbl:389-427, app/cbl/COTRN02C.cbl:60, app/cbl/COTRN02C.cbl:516-534 |
+
+### Worked examples
+
+- OATM-BR-269: Type CD = blank; Merchant Zip = blank → Only 'Type CD can NOT be empty...' is shown
+- OATM-BR-270: Type CD = 01; Category CD = blank; all other fields = filled in → 'Category CD can NOT be empty...' is shown, the cursor is on Category CD, and no transaction is added
+- OATM-BR-271: Type CD = blank → 'Type CD can NOT be empty...'
+- OATM-BR-272: Type CD = 01; Category CD = blank → 'Category CD can NOT be empty...'
+- OATM-BR-273: Type CD = 01; Category CD = 0001; Source = blank → 'Source can NOT be empty...'
+- OATM-BR-274: Source = POS TERM; Description = blank; Amount = blank → 'Description can NOT be empty...' (Description is checked before Amount)
+- OATM-BR-275: Description = Grocery purchase; Amount = blank → 'Amount can NOT be empty...'
+- OATM-BR-276: Amount = +00000050.00; Orig Date = blank → 'Orig Date can NOT be empty...'
+- OATM-BR-277: Orig Date = 2026-11-20; Proc Date = blank → 'Proc Date can NOT be empty...'
+- OATM-BR-278: Proc Date = 2026-11-21; Merchant ID = blank → 'Merchant ID can NOT be empty...'
+- OATM-BR-279: Merchant ID = 800000001; Merchant Name = blank → 'Merchant Name can NOT be empty...'
+- OATM-BR-280: Merchant Name = Corner Shop; Merchant City = blank → 'Merchant City can NOT be empty...'
+- OATM-BR-281: Merchant City = Seattle; Merchant Zip = blank → 'Merchant Zip can NOT be empty...'
+- OATM-BR-282: all eleven fields = filled in → No blank-field message; the type and category codes are checked next
+- OATM-BR-283: Type CD = AB → 'Type CD must be Numeric...'
+- OATM-BR-284: Type CD = 01; Category CD = 00X1 → 'Category CD must be Numeric...'
+- OATM-BR-285: Amount = 125.50 → 'Amount should be in format -99999999.99' is shown and nothing is saved
+- OATM-BR-285: Amount = +00000125.50 → The amount format check passes
+- OATM-BR-286: Amount = +00000125.50; Confirm = Y → The transaction is stored with amount 125.50
+- OATM-BR-286: Amount = -00000040.00; Confirm = Y → The transaction is stored with amount -40.00
+- OATM-BR-287: Orig Date = 2024/03/01 → 'Orig Date should be in format YYYY-MM-DD' is shown and nothing is saved
+- OATM-BR-287: Orig Date = 2024-03-01 → The format check passes
+- OATM-BR-288: Orig Date = 2024-03-01; Proc Date = 03-01-2024 → 'Proc Date should be in format YYYY-MM-DD' is shown and nothing is saved
+- OATM-BR-289: Orig Date = 2024-02-30; Proc Date = 2024-03-01 → 'Orig Date - Not a valid date...' is shown and nothing is saved
+- OATM-BR-289: Orig Date = 2024-02-29; Proc Date = 2024-03-01 → The origination date is accepted
+- OATM-BR-290: Orig Date = 2024-03-01; Proc Date = 2024-13-05 → 'Proc Date - Not a valid date...' is shown and nothing is saved
+- OATM-BR-291: Merchant ID = ABC123456 → Rejected with 'Merchant ID must be Numeric...'
+- OATM-BR-291: Merchant ID = 12345 (followed by 4 blanks) → Rejected with 'Merchant ID must be Numeric...'
+- OATM-BR-291: Merchant ID = 123456789 → The check passes
+- OATM-BR-292: Orig Date = 2024-02-30; Proc Date = 2024-99-99 → Only 'Orig Date - Not a valid date...' is shown
+
+## Decision tables
+
+#### First blank mandatory field
+
+| First blank field in check order | Message and cursor | Rule |
+|---|---|---|
+| Type CD | 'Type CD can NOT be empty...', cursor on TTYPCDI | OATM-BR-271 |
+| Category CD | 'Category CD can NOT be empty...', cursor on TCATCDI | OATM-BR-272 |
+| Source | 'Source can NOT be empty...', cursor on TRNSRCI | OATM-BR-273 |
+| Description | 'Description can NOT be empty...', cursor on TDESCI | OATM-BR-274 |
+| Amount | 'Amount can NOT be empty...', cursor on TRNAMTI | OATM-BR-275 |
+| Orig Date | 'Orig Date can NOT be empty...', cursor on TORIGDTI | OATM-BR-276 |
+| Proc Date | 'Proc Date can NOT be empty...', cursor on TPROCDTI | OATM-BR-277 |
+| Merchant ID | 'Merchant ID can NOT be empty...', cursor on MIDI | OATM-BR-278 |
+| Merchant Name | 'Merchant Name can NOT be empty...', cursor on MNAMEI | OATM-BR-279 |
+| Merchant City | 'Merchant City can NOT be empty...', cursor on MCITYI | OATM-BR-280 |
+| Merchant Zip | 'Merchant Zip can NOT be empty...', cursor on MZIPI | OATM-BR-281 |
+| none | Pass blank check; go on to numeric and format checks | OATM-BR-282 |
+
+#### Date checks
+
+| Orig Date form YYYY-MM-DD | Orig Date confirmed real by CSUTLDTC | Proc Date form YYYY-MM-DD | Proc Date confirmed real by CSUTLDTC | Result | Rule |
+|---|---|---|---|---|---|
+| no | - | - | - | 'Orig Date should be in format YYYY-MM-DD', save nothing | OATM-BR-287 |
+| - | - | no | - | 'Proc Date should be in format YYYY-MM-DD', save nothing | OATM-BR-288 |
+| yes | no | - | - | 'Orig Date - Not a valid date...', save nothing | OATM-BR-289 |
+| yes | yes | - | no | 'Proc Date - Not a valid date...', save nothing | OATM-BR-290 |
+| yes | no | no | - | **Gap:** Rules do not say whether the Proc Date format check runs before or after the Orig Date real-date check, so which single message is shown is not settled. | |
+| yes | yes | yes | yes | **Gap:** No rule states the outcome when both dates pass apart from continuing to later checks (e.g. Merchant ID numeric); confirm the full check order. | |
+
+
+## Design notes
+
+- OATM-BR-286: Parse the accepted amount text into an exact signed decimal with two decimal places (no floating point), echo it back formatted as +99999999.99, and use that same parsed value as the stored transaction amount.
+
+## Open questions
+
+- SME-176: When adding a transaction, the system accepts dates that the date check flags with message 2513 (outside the range the date utility supports). What does 2513 mean for the business, and should those dates still be accepted? Should the processing date also have to be on or after the origination date, and should future dates be refused? (Product owner) On OATM-BR-291, OATM-BR-285, OATM-BR-286, OATM-BR-284, OATM-BR-287, OATM-BR-288, OATM-BR-289, OATM-BR-292.
+- DEF-053: Confirm this is deliberate: A date for which the date service returns message number '2513' (CEEDAYS feedback X'09D1' = 2513, 'Unsupp. Range', i.e. a year outside the supported range) is accepted as valid instead of rejected. (Subject-matter expert) On OATM-BR-287, OATM-BR-288, OATM-BR-289, OATM-BR-292.
+
+## Testing
+
+Every acceptance criterion in requirements.md is a test named by its ID (30 in all).

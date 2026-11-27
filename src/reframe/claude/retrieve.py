@@ -111,7 +111,7 @@ def sme_questions(markdown: str, cards: list[dict[str, Any]]) -> list[dict[str, 
 
 def data_objects(markdown: str) -> list[dict[str, str]]:
     """The core records: whichever heading level (## or ###) gives titled sections."""
-    best = []
+    best: list[dict[str, str]] = []
     for level in (2, 3):
         found = [s for s in sections(markdown, level) if s["title"]]
         if len(found) > len(best):

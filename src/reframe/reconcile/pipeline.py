@@ -1,7 +1,8 @@
 """Pipeline 3, stage by stage (docs/pipeline-3.md, section 4). Its status lives under "reconcile" in run.json, beside the
 other two pipelines', and every stage can be run again: what is done is kept.
 
-R0 preflight · R1 inputs · R2 identical pairs agreed · R3 estimate (behind the batch limit) · R4 decisions against the source ·
+R0 preflight · R1 inputs · R2 identical pairs agreed · R3 estimate (behind the batch limit) · R2b the agreed rules described ·
+R4 decisions against the source ·
 R5 the SME list · R6 the recommended requirements · R7 the reconciliation page
 """
 
@@ -55,34 +56,36 @@ def _next_round(current: dict[str, Any]) -> int:
     return previous + 1 if previous == 0 or current.get("status") == Outcome.DONE.value else previous
 
 
-def claude_code(folder: RunFolder, auth: str):
+def claude_code(folder: RunFolder, auth: str, model: str | None = None):
     from reframe.claude import plugin
     from reframe.claude.runner import ClaudeCode, environment
     from reframe.claude.workspace import paths
     places = paths(folder)
     aws_credentials = None
-    if auth == "bedrock":
+    if auth == "bedrock" and folder.state.get("profile"):  # else a Bedrock API key in AWS_BEARER_TOKEN_BEDROCK
         from reframe.core.pipeline import Context
         aws_credentials = Context.load(folder).aws.credentials_environment
     env = environment(auth, aws_credentials=aws_credentials, region=folder.state.get("region"))
-    return ClaudeCode(places["root"], places["policy"], plugin.plugin_dir(), places["logs"], env)
+    return ClaudeCode(places["root"], places["policy"], plugin.plugin_dir(), places["logs"], env, model=model)
 
 
 def page(folder: RunFolder) -> None:
     """R7: the reconciliation page, and the other three pages built again so that they link to it."""
     from reframe.report import build, compare, reconciled
     reconciled.build_reconciled(folder)
-    build.build(folder)
     build.build_claude(folder)
-    compare.build(folder)
+    if folder.state.get("tools") != "claude":  # a Claude-only run has no AWS review and no comparison
+        build.build(folder)
+        compare.build(folder)
     update(folder, page=reconciled.PAGE)
 
 
 def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
-    from reframe.reconcile import decide, inputs, questions, requirements, units
+    from reframe.reconcile import decide, describe, inputs, questions, requirements, units
     settings = state(folder)
     auth = settings.get("auth") or "subscription"
-    context = Path(settings["context"]).expanduser() if settings.get("context") else None
+    from reframe.core.runfolder import default_context
+    context = Path(settings["context"]).expanduser() if settings.get("context") else default_context(folder, "reconcile")
     round_ = int(settings.get("round") or 1)
     update(folder, started_at=settings.get("started_at") or iso(), round=round_)
 
@@ -93,7 +96,8 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
     gathered = inputs.gather(folder, context)
     update(folder, inputs={"rules": len(gathered["rules"]), "pairs": len(gathered["pairs"]), "questions": len(gathered["questions"]),
                            "documents": len(gathered["context"]["documents"]), "marks": len(gathered["context"]["marks"]),
-                           "answers": len(gathered["context"]["answers"]), "ignored": gathered["context"]["ignored"]})
+                           "answers": len(gathered["context"]["answers"]), "ignored": gathered["context"]["ignored"]},
+           signoffs=gathered["context"].get("signoffs") or [])
 
     stage(folder, "agreed")
     agreed = units.agreed(gathered)
@@ -101,9 +105,13 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
 
     stage(folder, "estimate")
     found = units.units(gathered)
+    locked = units.lock(found, decide.Decisions(folder).saved, gathered["context"].get("agreed") or {})
+    update(folder, locked=len(locked))
     pending = [u for u in found if not decide.Decisions(folder).current(u)]
     batched = units.batches(pending)
     size = units.estimate(pending, batched, agreed)
+    to_describe = [i for i in describe.items(agreed) if ((folder.load(describe.FILE, {}) or {}).get(i["key"]) or {}).get("hash") != i["hash"]]
+    size["describe_batches"] = len(units.batches(to_describe))
     limit = _limit(state(folder).get("max_batches"))
     if (state(folder).get("estimate") or {}).get("round") == round_:
         update(folder, remaining=size)  # resumed: the round keeps its first estimate, and this is what is left of it
@@ -115,8 +123,12 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
                                           f"prices on your Claude account. To go ahead: reframe reconcile --max-batches {size['batches']}")
     folder.decide("reconcile-estimate", f"run {size['batches']} batches", f"within the batch limit ({limit})", step="reconciliation decisions")
 
-    stage(folder, "decide")
     claude = claude or claude_code(folder, auth)
+    stage(folder, "describe")
+    described = describe.describe(folder, claude, agreed)
+    update(folder, described=described)
+
+    stage(folder, "decide")
     result = decide.decide(folder, claude, found, gathered["context"], round_,
                            progress=lambda done, total: update(folder, progress={"batches_done": done, "batches": total}))
     kept = decide.Decisions(folder).saved
@@ -133,7 +145,7 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
 
     stage(folder, "requirements")
     written = requirements.build(folder, claude, gathered, found, kept, agreed, listed)
-    update(folder, requirements={k: written[k] for k in ("requirements", "dropped", "rules_cited", "rules_total")})
+    update(folder, requirements={k: written[k] for k in ("requirements", "dropped", "rules_cited", "rules_total", "tables", "risk")})
 
     stage(folder, "page")
     page(folder)
@@ -141,7 +153,8 @@ def work(folder: RunFolder, claude=None, claude_check=None) -> Outcome:
     c = listed["counts"]
     update(folder, stage="done", status=Outcome.DONE.value, finished_at=iso(),
            message=f"Round {round_}: {result['decided']} units decided against the source, {result['kept_from_before']} kept from before; "
-                   f"{len(agreed)} rules agreed by both tools. SME list: {c['questions']} questions from {listed['originals']} originals "
+                   + ("" if folder.state.get("tools") == "claude" else f"{len(agreed)} rules agreed by both tools. ")
+                   + f"SME list: {c['questions']} questions from {listed['originals']} originals "
                    f"({c.get('answered', 0)} answered, {c.get('settled', 0)} settled by your context), and {c['defects']} possible defects. "
                    f"{written['requirements']} recommended requirements citing {written['rules_cited']} of {written['rules_total']} recommended rules"
                    + (f" ({written['dropped']} dropped for citing no rule)." if written["dropped"] else "."))

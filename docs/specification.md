@@ -143,6 +143,7 @@ Reframe polls the job every minute, with its open tasks and chat. It answers eac
 | Which business functions to reimagine (the catalog's chat message) | One structured chat reply naming every business domain in the catalog and the unassigned programs | The catalog's options through `reframe answer` |
 | "Do you want to proceed?" after the selection | "Yes, proceed." | `reframe answer` |
 | The readiness menu after the selection: numbered choices (proceed with everything selected, switch the selection, drop the unassigned programs) ending "Please reply with your choice." | The one choice that proceeds, sent as AWS numbers it; when no single choice starts with "Proceed", it waits for `reframe answer` | `reframe answer` |
+| A name that is both a business domain and a business function: AWS lists "domain <name>" and "function <name>" and asks which was meant | The domain, in the words AWS asks for ("domain", or "domain <name>"), since the selection names business domains only | `reframe answer` |
 | Any other blocking question with options | AWS's default option when AWS marks one, recorded as Reframe's decision | `reframe answer` |
 | A blocking question with no default | Waits for `reframe answer` | `reframe answer` |
 | Non-blocking forms (for example "Add collaborators") | Left open | Left open |
@@ -221,12 +222,13 @@ Later pipelines get their own folders (for example `src/reframe/claude/` for the
 
 ## 7. Run folder
 
-`~/.reframe/projects/<project>/runs/<run>/`, owner-only permissions:
+`<workspace>/.reframe/<project>/<run>/` (the folder Reframe is run from; changed from `~/.reframe/projects/<project>/runs/<run>/` on 26 November 2026, S-14), owner-only permissions:
 
 - `run.json`: inputs, mode, stage, status;
 - `events.jsonl`: every event;
 - `changes/`: intent and receipt for every AWS change;
 - `decisions.json`: every answer Reframe gave and why;
+- `inputs/`: the context people add, `reconcile/` and `design/`, each with a README saying what goes there;
 - `outputs/`: the downloads, the manifest, the summary and the report;
 - `terraform/`: the roots, saved plans and the bootstrap state;
 - `teardown/`: the inventory, the consent and the deletion records.

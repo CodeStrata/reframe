@@ -24,6 +24,18 @@ MINUTES_PER_BATCH = (1, 3)
 USD_PER_BATCH = (0.5, 1.15)
 CHANGE_MARKS = ("change", "question")
 RECONCILED = "rec/"   # the keys of recommended rules on the reconciliation page: rec/<unit>/<n>
+# The decision step's method: part of every unit's hash, so a change to its prompt or schema decides every unit again
+# (docs/pipeline-3.md, section 8.2).
+METHOD = "part-2"
+
+
+def one_tool(folder, prompt: str, swaps: tuple[tuple[str, str], ...]) -> str:
+    """A prompt in the words of a Claude-only run (docs/release-1.md, section 2); a run with both tools gets it unchanged."""
+    if folder.state.get("tools") != "claude":
+        return prompt
+    for old, new in swaps:
+        prompt = prompt.replace(old, new)
+    return prompt
 
 
 def reconciled_key(unit: str, n: int) -> str:
@@ -83,17 +95,20 @@ def units(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     their marks, the documents and the answered questions that bear on it. A later run keeps the decisions of units
     whose hash did not change, so one more answer redoes only the units whose rules it names."""
     rules, marks, ctx = inputs["rules"], inputs["context"]["marks"], inputs["context"]
-    background = _hash({"documents": ctx["documents"]})
+    background = _hash({"documents": ctx["documents"], "method": METHOD})
     known = set(rules)
     found = []
 
     def unit(key: str, kind: str, members: list[str], pairs: list[dict[str, Any]]) -> dict[str, Any]:
         content = {"kind": kind, "rules": [rules[k] for k in members],
                    "pairs": [{"aws": p["aws"], "claude": p["claude"], "relation": p["relation"], "reason": p.get("reason", "")} for p in pairs],
-                   "marks": {k: marks[k] for k in members if k in marks},
+                   "marks": {k: {f: v for f, v in marks[k].items() if f != "by"} for k in members if k in marks and marks[k]["status"] in CHANGE_MARKS},
                    "answers": answers_for(members, ctx.get("answers") or [], known)}
         program = rules[members[0]]["program"] or next((rules[k]["program"] for k in members if rules[k]["program"]), "")
-        return {"key": key, "program": program, **content, "hash": _hash([content, background])}
+        # What reopens a unit a reviewer agreed with: its rules, pairs, marks and the answers that name its rules; not a
+        # document or an answer naming no rule, and not a change of method (section 8.11).
+        core = {**content, "answers": [a for a in content["answers"] if set(named_rules(a)) & set(members)]}
+        return {"key": key, "program": program, **content, "hash": _hash([content, background]), "core": _hash(core)}
 
     agreed_claude = {r["covers"][1] for r in agreed(inputs)}
     for claude, pairs in sorted(groups(inputs["pairs"]).items()):
@@ -104,6 +119,23 @@ def units(inputs: dict[str, Any]) -> list[dict[str, Any]]:
         if key not in paired:
             found.append(unit(f"{rule['tool']}:{key}", f"{rule['tool']}_only", [key], []))
     return found
+
+
+def lock(found: list[dict[str, Any]], saved: dict[str, Any], agreed: dict[str, Any]) -> list[str]:
+    """Agree keeps a rule (section 8.11). A unit whose recommended rules were all marked Agree is locked: it keeps its
+    decision while its core inputs are unchanged. A unit with some rules agreed carries them as "agreed_rules", for the
+    step to keep their wording unless the code contradicts it. Returns the keys of the units locked."""
+    locked = []
+    for u in found:
+        prev = saved.get(u["key"]) or {}
+        made = prev.get("rules") or []
+        yes = [n for n in range(1, len(made) + 1) if reconciled_key(u["key"], n) in agreed]
+        if made and len(yes) == len(made) and prev.get("core") == u["core"]:
+            u["locked"] = True
+            locked.append(u["key"])
+        elif yes:
+            u["agreed_rules"] = [{"text": made[n - 1].get("text", ""), "covers": made[n - 1].get("covers") or []} for n in yes]
+    return locked
 
 
 def batches(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
