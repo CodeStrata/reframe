@@ -2,7 +2,9 @@
 
 What changed in each release. Releases are tagged on `main`; the stories behind each are in [docs/plan.md](docs/plan.md).
 
-## Unreleased
+## 1.0.0 (27 November 2026)
+
+The first release for anyone to try: with Claude only, or with Claude and AWS Transform. Tested end to end on mainframe code; open source under the MIT License, at github.com/CodeStrata/reframe.
 
 **Published examples**
 - Only CardDemo's example reports are published, with CardDemo's licence and notice beside them; other codebases Reframe is tested on are run locally, and nothing from them is committed.
@@ -28,9 +30,6 @@ What changed in each release. Releases are tagged on `main`; the stories behind 
 **The design (pipeline 4)**
 - Golden datasets (P4-11): per capability, the cases the new system must answer as the legacy one does, from the worked examples and the decision-table rows, in `golden/` in every form of the package. `golden/compare.py` compares a new system's answers and reports formatting apart from business differences. Until legacy outputs are captured, the expected outputs come from the rules.
 
-## 1.0.0 (2026)
-
-The first release for anyone to try: with Claude only, or with Claude and AWS Transform.
 
 **The design (pipeline 4), `reframe design`**
 - The screen inventory and how screens connect: every BMS map drawn as a 3270 copy, each link citing its source lines.

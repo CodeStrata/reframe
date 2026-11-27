@@ -134,6 +134,8 @@ Claude's cost at API prices was about $85: assessment $36.79, comparison $1.53, 
 
 After the owner's go-ahead: merge `develop` into `main`, tag `v1.0.0` on `main`, and publish a GitHub release with notes from `CHANGELOG.md`.
 
+**Released 27 November 2026,** from the repository's new home, `CodeStrata/reframe`. A1-01 ran the second test codebase with both tools and with Claude only. CardDemo with both tools was not run again for 1.0: its full run of 22 to 26 November stands, and AWS runs wait for the owner's own AWS account.
+
 ## 7. The owner's decisions
 
 | Decision | Choice |
