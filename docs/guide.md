@@ -416,7 +416,7 @@ reframe publish --to pages --repo my-org/reframe-reports
 
 This is optional too. It puts the cleaned copy on the repository's `gh-pages` branch under `<project>/<run>/`, with a front page listing every published run, using your own `git` and `gh` sign-in, and turns Pages on if it is off. **A Pages site is public**, on a public repository and on most private ones, so Reframe first names the repository and the address, says so, and pushes only after you type `yes`.
 
-**Try it without running anything:** [CardDemo](https://sknampally.github.io/reframe/carddemo/) is a published copy of a full run on AWS's open-source mainframe sample: both assessments, the reconciliation, the design with its prototype, and the AI-DLC package. It is also in this repository under `reports/`: clone it and open `reports/carddemo/index.html` in a browser.
+**Try it without running anything:** [CardDemo](https://codestrata.github.io/reframe/carddemo/) is a published copy of a full run on AWS's open-source mainframe sample: both assessments, the reconciliation, the design with its prototype, and the AI-DLC package. It is also in this repository under `reports/`: clone it and open `reports/carddemo/index.html` in a browser.
 
 ## Code layout
 

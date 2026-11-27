@@ -66,7 +66,7 @@ reframe publish --to pages --repo <owner>/<name>
 | Story | Done when |
 |---|---|
 | R1-01 README | The first screen says what Reframe is, who it is for and what it makes. It shows badges (CI, release, Python, license), the live demo, and a five-minute quick start for Claude only and for both tools. The detail moves to `docs/` (guides per pipeline), so the README is about 150 lines and every link resolves |
-| R1-02 Package metadata | `pyproject.toml` has version 1.0.0, a current description, project URLs, classifiers and the license. `uv tool install git+https://github.com/sknampally/reframe` installs it |
+| R1-02 Package metadata | `pyproject.toml` has version 1.0.0, a current description, project URLs, classifiers and the license. `uv tool install git+https://github.com/CodeStrata/reframe` installs it |
 | R1-03 Contributing | `CONTRIBUTING.md` (set-up, tests, the change-control flow), `CHANGELOG.md` (0.3.0 to 1.0.0), bug and feature issue templates, and `SECURITY.md` kept |
 | R1-04 A clean machine | On a fresh macOS user account and in a Linux container: install from GitHub, then `reframe --help`, `reframe setup` (its checks), a Claude-only run of the second test codebase, and `reframe publish --to <folder>` |
 
@@ -77,7 +77,7 @@ reframe publish --to pages --repo <owner>/<name>
   - `reframe publish` of the second codebase's run writes all 453 pages, to a local folder.
   - 351 of 360 offline tests pass. The 9 that error call `git`, which the slim image lacks; Git is one of Reframe's prerequisites.
 - **macOS:**
-  - `uv tool install "git+https://github.com/sknampally/reframe@<branch>"` into an empty tool folder installs 1.0.0, with `--tools` and `--to pages`.
+  - `uv tool install "git+https://github.com/CodeStrata/reframe@<branch>"` into an empty tool folder installs 1.0.0, with `--tools` and `--to pages`.
   - The wheel installs in a clean virtual environment and finds its templates.
   - A fresh user account was not made: that needs the Mac's administrator. CI's macOS jobs, with Python 3.10 to 3.13, run the tests on a clean runner instead.
 - **Found and fixed:** `reframe run --source …` with the default `--tools both` started AWS Transform only, because only the guided run added Claude. It now starts both, and `--tools aws` keeps the old behaviour.
