@@ -10,7 +10,7 @@
 <p align="center">
   <b>From legacy source to reviewed requirements, business rules and a design to build from.</b>
   <br />
-  <sub>Built and proven on mainframe COBOL and CICS today. Other languages, with Claude, come next.</sub>
+  <sub>Tested end to end on mainframe COBOL and CICS. On other languages, Claude's assessment and the reconciliation should work, untested.</sub>
 </p>
 
 <p align="center">
@@ -43,10 +43,10 @@
 
 Reframe reads a legacy codebase and tells you, in plain words a business can review, what it does. It assesses the code with Claude's [code-modernization plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-modernization), and with AWS Transform as well if you have it, then checks every business rule against the source code itself. From that it designs the modern application, down to a package an AI coding tool can build from.
 
-| Codebase | Assessments | Screens, flows and data | Status |
-|---|---|---|---|
-| **Mainframe:** COBOL, JCL, CICS, BMS | Claude and AWS Transform, reconciled against the code | Read exactly from the BMS maps, CICS transfers and copybooks | **Built and proven** on CardDemo (1.0) |
-| **Other languages:** Java, .NET, PHP, Perl, Python, JavaScript, C, PL/I and more | Claude, with every rule checked against the code | A general reader, each item citing its source lines | **Next:** [specified for 1.1](docs/any-legacy.md) |
+| Codebase | What runs | Tested |
+|---|---|---|
+| **Mainframe:** COBOL, JCL, CICS, BMS | Everything: Claude's assessment and AWS Transform's, the reconciliation against the code, the design and the package | **Yes**, end to end on AWS's CardDemo |
+| **Other languages:** Java, .NET, PHP, Python, C and more | With Claude only, since AWS Transform writes requirements only for the mainframe. The assessment and the reconciliation should work: Claude's plugin reads any language. The design reads screens, flows and data definitions from mainframe sources only, so it stops on other codebases for now | **No.** Full support is planned ([the 1.1 specification](docs/any-legacy.md)) |
 
 It is for modernization teams, architects and the business people who have to say "yes, that is what the system does" before anything is rebuilt.
 

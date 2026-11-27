@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "reframe"
 version = "1.0.0"
-description = "From legacy source to reviewed requirements, business rules and a design to build from; mainframe first, with Claude, or Claude and AWS Transform"
+description = "From legacy source to reviewed requirements, business rules and a design to build from, with Claude, or Claude and AWS Transform; tested on mainframe code"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
