@@ -80,13 +80,7 @@ For a small fix, an issue and a pull request are enough.
 
 ## Licensing your contribution
 
-Reframe is under the AGPL-3.0-only, and its copyright holder also licenses it on other terms, such as a commercial licence. So that both stay possible, by opening a pull request you agree that:
-
-- the contribution is your own work, or you have the right to submit it;
-- it is licensed under the AGPL-3.0-only, like the rest of Reframe; and
-- you grant the copyright holder, and those the copyright holder licenses Reframe to, a perpetual, worldwide, non-exclusive, royalty-free and irrevocable licence to use, copy, change, sublicense and distribute it on any terms, commercial ones included.
-
-Sign off each commit (`git commit -s`) to say so. You keep the copyright in what you wrote.
+Reframe is under the [MIT License](LICENSE). By opening a pull request you agree that your contribution is your own work, or that you have the right to submit it, and that it is licensed under the MIT License like the rest of Reframe.
 
 ## Reporting a problem
 

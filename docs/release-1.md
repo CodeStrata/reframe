@@ -103,7 +103,7 @@ After the owner's go-ahead: merge `develop` into `main`, tag `v1.0.0` on `main`,
 | Decision | Choice |
 |---|---|
 | Version | **v1.0.0** (agreed 26 November 2026) |
-| Licence | **AGPL-3.0-only** from 1.0 (the owner, 26 November 2026), with other licences, such as a commercial one, from the copyright holder. Versions before it stay MIT. Contributions are accepted under the terms in CONTRIBUTING.md, so that the project can keep offering both |
+| Licence | **MIT** (the owner, 27 November 2026): Reframe stays open source under the MIT License, so anyone, the owner's own later work included, can use and improve it. A move to the AGPL, merged on 26 November, was reverted before 1.0 |
 | Published examples | **CardDemo only** (the owner, 26 November 2026), with its Apache-2.0 licence and notice; other test codebases are run locally and nothing from them is committed |
 | Scope | Claude-only mode, optional Pages publishing with the demo, the repository clean-up, and end-to-end runs first (agreed 26 November 2026) |
 | Claude-only frame | **Claude's domains** and the functions Reframe already writes in C6, with no new model step (agreed with the reconciliation choice) |
