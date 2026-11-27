@@ -8,7 +8,9 @@
 <h1 align="center">Reframe</h1>
 
 <p align="center">
-  <b>From mainframe source to reviewed requirements, business rules and a design to build from.</b>
+  <b>From legacy source to reviewed requirements, business rules and a design to build from.</b>
+  <br />
+  <sub>Built and proven on mainframe COBOL and CICS today. Other languages, with Claude, come next.</sub>
 </p>
 
 <p align="center">
@@ -39,7 +41,12 @@
   <img src="docs/images/readme/review-light.png" alt="The reconciled review of AWS's CardDemo: rules to check first, each with its confidence, worked examples, the evidence behind it, and Agree, Needs change and Question marks for reviewers" width="100%" />
 </picture>
 
-Reframe reads a COBOL and CICS codebase and tells you, in plain words a business can review, what it does. It assesses the code with Claude's [code-modernization plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-modernization), and with AWS Transform as well if you have it, then checks every business rule against the source code itself. From that it designs the modern application, down to a package an AI coding tool can build from.
+Reframe reads a legacy codebase and tells you, in plain words a business can review, what it does. It assesses the code with Claude's [code-modernization plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-modernization), and with AWS Transform as well if you have it, then checks every business rule against the source code itself. From that it designs the modern application, down to a package an AI coding tool can build from.
+
+| Codebase | Assessments | Screens, flows and data | Status |
+|---|---|---|---|
+| **Mainframe:** COBOL, JCL, CICS, BMS | Claude and AWS Transform, reconciled against the code | Read exactly from the BMS maps, CICS transfers and copybooks | **Built and proven** on CardDemo (1.0) |
+| **Other languages:** Java, .NET, PHP, Perl, Python, JavaScript, C, PL/I and more | Claude, with every rule checked against the code | A general reader, each item citing its source lines | **Next:** [specified for 1.1](docs/any-legacy.md) |
 
 It is for modernization teams, architects and the business people who have to say "yes, that is what the system does" before anything is rebuilt.
 
@@ -219,7 +226,7 @@ The figures are from live runs and are recorded in [docs/acceptance.md](docs/acc
 
 ## Roadmap
 
-- **Beyond the mainframe:** any legacy codebase Claude can read (Java, .NET, PHP and more), with Claude only, and screens, flows and data contracts read for each stack (proposed for 1.1).
+- **Beyond the mainframe (1.1):** any legacy codebase Claude's plugin reads (Java, .NET, PHP and more), with Claude only, and screens, flows and data contracts read for each stack ([the specification](docs/any-legacy.md)).
 - **Proof at scale:** a codebase several times CardDemo's size, and a mainframe expert's own check of the audit.
 - **Later:** a replacement order from the specifications, real legacy outputs under GnuCOBOL, and Claude on Amazon Bedrock, live ([docs/plan.md](docs/plan.md)).
 
