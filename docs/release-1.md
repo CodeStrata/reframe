@@ -82,6 +82,22 @@ reframe publish --to pages --repo <owner>/<name>
   - A fresh user account was not made: that needs the Mac's administrator. CI's macOS jobs, with Python 3.10 to 3.13, run the tests on a clean runner instead.
 - **Found and fixed:** `reframe run --source …` with the default `--tools both` started AWS Transform only, because only the guided run added Claude. It now starts both, and `--tools aws` keeps the old behaviour.
 
+### Results (C1-05, 26 November 2026)
+
+The second test codebase with Claude only (run 3095b6, from its ZIP file), with the CLI alone and no AWS profile. Every stage worked:
+
+| Stage | Result | Cost at API prices |
+|---|---|---|
+| `reframe run --tools claude` | Snapshot, preflight without AWS, then the plugin's preflight, assess, map and extract-rules: 103 rule cards. Reframe's requirements ran over Claude's 9 domains and 22 functions, and Claude's business review was built. | $42.95, including $11.98 for the extraction attempt the usage limit cut short |
+| `reframe reconcile` | 103 one-tool units in 14 batches, under the batch limit (estimate 4 to 12 minutes, $7 to $16). 102 kept and 1 for an SME: 220 recommended rules, all cited by 254 requirements, with 32 decision tables, 43 SME questions from 49, and 36 possible defects. The page says the run used Claude only and links to no comparison. | $18.63 |
+| `reframe design` | 15 journeys (1 screen unused), 13 modern screens, 68 specifications (all draft, since nothing is signed off), 2 data contracts and package v1, with 0 problems in every stage, in 17 minutes. `--package` copied 511 files, and `--check` lists 85 placeholders. | $9.54 |
+| `reframe publish --to <folder>` | 528 pages: Claude's review, the reconciliation and the design. No AWS review, no comparison, 0 broken links, no local paths. | none |
+| `reframe teardown` | "It created no AWS resources, so there is nothing to tear down." | none |
+
+**Found and fixed: a usage limit read as a failure.** Rule extraction hit Claude's 5-hour usage limit. Claude Code then wrote an empty *success* result for a background task's notice, and Reframe, reading only the last line, recorded FAILED. The step's answer is now the last result that is not such a notice, and a usage-limit result anywhere makes the step a limit stop. `reframe resume` after the reset finished the run, with no work repeated.
+
+**Seen, not a fault:** Claude's plugin puts the codebase's screens in a domain of their own, *3270 presentation*, so all of the run's journeys sit in that one domain. With both tools, the journeys follow AWS Transform's business domains instead.
+
 ## 5. Acceptance before the release (A1-01)
 
 From the CLI only, each from `reframe run` to `reframe publish` and teardown, without any stop that needs a fix in the code:
@@ -93,6 +109,26 @@ From the CLI only, each from `reframe run` to `reframe publish` and teardown, wi
 Only CardDemo's results are published. The second codebase's runs are kept locally.
 
 Each run's time, agent count and cost are recorded in the plan. A stop because of a usage limit or an expired sign-in is fine: `reframe resume` must carry on without repeating work. Any other stop is fixed, and that run is repeated.
+
+### Results: the second test codebase with both tools (A1-01, 26 and 27 November 2026)
+
+Run 8f53b4, from `reframe run --source <its ZIP file> --project <name> --max-agents 650`, which now starts both assessments. It reached the end, but not without interruption. Every stop it made was fixed in Reframe or resumed:
+
+| Stage | Result |
+|---|---|
+| AWS Transform | All 9 plan steps succeeded, and the results and business review were built. It was stuck for about four hours at *Discover business functions* (fix 2). |
+| Claude | Preflight, assess, map and extract-rules: 109 rules and 314 requirements, with the graph loaded into Neptune (5,318 quads, 54 rules joined to AWS's programs) and the comparison built. It stopped once at Claude's usage limit, reported correctly as a limit stop thanks to C1-05's fix, and resumed. |
+| Teardown | 40 resources. The first attempt stopped partway when the Mac lost DNS. The second deleted only the 10 left, and the check found nothing still in AWS. |
+| Reconciliation | 248 units decided against the code and 9 rules agreed by both tools: 466 recommended rules, all cited by 392 requirements, 36 decision tables, 138 SME questions and 70 possible defects. |
+| Design | 11 journeys, 10 modern screens, 67 specifications and 2 contracts, with 0 problems. Package v1 has 504 files, and `--check` lists 85 placeholders. It stopped once at Claude's usage limit and was continued with `reframe design`. |
+| Publish | 523 pages: AWS's review, Claude's, the comparison, the reconciliation and the design, with 0 broken links. |
+
+Claude's cost at API prices was about $85: assessment $36.79, comparison $1.53, reconciliation $36.59, design $9.91.
+
+**Found and fixed:**
+1. **The "already in progress" loop.** AWS said the reimagine was initiated but added no steps to its plan. After that, every six minutes, its review form reopened; Reframe submitted it, AWS asked for the selection, and then refused the same selection as a second request. Once AWS refuses a selection this way, Reframe now stops resubmitting the form and asks once, in plain words, what is running and to start again. Live, AWS's readiness menu came back, and its Proceed added the steps and started the plan. A second refusal waits for the person.
+2. **"Not configured" read as an expired sign-in.** The AWS Transform MCP server's start-up region probe sometimes failed for us-east-1 with an empty error. Reframe then stopped the run as an expired sign-in, although the AWS CLI sign-in was valid. The client now starts a new server after 5, 15 and 30 seconds before giving up.
+3. **Two design rounds at once.** A round was started in a terminal while another was running on the same run. Rounds now take the run's design lock.
 
 ## 6. The release (REL-1)
 

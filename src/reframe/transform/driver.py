@@ -71,6 +71,29 @@ def latest_unanswered(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
     return None if later or not latest.get("messageId") else latest
 
 
+STUCK = ("AWS Transform says a reimagine workflow is already in progress and refuses the selection as a second request, but its plan "
+         "shows no reimagine steps, and it keeps reopening \"Review business functions discovery results\". Sending the selection or the "
+         "form again only repeats this, so Reframe has stopped. Open the job in the AWS Transform console and complete the review there, "
+         "or answer AWS yourself with reframe answer --text \"...\"; if it stays stuck, run reframe teardown and start a new run. "
+         "Reframe already asked AWS once what is running and to start again.")
+
+
+RECOVERY = ("Which reimagine workflow is in progress, and since when? The plan shows no reimagine steps and nothing has run since it was "
+            "reported as initiated. If that workflow is stuck, please cancel it and start the reimagine again for the confirmed selection.")
+STUCK_ASK = ("AWS Transform refuses the selection because a reimagine workflow is already in progress, but its plan shows no reimagine "
+             "steps. Reframe can ask AWS what is running and to start again; on a live run that brought back its readiness menu, and Proceed "
+             "started the plan.")
+
+
+def refused_as_running(messages: list[dict[str, Any]]) -> bool:
+    """AWS's chat refusing a selection because a reimagine run is already in progress."""
+    for m in messages:
+        text = str(m.get("text") or "").casefold()
+        if m.get("messageOrigin") == "SYSTEM" and "already in progress" in text and "reimagine" in text and ("cannot" in text or "can't" in text):
+            return True
+    return False
+
+
 class Driver:
     def __init__(self, client, api, folder: RunFolder, changes: Changes, *, workspace_id: str, job_name: str, source_uri: str,
                  mode: str, clock: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep) -> None:
@@ -195,8 +218,8 @@ class Driver:
         quiet = status == "AWAITING_HUMAN_INPUT" and not summary["answered"] and (pending is None or pending.get("kind") == "chat") \
             and not question_waits
         self.state["quiet_polls"] = self.state.get("quiet_polls", 0) + 1 if quiet else 0
-        if self.state["quiet_polls"] < STALL_POLLS or not self._catalog_answered():
-            return
+        if self.state["quiet_polls"] < STALL_POLLS or not self._catalog_answered() or self.state.get("reimagine_refused"):
+            return  # once AWS has refused the selection as already running, submitting the form again only restarts the loop
         for task in open_tasks(snapshot):
             task_id, step = str(task["taskId"]), f"task-{task['taskId']}"
             body = self._task_detail(task_id)
@@ -288,6 +311,8 @@ class Driver:
     def _chat(self, summary: dict[str, Any], awaiting: bool) -> None:
         identity = self._identity()
         messages = self._read(lambda: self.api.messages(identity["workspaceId"], identity["jobId"]), "list messages")
+        if refused_as_running(messages):
+            self.state["reimagine_refused"] = True
         message = latest_unanswered(messages)
         if message is None:
             if self.folder.exists("question.json") and not str(self.folder.load("question.json").get("id", "")).startswith("task-"):
@@ -301,6 +326,9 @@ class Driver:
             self.folder.remove("question.json")
             self.folder.remove("answer.json")
         if self.changes.receipt(step) is not None:
+            return
+        if refused_as_running([message]):
+            self._recover(message, step, summary)
             return
         question = answers.chat_question(message, awaiting=awaiting)
         if question is None:
@@ -348,6 +376,32 @@ class Driver:
         summary["answered"].append({"message": message_id, "kind": question.kind, "how": answer.reason})
 
     # ---- waiting for the person ----------------------------------------------------------------
+
+    def _recover(self, message: dict[str, Any], step: str, summary: dict[str, Any]) -> None:
+        """AWS refused the selection because "a reimagine workflow is already in progress", while its plan has no reimagine
+        steps (the second test codebase, 26 November 2026). Resending the selection or the review form only loops. Asked once in plain words what
+        is running, AWS showed its readiness menu again, and its Proceed started the plan; a second refusal waits for the person."""
+        message_id = str(message["messageId"])
+        identity = self._identity()
+        if self.state.get("recovery_sent"):
+            self._waiting(Question(message_id, "chat", STUCK + "\n\nAWS said: " + str(message.get("text") or "")[:400], (), ()), summary)
+            return
+        if self.mode != "autonomous":
+            answer = self._waiting(Question(message_id, "recover", STUCK_ASK + "\n\nAWS said: " + str(message.get("text") or "")[:400],
+                                            ("Ask AWS what is running, and to start again",), (RECOVERY,)), summary)
+            if answer is None:
+                return
+        else:
+            answer = Answer(RECOVERY, "AWS refused the selection as already running while its plan has no reimagine steps; Reframe asked "
+                                      "what is running and to start again, once", None)
+            self.folder.decide("reimagine already in progress", answer.text, answer.reason, message=message_id)
+        token = str(uuid.uuid5(uuid.NAMESPACE_URL, f"reframe/{self.folder.root.name}/{message_id}"))
+        self.changes.apply(step, "send message", {"in_reply_to": message_id, "text": answer.text, "structured": False},
+                           lambda: self.api.send(identity["workspaceId"], identity["jobId"], answer.text, None, token))
+        self.state["recovery_sent"] = True
+        self._answered(message_id)
+        self.folder.event("reimagine_recovery", message=message_id)
+        summary["answered"].append({"message": message_id, "kind": "recover", "how": answer.reason})
 
     def _waiting(self, question: Question, summary: dict[str, Any]) -> Answer | None:
         """The person's answer when reframe answer has written one for this question; otherwise publish it and wait."""

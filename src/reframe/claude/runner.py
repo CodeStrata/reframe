@@ -78,7 +78,14 @@ def summarize(name: str, lines: list[dict[str, Any]], seconds: float, returncode
         tail = " ".join(str(line)[:200] for line in lines[-3:])
         problem = "signin" if any(w in tail.casefold() for w in SIGNIN_WORDS) else "limit" if any(w in tail.casefold() for w in LIMIT_WORDS) else "failed"
         return StepResult(name, False, text=f"no result (exit {returncode}) {tail}", session_id=session, seconds=seconds, problem=problem)
-    last = results[-1]
+    # Claude Code can end with an empty "success" result for a background task's notice, after the step's real result
+    # (found on the second test codebase, 26 November 2026: the real one was the usage limit). That notice is not the step's answer.
+    real = [r for r in results if not ((r.get("origin") or {}).get("kind") == "task-notification" and not str(r.get("result") or "").strip())]
+    last = (real or results)[-1]
+    limited = next((r for r in results if r.get("api_error") == "usage_limit_reached"
+                    or (r.get("is_error") and any(w in str(r.get("result") or "").casefold() for w in LIMIT_WORDS))), None)
+    if limited is not None:
+        last = {**last, "is_error": True, "result": limited.get("result") or "usage limit reached"}
     usage = last.get("usage") or {}
     tokens = {key: int(usage.get(key) or 0) for key in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")}
     text = str(last.get("result") or "")
@@ -86,7 +93,7 @@ def summarize(name: str, lines: list[dict[str, Any]], seconds: float, returncode
     failed = bool(last.get("is_error")) or last.get("subtype") != "success"
     problem = None
     if failed:
-        problem = "signin" if any(w in lowered for w in SIGNIN_WORDS) else "limit" if any(w in lowered for w in LIMIT_WORDS) else "failed"
+        problem = "signin" if any(w in lowered for w in SIGNIN_WORDS) else "limit" if limited is not None or any(w in lowered for w in LIMIT_WORDS) else "failed"
     denials = [{"tool": d.get("tool_name", ""), "input": json.dumps(d.get("tool_input"))[:200]} for d in last.get("permission_denials") or []]
     return StepResult(name, not failed, text=text, session_id=last.get("session_id") or session, seconds=seconds,
                       turns=int(last.get("num_turns") or 0), tokens=tokens, cost_usd=float(last.get("total_cost_usd") or 0.0),
