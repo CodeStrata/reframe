@@ -2,7 +2,7 @@
 
 The owner's direction (27 November 2026): Reframe should not be only for mainframes. It should take any legacy codebase that the tools it drives support, and give the same result: reviewed requirements and business rules, checked against the source, and a package to build from.
 
-Status: **draft for the owner's agreement.** When it is agreed, its stories go into [the plan](plan.md) with an issue each, and are built on a phase branch, as [CONTRIBUTING.md](../CONTRIBUTING.md) says. It builds on release 1.0 ([release-1.md](release-1.md)) and changes nothing in it.
+Status: **agreed** (27 November 2026, #464). Its stories are in [the plan](plan.md), with an issue each under epic #472, and are built on a phase branch, as [CONTRIBUTING.md](../CONTRIBUTING.md) says. It builds on release 1.0 ([release-1.md](release-1.md)) and changes nothing in it.
 
 ## 1. Goal
 
