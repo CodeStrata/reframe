@@ -49,7 +49,9 @@ class CliTest(unittest.TestCase):
 
     def test_one_design_round_at_a_time(self):
         # 26 November 2026: a round started in a terminal while another ran wrote the same parts and paid Claude twice
-        import os, tempfile, types
+        import os
+        import tempfile
+        import types
         from unittest import mock
         from reframe.core import commands
         from reframe.core.runfolder import new_run
