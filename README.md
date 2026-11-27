@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/sknampally/reframe/actions/workflows/ci.yml"><img src="https://github.com/sknampally/reframe/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" /></a>
-  <a href="https://github.com/sknampally/reframe/releases"><img src="https://img.shields.io/github/v/release/sknampally/reframe?sort=semver&color=2f5d8a" alt="Release" /></a>
+  <a href="https://github.com/sknampally/reframe/tags"><img src="https://img.shields.io/github/v/tag/sknampally/reframe?sort=semver&label=version&color=2f5d8a" alt="Version" /></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-2f5d8a" alt="Python 3.10 to 3.13" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2f5d8a" alt="MIT License" /></a>
   <a href="docs/pipeline-3.md#81-the-accuracy-audit-p3-11"><img src="https://img.shields.io/badge/audited%20accuracy-91%25%20of%20rules-2f5d8a" alt="Audited accuracy: 91% of sampled rules correct" /></a>
