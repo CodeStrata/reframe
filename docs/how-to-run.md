@@ -7,7 +7,7 @@ One page, start to finish. The detail of each step is in [the guide](guide.md); 
 ## 0. Install, once
 
 ```bash
-uv tool install "git+https://github.com/sknampally/reframe@v1.0.0"
+uv tool install "git+https://github.com/CodeStrata/reframe@v1.0.0"
 ```
 
 Then choose what this computer will run:

@@ -7,7 +7,7 @@ Thank you for helping. Bug reports, ideas and pull requests are all welcome.
 You need macOS or Linux, Python 3.10 or later, and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/sknampally/reframe.git
+git clone https://github.com/CodeStrata/reframe.git
 ```
 
 ```bash
