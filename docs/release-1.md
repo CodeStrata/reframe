@@ -108,6 +108,26 @@ From the CLI only, each from `reframe run` to `reframe publish` and teardown, wi
 
 Each run's time, agent count and cost are recorded in the plan. A stop because of a usage limit or an expired sign-in is fine: `reframe resume` must carry on without repeating work. Any other stop is fixed, and that run is repeated.
 
+### Results: GenApp with both tools (A1-01, 26 and 27 November 2026)
+
+Run 8f53b4, from `reframe run --source ~/sources/genapp.zip --project genapp --max-agents 650`, which now starts both assessments. It reached the end, but not without interruption. Every stop it made was fixed in Reframe or resumed:
+
+| Stage | Result |
+|---|---|
+| AWS Transform | All 9 plan steps succeeded, and the results and business review were built. It was stuck for about four hours at *Discover business functions* (fix 2). |
+| Claude | Preflight, assess, map and extract-rules: 109 rules and 314 requirements, with the graph loaded into Neptune (5,318 quads, 54 rules joined to AWS's programs) and the comparison built. It stopped once at Claude's usage limit, reported correctly as a limit stop thanks to C1-05's fix, and resumed. |
+| Teardown | 40 resources. The first attempt stopped partway when the Mac lost DNS. The second deleted only the 10 left, and the check found nothing still in AWS. |
+| Reconciliation | 248 units decided against the code and 9 rules agreed by both tools: 466 recommended rules, all cited by 392 requirements, 36 decision tables, 138 SME questions and 70 possible defects. |
+| Design | 11 journeys, 10 modern screens, 67 specifications and 2 contracts, with 0 problems. Package v1 has 504 files, and `--check` lists 85 placeholders. It stopped once at Claude's usage limit and was continued with `reframe design`. |
+| Publish | 523 pages: AWS's review, Claude's, the comparison, the reconciliation and the design, with 0 broken links. |
+
+Claude's cost at API prices was about $85: assessment $36.79, comparison $1.53, reconciliation $36.59, design $9.91.
+
+**Found and fixed:**
+1. **The "already in progress" loop.** AWS said the reimagine was initiated but added no steps to its plan. After that, every six minutes, its review form reopened; Reframe submitted it, AWS asked for the selection, and then refused the same selection as a second request. Once AWS refuses a selection this way, Reframe now stops resubmitting the form and asks once, in plain words, what is running and to start again. Live, AWS's readiness menu came back, and its Proceed added the steps and started the plan. A second refusal waits for the person.
+2. **"Not configured" read as an expired sign-in.** The AWS Transform MCP server's start-up region probe sometimes failed for us-east-1 with an empty error. Reframe then stopped the run as an expired sign-in, although the AWS CLI sign-in was valid. The client now starts a new server after 5, 15 and 30 seconds before giving up.
+3. **Two design rounds at once.** A round was started in a terminal while another was running on the same run. Rounds now take the run's design lock.
+
 ## 6. The release (REL-1)
 
 After the owner's go-ahead: merge `develop` into `main`, tag `v1.0.0` on `main`, and publish a GitHub release with notes from `CHANGELOG.md`.
