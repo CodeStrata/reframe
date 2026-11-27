@@ -121,7 +121,23 @@ class TransformClient:
             raise NotSent(f"{name} is not a recognised change; it is never called")
         return self.session([(name, arguments)])[0]
 
+    RETRY_WAITS = (5, 15, 30)  # seconds between new servers when one starts "not configured"
+
     def session(self, calls: list[tuple[str, dict[str, Any]]]) -> list[Any]:
+        """The calls in one server session. A server that starts "not connected to AWS Transform" while nothing was sent is
+        started again a few times: its region discovery can fail for us-east-1 with an empty error and work a minute later
+        (GenApp, 26 November 2026), which is not an expired sign-in."""
+        import time
+        for wait in (*self.RETRY_WAITS, None):
+            try:
+                return self._session_once(calls)
+            except Rejected as error:
+                if wait is None or error.operation != "load_instructions" or "NOT_CONFIGURED" not in error.reason:
+                    raise
+                getattr(self, "sleep", time.sleep)(wait)
+        raise AssertionError("unreachable")
+
+    def _session_once(self, calls: list[tuple[str, dict[str, Any]]]) -> list[Any]:
         for name, arguments in calls:
             if name not in READS and name not in CHANGES:
                 raise NotSent(f"{name} is not a recognised operation; it is never called")
