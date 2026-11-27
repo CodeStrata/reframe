@@ -45,6 +45,25 @@ class CliTest(unittest.TestCase):
         self.assertEqual(start.call_args_list[0].kwargs["claude"], {"auth": "subscription", "max_agents": 650})
         self.assertIsNone(start.call_args_list[1].kwargs["claude"])
 
+    def test_one_design_round_at_a_time(self):
+        # 26 November 2026: a round started in a terminal while another ran wrote the same parts and paid Claude twice
+        import os, tempfile, types
+        from unittest import mock
+        from reframe.core import commands
+        from reframe.core.runfolder import new_run
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"REFRAME_HOME": tmp}):
+            folder = new_run("demo")
+            folder.update(project="demo")
+            folder.path("design.lock").write_text(str(os.getppid()))  # another live process holds it
+            args = types.SimpleNamespace(check=None, run=folder.root.name, package=None, context=None, plan=False, auth="subscription",
+                                         stack=None, open=False, form="all")
+            with mock.patch("reframe.claude.preflight.check", return_value=mock.Mock(ok=True)), \
+                    mock.patch("reframe.reconcile.pipeline.claude_code"), mock.patch("reframe.design.pipeline.run") as run, \
+                    contextlib.redirect_stderr(io.StringIO()) as err, contextlib.redirect_stdout(io.StringIO()):
+                self.assertNotEqual(commands.design(args), 0)
+            run.assert_not_called()
+            self.assertIn("is running this run", err.getvalue())
+
     def test_no_command_without_a_terminal_prints_help(self):
         from unittest import mock
         with mock.patch("reframe.core.ui.interactive", return_value=False), contextlib.redirect_stdout(io.StringIO()) as out:

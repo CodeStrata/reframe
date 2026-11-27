@@ -289,7 +289,14 @@ def design(args) -> int:
             if not report.ok:
                 raise Stop(Outcome.REFUSED, report.problems())
             claude = claude_code(folder, args.auth)
-        value = pipeline.run(folder, claude, context, args.stack, args.plan)
+        if args.plan:
+            value = pipeline.run(folder, claude, context, args.stack, args.plan)
+        else:
+            folder.lock("design")  # one round at a time: two at once write the same parts and pay Claude twice (26 November 2026)
+            try:
+                value = pipeline.run(folder, claude, context, args.stack, args.plan)
+            finally:
+                folder.unlock("design")
     except (Stop, ValueError) as stop:
         return _fail(stop if isinstance(stop, Stop) else Stop(Outcome.REFUSED, str(stop)))
     ui.section(f"Run {folder.root.name} · the design" + (" · plan" if args.plan else f" · round {value['round']}"))
